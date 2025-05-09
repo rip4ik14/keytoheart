@@ -250,6 +250,7 @@ export default function CartPage() {
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
   const [isYmapsReady, setIsYmapsReady] = useState<boolean>(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
 
   const {
     step,
@@ -298,6 +299,21 @@ export default function CartPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  // Проверяем состояние авторизации при загрузке
+  useEffect(() => {
+    const authData = localStorage.getItem('auth');
+    if (authData) {
+      const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
+      if (storedAuth && storedPhone) {
+        setIsAuthenticated(true);
+        setIsCodeSent(true);
+        onFormChange({
+          target: { name: 'phone', value: phoneMask(storedPhone) },
+        } as React.ChangeEvent<HTMLInputElement>);
+      }
+    }
+  }, [setIsAuthenticated, setIsCodeSent, onFormChange]);
 
   const deliveryCost = useMemo(
     () => (form.deliveryMethod === 'delivery' ? 300 : 0),
@@ -549,9 +565,19 @@ export default function CartPage() {
     if (fullPhone === DEV_PHONE && cleanPhone.length === 10) {
       setIsAuthenticated(true);
       setIsCodeSent(true);
+      localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
       toast.success('Авторизация для разработчика выполнена автоматически');
     }
   }, [form.phone, setIsAuthenticated, setIsCodeSent]);
+
+  useEffect(() => {
+    if (isCodeSent && resendCooldown > 0) {
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isCodeSent, resendCooldown]);
 
   const handlePhoneChange = useCallback(
     (value: string) => {
@@ -563,6 +589,7 @@ export default function CartPage() {
       setIsCodeSent(false);
       setSmsCode('');
       setBonusBalance(0);
+      localStorage.removeItem('auth');
     },
     [onFormChange, setPhoneError, setIsAuthenticated, setIsCodeSent, setSmsCode]
   );
@@ -584,6 +611,7 @@ export default function CartPage() {
       const result = await res.json();
       if (result.success) {
         setIsCodeSent(true);
+        setResendCooldown(60);
         toast.success('Код отправлен на ваш номер!');
         window.gtag?.('event', 'send_sms_code', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'send_sms_code');
@@ -597,9 +625,14 @@ export default function CartPage() {
     }
   };
 
+  const resendSmsCode = async () => {
+    setResendCooldown(60);
+    await sendSmsCode();
+  };
+
   const verifySmsCode = async () => {
-    if (!smsCode.trim()) {
-      toast.error('Введите код из SMS');
+    if (!smsCode.trim() || smsCode.length !== 6) {
+      toast.error('Введите корректный код из SMS (6 цифр)');
       return;
     }
     setIsVerifyingCode(true);
@@ -613,6 +646,7 @@ export default function CartPage() {
       if (result.success) {
         setIsAuthenticated(true);
         setBonusBalance(result.bonusBalance || 0);
+        localStorage.setItem('auth', JSON.stringify({ phone: `+7${form.phone.replace(/\D/g, '')}`, isAuthenticated: true }));
         toast.success('Авторизация успешна!');
         window.gtag?.('event', 'verify_sms_code', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'verify_sms_code');
@@ -695,7 +729,6 @@ export default function CartPage() {
       return;
     }
 
-    // Проверяем все шаги перед отправкой
     if (!validateAllSteps()) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
@@ -767,6 +800,7 @@ export default function CartPage() {
           setIsAuthenticated(false);
           setIsCodeSent(false);
           setSmsCode('');
+          localStorage.removeItem('auth');
           setStep(1);
         } else {
           setErrorModal(json.error || 'Ошибка оформления заказа.');
@@ -898,7 +932,10 @@ export default function CartPage() {
                   handlePhoneChange={handlePhoneChange}
                   sendSmsCode={sendSmsCode}
                   verifySmsCode={verifySmsCode}
+                  resendSmsCode={resendSmsCode}
+                  resendCooldown={resendCooldown}
                   setSmsCode={setSmsCode}
+                  setIsCodeSent={setIsCodeSent}
                 />
                 {isAuthenticated && (
                   <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>

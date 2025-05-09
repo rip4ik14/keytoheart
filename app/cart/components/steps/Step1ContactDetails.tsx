@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -21,11 +22,14 @@ interface Props {
   isSendingCode: boolean;
   isVerifyingCode: boolean;
   isAuthenticated: boolean;
+  resendCooldown: number;
+  resendSmsCode: () => Promise<void>;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handlePhoneChange: (value: string) => void;
   sendSmsCode: () => Promise<void>;
   verifySmsCode: () => Promise<void>;
   setSmsCode: (code: string) => void;
+  setIsCodeSent: (value: boolean) => void; // Добавляем setIsCodeSent
 }
 
 const containerVariants = {
@@ -43,11 +47,14 @@ export default function Step1ContactDetails({
   isSendingCode,
   isVerifyingCode,
   isAuthenticated,
+  resendCooldown,
+  resendSmsCode,
   onFormChange,
   handlePhoneChange,
   sendSmsCode,
   verifySmsCode,
   setSmsCode,
+  setIsCodeSent, // Добавляем в деструктуризацию
 }: Props) {
   return (
     <div className="space-y-4">
@@ -119,8 +126,9 @@ export default function Step1ContactDetails({
               <input
                 id="smsCode"
                 value={smsCode}
-                onChange={(e) => setSmsCode(e.target.value)}
-                placeholder="Введите код"
+                onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="Введите код (6 цифр)"
+                maxLength={6}
                 className={`w-full rounded-lg border border-gray-300 p-2 pl-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
                 aria-label="Введите SMS-код"
               />
@@ -145,6 +153,32 @@ export default function Step1ContactDetails({
               'Подтвердить'
             )}
           </motion.button>
+          <motion.div className="flex flex-col gap-2" variants={containerVariants}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCodeSent(false);
+                setSmsCode('');
+              }}
+              className="w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black"
+              aria-label="Изменить номер телефона"
+            >
+              Изменить номер
+            </button>
+            <button
+              type="button"
+              onClick={resendSmsCode}
+              disabled={resendCooldown > 0 || isSendingCode}
+              className={`w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black ${
+                resendCooldown > 0 || isSendingCode ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              aria-label="Отправить код повторно"
+            >
+              {resendCooldown > 0
+                ? `Отправить код повторно через ${resendCooldown} сек`
+                : 'Отправить код повторно'}
+            </button>
+          </motion.div>
         </>
       )}
       {isAuthenticated && (

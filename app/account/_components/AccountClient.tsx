@@ -1,6 +1,7 @@
+// ✅ Путь: app/account/_components/accountclient.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, MutableRefObject } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createBrowserClient } from '@supabase/ssr';
@@ -47,6 +48,7 @@ export default function AccountClient({
   const [agreed, setAgreed] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const phoneInputRef = useRef<{ element: HTMLInputElement | null }>({ element: null });
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -57,7 +59,18 @@ export default function AccountClient({
     exit: { opacity: 0, x: -20 },
   };
 
+  // Проверяем состояние авторизации при загрузке
   useEffect(() => {
+    const authData = localStorage.getItem('auth');
+    if (authData) {
+      const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
+      if (storedAuth && storedPhone) {
+        setIsAuthenticated(true);
+        setPhone(storedPhone);
+        setSession({ user: { user_metadata: { phone: storedPhone } } });
+      }
+    }
+
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Fetched session in AccountClient:', session);
@@ -173,6 +186,11 @@ export default function AccountClient({
             });
             if (error) throw error;
 
+            // Сохраняем состояние авторизации
+            setIsAuthenticated(true);
+            localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
+            setSession({ user: { user_metadata: { phone: fullPhone } } });
+
             toast.success('Авторизация для разработчика выполнена');
             router.refresh();
             window.gtag?.('event', 'login_dev', { event_category: 'auth' });
@@ -188,21 +206,6 @@ export default function AccountClient({
     }
   }, [phone, agreed, supabase, router]);
 
-  const filteredOrders = useMemo(() => {
-    if (!orders) {
-      console.log('Orders is undefined in filteredOrders');
-      return [];
-    }
-    console.log('Filtering orders:', orders);
-    return orders.filter((o) => {
-      const orderDate = new Date(o.created_at);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - filterDays);
-      return orderDate >= cutoff;
-    });
-  }, [orders, filterDays]);
-
-  // Восстановленные функции
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = phone.replace(/\D/g, '');
@@ -217,21 +220,23 @@ export default function AccountClient({
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: fullPhone,
-        options: {
-          shouldCreateUser: true,
-        },
+      const res = await fetch('/api/auth/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone }),
       });
-      if (error) throw error;
-
-      toast.success('Код отправлен в SMS');
-      setStep('code');
-      setResendCooldown(60);
-      window.gtag?.('event', 'phone_submit', { event_category: 'auth' });
-      window.ym?.(12345678, 'reachGoal', 'phone_submit');
-    } catch (error: any) {
-      toast.error('Ошибка отправки кода');
+      const result = await res.json();
+      if (result.success) {
+        setStep('code');
+        setResendCooldown(60);
+        toast.success('Код отправлен на ваш номер!');
+        window.gtag?.('event', 'phone_submit', { event_category: 'auth' });
+        window.ym?.(12345678, 'reachGoal', 'phone_submit');
+      } else {
+        toast.error(result.error || 'Не удалось отправить SMS-код.');
+      }
+    } catch {
+      toast.error('Не удалось отправить SMS-код.');
     } finally {
       setIsLoading(false);
     }
@@ -254,26 +259,60 @@ export default function AccountClient({
       const clean = phone.replace(/\D/g, '');
       const fullPhone = '+7' + clean;
 
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
-        phone: fullPhone,
-        token: code,
-        type: 'sms',
+      const res = await fetch('/api/auth/verify-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, code }),
       });
-      if (verifyErr) throw verifyErr;
+      const result = await res.json();
+      if (result.success) {
+        // Сохраняем состояние авторизации
+        setIsAuthenticated(true);
+        localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
+        setSession({ user: { user_metadata: { phone: fullPhone } } });
 
-      await supabase.auth.updateUser({ data: { phone: fullPhone } });
-      toast.success('Успешно вошли');
-      router.refresh();
-      window.gtag?.('event', 'login_success', { event_category: 'auth' });
-      window.ym?.(12345678, 'reachGoal', 'login_success');
-    } catch (error: any) {
-      toast.error('Ошибка подтверждения кода');
+        toast.success('Успешно вошли');
+        router.refresh();
+        window.gtag?.('event', 'login_success', { event_category: 'auth' });
+        window.ym?.(12345678, 'reachGoal', 'login_success');
+      } else {
+        toast.error(result.error || 'Неверный код. Попробуйте снова.');
+      }
+    } catch {
+      toast.error('Ошибка проверки кода.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!session) {
+  const handleLogout = async () => {
+    setIsLoading(true);
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    localStorage.removeItem('auth');
+    setSession(null);
+    router.refresh();
+    toast.success('Вы вышли из аккаунта');
+    setIsLoading(false);
+    window.gtag?.('event', 'logout', { event_category: 'auth' });
+    window.ym?.(12345678, 'reachGoal', 'logout');
+  };
+
+  const filteredOrders = useMemo(() => {
+    if (!orders) {
+      console.log('Orders is undefined in filteredOrders');
+      return [];
+    }
+    console.log('Filtering orders:', orders);
+    return orders.filter((o) => {
+      const orderDate = new Date(o.created_at);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - filterDays);
+      return orderDate >= cutoff;
+    });
+  }, [orders, filterDays]);
+
+  if (!isAuthenticated && !session) {
     return (
       <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6" aria-label="Вход в личный кабинет">
         <Toaster position="top-center" />
@@ -434,15 +473,7 @@ export default function AccountClient({
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Личный кабинет</h1>
         <button
-          onClick={async () => {
-            setIsLoading(true);
-            await supabase.auth.signOut();
-            router.refresh();
-            toast.success('Вы вышли из аккаунта');
-            setIsLoading(false);
-            window.gtag?.('event', 'logout', { event_category: 'auth' });
-            window.ym?.(12345678, 'reachGoal', 'logout');
-          }}
+          onClick={handleLogout}
           disabled={isLoading}
           className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
             isLoading ? 'opacity-50 cursor-not-allowed' : ''
