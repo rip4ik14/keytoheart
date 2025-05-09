@@ -1,60 +1,54 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import {
-  FaVk,
-  FaTelegramPlane,
-  FaWhatsapp,
-  FaTimes,
-} from "react-icons/fa";
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 
 export default function BurgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const navLinks = [
-    { name: "Каталог", href: "/#catalog" },
-    { name: "О нас", href: "/about" },
-    { name: "Доставка", href: "/delivery" },
-    { name: "Помощь", href: "/help" },
-    { name: "Программа лояльности", href: "/loyalty" },
-    { name: "Корпоративным клиентам", href: "/corporate" },
-    { name: "Новости", href: "/news" },
-    { name: "Праздники", href: "/prazdniki" },
-    { name: "Контакты", href: "/contacts" },
+    { name: 'Каталог', href: '/#catalog' },
+    { name: 'О нас', href: '/about' },
+    { name: 'Доставка', href: '/dostavka' },
+    { name: 'Часто задаваемые вопросы', href: '/faq' },
+    { name: 'Оплата', href: '/payment' },
+    { name: 'Программа лояльности', href: '/loyalty' },
+    { name: 'Корпоративным клиентам', href: '/corporate' },
+    { name: 'Новости', href: '/news' },
+    { name: 'Статьи', href: '/articles' },
+    { name: 'Праздники', href: '/occasions' },
+    { name: 'Контакты', href: '/contacts' },
   ];
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, []);
 
   useEffect(() => {
-    let touchStartX = 0;
-    let touchEndX = 0;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX = e.changedTouches[0].screenX;
-    };
-    const handleTouchEnd = (e: TouchEvent) => {
-      touchEndX = e.changedTouches[0].screenX;
-      if (touchStartX - touchEndX > 50) setIsOpen(false);
-    };
-
+    let startX = 0;
     const menu = menuRef.current;
-    if (menu) {
-      menu.addEventListener("touchstart", handleTouchStart);
-      menu.addEventListener("touchend", handleTouchEnd);
-    }
 
+    const onTouchStart = (e: TouchEvent) => (startX = e.touches[0].clientX);
+    const onTouchEnd = (e: TouchEvent) => {
+      if (startX - e.changedTouches[0].clientX > 50) {
+        setIsOpen(false);
+      }
+    };
+
+    if (menu) {
+      menu.addEventListener('touchstart', onTouchStart);
+      menu.addEventListener('touchend', onTouchEnd);
+    }
     return () => {
       if (menu) {
-        menu.removeEventListener("touchstart", handleTouchStart);
-        menu.removeEventListener("touchend", handleTouchEnd);
+        menu.removeEventListener('touchstart', onTouchStart);
+        menu.removeEventListener('touchend', onTouchEnd);
       }
     };
   }, []);
@@ -62,12 +56,16 @@ export default function BurgerMenu() {
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setIsOpen(true);
+          window.gtag?.('event', 'open_burger_menu', { event_category: 'navigation' });
+          window.ym?.(12345678, 'reachGoal', 'open_burger_menu');
+        }}
         className="p-2 hover:bg-gray-100 rounded"
-        aria-label="Открыть меню"
+        aria-label="Открыть меню навигации"
       >
         <svg
-          className="w-6 h-6 text-gray-700"
+          className="w-6 h-6 text-black"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -78,49 +76,83 @@ export default function BurgerMenu() {
       </button>
 
       <div
-        className={`fixed top-0 left-0 h-full w-72 max-w-full bg-white z-[1000] shadow-xl transform transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
         ref={menuRef}
+        className={`
+          fixed top-0 left-0 z-[1000] h-full w-72 bg-white shadow-xl
+          transform transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+        role="dialog"
+        aria-label="Меню навигации"
       >
-        <div className="flex justify-between items-center p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b">
           <span className="text-sm font-semibold">Меню</span>
-          <button onClick={() => setIsOpen(false)} aria-label="Закрыть меню">
-            <FaTimes className="text-xl" />
+          <button
+            onClick={() => setIsOpen(false)}
+            aria-label="Закрыть меню навигации"
+          >
+            <Image src="/icons/times.svg" alt="Close" width={20} height={20} />
           </button>
         </div>
 
-        <nav className="p-4 space-y-1">
-          {navLinks.map((item, idx) => (
+        <nav className="p-4 space-y-1" aria-label="Основная навигация">
+          {navLinks.map((link, idx) => (
             <Link
               key={idx}
-              href={item.href}
-              onClick={() => setIsOpen(false)}
-              className="block py-2 text-gray-800 hover:text-orange-500 transition-colors"
+              href={link.href}
+              onClick={() => {
+                setIsOpen(false);
+                window.gtag?.('event', 'burger_menu_link', {
+                  event_category: 'navigation',
+                  link: link.name,
+                });
+                window.ym?.(12345678, 'reachGoal', 'burger_menu_link', {
+                  link: link.name,
+                });
+              }}
+              className="block py-2 text-black hover:bg-gray-100 transition-colors"
             >
-              {item.name}
+              {link.name}
             </Link>
           ))}
         </nav>
 
-        <div className="p-4 mt-6 flex gap-4 text-lg text-gray-600 justify-start">
-          <a href="https://vk.com/keytoheart" target="_blank" rel="noopener noreferrer" title="ВКонтакте">
-            <FaVk />
+        <div className="mt-auto p-4 flex gap-4 text-xl text-black">
+          <a
+            href="https://vk.com/keytoheart"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="ВКонтакте"
+            aria-label="Перейти в ВКонтакте"
+          >
+            <Image src="/icons/vk.svg" alt="VK" width={24} height={24} />
           </a>
-          <a href="https://t.me/keytomyheart" target="_blank" rel="noopener noreferrer" title="Telegram">
-            <FaTelegramPlane className="text-blue-500" />
+          <a
+            href="https://t.me/keytomyheart"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Telegram"
+            aria-label="Перейти в Telegram"
+          >
+            <Image src="/icons/telegram.svg" alt="Telegram" width={24} height={24} />
           </a>
-          <a href="https://wa.me/79886033821" target="_blank" rel="noopener noreferrer" title="WhatsApp">
-            <FaWhatsapp className="text-green-600" />
+          <a
+            href="https://wa.me/79886033821"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="WhatsApp"
+            aria-label="Перейти в WhatsApp"
+          >
+            <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={24} height={24} />
           </a>
         </div>
       </div>
 
-      {/* Затенение фона */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-40 z-[999]"
           onClick={() => setIsOpen(false)}
+          aria-hidden="true"
         />
       )}
     </>

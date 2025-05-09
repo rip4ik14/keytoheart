@@ -1,12 +1,79 @@
-import React from "react";
+import { Metadata } from 'next';
+import { JsonLd, Organization } from 'react-schemaorg'; // Исправляем импорт
+import AboutContent from '@components/AboutContent';
+import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'О нас | KeyToHeart — Клубничные букеты и цветы в Краснодаре',
+  description: 'История KeyToHeart — студия сладких эмоций. Создаём букеты из клубники в шоколаде и свежих цветов с доставкой по Краснодару.',
+  keywords: ['о нас', 'KeyToHeart', 'клубничные букеты'],
+  openGraph: {
+    title: 'О нас | KeyToHeart',
+    description: 'Узнайте историю KeyToHeart — как мы создаём сладкие и цветочные эмоции.',
+    url: 'https://keytoheart.ru/about',
+    siteName: 'KeyToHeart',
+    images: [
+      {
+        url: 'https://keytoheart.ru/images/about-banner.jpg',
+        width: 1200,
+        height: 600,
+        alt: 'KeyToHeart — клубника в шоколаде и цветочные букеты',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'О нас | KeyToHeart',
+    description: 'История KeyToHeart — студия сладких эмоций в Краснодаре.',
+    images: ['https://keytoheart.ru/images/about-banner.jpg'],
+  },
+  alternates: { canonical: 'https://keytoheart.ru/about' },
+};
 
 export default function AboutPage() {
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4">
-      <h1 className="text-3xl font-bold mb-6">О нас</h1>
-      <p className="text-gray-700 leading-relaxed">
-        Добро пожаловать в KeyToHeart! Мы создаём красивые подарки, цветочные и клубничные композиции, чтобы порадовать ваших близких в любой день. Наша команда работает с любовью, чтобы каждый заказ был особенным.
-      </p>
-    </div>
+    <main className="bg-white text-black" aria-label="О нас">
+      <JsonLd<Organization>
+        item={{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'KeyToHeart',
+          url: 'https://keytoheart.ru',
+          logo: 'https://keytoheart.ru/favicon.ico',
+          sameAs: ['https://t.me/keytoheart'],
+          description: 'KeyToHeart — студия сладких эмоций. Букеты и подарки с доставкой по Краснодару.',
+          contactPoint: {
+            '@type': 'ContactPoint',
+            telephone: '+7-918-123-45-67',
+            contactType: 'customer service',
+            areaServed: 'RU',
+            availableLanguage: 'Russian',
+          },
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: 'Улица Героев-Разведчиков, 17/1',
+            addressLocality: 'Краснодар',
+            addressCountry: 'RU',
+          },
+          openingHours: 'Mo-Su 09:00-22:00',
+        }}
+      />
+      <section>
+        <AboutContent />
+      </section>
+      <section className="container mx-auto px-4 py-8 text-center">
+        <p className="text-sm">
+          Узнайте, как мы защищаем ваши данные в нашей{' '}
+          <Link
+            href="/policy"
+            className="underline hover:text-gray-600 transition-colors"
+          >
+            Политике конфиденциальности
+          </Link>
+          .
+        </p>
+      </section>
+    </main>
   );
 }

@@ -1,15 +1,26 @@
-// файл: lib/supabase/server.ts
+// ✅ Путь: lib/supabase/server.ts
+import { createClient } from '@supabase/supabase-js';
+import { revalidateTag } from 'next/cache';
+import type { Database } from '@/lib/supabase/types_new';
 
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from './types'
-
+// Админ-клиент с сервис-ключом (только на сервере!)
 export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,       // ваш URL
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,      // ключ сервис‑роли
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
     auth: {
-      persistSession: false,     // не пытаться сохранять сессию
-      detectSessionInUrl: false, // не парсить сессию из URL
+      persistSession: false,
+      detectSessionInUrl: false,
+      autoRefreshToken: false,
     },
   }
-)
+);
+
+/**
+ * Сброс кеша ISR-страниц по тегу
+ * Пример: await invalidate('products');
+ */
+export async function invalidate(tag: string) {
+  'use server';
+  revalidateTag(tag);
+}

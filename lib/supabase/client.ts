@@ -1,8 +1,15 @@
-// lib/supabase/client.ts
-import { createClient } from "@supabase/supabase-js";
+// ✅ Путь: lib/supabase/client.ts
+import { createClient } from '@supabase/supabase-js';
 
-// публичный клиент для браузера
+// Публичный клиент для браузера
 export const supabasePublic = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
 );

@@ -1,14 +1,15 @@
-// app/api/admin-logout/route.ts
-import { NextResponse, NextRequest } from "next/server";
+// Путь: app/api/admin-logout/route.ts
 
-export async function POST(request: NextRequest) {
+import { NextResponse } from "next/server";
+
+export async function POST() {
   const res = NextResponse.json({ success: true });
-  res.cookies.set("auth-admin", "", {
+  res.cookies.set("admin_session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/admin",
-    maxAge: 0, // удаляем куку
+    maxAge: 0,
   });
   return res;
 }

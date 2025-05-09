@@ -1,54 +1,98 @@
-// app/admin/login/page.tsx
+// ✅ Путь: app/admin/login/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get('from') || '/admin/products';
+  const error = params.get('error');
+
+  useEffect(() => {
+    if (error === 'no-session') {
+      toast.error('Пожалуйста, войдите в систему');
+    } else if (error === 'invalid-session') {
+      toast.error('Сессия истекла, войдите снова');
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    const res = await fetch('/api/admin-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      router.push(redirectTo);
-    } else {
-      setError(data.error || 'Неверный пароль');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('Успешный вход');
+        // Задержка для отображения уведомления перед перенаправлением
+        setTimeout(() => {
+          router.push(redirectTo);
+          router.refresh(); // Обновляем состояние, чтобы middleware сработал
+        }, 1000);
+      } else {
+        throw new Error(data.message || 'Неверный пароль');
+      }
+    } catch (err: any) {
+      toast.error(`Ошибка: ${err.message}`);
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-        <h1 className="text-2xl mb-6 text-center">Вход в админку</h1>
-        {error && <p className="text-red-600 mb-4">{error}</p>}
-        <label className="block mb-4">
-          Пароль:
+      <motion.form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded shadow-md w-full max-w-sm"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        aria-labelledby="login-title"
+      >
+        <h1 id="login-title" className="text-2xl mb-6 text-center">
+          Вход в админ-панель
+        </h1>
+        <div className="mb-4">
+          <label htmlFor="password" className="block mb-1">
+            Пароль:
+          </label>
           <input
+            id="password"
             type="password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full mt-1 p-2 border rounded"
             placeholder="Введите пароль"
+            disabled={loading}
+            required
+            aria-describedby="password-desc"
           />
-        </label>
-        <button
+          <p id="password-desc" className="text-sm text-gray-500 mt-1">
+            Введите пароль для доступа к админ-панели.
+          </p>
+        </div>
+        <motion.button
           type="submit"
-          className="w-full py-2 bg-black text-white rounded hover:opacity-90 transition"
+          disabled={loading}
+          className="w-full py-2 bg-black text-white rounded transition disabled:bg-gray-500"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Войти в админ-панель"
         >
-          Войти
-        </button>
-      </form>
+          {loading ? 'Вход...' : 'Войти'}
+        </motion.button>
+      </motion.form>
     </div>
   );
 }

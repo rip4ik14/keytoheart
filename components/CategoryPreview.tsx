@@ -1,20 +1,13 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import ProductCard from "@components/ProductCard";
-
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  in_stock?: boolean; // 👈 добавили поле
-  images?: string[];
-}
+import Link from 'next/link';
+import ProductCard from '@components/ProductCard';
+import { Product } from '@/types/product'; // Импортируем тип Product
 
 interface Props {
   categoryName: string;
   products: Product[];
-  seeMoreLink: string; // slug для категории
+  seeMoreLink: string;
 }
 
 export default function CategoryPreview({
@@ -22,25 +15,43 @@ export default function CategoryPreview({
   products,
   seeMoreLink,
 }: Props) {
-  // 👇 фильтруем только доступные товары
-  const visibleProducts = products.filter((product) => product.in_stock !== false);
+  const visibleProducts = products
+    .filter((product) => product.in_stock !== false)
+    .map((product) => ({
+      ...product,
+      images: product.images || [], // Гарантируем, что images всегда массив
+    }));
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-12">
-      <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
+    <section
+      className="max-w-7xl mx-auto px-4 py-12"
+      aria-labelledby="category-preview-title"
+    >
+      <h2
+        id="category-preview-title"
+        className="text-2xl md:text-3xl font-bold text-center mb-8"
+      >
         {categoryName}
       </h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6">
         {visibleProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
-
       <div className="text-center mt-6">
         <Link
           href={`/category/${seeMoreLink}`}
-          className="text-[var(--orange)] hover:underline font-medium"
+          className="text-black hover:underline font-medium"
+          onClick={() => {
+            window.gtag?.('event', 'see_more_category', {
+              event_category: 'navigation',
+              category: categoryName,
+            });
+            window.ym?.(12345678, 'reachGoal', 'see_more_category', {
+              category: categoryName,
+            });
+          }}
+          aria-label={`Посмотреть больше товаров в категории ${categoryName}`}
         >
           Показать ещё
         </Link>

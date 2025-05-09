@@ -1,37 +1,63 @@
-// ✅ Путь: /components/CorporateFooterCTA.tsx
+// ✅ Путь: components/CorporateFooterCTA.tsx
+'use client';
 
-import Link from "next/link";
-import { FaWhatsapp } from "react-icons/fa";
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 
-export default function CorporateFooterCTA() {
+interface CorporateFooterCTAProps {}
+
+export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
+  const textVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+  };
+
   return (
-    <section className="bg-black text-white py-20 px-4 md:px-8 text-center">
-      <h2 className="text-2xl md:text-3xl font-semibold mb-4">
-        Остались вопросы или хотите обсудить заказ?
-      </h2>
-      <p className="text-lg mb-6 opacity-80">
-        Мы на связи в мессенджерах и по телефону — пишите, звоните или оставьте заявку.
-      </p>
-
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a
-          href="https://wa.me/79886033821"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 border border-white px-6 py-3 rounded hover:bg-white hover:text-black transition"
-        >
-          <FaWhatsapp />
-          WhatsApp
-        </a>
+    <section
+      className="py-16 px-4 md:px-8 bg-black text-white text-center"
+      aria-labelledby="corporate-cta-title"
+    >
+      <motion.h2
+        id="corporate-cta-title"
+        className="text-3xl md:text-4xl font-bold mb-4"
+        variants={textVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+      >
+        Готовы сделать заказ?
+      </motion.h2>
+      <motion.p
+        className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-white/80"
+        variants={textVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        transition={{ delay: 0.2 }}
+      >
+        Оставьте заявку, и мы свяжемся с вами в течение 15 минут для обсуждения деталей.
+      </motion.p>
+      <motion.div
+        variants={textVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        transition={{ delay: 0.4 }}
+      >
         <Link
-          href="/corporate"
-          className="bg-white text-black px-6 py-3 rounded hover:bg-gray-100 transition"
+          href="#form"
+          className="inline-block bg-white text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+          scroll={true}
+          prefetch={false}
+          aria-label="Оставить заявку на корпоративные подарки"
+          onClick={() => {
+            window.gtag?.('event', 'corporate_cta_click', { event_category: 'corporate' });
+            window.ym?.(12345678, 'reachGoal', 'corporate_cta_click');
+          }}
         >
           Оставить заявку
         </Link>
-      </div>
-
-      <p className="text-sm mt-6 opacity-60">ИП Рыбалко Д.А. • +7 988 603 38 21</p>
+      </motion.div>
     </section>
   );
 }

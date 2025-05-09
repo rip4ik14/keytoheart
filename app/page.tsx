@@ -1,57 +1,168 @@
-import PromoGrid from "@components/PromoGrid";
-import Advantages from "@components/Advantages";
-import PopularProducts from "@components/PopularProducts";
-import CategoryPreview from "@components/CategoryPreview";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { Metadata } from 'next';
+import { JsonLd } from 'react-schemaorg';
+import type { ItemList } from 'schema-dts';
+import PromoGrid from '@components/PromoGrid';
+import AdvantagesServer from '@components/AdvantagesServer';
+import PopularProducts from '@components/PopularProducts';
+import CategoryPreviewServer from '@components/CategoryPreviewServer';
+import SkeletonCard from '@components/ProductCardSkeleton';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import type { Database } from '@/lib/supabase/types_new';
+import { Product } from '@/types/product';
+
+export const revalidate = 60;
+export const dynamic = 'force-static';
+
+export const metadata: Metadata = {
+  title: 'KeyToHeart — Клубничные букеты и подарки в Краснодаре',
+  description: 'Свежие цветы, клубничные букеты и подарочные боксы с доставкой по Краснодару.',
+  keywords: ['клубничные букеты', 'цветы Краснодар', 'доставка подарков'],
+  openGraph: {
+    title: 'KeyToHeart — Клубничные букеты и подарки',
+    description: 'Закажите уникальные композиции с доставкой по Краснодару.',
+    url: 'https://keytoheart.ru',
+    images: [{ url: '/og-cover.jpg', width: 1200, height: 630 }],
+  },
+  alternates: { canonical: 'https://keytoheart.ru' },
+};
 
 export default async function Home() {
-  const supabase = createServerComponentClient({ cookies }); // ✅ исправлено здесь
+  const cookieStore = await cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return Array.from(cookieStore.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
 
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("*")
-    .order("id", { ascending: false });
+  let products: Product[] = [];
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        id,
+        title,
+        price,
+        discount_percent,
+        in_stock,
+        images,
+        category
+      `)
+      .eq('in_stock', true)
+      .not('images', 'is', null)
+      .order('id', { ascending: false });
 
-  if (error) {
-    console.error("Ошибка загрузки товаров:", error.message);
-    return <div className="text-red-600 p-6">Ошибка загрузки товаров</div>;
+    if (error) throw error;
+    products = data
+      ? data.map((item) => ({
+          ...item,
+          in_stock: item.in_stock ?? false,
+          images: item.images ?? [],
+          category: item.category ?? '',
+        }))
+      : [];
+  } catch (err) {
+    console.error('Ошибка загрузки товаров:', err);
   }
 
   const slugMap: Record<string, string> = {
-    "Клубничные букеты": "klubnichnye-bukety",
-    "Клубничные боксы": "klubnichnye-boksy",
-    "Цветы": "flowers",
-    "Комбо-наборы": "combo",
-    "Premium": "premium",
-    "Коллекции": "kollekcii",
-    "Повод": "povod",
-    "Подарки": "podarki",
+    'Клубничные букеты': 'klubnichnye-bukety',
+    'Клубничные боксы': 'klubnichnye-boksy',
+    Цветы: 'flowers',
+    'Комбо-наборы': 'combo',
+    Premium: 'premium',
+    Коллекции: 'kollekcii',
+    Повод: 'povod',
+    Подарки: 'podarki',
   };
 
-  const categories = [...new Set(products.map((p) => p.category))];
+  // Фильтруем категории, исключая "Подарки"
+  const categories = Array.from(
+    new Set(
+      products
+        .filter((p) => !['balloon', 'postcard'].includes(p.category ?? ''))
+        .map((p) => p.category)
+    )
+  )
+    .filter(Boolean)
+    .filter((category) => category !== 'Подарки');
 
   return (
-    <>
-      <PromoGrid />
-      <PopularProducts />
-      <Advantages />
+    <main aria-label="Главная страница">
+      {/* Schema.org для товаров */}
+      <JsonLd<ItemList>
+        item={{
+          '@type': 'ItemList',
+          itemListElement: products
+            .filter((p) => p.images && p.images.length > 0)
+            .map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              item: {
+                '@type': 'Product',
+                name: p.title,
+                url: `https://keytoheart.ru/product/${p.id}`,
+                image: p.images && p.images.length > 0 ? p.images[0] : '',
+                offers: {
+                  '@type': 'Offer',
+                  price: p.price,
+                  priceCurrency: 'RUB',
+                  availability: p.in_stock
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                },
+              },
+            })),
+        }}
+      />
+      <section>
+        <PromoGrid />
+      </section>
+      <section>
+        <PopularProducts />
+      </section>
+      <section>
+        <AdvantagesServer />
+      </section>
+      <section aria-label="Категории товаров">
+        {products.length === 0 ? (
+          <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : (
+          categories.map((category) => {
+            const slug = slugMap[category ?? ''] || '';
+            const items = products
+              .filter((p) => p.category === category)
+              .slice(0, 8);
 
-      {categories.map((category) => {
-        const slug = slugMap[category] || "";
-        const items = products
-          .filter((p) => p.category === category)
-          .slice(0, 8);
-
-        return (
-          <CategoryPreview
-            key={category}
-            categoryName={category}
-            products={items}
-            seeMoreLink={slug}
-          />
-        );
-      })}
-    </>
+            return (
+              <CategoryPreviewServer
+                key={category}
+                categoryName={category ?? ''}
+                products={items}
+                seeMoreLink={slug}
+              />
+            );
+          })
+        )}
+      </section>
+    </main>
   );
 }

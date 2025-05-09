@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import Image from "next/image";
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface Props {
   title: string;
@@ -14,6 +14,15 @@ export default function CategoryCard({ title, imageUrl, href }: Props) {
     <Link
       href={href}
       className="block bg-white rounded-lg shadow hover:shadow-md transition-shadow overflow-hidden"
+      onClick={() => {
+        window.gtag?.('event', 'category_card_click', {
+          event_category: 'navigation',
+          category: title,
+        });
+        window.ym?.(12345678, 'reachGoal', 'category_card_click', {
+          category: title,
+        });
+      }}
     >
       <div className="w-full h-40 bg-gray-100 overflow-hidden">
         <Image
@@ -24,10 +33,11 @@ export default function CategoryCard({ title, imageUrl, href }: Props) {
           className="object-cover w-full h-full"
           placeholder="blur"
           blurDataURL="/blur-placeholder.png"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
       </div>
       <div className="p-4 text-center">
-        <h3 className="text-lg font-semibold text-gray-700">{title}</h3>
+        <h3 className="text-lg font-semibold text-black">{title}</h3>
       </div>
     </Link>
   );

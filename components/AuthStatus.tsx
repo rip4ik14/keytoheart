@@ -1,25 +1,46 @@
-// components/AuthStatus.tsx
-import Link from "next/link";
-import { cookies } from "next/headers";
+// ✅ Путь: components/AuthStatus.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '@/lib/supabase/types_new';
+import Link from 'next/link';
 
 export default function AuthStatus() {
-  // Чтение HTTP‑cookie (серверный компонент – не содержит "use client")
-  const userPhone = cookies().get("userPhone")?.value;
+  const [session, setSession] = useState<any>(null);
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  return userPhone ? (
-    <div className="flex items-center gap-2">
-      <Link href="/account" className="hover:underline">
-        Личный кабинет
-      </Link>
-      <form action="/api/auth/signout" method="post">
-        <button type="submit" className="hover:underline">
-          Выйти
-        </button>
-      </form>
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+    };
+
+    fetchSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [supabase]);
+
+  return (
+    <div>
+      {session ? (
+        <Link href="/account" className="text-black hover:text-gray-800">
+          Личный кабинет
+        </Link>
+      ) : (
+        <Link href="/account" className="text-black hover:text-gray-800">
+          Войти
+        </Link>
+      )}
     </div>
-  ) : (
-    <Link href="/account" className="hover:underline">
-      Вход
-    </Link>
   );
 }

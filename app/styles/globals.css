@@ -1,9 +1,36 @@
-
-
-/* app/styles/globals.css */
+/* ✅ Путь: app/styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SFPRODISPLAYREGULAR.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SFPRODISPLAYBOLD.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SFPRODISPLAYLIGHT.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/fonts/SFPRODISPLAYMEDIUM.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* Убираем желтый фон при автозаполнении */
 @layer base {
@@ -30,16 +57,9 @@
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
   .dark {
@@ -57,37 +77,34 @@
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
   }
 }
 
-/* ===== Основные переменные (цвета) ===== */
+/* Основные переменные (чёрно-белая палитра) */
 :root {
-  --text-primary: #333333;
+  --text-primary: #000000;
   --text-secondary: #666666;
-  --orange: #F5A623;
   --gray-light: #f5f5f5;
   --gray-medium: #e5e7eb;
   --gray-dark: #374151;
 }
 
-/* ===== Базовый стиль BODY ===== */
+/* Базовый стиль BODY */
 body {
-  @apply bg-[var(--background)] text-[var(--text-primary)] font-['Roboto'] antialiased;
+  @apply font-sans bg-white text-black;
 }
 
-/* ===== Базовые стили заголовков ===== */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-bold text-[var(--text-primary)];
+/* Базовые стили заголовков */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-bold text-black;
 }
 
 h1 {
@@ -102,43 +119,44 @@ h3 {
   @apply text-lg md:text-xl;
 }
 
-/* ===== Контейнер ===== */
+/* Контейнер */
 .container {
   @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
 }
 
-/* ===== Кнопки (базовые стили) ===== */
+/* Кнопки (базовые стили) */
 .btn {
   @apply px-6 py-3 rounded-lg font-medium transition duration-300;
 }
 
 .btn-primary {
-  @apply bg-[var(--orange)] text-white hover:bg-orange-600;
+  @apply bg-black text-white hover:bg-gray-800;
 }
 
 .btn-secondary {
-  @apply bg-[var(--gray-light)] text-[var(--text-primary)] hover:bg-gray-200;
+  @apply bg-gray-100 text-black hover:bg-gray-200;
 }
 
-/* ===== Шапка (Header) ===== */
+/* Шапка (Header) */
 header {
-  @apply bg-white border-b border-[var(--gray-medium)] shadow-sm;
+  @apply bg-white border-b border-gray-200 shadow-sm;
 }
 
 header .container {
   @apply flex items-center justify-between py-3;
 }
 
-header a, header button {
+header a,
+header button {
   @apply transition-colors duration-200;
 }
 
 header .text-3xl {
-  @apply font-bold text-[var(--text-primary)];
+  @apply font-bold text-black;
 }
 
 header .text-sm {
-  @apply text-[var(--text-secondary)];
+  @apply text-gray-600;
 }
 
 /* Стили для круглых иконок (поиск, вход, корзина, WhatsApp, Telegram) */
@@ -147,29 +165,29 @@ header .text-sm {
 }
 
 .icon-button:hover {
-  @apply bg-orange-500 text-white;
+  @apply bg-black text-white;
 }
 
 /* Стили для выбора города */
 .city-selector {
-  @apply text-[var(--text-secondary)] transition-colors duration-200;
+  @apply text-gray-600 transition-colors duration-200;
 }
 
 .city-selector:hover {
-  @apply text-[var(--orange)];
+  @apply text-black;
 }
 
-/* ===== Бургер-меню (BurgerMenu) ===== */
+/* Бургер-меню (BurgerMenu) */
 .burger-menu {
   @apply relative;
 }
 
 .burger-menu button {
-  @apply p-2 hover:bg-[var(--gray-light)] rounded;
+  @apply p-2 hover:bg-gray-100 rounded;
 }
 
 .burger-menu svg {
-  @apply w-6 h-6 text-[var(--text-secondary)];
+  @apply w-6 h-6 text-gray-600;
 }
 
 .burger-menu .menu {
@@ -177,20 +195,20 @@ header .text-sm {
 }
 
 .burger-menu .menu a {
-  @apply block py-2 hover:text-[var(--orange)] text-[var(--text-secondary)];
+  @apply block py-2 hover:text-black text-gray-600;
 }
 
 .burger-menu .menu .divider {
-  @apply border-t my-2 border-[var(--gray-medium)];
+  @apply border-t my-2 border-gray-200;
 }
 
-/* ===== Навигация (CategoryNav) ===== */
+/* Навигация (CategoryNav) */
 .category-nav {
-  @apply py-8 transition-colors duration-300 bg-white shadow-md; /* Больше отступов, заметная тень */
+  @apply py-8 transition-colors duration-300 bg-white shadow-md;
 }
 
 .category-nav ul {
-  @apply flex flex-wrap justify-center gap-10 text-xl; /* Увеличиваем gap и размер текста */
+  @apply flex flex-wrap justify-center gap-10 text-xl;
 }
 
 .category-nav li {
@@ -198,34 +216,18 @@ header .text-sm {
 }
 
 .category-nav a {
-  @apply text-[var(--text-secondary)] transition-colors duration-200 font-medium; /* Жирный текст */
+  @apply text-gray-600 transition-colors duration-200 font-medium;
 }
 
-.category-nav .hover\:text-orange-500:hover {
-  color: var(--orange);
-}
-
-.category-nav.bg-orange-500 {
-  @apply bg-[var(--orange)] text-white;
-}
-
-.category-nav.bg-orange-500 a {
-  @apply text-white;
-}
-
-.category-nav.bg-orange-500 .hover\:text-gray-200:hover {
-  color: #e5e7eb;
+.category-nav a:hover {
+  @apply text-black;
 }
 
 .category-nav li span {
-  @apply text-[var(--gray-medium)] mx-3; /* Больше отступов для разделителей */
+  @apply text-gray-200 mx-3;
 }
 
-.category-nav.bg-orange-500 li span {
-  @apply text-white;
-}
-
-/* ===== Бегущая строка (Marquee) ===== */
+/* Бегущая строка (Marquee) */
 .marquee {
   @apply bg-black text-white py-2 overflow-hidden;
 }
@@ -234,7 +236,7 @@ header .text-sm {
   @apply inline-block animate-marquee whitespace-nowrap;
 }
 
-/* ===== Баннер (HeroSlider) ===== */
+/* Баннер (HeroSlider) */
 .hero-slider {
   @apply relative w-full py-8;
 }
@@ -264,7 +266,7 @@ header .text-sm {
 }
 
 .hero-slider .main-slide .btn {
-  @apply bg-[var(--orange)] text-white hover:bg-orange-600;
+  @apply bg-white text-black hover:bg-gray-100;
 }
 
 .hero-slider .dots {
@@ -276,10 +278,10 @@ header .text-sm {
 }
 
 .hero-slider .dots button.active {
-  @apply bg-[var(--orange)];
+  @apply bg-black;
 }
 
-/* ===== Секция популярных товаров (PopularProducts) ===== */
+/* Секция популярных товаров (PopularProducts) */
 .popular-products {
   @apply py-12;
 }
@@ -305,14 +307,14 @@ header .text-sm {
 }
 
 .popular-products .product-card p {
-  @apply text-[var(--orange)] font-bold;
+  @apply text-black font-bold;
 }
 
 .popular-products .product-card button {
-  @apply absolute bottom-4 right-4 bg-[var(--orange)] text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300;
+  @apply absolute bottom-4 right-4 bg-black text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300;
 }
 
-/* ===== Секция категорий (CategoryPreview) ===== */
+/* Секция категорий (CategoryPreview) */
 .category-preview {
   @apply py-12;
 }
@@ -338,11 +340,11 @@ header .text-sm {
 }
 
 .category-preview .category-card p {
-  @apply text-[var(--orange)] font-bold;
+  @apply text-black font-bold;
 }
 
 .category-preview .category-card button {
-  @apply absolute bottom-4 right-4 bg-[var(--orange)] text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300;
+  @apply absolute bottom-4 right-4 bg-black text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300;
 }
 
 .category-preview .see-more {
@@ -350,10 +352,10 @@ header .text-sm {
 }
 
 .category-preview .see-more a {
-  @apply text-[var(--orange)] hover:underline font-medium;
+  @apply text-black hover:underline font-medium;
 }
 
-/* ===== Страница товара (ProductPage) ===== */
+/* Страница товара (ProductPage) */
 .product-page {
   @apply py-12 px-4;
 }
@@ -379,11 +381,11 @@ header .text-sm {
 }
 
 .product-page .details .price {
-  @apply text-[var(--orange)] text-2xl md:text-3xl font-bold mb-4;
+  @apply text-black text-2xl md:text-3xl font-bold mb-4;
 }
 
 .product-page .details p {
-  @apply text-[var(--text-secondary)] mb-6;
+  @apply text-gray-600 mb-6;
 }
 
 .product-page .details .quantity {
@@ -391,20 +393,20 @@ header .text-sm {
 }
 
 .product-page .details .quantity label {
-  @apply text-[var(--text-primary)] font-medium;
+  @apply text-black font-medium;
 }
 
 .product-page .details .quantity input {
-  @apply w-16 p-2 border rounded border-[var(--gray-medium)] focus:outline-none focus:ring-2 focus:ring-[var(--orange)];
+  @apply w-16 p-2 border rounded border-gray-200 focus:outline-none focus:ring-2 focus:ring-black;
 }
 
 .product-page .details .btn {
-  @apply bg-[var(--orange)] text-white hover:bg-orange-600 w-full;
+  @apply bg-black text-white hover:bg-gray-800 w-full;
 }
 
-/* ===== Футер (Footer) ===== */
+/* Футер (Footer) */
 footer {
-  @apply bg-[var(--gray-light)] py-8 text-[var(--text-secondary)];
+  @apply bg-white py-8 text-gray-600;
 }
 
 footer .container {
@@ -412,18 +414,19 @@ footer .container {
 }
 
 footer h3 {
-  @apply text-lg md:text-xl font-bold mb-4 text-[var(--text-primary)];
+  @apply text-lg md:text-xl font-bold mb-4 text-black;
 }
 
-footer p, footer a {
-  @apply text-[var(--text-secondary)];
+footer p,
+footer a {
+  @apply text-gray-600;
 }
 
 footer a {
-  @apply hover:text-[var(--orange)] transition-colors;
+  @apply hover:text-black transition-colors;
 }
 
-/* ===== Дополнительные утилиты ===== */
+/* Дополнительные утилиты */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-in;
 }
@@ -439,17 +442,16 @@ footer a {
   }
 }
 
-.animate-fade {
-  animation: fadeIn 0.5s ease-in-out;
+.animate-marquee {
+  animation: marquee 1000s linear infinite;
 }
 
-
-/* ===== Промо-баннер (PromoBanner) ===== */
+/* Промо-баннер (PromoBanner) */
 .promo-banner {
   @apply py-8;
 }
 
-/* ===== Секция преимуществ (Advantages) ===== */
+/* Секция преимуществ (Advantages) */
 .advantages {
   @apply py-12;
 }
@@ -463,38 +465,112 @@ footer a {
 }
 
 .advantage-item .icon {
-  @apply text-4xl text-[var(--orange)] mb-4;
+  @apply text-4xl text-black mb-4;
 }
 
 .advantage-item p {
-  @apply text-[var(--text-secondary)] text-base;
+  @apply text-gray-600 text-base;
 }
 
-@keyframes marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+/* Стили для Swiper */
+.swiper-button-prev,
+.swiper-button-next {
+  width: 32px !important;
+  height: 32px !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 50% !important;
+  color: white !important;
+  margin-top: 0 !important;
+  transform: translateY(-50%) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  transition: background 0.3s ease !important;
 }
 
-.animate-marquee {
-  animation: marquee 1000s linear infinite;
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+  background: rgba(0, 0, 0, 0.4) !important;
 }
 
-
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+.swiper-button-prev {
+  left: 10px !important;
 }
 
+.swiper-button-next {
+  right: 10px !important;
+}
 
+.swiper-button-prev::after,
+.swiper-button-next::after {
+  font-size: 14px !important;
+  font-weight: bold !important;
+}
 
+.swiper-pagination-bullet {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1 !important;
+}
 
+.swiper-pagination-bullet-active {
+  background-color: #ffffff !important;
+}
 
+/* Скрытие скроллбара */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Скрытие полосы прокрутки */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Для Internet Explorer и Edge */
+  scrollbar-width: none; /* Для Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Для Chrome, Safari и Edge */
+}
+
+.custom-swiper :global(.swiper-button-prev::after) {
+  content: '<';
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.custom-swiper :global(.swiper-button-next::after) {
+  content: '>';
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Кастомизация стрелок Swiper */
+.swiper-button-prev,
+.swiper-button-next {
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+  transform: scale(1.1);
+}
+
+.swiper-button-prev::after,
+.swiper-button-next::after {
+  display: none; /* Убираем стандартные стрелки Swiper */
+}

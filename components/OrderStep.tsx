@@ -1,4 +1,4 @@
-// components/OrderStep.tsx
+// ✅ Путь: components/OrderStep.tsx
 'use client';
 
 import { ReactNode, useState, useEffect } from 'react';
@@ -26,12 +26,9 @@ export default function OrderStep({
   onNext,
   onBack,
 }: OrderStepProps) {
-  // ✅ меняем тут
   const isActive = currentStep === step;
-  
   const [open, setOpen] = useState(isActive);
 
-  // Синхронизируем open при изменении currentStep
   useEffect(() => {
     if (isActive && !open) setOpen(true);
     if (!isActive && open) setOpen(false);
@@ -39,25 +36,29 @@ export default function OrderStep({
 
   return (
     <div
-      className={`rounded-2xl border shadow-md overflow-hidden transition-colors
-        ${isActive ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100 opacity-90'}`}
+      className={`rounded-2xl border shadow-md overflow-hidden transition-colors ${
+        isActive ? 'bg-white border-gray-200' : 'bg-white border-gray-100 opacity-90'
+      }`}
+      role="region"
+      aria-labelledby={`order-step-${step}-title`}
     >
       <div
-        className={`flex items-center px-5 py-4 cursor-pointer
-          ${isActive ? 'text-black' : 'text-gray-400'}`}
-        onClick={() => {
-          // Если хочешь, чтобы пользователь мог заново раскрывать прошедшие шаги —
-          // оставляем условие if (true). Или, наоборот, отключаем кликабельность:
-          if (true) setOpen(!open);
-        }}
+        className={`flex items-center px-5 py-4 cursor-pointer ${
+          isActive ? 'text-black' : 'text-gray-400'
+        }`}
+        onClick={() => setOpen(!open)}
       >
         <div
-          className={`w-8 h-8 rounded-full border flex items-center justify-center mr-3 text-sm font-bold
-            ${isActive ? 'border-black' : 'border-gray-300'}`}
+          className={`w-8 h-8 rounded-full border flex items-center justify-center mr-3 text-sm font-bold ${
+            isActive ? 'border-black' : 'border-gray-300'
+          }`}
+          aria-hidden="true"
         >
           {step}
         </div>
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 id={`order-step-${step}-title`} className="text-lg font-semibold">
+          {title}
+        </h2>
       </div>
 
       <AnimatePresence initial={false}>
@@ -76,8 +77,16 @@ export default function OrderStep({
               {onBack && (
                 <button
                   type="button"
-                  onClick={onBack}
-                  className="mr-auto border px-4 py-2 text-sm rounded hover:bg-gray-100 transition"
+                  onClick={() => {
+                    onBack();
+                    window.gtag?.('event', 'order_step_back', {
+                      event_category: 'order',
+                      step,
+                    });
+                    window.ym?.(12345678, 'reachGoal', 'order_step_back', { step });
+                  }}
+                  className="mr-auto border px-4 py-2 text-sm rounded hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  aria-label="Вернуться к предыдущему шагу"
                 >
                   Назад
                 </button>
@@ -85,8 +94,16 @@ export default function OrderStep({
               {onNext && (
                 <button
                   type="button"
-                  onClick={onNext}
-                  className="ml-auto bg-black text-white px-6 py-2 text-sm rounded hover:bg-gray-800 transition"
+                  onClick={() => {
+                    onNext();
+                    window.gtag?.('event', 'order_step_next', {
+                      event_category: 'order',
+                      step,
+                    });
+                    window.ym?.(12345678, 'reachGoal', 'order_step_next', { step });
+                  }}
+                  className="ml-auto bg-black text-white px-6 py-2 text-sm rounded hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  aria-label="Перейти к следующему шагу"
                 >
                   Продолжить
                 </button>
