@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UpsellItem } from '../page';
+import { UpsellItem } from '../types';
 
 interface Props {
   type: 'postcard' | 'balloon';

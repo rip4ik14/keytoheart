@@ -1,10 +1,8 @@
-// ✅ Путь: app/account/_components/accountclient.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { createBrowserClient } from '@supabase/ssr';
 import { IMaskInput } from 'react-imask';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +14,7 @@ import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import TrackedLink from '@components/TrackedLink';
 import type { Database } from '@/lib/supabase/types_new';
+import { createBrowserClient } from '@supabase/ssr';
 
 const DEV_PHONE = process.env.NEXT_PUBLIC_DEV_PHONE || '+79180300643';
 
@@ -25,8 +24,20 @@ type Props = {
   initialBonusData: any;
 };
 
+interface BonusesData {
+  id: string | null;
+  bonus_balance: number | null;
+  level: string | null;
+  history: BonusHistoryItem[];
+}
+
+interface BonusHistoryItem {
+  amount: number;
+  reason: string;
+  created_at: string;
+}
+
 export default function AccountClient({
-  initialSession,
   initialOrders,
   initialBonusData,
 }: Props) {
@@ -36,18 +47,17 @@ export default function AccountClient({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [session, setSession] = useState<any>(initialSession);
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
   const [orders, setOrders] = useState<any[]>(initialOrders || []);
-  const [bonusData, setBonusData] = useState<any>(initialBonusData);
+  const [bonusData, setBonusData] = useState<BonusesData | null>(initialBonusData);
   const [filterDays, setFilterDays] = useState<number>(30);
   const [isLoading, setIsLoading] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
+  const [phone, setPhone] = useState<string>('');
+  const [code, setCode] = useState<string>('');
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [agreed, setAgreed] = useState(false);
-  const [phoneError, setPhoneError] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [phoneError, setPhoneError] = useState<string>('');
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const phoneInputRef = useRef<{ element: HTMLInputElement | null }>({ element: null });
@@ -59,98 +69,109 @@ export default function AccountClient({
     exit: { opacity: 0, x: -20 },
   };
 
-  // Проверяем состояние авторизации при загрузке
+  // Проверяем авторизацию при загрузке компонента
   useEffect(() => {
     const authData = localStorage.getItem('auth');
     if (authData) {
-      const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
-      if (storedAuth && storedPhone) {
-        setIsAuthenticated(true);
-        setPhone(storedPhone);
-        setSession({ user: { user_metadata: { phone: storedPhone } } });
+      try {
+        const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
+        if (storedAuth && storedPhone) {
+          setIsAuthenticated(true);
+          setPhone(storedPhone);
+          const cookieValue = `auth=${JSON.stringify({ phone: storedPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+          document.cookie = cookieValue;
+          console.log('Cookie set on client in AccountClient:', document.cookie);
+        }
+      } catch (error) {
+        console.error('Ошибка парсинга auth из localStorage:', error);
+        localStorage.removeItem('auth');
       }
     }
-
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Fetched session in AccountClient:', session);
-      setSession(session);
-    };
-
-    fetchSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed in AccountClient:', session);
-      setSession(session);
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [supabase]);
+  }, []);
 
   const fetchAccountData = useCallback(async () => {
-    if (!session?.user?.user_metadata?.phone) {
-      console.log('No phone metadata found in session, skipping fetchAccountData');
+    if (!phone) {
+      console.log('No phone found, skipping fetchAccountData');
       return;
     }
 
     setIsLoading(true);
     try {
-      const phone = session.user.user_metadata.phone;
-      const [bonusesRes, ordersRes] = await Promise.all([
-        supabase
-          .from('bonuses')
-          .select('bonus_balance, level, history:bonus_history(amount,reason,created_at)')
-          .eq('phone', phone)
-          .single(),
-        supabase
-          .from('orders')
-          .select(`
-            id,
-            created_at,
-            total,
-            bonuses_used,
-            payment_method,
-            status,
-            order_items(
-              quantity,
-              price,
-              product_id,
-              products(title, cover_url)
-            )
-          `)
-          .eq('phone', phone)
-          .order('created_at', { ascending: false }),
-      ]);
+      const bonusesRes = await supabase
+        .from('bonuses')
+        .select('id, bonus_balance, level')
+        .eq('phone', phone)
+        .single();
 
-      if (bonusesRes.error) throw bonusesRes.error;
-      if (ordersRes.error) throw ordersRes.error;
+      let bonusesData: BonusesData;
+      if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
+        console.error('Bonuses fetch error:', bonusesRes.error);
+        throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
+      }
+      bonusesData = bonusesRes.data
+        ? { ...bonusesRes.data, history: [] }
+        : { id: null, bonus_balance: 0, level: 'basic', history: [] };
 
-      console.log('Fetched bonus data:', bonusesRes.data);
-      console.log('Fetched orders data:', ordersRes.data);
+      if (bonusesData.id) {
+        const historyRes = await supabase
+          .from('bonus_history')
+          .select('amount, reason, created_at')
+          .eq('bonus_id', bonusesData.id);
 
-      setBonusData(bonusesRes.data);
+        if (historyRes.error) {
+          console.error('History fetch error:', historyRes.error);
+          throw new Error(`History fetch error: ${historyRes.error.message}`);
+        }
+        bonusesData.history = historyRes.data.map((item) => ({
+          amount: item.amount ?? 0,
+          reason: item.reason ?? '',
+          created_at: item.created_at ?? '',
+        }));
+      }
+
+      const ordersRes = await supabase
+        .from('orders')
+        .select(`
+          id,
+          created_at,
+          total,
+          bonuses_used,
+          payment_method,
+          status,
+          order_items(
+            quantity,
+            price,
+            product_id,
+            products(title, image_url)
+          )
+        `)
+        .eq('phone', phone)
+        .order('created_at', { ascending: false });
+
+      if (ordersRes.error) {
+        console.error('Orders fetch error:', ordersRes.error);
+        throw new Error(`Orders fetch error: ${ordersRes.error.message}`);
+      }
+
+      setBonusData(bonusesData);
       setOrders(ordersRes.data || []);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
       window.ym?.(12345678, 'reachGoal', 'view_account');
     } catch (error: any) {
-      console.error('Error in fetchAccountData:', error);
+      console.error('Error in fetchAccountData:', error.message);
       toast.error('Ошибка загрузки данных');
       setOrders([]);
     } finally {
       setIsLoading(false);
     }
-  }, [session, supabase]);
+  }, [phone, supabase]);
 
   useEffect(() => {
-    console.log('Initial orders:', initialOrders);
-    console.log('Initial bonus data:', initialBonusData);
-    if (session && !initialOrders?.length && !initialBonusData) {
+    if (isAuthenticated && !initialOrders?.length && !initialBonusData) {
       fetchAccountData();
     }
-  }, [session, fetchAccountData, initialOrders, initialBonusData]);
+  }, [isAuthenticated, fetchAccountData, initialOrders, initialBonusData]);
 
   useEffect(() => {
     if (step === 'phone') phoneInputRef.current?.element?.focus();
@@ -179,32 +200,28 @@ export default function AccountClient({
         .then(async (res) => {
           const result = await res.json();
           if (result.success) {
-            const { access_token, refresh_token } = result;
-            const { error } = await supabase.auth.setSession({
-              access_token,
-              refresh_token,
-            });
-            if (error) throw error;
-
-            // Сохраняем состояние авторизации
             setIsAuthenticated(true);
             localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
-            setSession({ user: { user_metadata: { phone: fullPhone } } });
-
+            const cookieValue = `auth=${JSON.stringify({ phone: fullPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+            document.cookie = cookieValue;
+            console.log('Cookie set after dev-login in AccountClient:', document.cookie);
+            setPhone(fullPhone);
             toast.success('Авторизация для разработчика выполнена');
             router.refresh();
             window.gtag?.('event', 'login_dev', { event_category: 'auth' });
             window.ym?.(12345678, 'reachGoal', 'login_dev');
           } else {
-            toast.error('Ошибка авторизации');
+            console.error('Ошибка dev-login:', result.error);
+            toast.error(result.error || 'Ошибка авторизации');
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Ошибка при вызове dev-login:', error);
           toast.error('Ошибка сервера при авторизации');
         })
         .finally(() => setIsLoading(false));
     }
-  }, [phone, agreed, supabase, router]);
+  }, [phone, agreed, router]);
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,9 +250,11 @@ export default function AccountClient({
         window.gtag?.('event', 'phone_submit', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'phone_submit');
       } else {
+        console.error('Ошибка отправки SMS:', result.error);
         toast.error(result.error || 'Не удалось отправить SMS-код.');
       }
-    } catch {
+    } catch (error) {
+      console.error('Ошибка при отправке SMS:', error);
       toast.error('Не удалось отправить SMS-код.');
     } finally {
       setIsLoading(false);
@@ -266,20 +285,36 @@ export default function AccountClient({
       });
       const result = await res.json();
       if (result.success) {
-        // Сохраняем состояние авторизации
         setIsAuthenticated(true);
         localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
-        setSession({ user: { user_metadata: { phone: fullPhone } } });
+        const cookieValue = `auth=${JSON.stringify({ phone: fullPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+        document.cookie = cookieValue;
+        console.log('Cookie set after verify in AccountClient:', document.cookie);
+        setPhone(fullPhone);
+
+        // Создаём профиль через API
+        const createProfileRes = await fetch('/api/account/create-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone }),
+        });
+        const createProfileResult = await createProfileRes.json();
+        if (!createProfileResult.success) {
+          console.error('Ошибка создания профиля:', createProfileResult.error);
+          toast.error('Ошибка создания профиля');
+        }
 
         toast.success('Успешно вошли');
         router.refresh();
         window.gtag?.('event', 'login_success', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'login_success');
       } else {
+        console.error('Ошибка верификации SMS:', result.error);
         toast.error(result.error || 'Неверный код. Попробуйте снова.');
       }
-    } catch {
-      toast.error('Ошибка проверки кода.');
+    } catch (error: any) {
+      console.error('Ошибка проверки кода:', error);
+      toast.error('Ошибка проверки кода');
     } finally {
       setIsLoading(false);
     }
@@ -287,10 +322,10 @@ export default function AccountClient({
 
   const handleLogout = async () => {
     setIsLoading(true);
-    await supabase.auth.signOut();
     setIsAuthenticated(false);
     localStorage.removeItem('auth');
-    setSession(null);
+    document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict'; // Удаляем cookie
+    setPhone('');
     router.refresh();
     toast.success('Вы вышли из аккаунта');
     setIsLoading(false);
@@ -299,11 +334,7 @@ export default function AccountClient({
   };
 
   const filteredOrders = useMemo(() => {
-    if (!orders) {
-      console.log('Orders is undefined in filteredOrders');
-      return [];
-    }
-    console.log('Filtering orders:', orders);
+    if (!orders) return [];
     return orders.filter((o) => {
       const orderDate = new Date(o.created_at);
       const cutoff = new Date();
@@ -312,11 +343,11 @@ export default function AccountClient({
     });
   }, [orders, filterDays]);
 
-  if (!isAuthenticated && !session) {
+  if (!isAuthenticated) {
     return (
-      <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6" aria-label="Вход в личный кабинет">
+      <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6 sm:max-w-md" aria-label="Вход в личный кабинет">
         <Toaster position="top-center" />
-        <h1 className="text-2xl font-bold tracking-tight">Вход в кабинет</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Вход в кабинет</h1>
         <p className="text-gray-500">Введите номер телефона</p>
         <AnimatePresence mode="wait">
           <motion.div
@@ -335,45 +366,52 @@ export default function AccountClient({
             {step === 'phone' ? (
               <form onSubmit={handlePhoneSubmit} className="space-y-4 text-left">
                 <div className="flex gap-2 items-center">
-                  <span className="pt-2">+7</span>
+                  <span className="pt-2 text-gray-600">+7</span>
                   <IMaskInput
                     mask="(000) 000-00-00"
                     value={phone}
                     onAccept={(value: any) => setPhone(value)}
                     placeholder="(___) ___-__-__"
-                    className={`border px-4 py-2 rounded w-full ${
+                    className={`border px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:px-5 sm:py-3 ${
                       phoneError ? 'border-red-500' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-black`}
+                    }`}
                     required
                     ref={phoneInputRef as any}
-                    aria-label="Номер телефона"
+                    aria-label="Введите номер телефона"
+                    aria-invalid={phoneError ? 'true' : 'false'}
+                    aria-describedby={phoneError ? 'phone-error' : undefined}
                   />
                 </div>
-                {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
+                {phoneError && (
+                  <p id="phone-error" className="text-red-500 text-xs">{phoneError}</p>
+                )}
                 <div className="space-y-4">
-                  <button
+                  <motion.button
                     type="submit"
                     disabled={!agreed || isLoading}
-                    className={`w-full bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition ${
+                    className={`w-full bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition-all sm:py-4 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
                       isLoading || !agreed ? 'opacity-50 cursor-not-allowed' : ''
-                    } flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     aria-label="Отправить код"
                   >
                     {isLoading ? (
                       <>
                         <Image
                           src="/icons/spinner.svg"
-                          alt="Загрузка"
+                          alt="Иконка загрузки"
                           width={20}
                           height={20}
+                          loading="lazy"
                           className="animate-spin"
                         />
-                        Загрузка...
+                        <span>Загрузка...</span>
                       </>
                     ) : (
                       'Отправить код'
                     )}
-                  </button>
+                  </motion.button>
                   <label className="flex items-start gap-2 text-sm text-gray-600">
                     <input
                       type="checkbox"
@@ -408,56 +446,63 @@ export default function AccountClient({
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="Код из SMS"
-                  className="border px-4 py-2 rounded w-full text-center border-gray-300 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="border px-4 py-2 rounded w-full text-center border-gray-300 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:px-5 sm:py-3"
                   required
                   autoComplete="one-time-code"
-                  aria-label="Код подтверждения"
+                  aria-label="Введите код подтверждения"
                 />
-                <button
+                <motion.button
                   type="submit"
                   disabled={isLoading}
-                  className={`w-full bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition ${
+                  className={`w-full bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition-all sm:py-4 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
                     isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                  } flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   aria-label="Подтвердить код"
                 >
                   {isLoading ? (
                     <>
                       <Image
                         src="/icons/spinner.svg"
-                        alt="Загрузка"
+                        alt="Иконка загрузки"
                         width={20}
                         height={20}
+                        loading="lazy"
                         className="animate-spin"
                       />
-                      Проверка...
+                      <span>Проверка...</span>
                     </>
                   ) : (
                     'Подтвердить'
                   )}
-                </button>
+                </motion.button>
                 <div className="flex flex-col gap-2">
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => setStep('phone')}
                     className="w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     aria-label="Изменить номер телефона"
                   >
                     Изменить номер
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     type="button"
                     onClick={handleResendCode}
                     disabled={resendCooldown > 0 || isLoading}
                     className={`w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black ${
                       resendCooldown > 0 || isLoading ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     aria-label="Отправить код повторно"
                   >
                     {resendCooldown > 0
                       ? `Отправить код повторно через ${resendCooldown} сек`
                       : 'Отправить код повторно'}
-                  </button>
+                  </motion.button>
                 </div>
               </form>
             )}
@@ -468,33 +513,36 @@ export default function AccountClient({
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10 space-y-6" aria-label="Личный кабинет">
+    <main className="max-w-5xl mx-auto px-4 py-10 space-y-6 sm:px-6 lg:px-8" aria-label="Личный кабинет">
       <Toaster position="top-center" />
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold tracking-tight">Личный кабинет</h1>
-        <button
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Личный кабинет</h1>
+        <motion.button
           onClick={handleLogout}
           disabled={isLoading}
-          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${
             isLoading ? 'opacity-50 cursor-not-allowed' : ''
-          } flex items-center gap-2`}
+          }`}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           aria-label="Выйти из аккаунта"
         >
           {isLoading ? (
             <>
               <Image
                 src="/icons/spinner.svg"
-                alt="Загрузка"
+                alt="Иконка загрузки"
                 width={20}
                 height={20}
+                loading="lazy"
                 className="animate-spin"
               />
-              Выход...
+              <span>Выход...</span>
             </>
           ) : (
             'Выход'
           )}
-        </button>
+        </motion.button>
       </div>
       <TabsHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="pt-6 space-y-6">
@@ -502,9 +550,10 @@ export default function AccountClient({
           <div className="flex justify-center items-center">
             <Image
               src="/icons/spinner.svg"
-              alt="Загрузка"
+              alt="Иконка загрузки"
               width={24}
               height={24}
+              loading="lazy"
               className="animate-spin text-gray-500"
             />
           </div>
@@ -513,14 +562,14 @@ export default function AccountClient({
             {activeTab === 'personal' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
-                  <PersonalForm onUpdate={fetchAccountData} />
+                  <PersonalForm onUpdate={fetchAccountData} phone={phone} />
                   {bonusData?.history && bonusData.history.length > 0 && (
                     <BonusHistory history={bonusData.history} />
                   )}
                 </div>
                 <BonusCard
-                  balance={bonusData?.bonusBalance ?? 0}
-                  level={bonusData?.level ?? '—'}
+                  balance={bonusData?.bonus_balance ?? 0}
+                  level={bonusData?.level ?? 'basic'}
                 />
               </div>
             )}

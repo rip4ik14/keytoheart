@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   images: {
     remotePatterns: [
       {
@@ -15,7 +15,7 @@ module.exports = {
       {
         protocol: 'https',
         hostname: 'example.com',
-        pathname: '/**', // Разрешаем любые пути для example.com
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -50,7 +50,8 @@ module.exports = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://mc.yandex.ru https://www.googletagmanager.com https://www.google-analytics.com https://api-maps.yandex.ru; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru; connect-src 'self' https://*.supabase.co https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru; font-src 'self'; frame-src https://yandex.ru https://*.yandex.ru; object-src 'none'; base-uri 'self'; worker-src 'self';",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://mc.yandex.ru https://www.googletagmanager.com https://www.google-analytics.com https://api-maps.yandex.ru; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru; connect-src 'self' https://*.supabase.co https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru; font-src 'self'; frame-src https://yandex.ru https://*.yandex.ru; object-src 'none'; base-uri 'self'; worker-src 'self';",
           },
           {
             key: 'Strict-Transport-Security',
@@ -101,3 +102,5 @@ module.exports = {
     ];
   },
 };
+
+module.exports = nextConfig;

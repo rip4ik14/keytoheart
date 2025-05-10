@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { phoneMask } from '@utils/phoneMask';
 
 interface FormState {
   phone: string;
@@ -58,7 +61,27 @@ export default function useCheckoutForm() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
+    const authData = localStorage.getItem('auth');
     const savedForm = localStorage.getItem('checkoutForm');
+    if (authData) {
+      try {
+        const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
+        if (storedAuth && storedPhone) {
+          setIsAuthenticated(true);
+          setIsCodeSent(true);
+          const formattedPhone = phoneMask(storedPhone);
+          setForm((prev) => ({ ...prev, phone: formattedPhone }));
+          setStep(1);
+          document.cookie = `auth=${JSON.stringify({ phone: storedPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+          console.log('Cookie set in useCheckoutForm:', document.cookie);
+        }
+      } catch (error) {
+        console.error('Ошибка парсинга auth из localStorage:', error);
+        localStorage.removeItem('auth');
+        setIsAuthenticated(false);
+        setIsCodeSent(false);
+      }
+    }
     if (savedForm) {
       try {
         const parsedForm = JSON.parse(savedForm);
@@ -67,6 +90,7 @@ export default function useCheckoutForm() {
           ...parsedForm,
           date: '',
           time: '',
+          phone: prev.phone || parsedForm.phone || '',
         }));
       } catch (error) {
         console.error('Error parsing saved form:', error);
@@ -75,7 +99,8 @@ export default function useCheckoutForm() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('checkoutForm', JSON.stringify(form));
+    const { phone, ...formWithoutPhone } = form;
+    localStorage.setItem('checkoutForm', JSON.stringify(formWithoutPhone));
   }, [form]);
 
   const onFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -91,8 +116,12 @@ export default function useCheckoutForm() {
   const validateStep1 = () => {
     let isValid = true;
 
-    if (!form.phone || form.phone.replace(/\D/g, '').length !== 10) {
+    const cleanPhone = form.phone.replace(/\D/g, '');
+    if (!form.phone || cleanPhone.length !== 10) {
       setPhoneError('Введите корректный номер телефона (10 цифр)');
+      isValid = false;
+    } else if (!cleanPhone.startsWith('9')) {
+      setPhoneError('Номер телефона должен начинаться с 9 после +7');
       isValid = false;
     } else {
       setPhoneError('');
@@ -112,6 +141,7 @@ export default function useCheckoutForm() {
       setEmailError('');
     }
 
+    // Проверяем авторизацию только по состоянию isAuthenticated
     if (!isAuthenticated) {
       toast.error('Пожалуйста, авторизуйтесь с помощью SMS-кода');
       isValid = false;

@@ -57,22 +57,34 @@ export default async function AccountPage() {
     }
   );
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  console.log('Session in AccountPage:', session);
-
+  // Получаем номер телефона из cookie
+  const authCookie = cookieStore.get('auth');
+  let phone: string | null = null;
   let initialOrders: any[] = [];
   let initialBonusData: any = null;
 
-  if (session?.user?.user_metadata?.phone) {
+  console.log('All cookies on server:', cookieStore.getAll());
+  console.log('Auth cookie on server:', authCookie);
+
+  if (authCookie) {
     try {
-      const phone = session.user.user_metadata.phone;
+      const authData = JSON.parse(authCookie.value);
+      if (authData.phone && authData.isAuthenticated) {
+        phone = authData.phone;
+      }
+    } catch (error) {
+      console.error('Ошибка парсинга cookie auth:', error);
+    }
+  }
+
+  console.log('Phone from cookie in AccountPage:', phone);
+
+  if (phone) {
+    try {
       const [bonusesRes, ordersRes] = await Promise.all([
         supabase
           .from('bonuses')
-          .select('bonus_balance, level, history:bonus_history(amount,reason,created_at)')
+          .select('id, bonus_balance, level')
           .eq('phone', phone)
           .single(),
         supabase
@@ -88,17 +100,40 @@ export default async function AccountPage() {
               quantity,
               price,
               product_id,
-              products(title, cover_url)
+              products(title, image_url)
             )
           `)
           .eq('phone', phone)
           .order('created_at', { ascending: false }),
       ]);
 
-      if (bonusesRes.error) throw bonusesRes.error;
-      if (ordersRes.error) throw ordersRes.error;
+      if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
+        throw bonusesRes.error;
+      }
+      if (ordersRes.error) {
+        throw ordersRes.error;
+      }
 
-      initialBonusData = bonusesRes.data;
+      initialBonusData = bonusesRes.data
+        ? { ...bonusesRes.data, history: [] }
+        : { id: null, bonus_balance: 0, level: 'basic', history: [] };
+
+      if (initialBonusData?.id) {
+        const historyRes = await supabase
+          .from('bonus_history')
+          .select('amount, reason, created_at')
+          .eq('bonus_id', initialBonusData.id);
+
+        if (historyRes.error) {
+          throw historyRes.error;
+        }
+        initialBonusData.history = historyRes.data.map((item) => ({
+          amount: item.amount ?? 0,
+          reason: item.reason ?? '',
+          created_at: item.created_at ?? '',
+        }));
+      }
+
       initialOrders = ordersRes.data || [];
 
       console.log('Initial orders in AccountPage:', initialOrders);
@@ -127,7 +162,7 @@ export default async function AccountPage() {
         }}
       />
       <AccountClient
-        initialSession={session}
+        initialSession={null}
         initialOrders={initialOrders}
         initialBonusData={initialBonusData}
       />

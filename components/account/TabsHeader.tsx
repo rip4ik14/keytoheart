@@ -1,3 +1,4 @@
+// ✅ Путь: components/account/TabsHeader.tsx
 'use client';
 
 import { Dispatch, SetStateAction } from 'react';
@@ -29,7 +30,7 @@ export default function TabsHeader({ activeTab, setActiveTab }: TabsHeaderProps)
 
   return (
     <motion.nav
-      className="flex flex-wrap justify-start sm:justify-center gap-6 border-b border-gray-200 text-sm"
+      className="flex flex-wrap justify-start sm:justify-center gap-4 sm:gap-6 border-b border-gray-200 text-sm"
       aria-label="Навигация по вкладкам личного кабинета"
       variants={containerVariants}
       initial="hidden"
@@ -43,15 +44,16 @@ export default function TabsHeader({ activeTab, setActiveTab }: TabsHeaderProps)
             setActiveTab(tab.key);
             window.gtag?.('event', 'switch_tab', {
               event_category: 'account',
+              event_label: tab.label,
               tab: tab.key,
             });
-            window.ym?.(12345678, 'reachGoal', 'switch_tab', { tab: tab.key });
+            window.ym?.(12345678, 'reachGoal', 'switch_tab', { tab: tab.key, label: tab.label });
           }}
-          className={`py-2 px-1 border-b-2 transition-all duration-300 font-medium ${
+          className={`py-2 px-2 sm:px-3 border-b-2 transition-all duration-300 font-medium ${
             activeTab === tab.key
               ? 'border-black text-black'
               : 'border-transparent text-gray-500 hover:text-black hover:border-gray-300'
-          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black focus:ring-opacity-50`}
           aria-current={activeTab === tab.key ? 'page' : undefined}
           aria-label={`Перейти на вкладку ${tab.label}`}
           variants={tabVariants}

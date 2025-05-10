@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/page.tsx
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -12,6 +11,7 @@ import OrderStep from '@components/OrderStep';
 import StoreBanner from '@components/StoreBanner';
 import StoreScheduleNotice from '@components/StoreScheduleNotice';
 import CartSummary from './components/CartSummary';
+import CartItem from './components/CartItem';
 import ThankYouModal from './components/ThankYouModal';
 import ErrorModal from './components/ErrorModal';
 import UpsellModal from './components/UpsellModal';
@@ -22,13 +22,12 @@ import Step4DateTime from './components/steps/Step4DateTime';
 import Step5Payment from './components/steps/Step5Payment';
 import useCheckoutForm from './hooks/useCheckoutForm';
 import { phoneMask } from '@utils/phoneMask';
+import debounce from 'lodash/debounce';
+import { CartItemType, UpsellItem } from './types';
 
 // Типизация для Yandex Maps API
 interface YandexMaps {
-  ready: (callback: () => void) => void;
-  suggest: (query: string, options: { boundedBy: number[][]; strictBounds: boolean; results: number }) => Promise<{ suggestions: { value: string; displayName: string }[] }>;
-  Map: new (container: string | HTMLElement, options: { center: number[]; zoom: number; controls?: string[] }) => any;
-  geocode: (address: string, options?: { provider?: string; boundedBy?: number[][]; strictBounds?: boolean }) => Promise<any>;
+  suggest: (query: string, options: { boundedBy: number[][]; strictBounds: boolean; results: number }) => Promise<{ value: string }[]>;
 }
 
 declare global {
@@ -36,30 +35,6 @@ declare global {
     ymaps: YandexMaps;
   }
 }
-
-// Тип для товаров в корзине
-interface CartItem {
-  id: string;
-  title: string;
-  price: number;
-  quantity: number;
-  imageUrl?: string;
-  production_time?: number | null;
-  isUpsell?: false;
-}
-
-// Тип для дополнительных товаров (upsell)
-export interface UpsellItem {
-  id: string;
-  title: string;
-  price: number;
-  image_url?: string;
-  category?: 'postcard' | 'balloon';
-  isUpsell: true;
-}
-
-// Объединённый тип для товаров в корзине
-type CartItemType = CartItem | UpsellItem;
 
 interface DaySchedule {
   start: string;
@@ -109,106 +84,6 @@ const transformSchedule = (schedule: Json): Record<string, DaySchedule> => {
   return result;
 };
 
-const CartItemComponent = React.memo(
-  ({
-    item,
-    removeItem,
-    updateQuantity,
-  }: {
-    item: CartItem;
-    removeItem: (id: string) => void;
-    updateQuantity: (id: string, quantity: number) => void;
-  }) => {
-    const handleMinus = () => {
-      if (item.quantity > 1) {
-        updateQuantity(item.id, item.quantity - 1);
-      }
-    };
-
-    const handlePlus = () => {
-      updateQuantity(item.id, item.quantity + 1);
-    };
-
-    return (
-      <motion.div
-        className="flex items-center justify-between gap-3 border border-gray-200 rounded-lg p-4 bg-white shadow-sm mb-4"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        role="listitem"
-        aria-label={`Товар ${item.title} в корзине`}
-      >
-        <div className="flex items-center gap-3">
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
-              alt={item.title}
-              width={40}
-              height={40}
-              className="rounded object-cover"
-              loading="lazy"
-              sizes="40px"
-            />
-          ) : (
-            <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center">
-              <span className="text-gray-500 text-xs">Нет фото</span>
-            </div>
-          )}
-          <div className="flex flex-col">
-            <span className="text-sm md:text-base font-medium text-gray-800">{item.title}</span>
-            {item.production_time != null && (
-              <span className="text-sm text-gray-600">
-                Время изготовления: {item.production_time} {item.production_time === 1 ? 'час' : 'часов'}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 border rounded-lg bg-gray-50">
-            <motion.button
-              onClick={handleMinus}
-              className="p-1 rounded-l-lg hover:bg-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50"
-              disabled={item.quantity <= 1}
-              aria-label={`Уменьшить количество ${item.title}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Image src="/icons/minus.svg" alt="Уменьшить" width={16} height={16} />
-            </motion.button>
-            <span className="px-2 text-sm font-medium">{item.quantity}</span>
-            <motion.button
-              onClick={handlePlus}
-              className="p-1 rounded-r-lg hover:bg-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-              aria-label={`Увеличить количество ${item.title}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Image src="/icons/plus.svg" alt="Увеличить" width={16} height={16} />
-            </motion.button>
-          </div>
-          <span className="text-sm font-semibold text-gray-800">{item.price * item.quantity} ₽</span>
-          <motion.button
-            onClick={() => {
-              removeItem(item.id);
-              window.gtag?.('event', 'remove_cart_item', {
-                event_category: 'cart',
-                item_id: item.id,
-              });
-              window.ym?.(12345678, 'reachGoal', 'remove_cart_item', { item_id: item.id });
-            }}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            aria-label={`Удалить ${item.title} из корзины`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Image src="/icons/trash.svg" alt="Удалить" width={16} height={16} />
-          </motion.button>
-        </div>
-      </motion.div>
-    );
-  }
-);
-
 export default function CartPage() {
   let cartContext;
   try {
@@ -249,8 +124,8 @@ export default function CartPage() {
   const [promoDiscount, setPromoDiscount] = useState<number | null>(null);
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
-  const [isYmapsReady, setIsYmapsReady] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [showPromoField, setShowPromoField] = useState<boolean>(false);
 
   const {
     step,
@@ -300,21 +175,6 @@ export default function CartPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Проверяем состояние авторизации при загрузке
-  useEffect(() => {
-    const authData = localStorage.getItem('auth');
-    if (authData) {
-      const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
-      if (storedAuth && storedPhone) {
-        setIsAuthenticated(true);
-        setIsCodeSent(true);
-        onFormChange({
-          target: { name: 'phone', value: phoneMask(storedPhone) },
-        } as React.ChangeEvent<HTMLInputElement>);
-      }
-    }
-  }, [setIsAuthenticated, setIsCodeSent, onFormChange]);
-
   const deliveryCost = useMemo(
     () => (form.deliveryMethod === 'delivery' ? 300 : 0),
     [form.deliveryMethod]
@@ -341,8 +201,6 @@ export default function CartPage() {
 
   const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
-
-  const DEV_PHONE = process.env.NEXT_PUBLIC_DEV_PHONE || '+79180300643';
 
   useEffect(() => {
     const fetchStoreSettings = async () => {
@@ -416,95 +274,87 @@ export default function CartPage() {
   useEffect(() => {
     const loadYandexSuggestScript = () => {
       const script = document.createElement('script');
-      script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU&load=package.full&mode=release`;
+      script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
       script.onload = () => {
-        window.ymaps.ready(() => {
-          console.log('Яндекс.Карты API инициализирован');
-          setIsYmapsReady(true);
-        });
+        console.log('Яндекс.Карты API загружен');
       };
       script.onerror = () => {
         console.error('Ошибка загрузки Яндекс.Карт API');
-        toast.error('Не удалось загрузить карту и автодополнение адресов. Проверьте интернет-соединение или попробуйте позже.');
+        toast.error('Не удалось загрузить автодополнение адресов');
       };
       document.body.appendChild(script);
     };
 
     if (!window.ymaps) {
       loadYandexSuggestScript();
-    } else {
-      window.ymaps.ready(() => {
-        setIsYmapsReady(true);
-      });
     }
-
-    return () => {
-      // Очистка скрипта при размонтировании компонента
-      const scripts = document.querySelectorAll(`script[src*="api-maps.yandex.ru"]`);
-      scripts.forEach(script => script.remove());
-    };
   }, []);
 
-  const fetchAddressSuggestions = useCallback(async (query: string) => {
-    if (!query.trim() || !isYmapsReady || !window.ymaps) return;
+  const fetchAddressSuggestions = useCallback(
+    debounce(async (query: string) => {
+      if (!query.trim() || !window.ymaps) return;
 
-    setIsLoadingSuggestions(true);
-    try {
-      const response = await window.ymaps.suggest(query, {
-        boundedBy: [
-          [45.0, 38.9], // Юго-запад Краснодара
-          [45.2, 39.1], // Северо-восток Краснодара
-        ],
-        strictBounds: true,
-        results: 5,
-      });
+      setIsLoadingSuggestions(true);
+      try {
+        const response = await window.ymaps.suggest(query, {
+          boundedBy: [[45.0, 38.9], [45.2, 39.1]],
+          strictBounds: true,
+          results: 5,
+        });
 
-      const suggestions = response.suggestions.map((item: { value: string }) => item.value);
-      setAddressSuggestions(suggestions);
-      setShowSuggestions(true);
+        setAddressSuggestions(response.map((item: any) => item.value));
+        setShowSuggestions(true);
 
-      window.gtag?.('event', 'fetch_address_suggestions', {
+        window.gtag?.('event', 'fetch_address_suggestions', {
+          event_category: 'cart',
+          event_label: query,
+        });
+        window.ym?.(12345678, 'reachGoal', 'fetch_address_suggestions', { query });
+      } catch (error) {
+        console.error('Ошибка получения подсказок адреса:', error);
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+        toast.error('Не удалось загрузить подсказки адресов');
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 300),
+    []
+  );
+
+  const handleSelectAddress = useCallback(
+    (address: string) => {
+      onFormChange({
+        target: { name: 'street', value: address },
+      } as React.ChangeEvent<HTMLInputElement>);
+      setShowSuggestions(false);
+      setAddressError('');
+
+      window.gtag?.('event', 'select_address_suggestion', {
         event_category: 'cart',
-        query,
+        event_label: address,
       });
-      window.ym?.(12345678, 'reachGoal', 'fetch_address_suggestions', { query });
-    } catch (error) {
-      console.error('Ошибка получения подсказок адреса:', error);
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-      toast.error('Не удалось загрузить подсказки адресов');
-    } finally {
-      setIsLoadingSuggestions(false);
-    }
-  }, [isYmapsReady]);
+      window.ym?.(12345678, 'reachGoal', 'select_address_suggestion', {
+        selected_address: address,
+      });
+    },
+    [onFormChange, setAddressError]
+  );
 
-  const handleSelectAddress = (address: string) => {
-    onFormChange({
-      target: { name: 'street', value: address },
-    } as React.ChangeEvent<HTMLInputElement>);
-    setShowSuggestions(false);
-    setAddressError('');
-
-    window.gtag?.('event', 'select_address_suggestion', {
-      event_category: 'cart',
-      selected_address: address,
-    });
-    window.ym?.(12345678, 'reachGoal', 'select_address_suggestion', {
-      selected_address: address,
-    });
-  };
-
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    onFormChange(e);
-    if (value.length > 2) {
-      fetchAddressSuggestions(`Краснодар, ${value}`);
-    } else {
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
+  const handleAddressChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      onFormChange(e);
+      if (value.length > 2) {
+        fetchAddressSuggestions(`Краснодар, ${value}`);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    },
+    [onFormChange, fetchAddressSuggestions]
+  );
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -517,10 +367,15 @@ export default function CartPage() {
     };
   }, []);
 
-  const removeUpsell = (id: string) => {
+  const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
-  };
+    window.gtag?.('event', 'remove_upsell', {
+      event_category: 'cart',
+      event_label: id,
+    });
+    window.ym?.(12345678, 'reachGoal', 'remove_upsell', { upsell_id: id });
+  }, []);
 
   useEffect(() => {
     const allItems: CartItemType[] = [...items, ...selectedUpsells];
@@ -540,9 +395,7 @@ export default function CartPage() {
     const fetchUpsellItems = async () => {
       try {
         setIsUpsellLoading(true);
-        const res = await fetch(
-          `/api/upsell/categories?category=podarki&subcategories=balloons,cards`
-        );
+        const res = await fetch(`/api/upsell/categories?category=podarki&subcategories=balloons,cards`);
         const { success, data, error } = await res.json();
         if (!success) {
           throw new Error(error || 'Не удалось загрузить дополнительные товары');
@@ -559,42 +412,22 @@ export default function CartPage() {
     fetchUpsellItems();
   }, []);
 
-  useEffect(() => {
-    const cleanPhone = form.phone.replace(/\D/g, '');
-    const fullPhone = `+7${cleanPhone}`;
-    if (fullPhone === DEV_PHONE && cleanPhone.length === 10) {
-      setIsAuthenticated(true);
-      setIsCodeSent(true);
-      localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
-      toast.success('Авторизация для разработчика выполнена автоматически');
-    }
-  }, [form.phone, setIsAuthenticated, setIsCodeSent]);
-
-  useEffect(() => {
-    if (isCodeSent && resendCooldown > 0) {
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [isCodeSent, resendCooldown]);
-
   const handlePhoneChange = useCallback(
     (value: string) => {
+      const cleanValue = value.replace(/\D/g, '');
+      const formattedPhone = phoneMask(cleanValue);
       onFormChange({
-        target: { name: 'phone', value: phoneMask(value) },
+        target: { name: 'phone', value: formattedPhone },
       } as React.ChangeEvent<HTMLInputElement>);
       setPhoneError('');
-      setIsAuthenticated(false);
       setIsCodeSent(false);
       setSmsCode('');
       setBonusBalance(0);
-      localStorage.removeItem('auth');
     },
-    [onFormChange, setPhoneError, setIsAuthenticated, setIsCodeSent, setSmsCode]
+    [onFormChange, setPhoneError, setIsCodeSent, setSmsCode]
   );
 
-  const sendSmsCode = async () => {
+  const sendSmsCode = useCallback(async () => {
     const cleanPhone = form.phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
       setPhoneError('Введите корректный номер телефона (10 цифр)');
@@ -609,58 +442,125 @@ export default function CartPage() {
         body: JSON.stringify({ phone: `+7${cleanPhone}` }),
       });
       const result = await res.json();
+      console.log('Ответ от API:', result);
       if (result.success) {
+        console.log('Установка isCodeSent в true');
         setIsCodeSent(true);
-        setResendCooldown(60);
         toast.success('Код отправлен на ваш номер!');
         window.gtag?.('event', 'send_sms_code', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'send_sms_code');
       } else {
+        console.error('Ошибка отправки SMS:', result.error);
+        setPhoneError(result.error || 'Не удалось отправить SMS-код.');
         toast.error(result.error || 'Не удалось отправить SMS-код.');
       }
-    } catch {
+    } catch (error) {
+      console.error('Ошибка при вызове API:', error);
+      setPhoneError('Не удалось отправить SMS-код.');
       toast.error('Не удалось отправить SMS-код.');
     } finally {
+      console.log('Завершение отправки SMS, isSendingCode: false');
       setIsSendingCode(false);
+      setTimeout(() => {
+        console.log('Текущее состояние после отправки SMS:', { isCodeSent, isAuthenticated, isSendingCode });
+      }, 0);
     }
-  };
+  }, [form.phone, setPhoneError, setIsSendingCode, setIsCodeSent]);
 
-  const resendSmsCode = async () => {
-    setResendCooldown(60);
-    await sendSmsCode();
-  };
+  const resendSmsCode = useCallback(async () => {
+    if (resendCooldown > 0) return;
 
-  const verifySmsCode = async () => {
-    if (!smsCode.trim() || smsCode.length !== 6) {
-      toast.error('Введите корректный код из SMS (6 цифр)');
+    const cleanPhone = form.phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setPhoneError('Введите корректный номер телефона (10 цифр)');
+      return;
+    }
+
+    setIsSendingCode(true);
+    setResendCooldown(90);
+    try {
+      const res = await fetch('/api/auth/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+7${cleanPhone}` }),
+      });
+      const result = await res.json();
+      console.log('Ответ от /api/auth/send-sms (resend):', result);
+      if (result.success) {
+        console.log('Установка isCodeSent в true (resend)');
+        setIsCodeSent(true);
+        toast.success('Код отправлен повторно!');
+        window.gtag?.('event', 'resend_sms_code', { event_category: 'auth' });
+        window.ym?.(12345678, 'reachGoal', 'resend_sms_code');
+      } else {
+        console.error('Ошибка повторной отправки SMS:', result.error);
+        setPhoneError(result.error || 'Не удалось отправить SMS-код.');
+        toast.error(result.error || 'Не удалось отправить SMS-код.');
+      }
+    } catch (error) {
+      console.error('Ошибка при повторном вызове API:', error);
+      setPhoneError('Не удалось отправить SMS-код.');
+      toast.error('Не удалось отправить SMS-код.');
+    } finally {
+      console.log('Завершение повторной отправки SMS, isSendingCode: false');
+      setIsSendingCode(false);
+      setTimeout(() => {
+        console.log('Текущее состояние после повторной отправки SMS:', { isCodeSent, isAuthenticated, isSendingCode });
+      }, 0);
+    }
+  }, [form.phone, resendCooldown, setPhoneError, setIsSendingCode, setIsCodeSent]);
+
+  const verifySmsCode = useCallback(async () => {
+    if (!smsCode.trim()) {
+      toast.error('Введите код из SMS');
       return;
     }
     setIsVerifyingCode(true);
     try {
+      const fullPhone = `+7${form.phone.replace(/\D/g, '')}`;
+      console.log('Отправка в verify-sms:', { phone: fullPhone, code: smsCode });
       const res = await fetch('/api/auth/verify-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${form.phone.replace(/\D/g, '')}`, code: smsCode }),
+        body: JSON.stringify({ phone: fullPhone, code: smsCode }),
       });
       const result = await res.json();
+      console.log('Ответ от /api/auth/verify-sms:', result);
       if (result.success) {
         setIsAuthenticated(true);
         setBonusBalance(result.bonusBalance || 0);
-        localStorage.setItem('auth', JSON.stringify({ phone: `+7${form.phone.replace(/\D/g, '')}`, isAuthenticated: true }));
+        localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
+        document.cookie = `auth=${JSON.stringify({ phone: fullPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+        console.log('Cookie set after verify in CartPage:', document.cookie);
+        setStep(1);
         toast.success('Авторизация успешна!');
         window.gtag?.('event', 'verify_sms_code', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'verify_sms_code');
       } else {
+        console.error('Ошибка верификации SMS:', result.error);
         toast.error(result.error || 'Неверный код. Попробуйте снова.');
       }
-    } catch {
+    } catch (error) {
+      console.error('Ошибка при верификации SMS:', error);
       toast.error('Ошибка проверки кода.');
     } finally {
+      console.log('Завершение верификации SMS, isVerifyingCode: false');
       setIsVerifyingCode(false);
+      console.log('Текущее состояние:', { isCodeSent, isAuthenticated, isVerifyingCode });
     }
-  };
+  }, [smsCode, form.phone, setIsVerifyingCode, setIsAuthenticated, setBonusBalance, setStep]);
 
-  const handleApplyPromo = async () => {
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
       return;
@@ -684,13 +584,18 @@ export default function CartPage() {
       setPromoId(result.promoId);
       setPromoError(null);
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
+      window.gtag?.('event', 'apply_promo', {
+        event_category: 'cart',
+        event_label: promoCode,
+      });
+      window.ym?.(12345678, 'reachGoal', 'apply_promo', { promo_code: promoCode });
     } catch (error: any) {
       setPromoError(error.message);
       toast.error(error.message);
     }
-  };
+  }, [promoCode]);
 
-  const checkItems = async () => {
+  const checkItems = useCallback(async () => {
     const productIds = items
       .filter((item: CartItemType) => !item.isUpsell)
       .map((item: CartItemType) => parseInt(item.id, 10))
@@ -710,22 +615,25 @@ export default function CartPage() {
     }
 
     const existingIds = new Set(data.map((p: any) => p.id));
-    const invalidItems = items.filter((item: CartItemType) => !item.isUpsell && !existingIds.has(parseInt(item.id, 10)));
+    const invalidItems = items.filter(
+      (item: CartItemType) => !item.isUpsell && !existingIds.has(parseInt(item.id, 10))
+    );
     if (invalidItems.length > 0) {
-      toast.error(`Некоторые товары больше не доступны: ${invalidItems.map((i: CartItemType) => i.title).join(', ')}`);
-      const validItems = items.filter((item: CartItemType) => item.isUpsell || existingIds.has(parseInt(item.id, 10)));
+      toast.error(
+        `Некоторые товары больше не доступны: ${invalidItems.map((i: CartItemType) => i.title).join(', ')}`
+      );
+      const validItems = items.filter(
+        (item: CartItemType) => item.isUpsell || existingIds.has(parseInt(item.id, 10))
+      );
       clearCart();
       addMultipleItems(validItems);
       return false;
     }
     return true;
-  };
+  }, [items, supabase, clearCart, addMultipleItems]);
 
-  const submitOrder = async () => {
-    console.log('submitOrder called');
-    console.log('ValidateStep5 result:', validateStep5(agreed), 'Agreed:', agreed);
+  const submitOrder = useCallback(async () => {
     if (!validateStep5(agreed)) {
-      console.log('Validation failed for Step 5');
       return;
     }
 
@@ -734,17 +642,16 @@ export default function CartPage() {
       return;
     }
 
-    console.log('CanPlaceOrder:', canPlaceOrder);
     if (!canPlaceOrder) {
-      console.log('Cannot place order due to store settings');
-      toast.error('Магазин временно не принимает заказы. Пожалуйста, выберите другое время или дату на шаге "Дата и время".');
+      toast.error(
+        'Магазин временно не принимает заказы. Пожалуйста, выберите другое время или дату на шаге "Дата и время".'
+      );
       return;
     }
 
     if (!(await checkItems())) return;
 
     setIsSubmittingOrder(true);
-    console.log('Submitting order...');
     try {
       const payload = {
         phone: `+7${form.phone.replace(/\D/g, '')}`,
@@ -753,7 +660,8 @@ export default function CartPage() {
         address:
           form.street && form.deliveryMethod !== 'pickup'
             ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${
-                form.apartment ? `, кв. ${form.apartment}` : ''}${form.entrance ? `, подъезд ${form.entrance}` : ''}`
+                form.apartment ? `, кв. ${form.apartment}` : ''
+              }${form.entrance ? `, подъезд ${form.entrance}` : ''}`
             : 'Самовывоз',
         deliveryMethod: form.deliveryMethod,
         date: form.date,
@@ -782,15 +690,12 @@ export default function CartPage() {
         whatsapp: form.whatsapp,
       };
 
-      console.log('Order payload:', payload);
-
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      console.log('API response:', json, 'Status:', res.status);
 
       if (!res.ok || !json.success) {
         if (res.status === 429) {
@@ -800,7 +705,6 @@ export default function CartPage() {
           setIsAuthenticated(false);
           setIsCodeSent(false);
           setSmsCode('');
-          localStorage.removeItem('auth');
           setStep(1);
         } else {
           setErrorModal(json.error || 'Ошибка оформления заказа.');
@@ -823,8 +727,8 @@ export default function CartPage() {
       setPromoId(null);
       window.gtag?.('event', 'submit_order', {
         event_category: 'cart',
-        order_id: json.order_id,
-        total: finalTotal,
+        event_label: json.order_id,
+        value: finalTotal,
       });
       window.ym?.(12345678, 'reachGoal', 'submit_order', {
         order_id: json.order_id,
@@ -836,7 +740,37 @@ export default function CartPage() {
     } finally {
       setIsSubmittingOrder(false);
     }
-  };
+  }, [
+    validateStep5,
+    agreed,
+    validateAllSteps,
+    canPlaceOrder,
+    checkItems,
+    form,
+    items,
+    selectedUpsells,
+    finalTotal,
+    bonusAccrual,
+    promoId,
+    discountAmount,
+    postcardText,
+    setIsSubmittingOrder,
+    setErrorModal,
+    setOrderDetails,
+    setShowSuccess,
+    clearCart,
+    resetForm,
+    setSelectedUpsells,
+    setPostcardText,
+    setPromoCode,
+    setPromoDiscount,
+    setPromoType,
+    setPromoId,
+    setIsAuthenticated,
+    setIsCodeSent,
+    setSmsCode,
+    setStep,
+  ]);
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -853,7 +787,7 @@ export default function CartPage() {
     <div className="mx-auto max-w-7xl px-4 py-12 pb-[80px] md:pb-12">
       <StoreBanner />
       <motion.h1
-        className="mb-10 text-center text-4xl font-bold tracking-tight"
+        className="mb-10 text-center text-3xl font-bold tracking-tight sm:text-4xl"
         initial={{ opacity: 0, y: -25 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -879,7 +813,7 @@ export default function CartPage() {
         {[1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${
                 step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
               }`}
               initial={{ scale: 0.8 }}
@@ -891,7 +825,7 @@ export default function CartPage() {
             </motion.div>
             {s < 5 && (
               <motion.div
-                className={`h-1 w-12 mx-2 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
+                className={`h-1 w-6 mx-1 sm:w-10 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
                 initial={{ width: '0%', opacity: 0 }}
                 animate={{ width: step > s ? '100%' : '0%', opacity: 1 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -902,7 +836,7 @@ export default function CartPage() {
       </motion.div>
 
       <motion.div
-        className="mt-6 grid gap-10 md:grid-cols-3"
+        className="mt-6 grid gap-6 md:grid-cols-3 md:gap-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -928,25 +862,32 @@ export default function CartPage() {
                   isSendingCode={isSendingCode}
                   isVerifyingCode={isVerifyingCode}
                   isAuthenticated={isAuthenticated}
+                  resendCooldown={resendCooldown}
+                  resendSmsCode={resendSmsCode}
+                  setIsCodeSent={setIsCodeSent}
                   onFormChange={onFormChange}
                   handlePhoneChange={handlePhoneChange}
                   sendSmsCode={sendSmsCode}
                   verifySmsCode={verifySmsCode}
-                  resendSmsCode={resendSmsCode}
-                  resendCooldown={resendCooldown}
                   setSmsCode={setSmsCode}
-                  setIsCodeSent={setIsCodeSent}
                 />
                 {isAuthenticated && (
                   <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>
                     {isUpsellLoading ? (
                       <motion.div
-                        className="flex justify-center py-4"
+                        className="flex justify-center py-4 w-full"
                         variants={containerVariants}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                       >
-                        <Image src="/icons/spinner.svg" alt="Загрузка" width={24} height={24} className="animate-spin" />
+                        <Image
+                          src="/icons/spinner.svg"
+                          alt="Иконка загрузки"
+                          width={24}
+                          height={24}
+                          loading="lazy"
+                          className="animate-spin"
+                        />
                       </motion.div>
                     ) : (
                       <>
@@ -954,31 +895,49 @@ export default function CartPage() {
                           type="button"
                           onClick={() => {
                             setShowPostcard(true);
-                            window.gtag?.('event', 'open_postcard_modal', { event_category: 'cart' });
+                            window.gtag?.('event', 'open_postcard_modal', {
+                              event_category: 'cart',
+                            });
                             window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
                           }}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-100 hover:shadow-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                          className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                           aria-label="Добавить открытку"
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
-                          <Image src="/icons/gift.svg" alt="Подарок" width={16} height={16} className="text-gray-600" />
-                          Добавить открытку
+                          <Image
+                            src="/icons/gift.svg"
+                            alt="Иконка подарка"
+                            width={16}
+                            height={16}
+                            loading="lazy"
+                            className="text-gray-600"
+                          />
+                          <span>Добавить открытку</span>
                         </motion.button>
                         <motion.button
                           type="button"
                           onClick={() => {
                             setShowBalloons(true);
-                            window.gtag?.('event', 'open_balloons_modal', { event_category: 'cart' });
+                            window.gtag?.('event', 'open_balloons_modal', {
+                              event_category: 'cart',
+                            });
                             window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
                           }}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-100 hover:shadow-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                          className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                           aria-label="Добавить шары"
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
-                          <Image src="/icons/gift.svg" alt="Подарок" width={16} height={16} className="text-gray-600" />
-                          Добавить шары
+                          <Image
+                            src="/icons/gift.svg"
+                            alt="Иконка подарка"
+                            width={16}
+                            height={16}
+                            loading="lazy"
+                            className="text-gray-600"
+                          />
+                          <span>Добавить шары</span>
                         </motion.button>
                       </>
                     )}
@@ -987,13 +946,7 @@ export default function CartPage() {
               </OrderStep>
             )}
             {step === 2 && (
-              <OrderStep
-                step={2}
-                currentStep={step}
-                title="Данные получателя"
-                onNext={nextStep}
-                onBack={prevStep}
-              >
+              <OrderStep step={2} currentStep={step} title="Данные получателя" onNext={nextStep} onBack={prevStep}>
                 <Step2RecipientDetails
                   form={form}
                   name={form.name}
@@ -1008,13 +961,7 @@ export default function CartPage() {
               </OrderStep>
             )}
             {step === 3 && (
-              <OrderStep
-                step={3}
-                currentStep={step}
-                title="Адрес"
-                onNext={nextStep}
-                onBack={prevStep}
-              >
+              <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
                 <Step3Address
                   form={form}
                   addressError={addressError}
@@ -1024,18 +971,11 @@ export default function CartPage() {
                   onFormChange={onFormChange}
                   handleAddressChange={handleAddressChange}
                   handleSelectAddress={handleSelectAddress}
-                  isYmapsReady={isYmapsReady}
                 />
               </OrderStep>
             )}
             {step === 4 && (
-              <OrderStep
-                step={4}
-                currentStep={step}
-                title="Дата и время"
-                onNext={nextStep}
-                onBack={prevStep}
-              >
+              <OrderStep step={4} currentStep={step} title="Дата и время" onNext={nextStep} onBack={prevStep}>
                 <Step4DateTime
                   form={form}
                   dateError={dateError}
@@ -1048,13 +988,7 @@ export default function CartPage() {
               </OrderStep>
             )}
             {step === 5 && (
-              <OrderStep
-                step={5}
-                currentStep={step}
-                title="Способ оплаты"
-                onNext={submitOrder}
-                onBack={prevStep}
-              >
+              <OrderStep step={5} currentStep={step} title="Способ оплаты" onNext={submitOrder} onBack={prevStep}>
                 <Step5Payment agreed={agreed} setAgreed={setAgreed} />
               </OrderStep>
             )}
@@ -1062,37 +996,85 @@ export default function CartPage() {
         </AnimatePresence>
 
         <div className="space-y-6">
-          {items.map((i, idx) => (
-            <CartItemComponent
-              key={`item-${i.id}-${idx}`}
-              item={i}
-              removeItem={removeItem}
-              updateQuantity={updateQuantity}
-            />
-          ))}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold mb-2">Промокод</h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                placeholder="Введите промокод"
-                className="border rounded-lg p-2 flex-1"
+          {[...items, ...selectedUpsells]
+            .filter(
+              (item, index, self) =>
+                index === self.findIndex((t) => t.id === item.id)
+            )
+            .map((item, idx) => {
+              const isUpsell = 'isUpsell' in item && item.isUpsell;
+              return (
+                <CartItem
+                  key={`${isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
+                  item={item}
+                  removeItem={isUpsell ? removeUpsell : removeItem}
+                  updateQuantity={isUpsell ? undefined : updateQuantity}
+                />
+              );
+            })}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 sm:p-6">
+            <motion.button
+              onClick={() => {
+                setShowPromoField(!showPromoField);
+                window.gtag?.('event', showPromoField ? 'hide_promo_field' : 'show_promo_field', {
+                  event_category: 'cart',
+                });
+                window.ym?.(12345678, 'reachGoal', showPromoField ? 'hide_promo_field' : 'show_promo_field');
+              }}
+              className="w-full text-sm text-gray-500 underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-black"
+              aria-expanded={showPromoField}
+              aria-controls="promo-field"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Image
+                src="/icons/plus.svg"
+                alt={showPromoField ? 'Скрыть поле промокода' : 'Показать поле промокода'}
+                width={14}
+                height={14}
+                loading="lazy"
               />
-              <button
-                onClick={handleApplyPromo}
-                className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all"
-              >
-                Применить
-              </button>
-            </div>
-            {promoError && <p className="text-red-500 mt-2">{promoError}</p>}
-            {promoDiscount !== null && (
-              <p className="text-green-500 mt-2">
-                Промокод применён! Скидка: {promoDiscount}{promoType === 'percentage' ? '%' : ' ₽'}
-              </p>
-            )}
+              {showPromoField ? 'Скрыть промокод' : 'У меня есть промокод'}
+            </motion.button>
+            <AnimatePresence>
+              {showPromoField && (
+                <motion.div
+                  id="promo-field"
+                  className="mt-2 space-y-2"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="Введите промокод"
+                      className="border rounded-lg p-2 flex-1 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+                      aria-label="Введите промокод"
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                      aria-label="Применить промокод"
+                    >
+                      Применить
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p className="text-red-500 text-xs mt-1">{promoError}</p>
+                  )}
+                  {promoDiscount !== null && (
+                    <p className="text-green-500 text-xs mt-1">
+                      Промокод применён! Скидка: {promoDiscount}
+                      {promoType === 'percentage' ? '%' : ' ₽'}
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <CartSummary
             items={items}
@@ -1108,7 +1090,7 @@ export default function CartPage() {
         </div>
       </motion.div>
 
-      {items.length > 0 && (
+      {(items.length > 0 || selectedUpsells.length > 0) && step === 1 && form.phone && isAuthenticated && (
         <motion.div
           className="fixed bottom-0 left-0 right-0 z-40 block md:hidden bg-white/90 backdrop-blur px-4 py-3 border-t shadow-md"
           initial={{ y: 50, opacity: 0 }}
@@ -1118,7 +1100,7 @@ export default function CartPage() {
           <motion.button
             onClick={() => setStep(1)}
             disabled={isSubmittingOrder || !canPlaceOrder}
-            className={`w-full rounded-lg bg-black py-3 text-sm font-bold text-white transition-all hover:bg-gray-800 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+            className={`w-full rounded-lg bg-black py-3 text-sm font-bold text-white transition-all hover:bg-gray-800 flex items-center justify-center gap-2 sm:text-base focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
               isSubmittingOrder || !canPlaceOrder ? 'opacity-50 cursor-not-allowed' : ''
             }`}
             aria-label={`Оформить заказ за ${finalTotal} ₽`}
@@ -1127,8 +1109,15 @@ export default function CartPage() {
           >
             {isSubmittingOrder ? (
               <>
-                <Image src="/icons/spinner.svg" alt="Загрузка" width={20} height={20} className="animate-spin" />
-                Оформление...
+                <Image
+                  src="/icons/spinner.svg"
+                  alt="Иконка загрузки"
+                  width={20}
+                  height={20}
+                  loading="lazy"
+                  className="animate-spin"
+                />
+                <span>Оформление...</span>
               </>
             ) : (
               `Оформить за ${finalTotal} ₽`
@@ -1175,11 +1164,7 @@ export default function CartPage() {
         />
       )}
       {errorModal && (
-        <ErrorModal
-          message={errorModal}
-          onRetry={submitOrder}
-          onClose={() => setErrorModal(null)}
-        />
+        <ErrorModal message={errorModal} onRetry={submitOrder} onClose={() => setErrorModal(null)} />
       )}
     </div>
   );

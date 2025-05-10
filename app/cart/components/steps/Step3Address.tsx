@@ -1,9 +1,8 @@
-// ✅ Путь: app/cart/components/steps/Step3Address.tsx
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import sanitizeHtml from 'sanitize-html';
 
 interface Props {
   form: {
@@ -21,7 +20,6 @@ interface Props {
   onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleAddressChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSelectAddress: (address: string) => void;
-  isYmapsReady: boolean;
 }
 
 const containerVariants = {
@@ -38,88 +36,16 @@ export default function Step3Address({
   onFormChange,
   handleAddressChange,
   handleSelectAddress,
-  isYmapsReady,
 }: Props) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-
-  // Инициализация карты
-  useEffect(() => {
-    if (!isYmapsReady || !window.ymaps || form.deliveryMethod !== 'delivery') return;
-
-    const initMap = async () => {
-      // Проверяем, что mapContainerRef.current существует
-      if (!mapContainerRef.current) {
-        console.error('Контейнер карты не найден');
-        return;
-      }
-
-      try {
-        // Создаём карту с центром в Краснодаре
-        mapInstanceRef.current = new window.ymaps.Map(mapContainerRef.current, {
-          center: [45.0355, 38.9753], // Центр Краснодара
-          zoom: 12,
-          controls: ['zoomControl'], // Теперь свойство controls типизировано
-        });
-
-        // Если адрес уже введён, геокодируем его
-        if (form.street) {
-          const fullAddress = `Краснодар, ${form.street}${form.house ? `, д. ${form.house}` : ''}`;
-          const geocodeResult = await window.ymaps.geocode(fullAddress, {
-            boundedBy: [[45.0, 38.9], [45.2, 39.1]],
-            strictBounds: true,
-          });
-
-          const firstGeoObject = geocodeResult.geoObjects.get(0);
-          if (firstGeoObject) {
-            const coords = firstGeoObject.geometry.getCoordinates();
-            mapInstanceRef.current.setCenter(coords, 16);
-            mapInstanceRef.current.geoObjects.add(firstGeoObject);
-          }
-        }
-      } catch (error) {
-        console.error('Ошибка инициализации карты:', error);
-      }
-    };
-
-    initMap();
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.destroy();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [isYmapsReady, form.deliveryMethod, form.street, form.house]);
-
-  // Обновление карты при изменении адреса
-  useEffect(() => {
-    if (!isYmapsReady || !window.ymaps || !mapInstanceRef.current || !form.street) return;
-
-    const updateMap = async () => {
-      try {
-        mapInstanceRef.current.geoObjects.removeAll();
-        const fullAddress = `Краснодар, ${form.street}${form.house ? `, д. ${form.house}` : ''}`;
-        const geocodeResult = await window.ymaps.geocode(fullAddress, {
-          boundedBy: [[45.0, 38.9], [45.2, 39.1]],
-          strictBounds: true,
-        });
-
-        const firstGeoObject = geocodeResult.geoObjects.get(0);
-        if (firstGeoObject) {
-          const coords = firstGeoObject.geometry.getCoordinates();
-          mapInstanceRef.current.setCenter(coords, 16);
-          mapInstanceRef.current.geoObjects.add(firstGeoObject);
-        } else {
-          mapInstanceRef.current.setCenter([45.0355, 38.9753], 12);
-        }
-      } catch (error) {
-        console.error('Ошибка обновления карты:', error);
-      }
-    };
-
-    updateMap();
-  }, [isYmapsReady, form.street, form.house]);
+  const handleDeliveryInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const sanitizedText = sanitizeHtml(e.target.value, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    onFormChange({
+      target: { name: 'deliveryInstructions', value: sanitizedText },
+    } as React.ChangeEvent<HTMLTextAreaElement>);
+  };
 
   return (
     <div className="space-y-4">
@@ -174,11 +100,16 @@ export default function Step3Address({
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
               aria-label="Введите улицу"
               aria-invalid={addressError ? 'true' : 'false'}
+              aria-describedby={addressError ? 'street-error' : undefined}
               aria-autocomplete="list"
               aria-controls="address-suggestions"
               aria-expanded={showSuggestions}
             />
-            {addressError && <p className="text-red-500 text-xs mt-1">{addressError}</p>}
+            {addressError && (
+              <p id="street-error" className="text-red-500 text-xs mt-1">
+                {addressError}
+              </p>
+            )}
             {showSuggestions && (
               <ul
                 id="address-suggestions"
@@ -204,9 +135,7 @@ export default function Step3Address({
                     </li>
                   ))
                 ) : (
-                  <li className="p-2 text-sm text-gray-500">
-                    Адреса не найдены
-                  </li>
+                  <li className="p-2 text-sm text-gray-500">Адреса не найдены</li>
                 )}
               </ul>
             )}
@@ -266,27 +195,11 @@ export default function Step3Address({
               id="deliveryInstructions"
               name="deliveryInstructions"
               value={form.deliveryInstructions}
-              onChange={onFormChange}
+              onChange={handleDeliveryInstructionsChange}
               placeholder="Например: позвонить за 30 минут до доставки"
               className="w-full rounded-lg border border-gray-300 p-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
               aria-label="Введите инструкции для доставки"
             />
-          </div>
-          {/* Карта */}
-          <div className="relative">
-            <label className="text-sm font-medium mb-1 block text-gray-700">
-              Местоположение на карте
-            </label>
-            <div
-              ref={mapContainerRef}
-              className="w-full h-[300px] rounded-lg border border-gray-300"
-              aria-label="Карта с выбранным адресом доставки"
-            />
-            {!isYmapsReady && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50">
-                <p className="text-gray-500">Загрузка карты...</p>
-              </div>
-            )}
           </div>
           <p className="text-xs text-gray-500">
             Заявки принимаются до 15:00, доставка возможна через 41TEM
