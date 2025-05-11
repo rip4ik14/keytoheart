@@ -1,14 +1,7 @@
 import AuthStatus from '@components/AuthStatus';
 import StickyHeader from '@components/StickyHeader';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-
-// Определяем тип Category, чтобы он соответствовал StickyHeader
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  subcategories: { id: number; name: string; slug: string }[];
-};
+import { Category } from '@/types/category'; // Импортируем тип Category
 
 export default async function Header() {
   // Загружаем категории из Supabase
@@ -18,8 +11,10 @@ export default async function Header() {
       id,
       name,
       slug,
-      subcategories!subcategories_category_id_fkey(id, name, slug)
+      is_visible,
+      subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
     `)
+    .eq('is_visible', true) // Фильтруем только видимые категории
     .order('id', { ascending: true });
 
   if (error) {
@@ -31,7 +26,15 @@ export default async function Header() {
   const initialCategories: Category[] = categoriesData
     ? categoriesData.map((cat) => ({
         ...cat,
-        subcategories: cat.subcategories || [],
+        is_visible: cat.is_visible ?? true, // Преобразуем boolean | null в boolean
+        subcategories: cat.subcategories
+          ? cat.subcategories
+              .filter((sub: any) => sub.is_visible === true) // Фильтруем только видимые подкатегории
+              .map((sub: any) => ({
+                ...sub,
+                is_visible: sub.is_visible ?? true, // Преобразуем boolean | null в boolean
+              }))
+          : [],
       }))
     : [];
 
