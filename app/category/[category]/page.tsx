@@ -5,16 +5,41 @@ import type { ItemList } from 'schema-dts';
 import CategoryPageClient from './CategoryPageClient';
 import type { Product } from '@components/CatalogClient';
 import type { Subcategory } from './CategoryPageClient';
+import { redirect } from 'next/navigation';
 
 const nameMap: Record<string, string> = {
   'klubnichnye-bukety': 'Клубничные букеты',
   'klubnichnye-boksy': 'Клубничные боксы',
-  flowers: 'Цветы',
-  combo: 'Комбо-наборы',
-  premium: 'Premium',
-  kollekcii: 'Коллекции',
-  povod: 'Повод',
-  podarki: 'Подарки',
+  'flowers': 'Цветы',
+  'combo': 'Комбо-наборы',
+  'premium': 'Premium',
+  'kollekcii': 'Коллекции',
+  'povod': 'Повод',
+  'podarki': 'Подарки',
+  'club-box': 'Club Box',
+  'roses': 'Roses',
+  'mono-bouquets': 'Mono Bouquets',
+  'wedding-bouquets': 'Wedding Bouquets',
+  'author-bouquets': 'Author Bouquets',
+  'pasha': 'Pasha',
+  'vesna': 'Vesna',
+  'arabia': 'Arabia',
+  'kids': 'Kids',
+  'men': 'Men',
+  'mame': 'Mame',
+  'lubimoi': 'Lubimoi',
+  'muzhchine': 'Muzhchine',
+  'detyam': 'Detyam',
+  'uchitelyu': 'Uchitelyu',
+  'kollege': 'Kollege',
+  'wedding': 'Wedding',
+  'bday': 'Bday',
+  'vipusknoi': 'Vipusknoi',
+  'birth': 'Birth',
+  'care': 'Care',
+  'balloons': 'Balloons',
+  'gifts-nabori': 'Gifts Nabory',
+  'cards': 'Cards',
 };
 
 export async function generateMetadata({
@@ -49,11 +74,7 @@ export default async function CategoryPage({
   const apiName = nameMap[category];
 
   if (!apiName) {
-    return (
-      <main className="p-10 text-center text-red-600" aria-label="Ошибка">
-        Категория «{category}» не найдена
-      </main>
-    );
+    redirect('/404');
   }
 
   const { data: categoryData, error: categoryError } = await supabaseAdmin
@@ -64,11 +85,7 @@ export default async function CategoryPage({
 
   if (categoryError || !categoryData) {
     console.error('Error fetching category ID:', categoryError);
-    return (
-      <main className="p-10 text-center text-red-600" aria-label="Ошибка">
-        Категория «{apiName}» не найдена
-      </main>
-    );
+    redirect('/404');
   }
 
   const categoryId = categoryData.id;
@@ -114,11 +131,7 @@ export default async function CategoryPage({
 
   if (productsError) {
     console.error('CategoryPage products error:', productsError.message);
-    return (
-      <main className="p-10 text-center text-red-600" aria-label="Ошибка">
-        Ошибка загрузки товаров: {productsError.message}
-      </main>
-    );
+    redirect('/404');
   }
 
   const products: Product[] = productsData?.map(product => ({
@@ -190,6 +203,7 @@ export async function generateStaticParams() {
     return [];
   }
 
+  console.log('Generated category paths:', data?.map((cat) => cat.slug));
   return (data ?? []).map((cat) => ({
     category: cat.slug,
   }));
