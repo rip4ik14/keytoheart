@@ -74,18 +74,25 @@ export default async function CategoryPage({
   const apiName = nameMap[category];
 
   if (!apiName) {
+    console.error(`Category ${category} not found in nameMap`);
     redirect('/404');
   }
 
   const { data: categoryData, error: categoryError } = await supabaseAdmin
     .from('categories')
-    .select('id')
+    .select('id, name, slug')
     .eq('name', apiName)
     .single();
 
   if (categoryError || !categoryData) {
-    console.error('Error fetching category ID:', categoryError);
+    console.error(`Error fetching category ID for ${apiName}:`, categoryError?.message || 'No data');
     redirect('/404');
+  }
+
+  // Проверяем соответствие slug
+  if (categoryData.slug !== category) {
+    console.error(`Slug mismatch for category ${apiName}: expected ${categoryData.slug}, got ${category}`);
+    redirect(`/category/${categoryData.slug}`);
   }
 
   const categoryId = categoryData.id;
@@ -97,7 +104,7 @@ export default async function CategoryPage({
     .order('name', { ascending: true });
 
   if (subcategoriesError) {
-    console.error('Error fetching subcategories:', subcategoriesError);
+    console.error('Error fetching subcategories:', subcategoriesError.message);
   }
 
   const subcategories: Subcategory[] = subcategoriesData ?? [];
@@ -127,6 +134,7 @@ export default async function CategoryPage({
     `)
     .eq('category', apiName)
     .eq('in_stock', true)
+    .eq('is_visible', true) // Добавляем фильтр по видимости
     .order('id', { ascending: false });
 
   if (productsError) {
@@ -203,8 +211,10 @@ export async function generateStaticParams() {
     return [];
   }
 
-  console.log('Generated category paths:', data?.map((cat) => cat.slug));
-  return (data ?? []).map((cat) => ({
+  const paths = (data ?? []).map((cat) => ({
     category: cat.slug,
   }));
+
+  console.log('Generated category paths:', paths);
+  return paths;
 }
