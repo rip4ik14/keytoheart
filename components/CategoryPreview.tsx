@@ -2,24 +2,31 @@
 
 import Link from 'next/link';
 import ProductCard from '@components/ProductCard';
-import { Product } from '@/types/product'; // Импортируем тип Product
+import { Product } from '@/types/product';
 
 interface Props {
   categoryName: string;
   products: Product[];
   seeMoreLink: string;
+  isVisible: boolean; // Добавляем параметр isVisible
 }
 
 export default function CategoryPreview({
   categoryName,
   products,
   seeMoreLink,
+  isVisible,
 }: Props) {
+  // Если категория не видима, не отображаем её
+  if (!isVisible) {
+    return null;
+  }
+
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
     .map((product) => ({
       ...product,
-      images: product.images || [], // Гарантируем, что images всегда массив
+      images: product.images || [],
     }));
 
   return (
