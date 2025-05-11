@@ -12,6 +12,7 @@ interface Category {
   id: number;
   name: string;
   slug: string;
+  is_visible: boolean; // Добавляем поле is_visible
   subcategories: Subcategory[];
 }
 
@@ -20,6 +21,7 @@ interface Subcategory {
   name: string;
   category_id: number | null;
   slug: string;
+  is_visible: boolean; // Добавляем поле is_visible
 }
 
 const queryClient = new QueryClient();
@@ -57,7 +59,8 @@ export default function AdminCategoriesPage() {
 function CategoriesContent() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: '', slug: '' });
+  const [newCategory, setNewCategory] = useState({ name: '', slug: '', is_visible: true });
+  const [editingCategory, setEditingCategory] = useState<null | Category>(null);
   const [editingSub, setEditingSub] = useState<null | Subcategory>(null);
   const [newSubByCat, setNewSubByCat] = useState<Record<number, string>>({});
 
@@ -90,8 +93,11 @@ function CategoriesContent() {
       const { data, error } = await supabase
         .from('categories')
         .select(`
-          *,
-          subcategories!subcategories_category_id_fkey(id, name, slug, category_id)
+          id,
+          name,
+          slug,
+          is_visible,
+          subcategories!subcategories_category_id_fkey(id, name, slug, category_id, is_visible)
         `)
         .order('id', { ascending: true });
 
@@ -118,11 +124,28 @@ function CategoriesContent() {
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      setNewCategory({ name: '', slug: '' });
+      setNewCategory({ name: '', slug: '', is_visible: true });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Категория успешно добавлена');
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async (cat: Category) => {
+      if (!cat.name.trim() || !cat.slug.trim()) throw new Error('Название и slug обязательны');
+      const { error } = await supabase
+        .from('categories')
+        .update({ name: cat.name, slug: cat.slug, is_visible: cat.is_visible })
+        .eq('id', cat.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      setEditingCategory(null);
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Категория обновлена');
+    },
+    onError: (error: Error) => toast.error('Ошибка обновления категории: ' + error.message),
   });
 
   const deleteCategoryMutation = useMutation({
@@ -157,12 +180,12 @@ function CategoriesContent() {
   });
 
   const addSubcategoryMutation = useMutation({
-    mutationFn: async ({ category_id, name }: { category_id: number; name: string }) => {
+    mutationFn: async ({ category_id, name, is_visible }: { category_id: number; name: string; is_visible: boolean }) => {
       if (!name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(name);
       const { error } = await supabase
         .from('subcategories')
-        .insert({ name, category_id, slug });
+        .insert({ name, category_id, slug, is_visible });
       if (error) throw new Error(error.message);
     },
     onSuccess: (_data, variables) => {
@@ -191,7 +214,7 @@ function CategoriesContent() {
       const slug = generateSlug(sub.name);
       const { error } = await supabase
         .from('subcategories')
-        .update({ name: sub.name, slug })
+        .update({ name: sub.name, slug, is_visible: sub.is_visible })
         .eq('id', sub.id);
       if (error) throw new Error(error.message);
     },
@@ -291,23 +314,92 @@ function CategoriesContent() {
                   transition={{ duration: 0.3 }}
                   className="border border-gray-200 p-4 rounded-lg shadow-sm bg-white"
                 >
-                  <div className="flex justify-between items-center mb-3">
-                    <div>
-                      <h3 className="font-bold text-lg text-black">{cat.name}</h3>
-                      <p className="text-sm text-gray-500">/{cat.slug}</p>
+                  {editingCategory && editingCategory.id === cat.id ? (
+                    <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                      <div className="flex-1">
+                        <input
+                          value={editingCategory.name}
+                          onChange={(e) => {
+                            if (editingCategory) {
+                              setEditingCategory({ ...editingCategory, name: e.target.value });
+                            }
+                          }}
+                          className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          value={editingCategory.slug}
+                          onChange={(e) => {
+                            if (editingCategory) {
+                              setEditingCategory({ ...editingCategory, slug: e.target.value });
+                            }
+                          }}
+                          className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center text-sm">
+                          <input
+                            type="checkbox"
+                            checked={editingCategory.is_visible}
+                            onChange={(e) => {
+                              if (editingCategory) {
+                                setEditingCategory({ ...editingCategory, is_visible: e.target.checked });
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          Видима
+                        </label>
+                        <button
+                          onClick={() => {
+                            if (editingCategory) {
+                              updateCategoryMutation.mutate(editingCategory);
+                            }
+                          }}
+                          className="text-green-600 hover:underline text-sm whitespace-nowrap"
+                          disabled={updateCategoryMutation.isPending}
+                        >
+                          💾 Сохранить
+                        </button>
+                        <button
+                          onClick={() => setEditingCategory(null)}
+                          className="text-gray-500 hover:underline text-sm whitespace-nowrap"
+                        >
+                          Отмена
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (confirm('Удалить категорию и все её подкатегории?')) {
-                          deleteCategoryMutation.mutate(cat.id);
-                        }
-                      }}
-                      className="text-red-600 text-sm hover:underline"
-                      disabled={deleteCategoryMutation.isPending}
-                    >
-                      Удалить
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex justify-between items-center mb-3">
+                      <div>
+                        <h3 className={`font-bold text-lg ${cat.is_visible ? 'text-black' : 'text-gray-400'}`}>
+                          {cat.name} {cat.is_visible ? '' : '(Скрыта)'}
+                        </h3>
+                        <p className="text-sm text-gray-500">/{cat.slug}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditingCategory(cat)}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          ✏️ Редактировать
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Удалить категорию и все её подкатегории?')) {
+                              deleteCategoryMutation.mutate(cat.id);
+                            }
+                          }}
+                          className="text-red-600 text-sm hover:underline"
+                          disabled={deleteCategoryMutation.isPending}
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Подкатегории */}
                   <ul className="mt-3 space-y-2 text-sm text-gray-800">
@@ -332,6 +424,19 @@ function CategoriesContent() {
                                 }}
                                 className="border border-gray-300 px-2 py-1 rounded-md w-full text-sm focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
                               />
+                              <label className="flex items-center text-sm whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSub.is_visible}
+                                  onChange={(e) => {
+                                    if (editingSub) {
+                                      setEditingSub({ ...editingSub, is_visible: e.target.checked });
+                                    }
+                                  }}
+                                  className="mr-2"
+                                />
+                                Видима
+                              </label>
                               <button
                                 onClick={() => {
                                   if (editingSub) {
@@ -352,7 +457,9 @@ function CategoriesContent() {
                             </div>
                           ) : (
                             <>
-                              <span>{sub.name}</span>
+                              <span className={sub.is_visible ? 'text-gray-800' : 'text-gray-400'}>
+                                {sub.name} {sub.is_visible ? '' : '(Скрыта)'}
+                              </span>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setEditingSub(sub)}
@@ -400,6 +507,7 @@ function CategoriesContent() {
                         addSubcategoryMutation.mutate({
                           category_id: cat.id,
                           name: newSubByCat[cat.id] || '',
+                          is_visible: true,
                         })
                       }
                       className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-500"

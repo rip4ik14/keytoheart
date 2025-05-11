@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,7 +10,8 @@ type Category = {
   id: number;
   name: string;
   slug: string;
-  subcategories: { id: number; name: string; slug: string }[];
+  is_visible: boolean; // Оставляем boolean, но обработаем null ниже
+  subcategories: { id: number; name: string; slug: string; is_visible: boolean }[];
 };
 
 // Локальный кэш для категорий
@@ -89,21 +89,27 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           id,
           name,
           slug,
-          subcategories!subcategories_category_id_fkey(id, name, slug)
+          is_visible,
+          subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
         `)
+        .eq('is_visible', true) // Фильтруем только видимые категории
         .order('id', { ascending: true });
       console.log('Supabase query duration for categories in CategoryNav:', Date.now() - start, 'ms');
 
       if (error) throw error;
 
-      const updatedData = data.map((cat) => ({
+      const updatedData: Category[] = data.map((cat: any) => ({
         ...cat,
+        is_visible: cat.is_visible ?? true, // Преобразуем boolean | null в boolean
         slug: cat.slug || generateSlug(cat.name),
         subcategories: cat.subcategories
-          ? cat.subcategories.map((sub) => ({
-              ...sub,
-              slug: sub.slug || generateSlug(sub.name),
-            }))
+          ? cat.subcategories
+              .filter((sub: any) => sub.is_visible === true) // Фильтруем только видимые подкатегории
+              .map((sub: any) => ({
+                ...sub,
+                slug: sub.slug || generateSlug(sub.name),
+                is_visible: sub.is_visible ?? true, // Преобразуем boolean | null в boolean
+              }))
           : [],
       }));
 
@@ -121,16 +127,20 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   useEffect(() => {
     // Если начальные данные переданы, используем их
     if (initialCategories && initialCategories.length > 0) {
-      const updatedData = initialCategories.map((cat) => ({
-        ...cat,
-        slug: cat.slug || generateSlug(cat.name),
-        subcategories: cat.subcategories
-          ? cat.subcategories.map((sub) => ({
-              ...sub,
-              slug: sub.slug || generateSlug(sub.name),
-            }))
-          : [],
-      }));
+      const updatedData: Category[] = initialCategories
+        .filter((cat) => cat.is_visible) // Фильтруем только видимые категории
+        .map((cat) => ({
+          ...cat,
+          slug: cat.slug || generateSlug(cat.name),
+          subcategories: cat.subcategories
+            ? cat.subcategories
+                .filter((sub) => sub.is_visible) // Фильтруем только видимые подкатегории
+                .map((sub) => ({
+                  ...sub,
+                  slug: sub.slug || generateSlug(sub.name),
+                }))
+            : [],
+        }));
       setCategories(updatedData);
       setLoading(false);
       categoryCache = updatedData; // Сохраняем в кэш
