@@ -1,4 +1,3 @@
-// ✅ Путь: components/StickyHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -14,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Database } from '@/lib/supabase/types_new';
+import { Category } from '@/types/category'; // Импортируем тип Category
 
 // Хелпер для аналитики
 const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
@@ -28,13 +28,6 @@ interface CartItem {
   quantity: number;
   imageUrl: string;
 }
-
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  subcategories: { id: number; name: string; slug: string }[];
-};
 
 export default function StickyHeader({ initialCategories }: { initialCategories: Category[] }) {
   const pathname = usePathname() || '/';
@@ -118,7 +111,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-3 gap-4 min-w-[320px]">
           <div className="flex flex-wrap items-center gap-4 text-sm text-black">
             <BurgerMenu />
-            <span className="hidden md:inline">Краснодар</span> {/* Скрываем на маленьких экранах */}
+            <span className="hidden md:inline">Краснодар</span>
             <div className="flex flex-col leading-tight">
               <a
                 href="tel:+79886033821"
@@ -127,7 +120,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               >
                 +7 (988) 603-38-21
               </a>
-              <span className="text-xs text-gray-400 hidden sm:block">с 08:00 до 22:00</span> {/* Скрываем на мобильных */}
+              <span className="text-xs text-gray-400 hidden sm:block">с 08:00 до 22:00</span>
             </div>
             <div className="flex items-center gap-2">
               <a
@@ -165,7 +158,6 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                 />
               </a>
             </div>
-            {/* Ссылка на /policy удалена */}
           </div>
 
           <Link

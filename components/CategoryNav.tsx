@@ -5,14 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  is_visible: boolean; // Оставляем boolean, но обработаем null ниже
-  subcategories: { id: number; name: string; slug: string; is_visible: boolean }[];
-};
+import { Category } from '@/types/category'; // Импортируем тип Category
 
 // Локальный кэш для категорий
 let categoryCache: Category[] | null = null;
