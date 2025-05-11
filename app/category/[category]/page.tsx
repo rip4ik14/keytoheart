@@ -56,7 +56,6 @@ export default async function CategoryPage({
     );
   }
 
-  // Получаем ID категории
   const { data: categoryData, error: categoryError } = await supabaseAdmin
     .from('categories')
     .select('id')
@@ -74,7 +73,6 @@ export default async function CategoryPage({
 
   const categoryId = categoryData.id;
 
-  // Получаем подкатегории
   const { data: subcategoriesData, error: subcategoriesError } = await supabaseAdmin
     .from('subcategories')
     .select('id, name, slug')
@@ -87,7 +85,6 @@ export default async function CategoryPage({
 
   const subcategories: Subcategory[] = subcategoriesData ?? [];
 
-  // Получаем все товары для категории (включая подкатегории)
   const { data: productsData, error: productsError } = await supabaseAdmin
     .from('products')
     .select(`
@@ -144,7 +141,7 @@ export default async function CategoryPage({
     is_popular: product.is_popular ?? null,
     is_visible: product.is_visible ?? null,
     category_id: product.category_id ?? null,
-    subcategory_name: product.subcategories?.name ?? undefined, // Меняем null на undefined
+    subcategory_name: product.subcategories?.name ?? undefined,
   })) ?? [];
 
   return (
@@ -180,4 +177,20 @@ export default async function CategoryPage({
       />
     </main>
   );
+}
+
+export async function generateStaticParams() {
+  const { data, error } = await supabaseAdmin
+    .from('categories')
+    .select('slug')
+    .eq('is_visible', true);
+
+  if (error) {
+    console.error('Ошибка получения категорий для generateStaticParams:', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((cat) => ({
+    category: cat.slug,
+  }));
 }

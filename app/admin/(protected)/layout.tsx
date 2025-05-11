@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import Image from 'next/image';
 
 export default function AdminProtectedLayout({ children }: { children: ReactNode }) {
@@ -45,6 +45,11 @@ export default function AdminProtectedLayout({ children }: { children: ReactNode
           </form>
         </div>
         <nav className="space-y-4 text-sm">
+          <motion.div variants={itemVariants}>
+            <Link href="/admin" className="block hover:text-black transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-black" aria-label="Главная страница админ-панели">
+              🏠 Главная
+            </Link>
+          </motion.div>
           <motion.div variants={itemVariants}>
             <Link href="/admin/products" className="block hover:text-black transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-black" aria-label="Управление товарами">
               📦 Товары
@@ -130,6 +135,9 @@ export default function AdminProtectedLayout({ children }: { children: ReactNode
                 </motion.button>
               </div>
               <nav className="space-y-4 text-sm">
+                <Link href="/admin" className="block hover:text-black transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-black" aria-label="Главная страница админ-панели" onClick={toggleMobileMenu}>
+                  🏠 Главная
+                </Link>
                 <Link href="/admin/products" className="block hover:text-black transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-black" aria-label="Управление товарами" onClick={toggleMobileMenu}>
                   📦 Товары
                 </Link>
