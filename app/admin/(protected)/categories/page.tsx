@@ -12,7 +12,7 @@ interface Category {
   id: number;
   name: string;
   slug: string;
-  is_visible: boolean; // Добавляем поле is_visible
+  is_visible: boolean;
   subcategories: Subcategory[];
 }
 
@@ -21,7 +21,7 @@ interface Subcategory {
   name: string;
   category_id: number | null;
   slug: string;
-  is_visible: boolean; // Добавляем поле is_visible
+  is_visible: boolean;
 }
 
 const queryClient = new QueryClient();
@@ -126,6 +126,7 @@ function CategoriesContent() {
     onSuccess: () => {
       setNewCategory({ name: '', slug: '', is_visible: true });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Категория успешно добавлена');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -134,6 +135,7 @@ function CategoriesContent() {
   const updateCategoryMutation = useMutation({
     mutationFn: async (cat: Category) => {
       if (!cat.name.trim() || !cat.slug.trim()) throw new Error('Название и slug обязательны');
+      console.log('Updating category:', { id: cat.id, name: cat.name, slug: cat.slug, is_visible: cat.is_visible });
       const { error } = await supabase
         .from('categories')
         .update({ name: cat.name, slug: cat.slug, is_visible: cat.is_visible })
@@ -143,6 +145,7 @@ function CategoriesContent() {
     onSuccess: () => {
       setEditingCategory(null);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Категория обновлена');
     },
     onError: (error: Error) => toast.error('Ошибка обновления категории: ' + error.message),
@@ -174,6 +177,7 @@ function CategoriesContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Категория удалена');
     },
     onError: (error: Error) => toast.error('Ошибка удаления категории: ' + error.message),
@@ -183,6 +187,7 @@ function CategoriesContent() {
     mutationFn: async ({ category_id, name, is_visible }: { category_id: number; name: string; is_visible: boolean }) => {
       if (!name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(name);
+      console.log('Adding subcategory:', { category_id, name, slug, is_visible });
       const { error } = await supabase
         .from('subcategories')
         .insert({ name, category_id, slug, is_visible });
@@ -191,6 +196,7 @@ function CategoriesContent() {
     onSuccess: (_data, variables) => {
       setNewSubByCat((prev) => ({ ...prev, [variables.category_id]: '' }));
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Подкатегория добавлена');
     },
     onError: (error: Error) => toast.error('Ошибка добавления подкатегории: ' + error.message),
@@ -198,11 +204,13 @@ function CategoriesContent() {
 
   const deleteSubcategoryMutation = useMutation({
     mutationFn: async (id: number) => {
+      console.log('Deleting subcategory:', { id });
       const { error } = await supabase.from('subcategories').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Подкатегория удалена');
     },
     onError: (error: Error) => toast.error('Ошибка удаления подкатегории: ' + error.message),
@@ -212,18 +220,26 @@ function CategoriesContent() {
     mutationFn: async (sub: Subcategory) => {
       if (!sub.name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(sub.name);
+      console.log('Updating subcategory:', { id: sub.id, name: sub.name, slug, is_visible: sub.is_visible });
       const { error } = await supabase
         .from('subcategories')
         .update({ name: sub.name, slug, is_visible: sub.is_visible })
         .eq('id', sub.id);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.log('Supabase update error:', error);
+        throw new Error(error.message);
+      }
     },
     onSuccess: () => {
       setEditingSub(null);
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Подкатегория обновлена');
     },
-    onError: (error: Error) => toast.error('Ошибка обновления подкатегории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Update subcategory error:', error);
+      toast.error('Ошибка обновления подкатегории: ' + error.message);
+    },
   });
 
   if (isAuthenticated === null) {
@@ -430,7 +446,9 @@ function CategoriesContent() {
                                   checked={editingSub.is_visible}
                                   onChange={(e) => {
                                     if (editingSub) {
-                                      setEditingSub({ ...editingSub, is_visible: e.target.checked });
+                                      const newState = { ...editingSub, is_visible: e.target.checked };
+                                      console.log('Updating editingSub:', newState);
+                                      setEditingSub(newState);
                                     }
                                   }}
                                   className="mr-2"
