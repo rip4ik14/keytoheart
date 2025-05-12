@@ -43,7 +43,7 @@ const initialFormState: FormState = {
 };
 
 export default function useCheckoutForm() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0); // Обновлено: добавлен шаг 0, начальное значение 0
   const [form, setForm] = useState<FormState>(initialFormState);
   const [phoneError, setPhoneError] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
@@ -54,34 +54,8 @@ export default function useCheckoutForm() {
   const [dateError, setDateError] = useState<string>('');
   const [timeError, setTimeError] = useState<string>('');
 
-  const [smsCode, setSmsCode] = useState<string>('');
-  const [isCodeSent, setIsCodeSent] = useState<boolean>(false);
-  const [isSendingCode, setIsSendingCode] = useState<boolean>(false);
-  const [isVerifyingCode, setIsVerifyingCode] = useState<boolean>(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-
   useEffect(() => {
-    const authData = localStorage.getItem('auth');
     const savedForm = localStorage.getItem('checkoutForm');
-    if (authData) {
-      try {
-        const { phone: storedPhone, isAuthenticated: storedAuth } = JSON.parse(authData);
-        if (storedAuth && storedPhone) {
-          setIsAuthenticated(true);
-          setIsCodeSent(true);
-          const formattedPhone = phoneMask(storedPhone);
-          setForm((prev) => ({ ...prev, phone: formattedPhone }));
-          setStep(1);
-          document.cookie = `auth=${JSON.stringify({ phone: storedPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
-          console.log('Cookie set in useCheckoutForm:', document.cookie);
-        }
-      } catch (error) {
-        console.error('Ошибка парсинга auth из localStorage:', error);
-        localStorage.removeItem('auth');
-        setIsAuthenticated(false);
-        setIsCodeSent(false);
-      }
-    }
     if (savedForm) {
       try {
         const parsedForm = JSON.parse(savedForm);
@@ -139,12 +113,6 @@ export default function useCheckoutForm() {
       isValid = false;
     } else {
       setEmailError('');
-    }
-
-    // Проверяем авторизацию только по состоянию isAuthenticated
-    if (!isAuthenticated) {
-      toast.error('Пожалуйста, авторизуйтесь с помощью SMS-кода');
-      isValid = false;
     }
 
     return isValid;
@@ -255,7 +223,7 @@ export default function useCheckoutForm() {
 
     if (isValid) {
       setStep((prev) => {
-        const next = (prev + 1) as 1 | 2 | 3 | 4 | 5;
+        const next = (prev + 1) as 0 | 1 | 2 | 3 | 4 | 5;
         if (next <= 5) {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -266,11 +234,11 @@ export default function useCheckoutForm() {
 
   const prevStep = () => {
     setStep((prev) => {
-      const prevStep = (prev - 1) as 1 | 2 | 3 | 4 | 5;
-      if (prevStep >= 1) {
+      const prevStep = (prev - 1) as 0 | 1 | 2 | 3 | 4 | 5;
+      if (prevStep >= 0) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      return prevStep < 1 ? 1 : prevStep;
+      return prevStep < 0 ? 0 : prevStep;
     });
   };
 
@@ -290,12 +258,7 @@ export default function useCheckoutForm() {
     setAddressError('');
     setDateError('');
     setTimeError('');
-    setSmsCode('');
-    setIsCodeSent(false);
-    setIsSendingCode(false);
-    setIsVerifyingCode(false);
-    setIsAuthenticated(false);
-    setStep(1);
+    setStep(0); // Возвращаем на шаг авторизации
     localStorage.removeItem('checkoutForm');
   };
 
@@ -311,11 +274,6 @@ export default function useCheckoutForm() {
     addressError,
     dateError,
     timeError,
-    smsCode,
-    isCodeSent,
-    isSendingCode,
-    isVerifyingCode,
-    isAuthenticated,
     setPhoneError,
     setEmailError,
     setNameError,
@@ -324,11 +282,6 @@ export default function useCheckoutForm() {
     setAddressError,
     setDateError,
     setTimeError,
-    setSmsCode,
-    setIsCodeSent,
-    setIsSendingCode,
-    setIsVerifyingCode,
-    setIsAuthenticated,
     onFormChange,
     nextStep,
     prevStep,

@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 
 export async function POST() {
-  const response = NextResponse.json({ success: true });
-  response.cookies.delete('userPhone');
-  return response;
+  try {
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete('auth_token');
+    return response;
+  } catch (e: any) {
+    console.error('Server error:', e);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

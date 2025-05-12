@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+import jwt from 'jsonwebtoken';
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 export async function POST(request: Request) {
   try {
@@ -94,11 +96,23 @@ export async function POST(request: Request) {
 
     const bonusBalance = bonusError || !bonusData ? 0 : bonusData.bonus_balance;
 
-    return NextResponse.json({
+    // Создаём JWT-токен
+    const token = jwt.sign({ phone }, JWT_SECRET, { expiresIn: '7d' });
+
+    // Сохраняем сессию в cookie
+    const response = NextResponse.json({
       success: true,
       profile: { name: profile.name },
       bonusBalance,
     });
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60, // 7 дней
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Ошибка верификации SMS:', error);
     return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });

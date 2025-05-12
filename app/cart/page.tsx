@@ -20,6 +20,7 @@ import Step2RecipientDetails from './components/steps/Step2RecipientDetails';
 import Step3Address from './components/steps/Step3Address';
 import Step4DateTime from './components/steps/Step4DateTime';
 import Step5Payment from './components/steps/Step5Payment';
+import AuthWithCall from '@components/AuthWithCall'; // Заменено с AuthWithSms
 import useCheckoutForm from './hooks/useCheckoutForm';
 import { phoneMask } from '@utils/phoneMask';
 import debounce from 'lodash/debounce';
@@ -50,7 +51,7 @@ interface StoreSettings {
   store_hours: Record<string, DaySchedule>;
 }
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
 // Функция для преобразования Json в Record<string, DaySchedule>
 const transformSchedule = (schedule: Json): Record<string, DaySchedule> => {
@@ -99,6 +100,8 @@ export default function CartPage() {
 
   const { items, setItems, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [phone, setPhone] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number>(0);
   const [agreed, setAgreed] = useState<boolean>(false);
   const [upsellItems, setUpsellItems] = useState<UpsellItem[]>([]);
@@ -124,7 +127,6 @@ export default function CartPage() {
   const [promoDiscount, setPromoDiscount] = useState<number | null>(null);
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [showPromoField, setShowPromoField] = useState<boolean>(false);
 
   const {
@@ -139,11 +141,6 @@ export default function CartPage() {
     addressError,
     dateError,
     timeError,
-    smsCode,
-    isCodeSent,
-    isSendingCode,
-    isVerifyingCode,
-    isAuthenticated,
     setPhoneError,
     setEmailError,
     setNameError,
@@ -152,11 +149,6 @@ export default function CartPage() {
     setAddressError,
     setDateError,
     setTimeError,
-    setSmsCode,
-    setIsCodeSent,
-    setIsSendingCode,
-    setIsVerifyingCode,
-    setIsAuthenticated,
     onFormChange,
     nextStep,
     prevStep,
@@ -173,6 +165,84 @@ export default function CartPage() {
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/verify-session');
+        const result = await response.json();
+
+        if (result.success) {
+          setIsAuthenticated(true);
+          setPhone(result.phone);
+          setFormData({ phone: result.phone });
+          const { data: bonusData } = await fetch('/api/account/bonuses').then(res => res.json());
+          setBonusBalance(bonusData?.bonusBalance || 0);
+          setStep(1);
+        } else {
+          setStep(0);
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+        setStep(0);
+      }
+    };
+
+    const authCookie = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('auth='))
+      ?.split('=')[1];
+
+    if (authCookie) {
+      try {
+        const authData = JSON.parse(authCookie);
+        if (authData.phone && authData.isAuthenticated) {
+          setIsAuthenticated(true);
+          setPhone(authData.phone);
+          setFormData({ phone: authData.phone });
+          setStep(1);
+        }
+      } catch (error) {
+        console.error('Ошибка парсинга cookie auth:', error);
+      }
+    }
+
+    checkSession();
+  }, []);
+
+  const setFormData = (data: Partial<typeof form>) => {
+    onFormChange({ target: { name: 'phone', value: data.phone || form.phone } } as any);
+    onFormChange({ target: { name: 'name', value: data.name || form.name } } as any);
+    onFormChange({ target: { name: 'email', value: data.email || form.email } } as any);
+    onFormChange({ target: { name: 'whatsapp', value: data.whatsapp ?? form.whatsapp } } as any);
+  };
+
+  const handleAuthSuccess = (phone: string, profile: { name: string }, bonusBalance: number) => {
+    setIsAuthenticated(true);
+    setPhone(phone);
+    setBonusBalance(bonusBalance);
+    setFormData({
+      phone,
+      name: profile.name,
+      email: form.email,
+      whatsapp: form.whatsapp,
+    });
+    localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
+    document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    setStep(1);
+  };
+
+  const handlePhoneChange = useCallback(
+    (value: string) => {
+      const cleanValue = value.replace(/\D/g, '');
+      const formattedPhone = phoneMask(cleanValue);
+      onFormChange({
+        target: { name: 'phone', value: formattedPhone },
+      } as React.ChangeEvent<HTMLInputElement>);
+      setPhoneError('');
+    },
+    [onFormChange, setPhoneError]
   );
 
   const deliveryCost = useMemo(
@@ -412,154 +482,6 @@ export default function CartPage() {
     fetchUpsellItems();
   }, []);
 
-  const handlePhoneChange = useCallback(
-    (value: string) => {
-      const cleanValue = value.replace(/\D/g, '');
-      const formattedPhone = phoneMask(cleanValue);
-      onFormChange({
-        target: { name: 'phone', value: formattedPhone },
-      } as React.ChangeEvent<HTMLInputElement>);
-      setPhoneError('');
-      setIsCodeSent(false);
-      setSmsCode('');
-      setBonusBalance(0);
-    },
-    [onFormChange, setPhoneError, setIsCodeSent, setSmsCode]
-  );
-
-  const sendSmsCode = useCallback(async () => {
-    const cleanPhone = form.phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
-      setPhoneError('Введите корректный номер телефона (10 цифр)');
-      return;
-    }
-    setPhoneError('');
-    setIsSendingCode(true);
-    try {
-      const res = await fetch('/api/auth/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${cleanPhone}` }),
-      });
-      const result = await res.json();
-      console.log('Ответ от API:', result);
-      if (result.success) {
-        console.log('Установка isCodeSent в true');
-        setIsCodeSent(true);
-        toast.success('Код отправлен на ваш номер!');
-        window.gtag?.('event', 'send_sms_code', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'send_sms_code');
-      } else {
-        console.error('Ошибка отправки SMS:', result.error);
-        setPhoneError(result.error || 'Не удалось отправить SMS-код.');
-        toast.error(result.error || 'Не удалось отправить SMS-код.');
-      }
-    } catch (error) {
-      console.error('Ошибка при вызове API:', error);
-      setPhoneError('Не удалось отправить SMS-код.');
-      toast.error('Не удалось отправить SMS-код.');
-    } finally {
-      console.log('Завершение отправки SMS, isSendingCode: false');
-      setIsSendingCode(false);
-      setTimeout(() => {
-        console.log('Текущее состояние после отправки SMS:', { isCodeSent, isAuthenticated, isSendingCode });
-      }, 0);
-    }
-  }, [form.phone, setPhoneError, setIsSendingCode, setIsCodeSent]);
-
-  const resendSmsCode = useCallback(async () => {
-    if (resendCooldown > 0) return;
-
-    const cleanPhone = form.phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
-      setPhoneError('Введите корректный номер телефона (10 цифр)');
-      return;
-    }
-
-    setIsSendingCode(true);
-    setResendCooldown(90);
-    try {
-      const res = await fetch('/api/auth/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${cleanPhone}` }),
-      });
-      const result = await res.json();
-      console.log('Ответ от /api/auth/send-sms (resend):', result);
-      if (result.success) {
-        console.log('Установка isCodeSent в true (resend)');
-        setIsCodeSent(true);
-        toast.success('Код отправлен повторно!');
-        window.gtag?.('event', 'resend_sms_code', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'resend_sms_code');
-      } else {
-        console.error('Ошибка повторной отправки SMS:', result.error);
-        setPhoneError(result.error || 'Не удалось отправить SMS-код.');
-        toast.error(result.error || 'Не удалось отправить SMS-код.');
-      }
-    } catch (error) {
-      console.error('Ошибка при повторном вызове API:', error);
-      setPhoneError('Не удалось отправить SMS-код.');
-      toast.error('Не удалось отправить SMS-код.');
-    } finally {
-      console.log('Завершение повторной отправки SMS, isSendingCode: false');
-      setIsSendingCode(false);
-      setTimeout(() => {
-        console.log('Текущее состояние после повторной отправки SMS:', { isCodeSent, isAuthenticated, isSendingCode });
-      }, 0);
-    }
-  }, [form.phone, resendCooldown, setPhoneError, setIsSendingCode, setIsCodeSent]);
-
-  const verifySmsCode = useCallback(async () => {
-    if (!smsCode.trim()) {
-      toast.error('Введите код из SMS');
-      return;
-    }
-    setIsVerifyingCode(true);
-    try {
-      const fullPhone = `+7${form.phone.replace(/\D/g, '')}`;
-      console.log('Отправка в verify-sms:', { phone: fullPhone, code: smsCode });
-      const res = await fetch('/api/auth/verify-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fullPhone, code: smsCode }),
-      });
-      const result = await res.json();
-      console.log('Ответ от /api/auth/verify-sms:', result);
-      if (result.success) {
-        setIsAuthenticated(true);
-        setBonusBalance(result.bonusBalance || 0);
-        localStorage.setItem('auth', JSON.stringify({ phone: fullPhone, isAuthenticated: true }));
-        document.cookie = `auth=${JSON.stringify({ phone: fullPhone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
-        console.log('Cookie set after verify in CartPage:', document.cookie);
-        setStep(1);
-        toast.success('Авторизация успешна!');
-        window.gtag?.('event', 'verify_sms_code', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'verify_sms_code');
-      } else {
-        console.error('Ошибка верификации SMS:', result.error);
-        toast.error(result.error || 'Неверный код. Попробуйте снова.');
-      }
-    } catch (error) {
-      console.error('Ошибка при верификации SMS:', error);
-      toast.error('Ошибка проверки кода.');
-    } finally {
-      console.log('Завершение верификации SMS, isVerifyingCode: false');
-      setIsVerifyingCode(false);
-      console.log('Текущее состояние:', { isCodeSent, isAuthenticated, isVerifyingCode });
-    }
-  }, [smsCode, form.phone, setIsVerifyingCode, setIsAuthenticated, setBonusBalance, setStep]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (resendCooldown > 0) {
-      timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
-
   const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
@@ -654,7 +576,7 @@ export default function CartPage() {
     setIsSubmittingOrder(true);
     try {
       const payload = {
-        phone: `+7${form.phone.replace(/\D/g, '')}`,
+        phone: phone || `+7${form.phone.replace(/\D/g, '')}`,
         name: form.name,
         recipient: form.recipient,
         address:
@@ -703,9 +625,7 @@ export default function CartPage() {
         } else if (res.status === 401) {
           setErrorModal('Не авторизован. Пожалуйста, войдите снова.');
           setIsAuthenticated(false);
-          setIsCodeSent(false);
-          setSmsCode('');
-          setStep(1);
+          setStep(0);
         } else {
           setErrorModal(json.error || 'Ошибка оформления заказа.');
         }
@@ -767,9 +687,8 @@ export default function CartPage() {
     setPromoType,
     setPromoId,
     setIsAuthenticated,
-    setIsCodeSent,
-    setSmsCode,
     setStep,
+    phone,
   ]);
 
   const containerVariants = {
@@ -810,7 +729,7 @@ export default function CartPage() {
         initial="hidden"
         animate="visible"
       >
-        {[1, 2, 3, 4, 5].map((s) => (
+        {[0, 1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
               className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${
@@ -850,6 +769,11 @@ export default function CartPage() {
             exit="exit"
             className="space-y-6 md:col-span-2"
           >
+            {step === 0 && (
+              <OrderStep step={0} currentStep={step} title="Авторизация">
+                <AuthWithCall onAuthSuccess={handleAuthSuccess} />
+              </OrderStep>
+            )}
             {step === 1 && (
               <OrderStep step={1} currentStep={step} title="Ваши контакты" onNext={nextStep}>
                 <Step1ContactDetails
@@ -857,92 +781,79 @@ export default function CartPage() {
                   phoneError={phoneError}
                   emailError={emailError}
                   nameError={nameError}
-                  smsCode={smsCode}
-                  isCodeSent={isCodeSent}
-                  isSendingCode={isSendingCode}
-                  isVerifyingCode={isVerifyingCode}
-                  isAuthenticated={isAuthenticated}
-                  resendCooldown={resendCooldown}
-                  resendSmsCode={resendSmsCode}
-                  setIsCodeSent={setIsCodeSent}
                   onFormChange={onFormChange}
                   handlePhoneChange={handlePhoneChange}
-                  sendSmsCode={sendSmsCode}
-                  verifySmsCode={verifySmsCode}
-                  setSmsCode={setSmsCode}
                 />
-                {isAuthenticated && (
-                  <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>
-                    {isUpsellLoading ? (
-                      <motion.div
-                        className="flex justify-center py-4 w-full"
-                        variants={containerVariants}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>
+                  {isUpsellLoading ? (
+                    <motion.div
+                      className="flex justify-center py-4 w-full"
+                      variants={containerVariants}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      <Image
+                        src="/icons/spinner.svg"
+                        alt="Иконка загрузки"
+                        width={24}
+                        height={24}
+                        loading="lazy"
+                        className="animate-spin"
+                      />
+                    </motion.div>
+                  ) : (
+                    <>
+                      <motion.button
+                        type="button"
+                        onClick={() => {
+                          setShowPostcard(true);
+                          window.gtag?.('event', 'open_postcard_modal', {
+                            event_category: 'cart',
+                          });
+                          window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        aria-label="Добавить открытку"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
                         <Image
-                          src="/icons/spinner.svg"
-                          alt="Иконка загрузки"
-                          width={24}
-                          height={24}
+                          src="/icons/gift.svg"
+                          alt="Иконка подарка"
+                          width={16}
+                          height={16}
                           loading="lazy"
-                          className="animate-spin"
+                          className="text-gray-600"
                         />
-                      </motion.div>
-                    ) : (
-                      <>
-                        <motion.button
-                          type="button"
-                          onClick={() => {
-                            setShowPostcard(true);
-                            window.gtag?.('event', 'open_postcard_modal', {
-                              event_category: 'cart',
-                            });
-                            window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
-                          }}
-                          className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                          aria-label="Добавить открытку"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <Image
-                            src="/icons/gift.svg"
-                            alt="Иконка подарка"
-                            width={16}
-                            height={16}
-                            loading="lazy"
-                            className="text-gray-600"
-                          />
-                          <span>Добавить открытку</span>
-                        </motion.button>
-                        <motion.button
-                          type="button"
-                          onClick={() => {
-                            setShowBalloons(true);
-                            window.gtag?.('event', 'open_balloons_modal', {
-                              event_category: 'cart',
-                            });
-                            window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
-                          }}
-                          className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                          aria-label="Добавить шары"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <Image
-                            src="/icons/gift.svg"
-                            alt="Иконка подарка"
-                            width={16}
-                            height={16}
-                            loading="lazy"
-                            className="text-gray-600"
-                          />
-                          <span>Добавить шары</span>
-                        </motion.button>
-                      </>
-                    )}
-                  </motion.div>
-                )}
+                        <span>Добавить открытку</span>
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        onClick={() => {
+                          setShowBalloons(true);
+                          window.gtag?.('event', 'open_balloons_modal', {
+                            event_category: 'cart',
+                          });
+                          window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        aria-label="Добавить шары"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Image
+                          src="/icons/gift.svg"
+                          alt="Иконка подарка"
+                          width={16}
+                          height={16}
+                          loading="lazy"
+                          className="text-gray-600"
+                        />
+                        <span>Добавить шары</span>
+                      </motion.button>
+                    </>
+                  )}
+                </motion.div>
               </OrderStep>
             )}
             {step === 2 && (
@@ -1090,7 +1001,7 @@ export default function CartPage() {
         </div>
       </motion.div>
 
-      {(items.length > 0 || selectedUpsells.length > 0) && step === 1 && form.phone && isAuthenticated && (
+      {(items.length > 0 || selectedUpsells.length > 0) && step >= 1 && (
         <motion.div
           className="fixed bottom-0 left-0 right-0 z-40 block md:hidden bg-white/90 backdrop-blur px-4 py-3 border-t shadow-md"
           initial={{ y: 50, opacity: 0 }}
