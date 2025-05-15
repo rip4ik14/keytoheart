@@ -70,15 +70,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsCheckingStatus(true);
     try {
       const clearPhone = phone.replace(/\D/g, '');
+      const formattedPhone = '+7' + clearPhone; // Форматируем номер с +7
       console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
-      const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
+      const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(formattedPhone)}`);
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Check call status response:`, data);
 
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
-        onSuccess(clearPhone);
+        onSuccess(formattedPhone); // Передаём номер с +7
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
         console.log('Call status expired, switching to SMS');
@@ -276,22 +277,24 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
       {step === 'sms' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <label className="block text-black mb-1 text-sm">
-            Введите 4-значный код из SMS
-          </label>
-          <input
-            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
-            inputMode="numeric"
-            maxLength={4}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-            autoFocus
-            disabled={isLoading}
-          />
+          <label className="text-black block mb-1 text-sm">Ваш номер телефона:</label>
+          <div className="flex gap-2 items-center">
+            <span className="pt-2 text-gray-600">+7</span>
+            <div className="relative flex-1">
+              <input
+                value={phone}
+                onChange={(e) => handlePhoneInput(e.target.value)}
+                placeholder="(xxx) xxx-xx-xx"
+                className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2"
+                disabled={isLoading}
+                autoFocus
+              />
+            </div>
+          </div>
           <button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
             onClick={handleSendSms}
-            disabled={isLoading || phone.length !== 4}
+            disabled={isLoading || phone.replace(/\D/g, '').length !== 10}
           >
             {isLoading ? 'Проверка...' : 'Войти'}
           </button>

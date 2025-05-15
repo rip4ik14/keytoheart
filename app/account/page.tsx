@@ -91,8 +91,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
             try {
               const parsedAuth = JSON.parse(authData);
               if (parsedAuth.phone && parsedAuth.isAuthenticated) {
+                // Исправляем формат номера, если он неправильный
+                let formattedPhone = parsedAuth.phone;
+                if (!formattedPhone.startsWith('+7')) {
+                  const cleanPhone = formattedPhone.replace(/\D/g, '');
+                  formattedPhone = '+7' + cleanPhone;
+                  // Обновляем localStorage
+                  localStorage.setItem('auth', JSON.stringify({ phone: formattedPhone, isAuthenticated: true }));
+                }
                 setIsAuthenticated(true);
-                setPhone(parsedAuth.phone);
+                setPhone(formattedPhone);
                 setOrders(initialOrders || []);
                 setBonusData(initialBonusData);
               } else {
@@ -135,7 +143,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       const bonusesRes = await supabase
         .from('bonuses')
         .select('id, bonus_balance, level')
-        .eq('phone', phone)
+        .eq('phone', phone) // phone уже в формате +79180300643
         .single();
 
       let bonusesData: BonusesData;
