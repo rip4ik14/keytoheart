@@ -27,6 +27,14 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   output: 'standalone',
+  async rewrites() {
+    return [
+      {
+        source: '/icons/:path*',
+        destination: '/icons/:path*', // Ensure requests to /icons/ are not rewritten by Next.js
+      },
+    ];
+  },
   async headers() {
     return [
       {

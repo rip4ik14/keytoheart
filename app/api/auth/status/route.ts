@@ -122,30 +122,39 @@ export async function GET(request: Request) {
         }
       }
 
-      // Создаём сессию для пользователя
-      console.log(`[${new Date().toISOString()}] Signing in user with OTP for phone: ${phone}`);
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        phone: phone,
-        options: {
-          shouldCreateUser: false, // Пользователь уже создан
-        },
-      });
+      // Создаём сессионный токен для пользователя
+      console.log(`[${new Date().toISOString()}] Generating session token for user: ${user.id}`);
+      const { data: sessionData, error: sessionError } = await supabase.auth.admin.inviteUserByEmail(
+        `${phone.replace(/\D/g, '')}@temp.example.com`,
+        {
+          redirectTo: 'https://keytoheart.ru',
+        }
+      );
 
-      if (otpError) {
-        console.error('Error signing in with OTP:', otpError);
-        return NextResponse.json({ success: false, error: 'Ошибка авторизации через SMS' }, { status: 500 });
-      }
-
-      // Получаем сессию пользователя
-      console.log(`[${new Date().toISOString()}] Fetching session for user: ${user.id}`);
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !sessionData.session) {
-        console.error('Error fetching session:', sessionError);
+      if (sessionError || !sessionData) {
+        console.error('Error generating session token:', sessionError);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      const token = sessionData.session.access_token;
+      // Получаем сессионный токен
+      const { data: session, error: sessionFetchError } = await supabase.auth.admin.getUserById(user.id);
+      if (sessionFetchError || !session.user) {
+        console.error('Error fetching user session:', sessionFetchError);
+        return NextResponse.json({ success: false, error: 'Ошибка получения сессии' }, { status: 500 });
+      }
+
+      // Создаём сессию вручную
+      const { data: tokenData, error: tokenError } = await supabase.auth.setSession({
+        access_token: user.id, // Используем user.id как временный токен (можно заменить на JWT, если нужно)
+        refresh_token: '',
+      });
+
+      if (tokenError || !tokenData.session) {
+        console.error('Error setting session:', tokenError);
+        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
+      }
+
+      const token = tokenData.session.access_token;
 
       // Устанавливаем сессионный токен в куки
       const response = NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
