@@ -1,9 +1,10 @@
+// ✅ Исправленный: app/components/AuthWithCall.tsx
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const WHATSAPP_LINK = 'https://wa.me/79886033821'; // Ваш номер WhatsApp
+const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
 type Props = {
   onSuccess: (phone: string) => void;
@@ -24,12 +25,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Обработка ввода номера телефона
   const handlePhoneInput = (value: string) => {
     setPhone(value);
   };
 
-  // Таймер для блокировки
   const startBanTimer = () => {
     setBanTimer(600); // 10 минут
     if (timerRef.current) clearInterval(timerRef.current);
@@ -46,7 +45,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Таймер для звонка (5 минут)
   const startCallTimer = () => {
     setCallTimer(300); // 5 минут
     if (callTimerRef.current) clearInterval(callTimerRef.current);
@@ -63,15 +61,14 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Проверка статуса звонка
   const checkCallStatus = async () => {
     if (!checkId || !phone) return;
 
     setIsCheckingStatus(true);
     try {
-      const clearPhone = phone.replace(/\D/g, '');
-      const formattedPhone = '+7' + clearPhone; // Форматируем номер с +7
-      console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
+      const cleanPhone = phone.replace(/\D/g, '');
+      const formattedPhone = '+7' + cleanPhone;
+      console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${cleanPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(formattedPhone)}`);
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Check call status response:`, data);
@@ -79,7 +76,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
-        onSuccess(formattedPhone); // Передаём номер с +7
+        onSuccess(formattedPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
         console.log('Call status expired, switching to SMS');
@@ -89,6 +86,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
       } else if (data.error) {
         console.log('Error in call status:', data.error);
         setError(data.error);
+      } else {
+        console.log('Call status still pending:', data.status);
       }
     } catch (err) {
       console.error('Ошибка проверки статуса звонка:', err);
@@ -98,13 +97,12 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   };
 
-  // Запуск периодической проверки статуса звонка
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
       const initialDelay = setTimeout(() => {
         checkCallStatus();
         statusCheckRef.current = setInterval(checkCallStatus, 3000);
-      }, 15000); // Задержка 15 секунд
+      }, 15000);
 
       return () => {
         clearTimeout(initialDelay);
@@ -113,7 +111,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   }, [step, checkId, phone]);
 
-  // Очистка таймеров при размонтировании
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -122,7 +119,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     };
   }, []);
 
-  // Отправка запроса на звонок
   const handleSendCall = async () => {
     setError('');
     setIsLoading(true);
@@ -130,11 +126,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setCallPhonePretty(null);
     setCallPhoneRaw(null);
 
-    // Очищаем номер от нецифровых символов
     const cleanPhone = phone.replace(/\D/g, '');
     console.log(`Cleaned phone for sending: ${cleanPhone}`);
 
-    // Убедимся, что номер начинается с +7
     let formattedPhone = cleanPhone;
     if (!cleanPhone.startsWith('7')) {
       formattedPhone = '7' + cleanPhone;
@@ -171,7 +165,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsLoading(false);
   };
 
-  // Отправка SMS
   const handleSendSms = async () => {
     setError('');
     setIsLoading(true);
