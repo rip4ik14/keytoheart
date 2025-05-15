@@ -31,7 +31,7 @@ const nextConfig = {
     return [
       {
         source: '/icons/:path*',
-        destination: '/icons/:path*', // Ensure requests to /icons/ are not rewritten by Next.js
+        destination: '/icons/:path*', // Пропускаем запросы к /icons/ через nginx
       },
     ];
   },
