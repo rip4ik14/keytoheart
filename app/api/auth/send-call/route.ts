@@ -1,3 +1,4 @@
+// ✅ Исправленный: app/api/auth/send-call/route.ts (без ограничения на попытки)
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -38,7 +39,8 @@ export async function POST(request: Request) {
     const formattedPhone = cleanPhone;
     console.log(`Formatted phone for Supabase query: ${formattedPhone}`);
 
-    // Проверяем попытки авторизации (упрощённый запрос)
+    // Временно убираем проверку количества попыток
+    /*
     let recentAttemptsCount = 0;
     try {
       console.log(`Querying auth_logs with phone: ${formattedPhone}`);
@@ -51,15 +53,13 @@ export async function POST(request: Request) {
       if (attemptsError) {
         console.error('Error checking auth_logs:', attemptsError.message, attemptsError.details);
         console.error('Full error object:', JSON.stringify(attemptsError, null, 2));
-        // Продолжаем выполнение
       } else {
-        // Фильтруем записи за последние 24 часа вручную
         const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
         recentAttemptsCount = recentAttempts
           ? recentAttempts.filter((attempt) => {
               if (!attempt.created_at) {
                 console.warn(`Found record with null created_at for phone: ${formattedPhone}`);
-                return false; // Пропускаем записи с null created_at
+                return false;
               }
               return new Date(attempt.created_at) >= cutoffDate;
             }).length
@@ -73,13 +73,13 @@ export async function POST(request: Request) {
       }
     } catch (error: any) {
       console.error('Unexpected error while checking auth_logs:', error.message, error.stack);
-      // Продолжаем выполнение
     }
+    */
 
     // Отправляем запрос на звонок через SMS.ru (используем /callcheck/add)
     const url = `https://sms.ru/callcheck/add?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}&json=1`;
     console.log(`Sending request to SMS.ru: ${url}`);
-    
+
     let apiJson;
     try {
       const controller = new AbortController();
@@ -90,17 +90,15 @@ export async function POST(request: Request) {
       });
       clearTimeout(timeoutId);
 
-      const responseText = await apiRes.text(); // Получаем текст ответа
+      const responseText = await apiRes.text();
       console.log('SMS.ru raw response:', responseText);
 
-      // Проверяем статус ответа
       if (!apiRes.ok) {
         console.error(`SMS.ru returned non-OK status: ${apiRes.status} ${apiRes.statusText}`);
         console.error('Raw response:', responseText);
         return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
       }
 
-      // Парсим JSON-ответ
       try {
         apiJson = JSON.parse(responseText);
       } catch (parseError: any) {

@@ -29,6 +29,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setPhone(value);
   };
 
+  // Временно убираем таймер бана
+  /*
   const startBanTimer = () => {
     setBanTimer(600); // 10 минут
     if (timerRef.current) clearInterval(timerRef.current);
@@ -38,12 +40,32 @@ export default function AuthWithCall({ onSuccess }: Props) {
           clearInterval(timerRef.current!);
           setStep('phone');
           setError('');
+          resetAttempts();
           return 0;
         }
         return t - 1;
       });
     }, 1000);
   };
+
+  const resetAttempts = async () => {
+    try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      const formattedPhone = '+7' + cleanPhone;
+      const res = await fetch('/api/auth/reset-attempts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhone }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        console.error('Failed to reset attempts:', data.error);
+      }
+    } catch (err) {
+      console.error('Error resetting attempts:', err);
+    }
+  };
+  */
 
   const startCallTimer = () => {
     setCallTimer(300); // 5 минут
@@ -146,12 +168,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Send call response:`, data);
       if (!data.success) {
+        // Временно убираем переход в состояние ban
+        /*
         if (res.status === 429) {
           setStep('ban');
           startBanTimer();
         } else {
           setError(data.error || 'Не удалось инициировать звонок.');
         }
+        */
+        setError(data.error || 'Не удалось инициировать звонок.');
       } else {
         setCheckId(data.check_id);
         setCallPhonePretty(data.call_phone_pretty);
@@ -186,12 +212,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (data.success) {
         setStep('sms');
       } else {
+        // Временно убираем переход в состояние ban
+        /*
         if (res.status === 429) {
           setStep('ban');
           startBanTimer();
         } else {
           setError(data.error || 'Не удалось отправить SMS.');
         }
+        */
+        setError(data.error || 'Не удалось отправить SMS.');
       }
     } catch {
       setError('Ошибка сети. Попробуйте ещё раз.');
