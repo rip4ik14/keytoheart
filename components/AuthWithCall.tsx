@@ -1,86 +1,134 @@
-"use client";
+'use client';
 
-import React, { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
-const WHATSAPP_LINK = "https://wa.me/79886033821"; // укажи нужный номер!
+const WHATSAPP_LINK = 'https://wa.me/79886033821'; // Ваш номер WhatsApp
 
 type Props = {
-  onSuccess: (phone: string) => void; // callback после успешной авторизации
+  onSuccess: (phone: string) => void;
 };
 
 export default function AuthWithCall({ onSuccess }: Props) {
-  const [step, setStep] = useState<"phone" | "code" | "sms" | "success" | "ban">("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<'phone' | 'call' | 'sms' | 'success' | 'ban'>('phone');
+  const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
+  const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
+  const [callTimer, setCallTimer] = useState(300); // 5 минут (300 секунд) для звонка
   const [isLoading, setIsLoading] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Маска телефона
+  // Форматирование номера телефона
   const formatPhone = (value: string) => {
-    let cleaned = value.replace(/\D/g, "");
-    if (cleaned.startsWith("8")) cleaned = "7" + cleaned.slice(1);
-    if (!cleaned.startsWith("7")) cleaned = "7" + cleaned;
+    let cleaned = value.replace(/\D/g, '');
+    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
     return (
-      "+7 " +
-      (cleaned.slice(1, 4) || "") +
-      (cleaned.length > 1 ? " " : "") +
-      (cleaned.slice(4, 7) || "") +
-      (cleaned.length > 4 ? "-" : "") +
-      (cleaned.slice(7, 9) || "") +
-      (cleaned.length > 7 ? "-" : "") +
-      (cleaned.slice(9, 11) || "")
-    ).replace(/ $/, "");
+      '+7 ' +
+      (cleaned.slice(1, 4) || '') +
+      (cleaned.length > 1 ? ' ' : '') +
+      (cleaned.slice(4, 7) || '') +
+      (cleaned.length > 4 ? '-' : '') +
+      (cleaned.slice(7, 9) || '') +
+      (cleaned.length > 7 ? '-' : '') +
+      (cleaned.slice(9, 11) || '')
+    ).replace(/ $/, '');
   };
 
-  // Ограничить ввод только цифрами
+  // Обработка ввода номера телефона
   const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.replace(/\D/g, "");
+    const v = e.target.value.replace(/\D/g, '');
     if (v.length <= 11) setPhone(formatPhone(v));
   };
 
-  // Отправить запрос на звонок
+  // Таймер для блокировки
+  const startBanTimer = () => {
+    setBanTimer(600); // 10 минут
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setBanTimer((t) => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!);
+          setStep('phone');
+          setAttempts(0);
+          setError('');
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  };
+
+  // Таймер для звонка
+  const startCallTimer = () => {
+    setCallTimer(300); // 5 минут
+    if (callTimerRef.current) clearInterval(callTimerRef.current);
+    callTimerRef.current = setInterval(() => {
+      setCallTimer((t) => {
+        if (t <= 1) {
+          clearInterval(callTimerRef.current!);
+          setStep('sms');
+          setError('Время для звонка истекло. Получите код по SMS.');
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  };
+
+  // Очистка таймеров при размонтировании
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    };
+  }, []);
+
+  // Отправка запроса на звонок
   const handleSendCall = async () => {
-    setError("");
+    setError('');
     setIsLoading(true);
-    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
-      const res = await fetch("/api/auth/send-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/send-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
       if (!data.success) {
         if (res.status === 429) {
-          setStep("ban");
+          setStep('ban');
           startBanTimer();
         } else {
-          setError(data.error || "Не удалось отправить звонок.");
+          setError(data.error || 'Не удалось инициировать звонок.');
         }
       } else {
         setCheckId(data.check_id);
-        setStep("code");
+        setCallPhonePretty(data.call_phone_pretty);
+        setStep('call');
+        startCallTimer();
       }
     } catch {
-      setError("Ошибка сети. Попробуйте ещё раз.");
+      setError('Ошибка сети. Попробуйте ещё раз.');
     }
     setIsLoading(false);
   };
 
-  // Проверить код из звонка
+  // Проверка кода из звонка
   const handleVerifyCall = async () => {
-    setError("");
+    setError('');
     setIsLoading(true);
-    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
-      const res = await fetch("/api/auth/verify-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/verify-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: clearPhone,
           check_id: checkId,
@@ -89,100 +137,84 @@ export default function AuthWithCall({ onSuccess }: Props) {
       });
       const data = await res.json();
       if (data.success) {
-        setStep("success");
+        setStep('success');
         onSuccess(clearPhone);
       } else {
         setAttempts((a) => a + 1);
-        if (res.status === 429) {
-          setStep("ban");
+        if (attempts >= 2) {
+          setStep('sms');
+          setError('Слишком много попыток. Получите код по SMS.');
+        } else if (res.status === 429) {
+          setStep('ban');
           startBanTimer();
         } else {
-          setError(data.error || "Неверный код.");
+          setError(data.error || 'Неверный код.');
         }
       }
     } catch {
-      setError("Ошибка сети.");
+      setError('Ошибка сети.');
     }
     setIsLoading(false);
   };
 
-  // Fallback: отправить СМС
+  // Отправка SMS
   const handleSendSms = async () => {
-    setError("");
+    setError('');
     setIsLoading(true);
-    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
-      const res = await fetch("/api/auth/send-sms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
       if (data.success) {
-        setStep("sms");
+        setStep('sms');
       } else {
         if (res.status === 429) {
-          setStep("ban");
+          setStep('ban');
           startBanTimer();
         } else {
-          setError(data.error || "Не удалось отправить смс.");
+          setError(data.error || 'Не удалось отправить SMS.');
         }
       }
     } catch {
-      setError("Ошибка сети. Попробуйте ещё раз.");
+      setError('Ошибка сети. Попробуйте ещё раз.');
     }
     setIsLoading(false);
   };
 
-  // Проверить код из смс
+  // Проверка SMS-кода
   const handleVerifySms = async () => {
-    setError("");
+    setError('');
     setIsLoading(true);
-    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
-      const res = await fetch("/api/auth/verify-sms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/auth/verify-sms', {
+       method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: clearPhone, code }),
       });
       const data = await res.json();
       if (data.success) {
-        setStep("success");
+        setStep('success');
         onSuccess(clearPhone);
       } else {
         setAttempts((a) => a + 1);
         if (res.status === 429) {
-          setStep("ban");
+          setStep('ban');
           startBanTimer();
         } else {
-          setError(data.error || "Неверный код.");
+          setError(data.error || 'Неверный код.');
         }
       }
     } catch {
-      setError("Ошибка сети.");
+      setError('Ошибка сети.');
     }
     setIsLoading(false);
   };
 
-  // Таймер для блокировки на 10 минут
-  const startBanTimer = () => {
-    setBanTimer(600); // 10 минут
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setBanTimer((t) => {
-        if (t <= 1) {
-          clearInterval(timerRef.current!);
-          setStep("phone");
-          setAttempts(0);
-          setError("");
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
-  };
-
-  // UI
   return (
     <div className="w-full max-w-xs mx-auto p-6 bg-white rounded-2xl shadow-xl flex flex-col gap-5 border border-black">
       <motion.h2
@@ -193,7 +225,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         Вход по телефону
       </motion.h2>
 
-      {step === "phone" && (
+      {step === 'phone' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <label className="text-black block mb-1 text-sm">Ваш номер телефона:</label>
           <input
@@ -209,9 +241,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
           <button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
             onClick={handleSendCall}
-            disabled={isLoading || phone.replace(/\D/g, "").length !== 11}
+            disabled={isLoading || phone.replace(/\D/g, '').length !== 11}
           >
-            {isLoading ? "Отправка..." : "Получить код по звонку"}
+            {isLoading ? 'Отправка...' : 'Получить код по звонку'}
           </button>
           <p className="text-xs mt-2 text-gray-500 text-center">
             Мы позвоним на номер, последние 4 цифры номера звонящего — это ваш код.
@@ -220,47 +252,76 @@ export default function AuthWithCall({ onSuccess }: Props) {
         </motion.div>
       )}
 
-      {(step === "code" || step === "sms") && (
+      {step === 'call' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <label className="block text-black mb-1 text-sm">
-            Введите 4-значный код
+            Позвоните на номер {callPhonePretty}
+          </label>
+          <p className="text-sm text-gray-500 mb-4">
+            Введите последние 4 цифры номера, с которого поступил звонок:
+          </p>
+          <input
+            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
+            inputMode="numeric"
+            maxLength={4}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            autoFocus
+            disabled={isLoading}
+          />
+          <button
+            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
+            onClick={handleVerifyCall}
+            disabled={isLoading || code.length !== 4}
+          >
+            {isLoading ? 'Проверка...' : 'Войти'}
+          </button>
+          <button
+            className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
+            onClick={handleSendSms}
+            disabled={isLoading}
+          >
+            Получить код по SMS
+          </button>
+          <p className="text-xs mt-2 text-gray-500 text-center">
+            Время на звонок: {Math.floor(callTimer / 60)}:{('0' + (callTimer % 60)).slice(-2)}
+          </p>
+          {error && <div className="mt-2 text-center text-red-600">{error}</div>}
+        </motion.div>
+      )}
+
+      {step === 'sms' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <label className="block text-black mb-1 text-sm">
+            Введите 4-значный код из SMS
           </label>
           <input
             className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
             inputMode="numeric"
             maxLength={4}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             autoFocus
             disabled={isLoading}
           />
           <button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
-            onClick={step === "code" ? handleVerifyCall : handleVerifySms}
+            onClick={handleVerifySms}
             disabled={isLoading || code.length !== 4}
           >
-            {isLoading ? "Проверка..." : "Войти"}
+            {isLoading ? 'Проверка...' : 'Войти'}
           </button>
-          {step === "code" && (
-            <button
-              className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
-              onClick={handleSendSms}
-              disabled={isLoading}
-            >
-              Получить код по СМС
-            </button>
-          )}
           {error && <div className="mt-2 text-center text-red-600">{error}</div>}
         </motion.div>
       )}
 
-      {step === "ban" && (
+      {step === 'ban' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="text-center text-red-700 font-bold mb-2">
             Превышено число попыток
           </div>
           <div className="text-center mb-2">
-            Повторная авторизация будет доступна через {Math.floor(banTimer / 60)}:{("0" + (banTimer % 60)).slice(-2)}
+            Повторная авторизация будет доступна через {Math.floor(banTimer / 60)}:{('0' + (banTimer % 60)).slice(-2)}
           </div>
           <a
             href={WHATSAPP_LINK}
@@ -273,7 +334,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         </motion.div>
       )}
 
-      {step === "success" && (
+      {step === 'success' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="text-center text-green-700 font-bold">Авторизация успешна!</div>
         </motion.div>

@@ -9,7 +9,6 @@ const supabase = createClient<Database>(
 );
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-// POST { phone, code }
 export async function POST(request: Request) {
   try {
     const { phone, code } = await request.json();
@@ -18,16 +17,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Данные не заполнены' }, { status: 400 });
     }
 
-    // Только российские номера (+7)
     if (!phone.startsWith('+7')) {
       return NextResponse.json({ success: false, error: 'Доступно только для российских номеров' }, { status: 400 });
     }
 
-    // Проверяем код в Supabase
+    // Проверка кода в Supabase
     const { data, error } = await supabase
       .from('sms_codes')
       .select('*')
       .eq('phone', phone)
+      .eq('used', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -36,11 +35,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Код не найден или истёк' }, { status: 400 });
     }
 
+    // Проверка срока действия кода
+    if (data.expires_at) {
+      const now = new Date();
+      const expiresAt = new Date(data.expires_at);
+      if (now > expiresAt) {
+        return NextResponse.json({ success: false, error: 'Код истёк' }, { status: 400 });
+      }
+    }
+
     if (data.code !== code) {
+      // Логируем попытку
+      await supabase.from('auth_codes').insert({ phone, code, used: false });
       return NextResponse.json({ success: false, error: 'Неверный код' }, { status: 400 });
     }
 
-    // Всё ок — ставим токен
+    // Помечаем код как использованный
+    await supabase
+      .from('sms_codes')
+      .update({ used: true })
+      .eq('phone', phone)
+      .eq('code', code);
+
+    // Код верный, очищаем попытки
+    await supabase.from('auth_codes').delete().eq('phone', phone);
+
+    // Генерируем JWT-токен
     const token = jwt.sign({ phone }, JWT_SECRET, { expiresIn: '7d' });
     const response = NextResponse.json({ success: true, phone });
 
