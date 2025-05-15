@@ -21,4 +21,5 @@ export type Order = {
   status: string;
   items: OrderItem[];
   upsell_details: UpsellDetail[];
+  recipient?: string; // Добавляем поле recipient
 };

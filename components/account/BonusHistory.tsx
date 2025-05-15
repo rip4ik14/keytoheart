@@ -1,3 +1,4 @@
+// ✅ Путь: components/account/BonusHistory.tsx
 'use client';
 
 interface BonusHistoryItem {
@@ -24,7 +25,7 @@ export default function BonusHistory({ history }: BonusHistoryProps) {
       <h3 id="bonus-history-title" className="text-lg font-semibold mb-2">
         История бонусов
       </h3>
-      <ul className="divide-y border rounded bg-white" role="list">
+      <ul className="divide-y border border-gray-200 rounded-lg bg-white shadow-sm" role="list">
         {history.map((item, index) => (
           <li
             key={index}

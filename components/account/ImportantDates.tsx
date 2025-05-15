@@ -1,3 +1,4 @@
+// ✅ Путь: components/account/ImportantDates.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,14 +7,22 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import type { Database } from '@/lib/supabase/types_new';
 
+interface Event {
+  id?: string;
+  whose: string;
+  type: string;
+  date: string;
+}
+
 interface ImportantDatesProps {
   phone: string;
   onUpdate?: () => void;
 }
 
 export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps) {
-  const [birthday, setBirthday] = useState<string>('');
-  const [anniversary, setAnniversary] = useState<string>('');
+  const [events, setEvents] = useState<Event[]>([
+    { whose: '', type: 'День рождения', date: '' },
+  ]);
   const [isLoading, setIsLoading] = useState(false);
 
   const supabase = createBrowserClient<Database>(
@@ -32,57 +41,93 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
     const fetchDates = async () => {
       const { data, error } = await supabase
         .from('important_dates')
-        .select('birthday, anniversary')
-        .eq('user_id', phone)
-        .single();
+        .select('id, whose, type, date')
+        .eq('user_id', phone);
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching important dates:', error);
         toast.error('Ошибка загрузки дат');
         return;
       }
 
-      if (data) {
-        setBirthday(data.birthday || '');
-        setAnniversary(data.anniversary || '');
+      if (data && data.length > 0) {
+        setEvents(data as Event[]); // Приводим тип явно
       }
     };
 
     fetchDates();
   }, [phone, supabase]);
 
+  const handleAddEvent = () => {
+    if (events.length < 10) {
+      setEvents([...events, { whose: '', type: 'День рождения', date: '' }]);
+    } else {
+      toast.error('Максимум 10 событий');
+    }
+  };
+
+  const handleEventChange = (index: number, field: keyof Event, value: string) => {
+    const updatedEvents = [...events];
+    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+    setEvents(updatedEvents);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Проверяем, были ли даты уже заполнены
-      const { data: existingDates, error: fetchError } = await supabase
+      // Удаляем существующие записи
+      const { error: deleteError } = await supabase
         .from('important_dates')
-        .select('birthday, anniversary')
-        .eq('user_id', phone)
-        .single();
+        .delete()
+        .eq('user_id', phone);
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        throw new Error(`Error fetching existing dates: ${fetchError.message}`);
+      if (deleteError) {
+        throw new Error(`Error deleting existing dates: ${deleteError.message}`);
       }
 
-      const wasEmptyBefore = !existingDates || (!existingDates.birthday && !existingDates.anniversary);
-      const hasNewData = (birthday && !existingDates?.birthday) || (anniversary && !existingDates?.anniversary);
+      // Фильтруем события, где заполнены все поля
+      const validEvents = events.filter((event) => event.whose && event.type && event.date);
 
-      // Сохраняем даты
-      const { error: upsertError } = await supabase
+      if (validEvents.length === 0) {
+        toast.success('Даты успешно сохранены.');
+        if (onUpdate) {
+          onUpdate();
+        }
+        return;
+      }
+
+      // Проверяем, были ли даты ранее
+      const { count: previousCount, error: countError } = await supabase
         .from('important_dates')
-        .upsert(
-          { user_id: phone, birthday: birthday || null, anniversary: anniversary || null, created_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
+        .select('id', { count: 'exact' })
+        .eq('user_id', phone);
+
+      if (countError) {
+        throw new Error(`Error counting existing dates: ${countError.message}`);
+      }
+
+      const wasEmptyBefore = previousCount === 0;
+      const hasNewData = validEvents.length > 0;
+
+      // Сохраняем новые события
+      const { error: insertError } = await supabase
+        .from('important_dates')
+        .insert(
+          validEvents.map((event) => ({
+            user_id: phone,
+            whose: event.whose,
+            type: event.type,
+            date: event.date,
+          }))
         );
 
-      if (upsertError) {
-        throw new Error(`Error saving dates: ${upsertError.message}`);
+      if (insertError) {
+        throw new Error(`Error saving dates: ${insertError.message}`);
       }
 
-      // Если даты заполнены впервые, начисляем бонусы
+      // Если это первое заполнение, начисляем бонусы
       if (wasEmptyBefore && hasNewData) {
         const { data: bonusRecord, error: bonusError } = await supabase
           .from('bonuses')
@@ -95,7 +140,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
         }
 
         let bonusId: string;
-        let currentBalance: number = 0; // Явно задаём тип number
+        let currentBalance: number = 0;
         if (!bonusRecord) {
           const { data: newBonus, error: insertErr } = await supabase
             .from('bonuses')
@@ -114,13 +159,13 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
             throw new Error(`Error creating bonus record: ${insertErr.message}`);
           }
           bonusId = newBonus.id;
-          currentBalance = newBonus.bonus_balance ?? 0; // Используем ?? для обработки null
+          currentBalance = newBonus.bonus_balance ?? 0;
         } else {
           bonusId = bonusRecord.id;
-          currentBalance = bonusRecord.bonus_balance ?? 0; // Используем ?? для обработки null
+          currentBalance = bonusRecord.bonus_balance ?? 0;
         }
 
-        const bonusToAdd = 100; // Например, 100 бонусов за заполнение дат
+        const bonusToAdd = 100;
         const newBalance = currentBalance + bonusToAdd;
 
         const { error: updateErr } = await supabase
@@ -173,33 +218,66 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
     >
       <h3 className="text-lg font-semibold mb-4">Важные даты</h3>
       <p className="text-sm text-gray-500 mb-4">
-        Укажите день рождения и юбилей — мы напомним и подарим скидку.
+        Заполните важные даты своих близких и получите персональную скидку на каждый праздник! Это могут быть как дни рождения и годовщины, так и просто особенные дни для Вас. Мы заранее напомним о важных событиях, чтобы Вы не забыли поздравить близких, и подарим скидку на оформление заказа.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="birthday" className="block text-sm font-medium text-gray-700">
-            День рождения
-          </label>
-          <input
-            type="date"
-            id="birthday"
-            value={birthday}
-            onChange={(e) => setBirthday(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
-          />
-        </div>
-        <div>
-          <label htmlFor="anniversary" className="block text-sm font-medium text-gray-700">
-            Юбилей
-          </label>
-          <input
-            type="date"
-            id="anniversary"
-            value={anniversary}
-            onChange={(e) => setAnniversary(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
-          />
-        </div>
+        {events.map((event, index) => (
+          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor={`whose-${index}`} className="block text-sm font-medium text-gray-700">
+                Чьё событие
+              </label>
+              <input
+                type="text"
+                id={`whose-${index}`}
+                value={event.whose}
+                onChange={(e) => handleEventChange(index, 'whose', e.target.value)}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
+                placeholder="Чьё событие"
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <label htmlFor={`type-${index}`} className="block text-sm font-medium text-gray-700">
+                Тип события
+              </label>
+              <select
+                id={`type-${index}`}
+                value={event.type}
+                onChange={(e) => handleEventChange(index, 'type', e.target.value)}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
+                disabled={isLoading}
+              >
+                <option value="День рождения">День рождения</option>
+                <option value="Годовщина">Годовщина</option>
+                <option value="Особенный день">Особенный день</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`date-${index}`} className="block text-sm font-medium text-gray-700">
+                Дата
+              </label>
+              <input
+                type="date"
+                id={`date-${index}`}
+                value={event.date}
+                onChange={(e) => handleEventChange(index, 'date', e.target.value)}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        ))}
+        {events.length < 10 && (
+          <button
+            type="button"
+            onClick={handleAddEvent}
+            className="text-sm text-blue-600 hover:underline"
+            disabled={isLoading}
+          >
+            + Добавить событие
+          </button>
+        )}
         <motion.button
           type="submit"
           disabled={isLoading}
@@ -209,7 +287,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          {isLoading ? 'Сохранение...' : 'Заполнить'}
+          {isLoading ? 'Сохранение...' : 'Сохранить'}
         </motion.button>
       </form>
     </motion.div>

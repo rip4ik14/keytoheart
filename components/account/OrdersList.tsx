@@ -15,6 +15,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
   const router = useRouter();
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
 
+  // Анимации для таблицы
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
@@ -56,16 +57,15 @@ export default function OrdersList({ orders }: OrdersListProps) {
       whileInView="visible"
       viewport={{ once: true }}
     >
-      <h2 id="orders-list-title" className="sr-only">
-        Список заказов
-      </h2>
+      <h2 className="text-lg font-semibold mb-4">Мои заказы</h2>
       <table className="w-full border-separate border-spacing-y-2 text-sm">
         <thead>
           <tr className="text-left text-gray-500 uppercase text-xs">
-            <th className="px-4 py-2">Номер</th>
-            <th className="px-4 py-2">Оплата</th>
-            <th className="px-4 py-2">Статус</th>
-            <th className="px-4 py-2">Дата</th>
+            <th className="px-4 py-2">Номер заказа</th>
+            <th className="px-4 py-2">Получатель</th>
+            <th className="px-4 py-2">Статус оплаты</th>
+            <th className="px-4 py-2">Статус заказа</th>
+            <th className="px-4 py-2">Дата заказа</th>
             <th className="px-4 py-2">Сумма</th>
             <th className="px-4 py-2"></th>
           </tr>
@@ -101,7 +101,8 @@ export default function OrdersList({ orders }: OrdersListProps) {
                   variants={rowVariants}
                 >
                   <td className="px-4 py-3 font-medium">#{o.id}</td>
-                  <td className="px-4 py-3">{o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</td>
+                  <td className="px-4 py-3">{o.recipient || 'Не указан'}</td>
+                  <td className="px-4 py-3">{o.payment_method === 'cash' ? 'Наличные' : 'Оплачено'}</td>
                   <td className="px-4 py-3 capitalize">{o.status}</td>
                   <td className="px-4 py-3">
                     {new Date(o.created_at).toLocaleDateString('ru-RU', {
@@ -147,11 +148,11 @@ export default function OrdersList({ orders }: OrdersListProps) {
                   </td>
                 </motion.tr>
                 <tr>
-                  <td colSpan={6} className="p-0">
+                  <td colSpan={7} className="p-0">
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.td
-                          colSpan={6}
+                          colSpan={7}
                           className="p-4 bg-gray-50 border-t border-gray-200"
                           variants={detailsVariants}
                           initial="hidden"
@@ -207,6 +208,16 @@ export default function OrdersList({ orders }: OrdersListProps) {
           })}
         </tbody>
       </table>
+      <p className="mt-4 text-sm text-gray-700">
+        Возникли вопросы по заказу? Свяжитесь с нами по номеру{' '}
+        <a href="tel:+79886033821" className="text-blue-600 hover:underline">
+          +7 (988) 603-38-21
+        </a>{' '}
+        или напишите в{' '}
+        <a href="https://wa.me/79886033821" className="text-blue-600 hover:underline">
+          WhatsApp
+        </a>
+      </p>
     </motion.section>
-  );
+  )
 }

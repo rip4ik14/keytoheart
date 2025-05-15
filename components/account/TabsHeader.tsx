@@ -30,7 +30,7 @@ export default function TabsHeader({ activeTab, setActiveTab }: TabsHeaderProps)
 
   return (
     <motion.nav
-      className="flex flex-wrap justify-start sm:justify-center gap-4 sm:gap-6 border-b border-gray-200 text-sm"
+      className="flex flex-wrap justify-start gap-4 sm:gap-6 border-b border-gray-200 text-sm"
       aria-label="Навигация по вкладкам личного кабинета"
       variants={containerVariants}
       initial="hidden"

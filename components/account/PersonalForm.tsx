@@ -1,8 +1,11 @@
+// ✅ Путь: components/account/PersonalForm.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import type { Database } from '@/lib/supabase/types_new';
 
 interface PersonalFormProps {
   onUpdate: () => Promise<void>;
@@ -10,9 +13,25 @@ interface PersonalFormProps {
 }
 
 export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
-  const [name, setName] = useState<string>('');
+  const [name, setName] = useState<string>('Денис');
+  const [lastName, setLastName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [birthday, setBirthday] = useState<string>('');
+  const [receiveOffers, setReceiveOffers] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+    }
+  );
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -24,23 +43,23 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
       setIsLoading(true);
       try {
-        const response = await fetch('/api/account/get-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        });
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('name, email')
+          .eq('phone', phone)
+          .single();
 
-        const result = await response.json();
-        console.log('Response from /api/account/get-profile:', result); // Добавляем отладку
-        if (!result.success) {
-          console.error('Ошибка загрузки профиля:', result.error);
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
           setError('Ошибка загрузки данных профиля');
           toast.error('Ошибка загрузки данных профиля');
           return;
         }
 
-        setName(result.name || '');
-        console.log('Loaded name:', result.name || ''); // Добавляем отладку
+        if (data) {
+          setName(data.name || 'Денис');
+          setEmail(data.email || '');
+        }
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
         setError('Не удалось загрузить данные');
@@ -75,24 +94,46 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       return;
     }
 
+    const trimmedLastName = lastName.trim();
+    if (trimmedLastName.length > 50) {
+      setError('Фамилия не должна превышать 50 символов');
+      toast.error('Фамилия не должна превышать 50 символов');
+      return;
+    }
+
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Введите корректный email');
+      toast.error('Введите корректный email');
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Защита от XSS
       const sanitizedName = trimmedName.replace(/[<>&'"]/g, '');
+      const sanitizedLastName = trimmedLastName.replace(/[<>&'"]/g, '');
+      const sanitizedEmail = trimmedEmail.replace(/[<>&'"]/g, '');
 
-      // Обновляем профиль через API
-      const response = await fetch('/api/account/update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, name: sanitizedName }),
-      });
+      // Обновляем профиль через Supabase
+      const { error: upsertError } = await supabase
+        .from('user_profiles')
+        .upsert(
+          {
+            phone,
+            name: sanitizedName,
+            email: sanitizedEmail || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'phone' }
+        );
 
-      const result = await response.json();
-      console.log('Response from /api/account/update-profile:', result); // Добавляем отладку
-      if (!result.success) {
-        console.error('Ошибка обновления профиля:', result.error);
-        throw new Error(result.error || 'Ошибка обновления профиля');
+      if (upsertError) {
+        throw new Error(`Error updating profile: ${upsertError.message}`);
       }
+
+      // Сохраняем предпочтение по рекламным предложениям (можно добавить в таблицу user_profiles или отдельную)
+      // Для примера предположим, что это поле будет добавлено позже
 
       toast.success('Данные успешно обновлены');
       await onUpdate();
@@ -140,6 +181,22 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
             />
           </div>
           <div>
+            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+              Фамилия
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="border border-gray-300 px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+              placeholder="Фамилия"
+              aria-label="Введите вашу фамилию"
+              maxLength={50}
+              disabled={isLoading}
+            />
+          </div>
+          <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
               Телефон
             </label>
@@ -151,6 +208,48 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               className="border border-gray-300 px-4 py-2 rounded w-full bg-gray-100 text-gray-500 sm:p-3 cursor-not-allowed"
               aria-label="Ваш номер телефона (нельзя изменить)"
             />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              E-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="border border-gray-300 px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+              placeholder="E-mail"
+              aria-label="Введите ваш email"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <label htmlFor="birthday" className="block text-sm font-medium text-gray-700 mb-1">
+              Дата рождения
+            </label>
+            <input
+              id="birthday"
+              type="date"
+              value={birthday}
+              onChange={(e) => setBirthday(e.target.value)}
+              className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+              aria-label="Введите вашу дату рождения"
+              disabled={isLoading}
+            />
+          </div>
+          <div className="flex items-center">
+            <input
+              id="receiveOffers"
+              type="checkbox"
+              checked={receiveOffers}
+              onChange={(e) => setReceiveOffers(e.target.checked)}
+              className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+              disabled={isLoading}
+            />
+            <label htmlFor="receiveOffers" className="ml-2 block text-sm text-gray-700">
+              Я согласен получать рекламные предложения
+            </label>
           </div>
           <motion.button
             type="submit"

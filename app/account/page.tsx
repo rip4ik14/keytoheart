@@ -39,12 +39,15 @@ interface Order {
   status: string;
   items: OrderItem[];
   upsell_details: UpsellDetail[];
+  recipient?: string; // Добавляем поле получателя
 }
 
 interface BonusHistoryItem {
   amount: number;
   reason: string;
-  created_at: string;
+  created_at
+
+: string;
 }
 
 interface BonusesData {
@@ -199,6 +202,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         bonuses_used: order.bonuses_used ?? 0,
         payment_method: order.payment_method ?? 'cash',
         status: order.status ?? '',
+        recipient: order.recipient || 'Не указан',
         items: (order.items || []).map((item: any) => ({
           quantity: item.quantity,
           price: item.price,
