@@ -1,260 +1,283 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
-import toast from 'react-hot-toast';
-import { IMaskInput } from 'react-imask';
-import { phoneMask } from '@utils/phoneMask';
+import React, { useState, useRef } from "react";
+import { motion } from "framer-motion";
 
-interface Props {
-  onAuthSuccess: (phone: string, profile: { name: string }, bonusBalance: number) => void;
-}
+const WHATSAPP_LINK = "https://wa.me/79886033821"; // укажи нужный номер!
 
-export default function AuthWithCall({ onAuthSuccess }: Props) {
-  const [phone, setPhone] = useState<string>('');
-  const [isCallSent, setIsCallSent] = useState<boolean>(false);
-  const [isSendingCall, setIsSendingCall] = useState<boolean>(false);
-  const [isVerifyingCall, setIsVerifyingCall] = useState<boolean>(false);
-  const [resendCooldown, setResendCooldown] = useState<number>(0);
-  const [phoneError, setPhoneError] = useState<string>('');
-  const [callPhone, setCallPhone] = useState<string>('');
-  const [checkId, setCheckId] = useState<string>('');
+type Props = {
+  onSuccess: (phone: string) => void; // callback после успешной авторизации
+};
 
-  const handlePhoneChange = (value: string) => {
-    const cleanValue = value.replace(/\D/g, '');
-    const formattedPhone = phoneMask(cleanValue);
-    setPhone(formattedPhone);
-    setPhoneError('');
-    setIsCallSent(false);
-    setCallPhone('');
-    setCheckId('');
+export default function AuthWithCall({ onSuccess }: Props) {
+  const [step, setStep] = useState<"phone" | "code" | "sms" | "success" | "ban">("phone");
+  const [phone, setPhone] = useState("");
+  const [checkId, setCheckId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [banTimer, setBanTimer] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Маска телефона
+  const formatPhone = (value: string) => {
+    let cleaned = value.replace(/\D/g, "");
+    if (cleaned.startsWith("8")) cleaned = "7" + cleaned.slice(1);
+    if (!cleaned.startsWith("7")) cleaned = "7" + cleaned;
+    return (
+      "+7 " +
+      (cleaned.slice(1, 4) || "") +
+      (cleaned.length > 1 ? " " : "") +
+      (cleaned.slice(4, 7) || "") +
+      (cleaned.length > 4 ? "-" : "") +
+      (cleaned.slice(7, 9) || "") +
+      (cleaned.length > 7 ? "-" : "") +
+      (cleaned.slice(9, 11) || "")
+    ).replace(/ $/, "");
   };
 
-  const sendCall = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
-      setPhoneError('Введите корректный номер телефона (10 цифр)');
-      return;
-    }
-    setPhoneError('');
-    setIsSendingCall(true);
+  // Ограничить ввод только цифрами
+  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value.replace(/\D/g, "");
+    if (v.length <= 11) setPhone(formatPhone(v));
+  };
+
+  // Отправить запрос на звонок
+  const handleSendCall = async () => {
+    setError("");
+    setIsLoading(true);
+    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
     try {
-      const response = await fetch('/api/auth/send-call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${cleanPhone}` }),
+      const res = await fetch("/api/auth/send-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: clearPhone }),
       });
-      const result = await response.json();
-      if (result.success) {
-        setIsCallSent(true);
-        setCallPhone(result.callPhone);
-        setCheckId(result.checkId);
-        setResendCooldown(90);
-        toast.success(`Позвоните на номер ${result.callPhone} для авторизации.`);
-        window.gtag?.('event', 'send_call_request', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'send_call_request');
+      const data = await res.json();
+      if (!data.success) {
+        if (res.status === 429) {
+          setStep("ban");
+          startBanTimer();
+        } else {
+          setError(data.error || "Не удалось отправить звонок.");
+        }
       } else {
-        setPhoneError(result.error || 'Не удалось инициировать звонок.');
-        toast.error(result.error || 'Не удалось инициировать звонок.');
+        setCheckId(data.check_id);
+        setStep("code");
       }
-    } catch (error) {
-      setPhoneError('Не удалось инициировать звонок.');
-      toast.error('Не удалось инициировать звонок.');
-    } finally {
-      setIsSendingCall(false);
+    } catch {
+      setError("Ошибка сети. Попробуйте ещё раз.");
     }
+    setIsLoading(false);
   };
 
-  const resendCall = async () => {
-    if (resendCooldown > 0) return;
-    setIsSendingCall(true);
-    setResendCooldown(90);
+  // Проверить код из звонка
+  const handleVerifyCall = async () => {
+    setError("");
+    setIsLoading(true);
+    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
     try {
-      const response = await fetch('/api/auth/send-call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${phone.replace(/\D/g, '')}` }),
+      const res = await fetch("/api/auth/verify-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: clearPhone,
+          check_id: checkId,
+          code: code,
+        }),
       });
-      const result = await response.json();
-      if (result.success) {
-        setIsCallSent(true);
-        setCallPhone(result.callPhone);
-        setCheckId(result.checkId);
-        toast.success(`Позвоните на номер ${result.callPhone} для авторизации.`);
-        window.gtag?.('event', 'resend_call_request', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'resend_call_request');
+      const data = await res.json();
+      if (data.success) {
+        setStep("success");
+        onSuccess(clearPhone);
       } else {
-        setPhoneError(result.error || 'Не удалось инициировать звонок.');
-        toast.error(result.error || 'Не удалось инициировать звонок.');
+        setAttempts((a) => a + 1);
+        if (res.status === 429) {
+          setStep("ban");
+          startBanTimer();
+        } else {
+          setError(data.error || "Неверный код.");
+        }
       }
-    } catch (error) {
-      setPhoneError('Не удалось инициировать звонок.');
-      toast.error('Не удалось инициировать звонок.');
-    } finally {
-      setIsSendingCall(false);
+    } catch {
+      setError("Ошибка сети.");
     }
+    setIsLoading(false);
   };
 
-  const verifyCall = async () => {
-    setIsVerifyingCall(true);
+  // Fallback: отправить СМС
+  const handleSendSms = async () => {
+    setError("");
+    setIsLoading(true);
+    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
     try {
-      const response = await fetch('/api/auth/verify-call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+7${phone.replace(/\D/g, '')}`, checkId }),
+      const res = await fetch("/api/auth/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: clearPhone }),
       });
-      const result = await response.json();
-      if (result.success) {
-        onAuthSuccess(`+7${phone.replace(/\D/g, '')}`, { name: result.name || '' }, result.bonusBalance || 0);
-        toast.success('Авторизация успешна!');
-        window.gtag?.('event', 'verify_call', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'verify_call');
+      const data = await res.json();
+      if (data.success) {
+        setStep("sms");
       } else {
-        toast.error(result.error || 'Звонок ещё не выполнен. Пожалуйста, позвоните на указанный номер.');
+        if (res.status === 429) {
+          setStep("ban");
+          startBanTimer();
+        } else {
+          setError(data.error || "Не удалось отправить смс.");
+        }
       }
-    } catch (error) {
-      toast.error('Ошибка проверки звонка.');
-    } finally {
-      setIsVerifyingCall(false);
+    } catch {
+      setError("Ошибка сети. Попробуйте ещё раз.");
     }
+    setIsLoading(false);
   };
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (resendCooldown > 0) {
-      timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
+  // Проверить код из смс
+  const handleVerifySms = async () => {
+    setError("");
+    setIsLoading(true);
+    const clearPhone = "+7" + phone.replace(/\D/g, "").slice(1, 11);
+    try {
+      const res = await fetch("/api/auth/verify-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: clearPhone, code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStep("success");
+        onSuccess(clearPhone);
+      } else {
+        setAttempts((a) => a + 1);
+        if (res.status === 429) {
+          setStep("ban");
+          startBanTimer();
+        } else {
+          setError(data.error || "Неверный код.");
+        }
+      }
+    } catch {
+      setError("Ошибка сети.");
     }
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
+    setIsLoading(false);
+  };
 
+  // Таймер для блокировки на 10 минут
+  const startBanTimer = () => {
+    setBanTimer(600); // 10 минут
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setBanTimer((t) => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!);
+          setStep("phone");
+          setAttempts(0);
+          setError("");
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  };
+
+  // UI
   return (
-    <div className="space-y-4">
-      <motion.div className="mb-2">
-        <label htmlFor="phone" className="text-sm font-medium mb-1 block text-gray-700">
-          Телефон
-        </label>
-        <div className="flex gap-2 items-center">
-          <span className="pt-2 text-gray-600">+7</span>
-          <div className="relative flex-1">
-            <motion.div
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              whileHover={{ scale: 1.1 }}
+    <div className="w-full max-w-xs mx-auto p-6 bg-white rounded-2xl shadow-xl flex flex-col gap-5 border border-black">
+      <motion.h2
+        className="text-xl font-bold text-black text-center"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        Вход по телефону
+      </motion.h2>
+
+      {step === "phone" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <label className="text-black block mb-1 text-sm">Ваш номер телефона:</label>
+          <input
+            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2"
+            inputMode="tel"
+            value={phone}
+            placeholder="+7 (___) ___-__-__"
+            onChange={handlePhoneInput}
+            maxLength={16}
+            disabled={isLoading}
+            autoFocus
+          />
+          <button
+            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
+            onClick={handleSendCall}
+            disabled={isLoading || phone.replace(/\D/g, "").length !== 11}
+          >
+            {isLoading ? "Отправка..." : "Получить код по звонку"}
+          </button>
+          <p className="text-xs mt-2 text-gray-500 text-center">
+            Мы позвоним на номер, последние 4 цифры номера звонящего — это ваш код.
+          </p>
+          {error && <div className="mt-2 text-center text-red-600">{error}</div>}
+        </motion.div>
+      )}
+
+      {(step === "code" || step === "sms") && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <label className="block text-black mb-1 text-sm">
+            Введите 4-значный код
+          </label>
+          <input
+            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
+            inputMode="numeric"
+            maxLength={4}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            autoFocus
+            disabled={isLoading}
+          />
+          <button
+            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
+            onClick={step === "code" ? handleVerifyCall : handleVerifySms}
+            disabled={isLoading || code.length !== 4}
+          >
+            {isLoading ? "Проверка..." : "Войти"}
+          </button>
+          {step === "code" && (
+            <button
+              className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
+              onClick={handleSendSms}
+              disabled={isLoading}
             >
-              <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
-            </motion.div>
-            <IMaskInput
-              id="phone"
-              mask="(000) 000-00-00"
-              name="phone"
-              value={phone}
-              onAccept={handlePhoneChange}
-              placeholder="(___) ___-__-__"
-              className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
-                phoneError ? 'border-red-500' : 'border-gray-300'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-              disabled={isCallSent}
-              aria-label="Введите номер телефона"
-              aria-invalid={phoneError ? 'true' : 'false'}
-            />
+              Получить код по СМС
+            </button>
+          )}
+          {error && <div className="mt-2 text-center text-red-600">{error}</div>}
+        </motion.div>
+      )}
+
+      {step === "ban" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="text-center text-red-700 font-bold mb-2">
+            Превышено число попыток
           </div>
-        </div>
-        {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
-      </motion.div>
-      <AnimatePresence>
-        {!isCallSent ? (
-          <motion.button
-            onClick={sendCall}
-            disabled={isSendingCall}
-            className={`w-full rounded-lg bg-black py-2 text-white hover:bg-gray-800 flex items-center justify-center gap-2 transition-all duration-300 ${
-              isSendingCall ? 'opacity-50 cursor-not-allowed' : ''
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-            aria-label="Получить номер для звонка"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+          <div className="text-center mb-2">
+            Повторная авторизация будет доступна через {Math.floor(banTimer / 60)}:{("0" + (banTimer % 60)).slice(-2)}
+          </div>
+          <a
+            href={WHATSAPP_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full block py-2 rounded-xl border border-green-500 bg-green-50 text-green-800 font-bold text-center transition-all hover:bg-green-500 hover:text-white"
           >
-            {isSendingCall ? (
-              <>
-                <Image src="/icons/spinner.svg" alt="Загрузка" width={20} height={20} className="animate-spin" />
-                Запрашиваем номер...
-              </>
-            ) : (
-              'Получить номер для звонка'
-            )}
-          </motion.button>
-        ) : (
-          <motion.div
-            className="space-y-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            <motion.div className="mb-2">
-              <p className="text-sm font-medium mb-1 text-gray-700">
-                Позвоните на номер: <strong>{callPhone}</strong>
-              </p>
-              <p className="text-xs text-gray-500">
-                У вас есть 5 минут, чтобы совершить звонок. Звонок бесплатный.
-              </p>
-            </motion.div>
-            <motion.button
-              onClick={verifyCall}
-              disabled={isVerifyingCall}
-              className={`w-full rounded-lg bg-black py-2 text-white hover:bg-gray-800 flex items-center justify-center gap-2 transition-all duration-300 ${
-                isVerifyingCall ? 'opacity-50 cursor-not-allowed' : ''
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-              aria-label="Проверить статус звонка"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {isVerifyingCall ? (
-                <>
-                  <Image src="/icons/spinner.svg" alt="Загрузка" width={20} height={20} className="animate-spin" />
-                  Проверка...
-                </>
-              ) : (
-                'Проверить'
-              )}
-            </motion.button>
-            <motion.div className="flex flex-col gap-2">
-              <motion.button
-                type="button"
-                onClick={() => {
-                  setIsCallSent(false);
-                  setCallPhone('');
-                  setCheckId('');
-                }}
-                className="w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black"
-                aria-label="Изменить номер телефона"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Изменить номер
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={resendCall}
-                disabled={resendCooldown > 0 || isSendingCall}
-                className={`w-full text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-black ${
-                  resendCooldown > 0 || isSendingCall ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                aria-label="Повторить звонок"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {resendCooldown > 0
-                  ? `Повторить запрос через ${resendCooldown} сек`
-                  : 'Повторить запрос'}
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Оформить заказ через WhatsApp
+          </a>
+        </motion.div>
+      )}
+
+      {step === "success" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="text-center text-green-700 font-bold">Авторизация успешна!</div>
+        </motion.div>
+      )}
     </div>
   );
 }

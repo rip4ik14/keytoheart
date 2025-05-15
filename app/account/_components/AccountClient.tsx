@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import TabsHeader from '@components/account/TabsHeader';
 import PersonalForm from '@components/account/PersonalForm';
 import OrdersList from '@components/account/OrdersList';
 import ImportantDates from '@components/account/ImportantDates';
 import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
-import AuthWithCall from '@components/AuthWithCall'; // Заменено с AuthWithSms
+import AuthWithCall from '@components/AuthWithCall';
 import type { Database } from '@/lib/supabase/types_new';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -26,7 +26,7 @@ interface Order {
   order_items: {
     quantity: number;
     price: number;
-    product_id: number; // Ожидается number в OrdersList, обработаем null
+    product_id: number;
     products: { title: string; cover_url: string | null };
   }[];
 }
@@ -65,12 +65,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
-  const variants = {
-    initial: { opacity: 0, x: 20 },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -20 },
-  };
-
   // Проверяем авторизацию при загрузке компонента
   useEffect(() => {
     const checkSession = async () => {
@@ -99,14 +93,12 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     };
 
     checkSession();
+    // eslint-disable-next-line
   }, [initialOrders, initialBonusData]);
 
+  // Загрузка данных после авторизации
   const fetchAccountData = useCallback(async () => {
-    if (!phone) {
-      console.log('No phone found, skipping fetchAccountData');
-      return;
-    }
-
+    if (!phone) return;
     setIsLoading(true);
     try {
       const bonusesRes = await supabase
@@ -165,10 +157,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         throw new Error(`Orders fetch error: ${ordersRes.error.message}`);
       }
 
-      // Преобразуем данные заказов для соответствия интерфейсу Order
       const transformedOrders: Order[] = (ordersRes.data || []).map((order: any) => {
         const paymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
-
         return {
           id: parseInt(order.id, 10),
           created_at: order.created_at ?? '',
@@ -179,7 +169,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           order_items: order.order_items.map((item: any) => ({
             quantity: item.quantity,
             price: item.price,
-            product_id: item.product_id ?? 0, // Заменяем null на 0
+            product_id: item.product_id ?? 0,
             products: item.products
               ? { title: item.products.title, cover_url: item.products.image_url }
               : { title: '', cover_url: '' },
@@ -207,14 +197,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData, initialOrders, initialBonusData]);
 
-  const handleAuthSuccess = (phone: string, profile: { name: string }, bonusBalance: number) => {
+  // ФИНАЛЬНЫЙ: Обработчик успешной авторизации — только телефон
+  const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
-    setBonusData({ ...bonusData, bonus_balance: bonusBalance, id: null, level: 'basic', history: [] } as BonusesData);
-    localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
-    document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    localStorage.setItem('auth', JSON.stringify({ phone, isAuthenticated: true }));
+    document.cookie = `auth=${JSON.stringify({ phone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    fetchAccountData();
   };
 
+  // Выход
   const handleLogout = async () => {
     setIsLoading(true);
     try {
@@ -259,7 +251,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         <Toaster position="top-center" />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Вход в кабинет</h1>
         <p className="text-gray-500">Введите номер телефона для входа</p>
-        <AuthWithCall onAuthSuccess={handleAuthSuccess} /> {/* Заменено с AuthWithSms */}
+        <AuthWithCall onSuccess={handleAuthSuccess} />
       </main>
     );
   }
