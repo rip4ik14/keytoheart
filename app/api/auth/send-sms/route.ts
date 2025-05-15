@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const { phone } = await request.json();
 
     if (!phone || !/^(\+7|7|8)\d{10}$/.test(phone.replace(/[^0-9]/g, ''))) {
+      console.error('Invalid phone format:', phone);
       return NextResponse.json({ success: false, error: 'Введите корректный номер в формате +7' }, { status: 400 });
     }
 
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
       const now = new Date();
       const last = new Date(recentLog.updated_at);
       if ((now.getTime() - last.getTime()) < 60000) {
+        console.log('Rate limit exceeded for phone:', phone);
         return NextResponse.json({ success: false, error: 'Запросите код повторно через минуту.' }, { status: 429 });
       }
     }
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
       .select('*', { count: 'exact', head: true })
       .eq('phone', phone);
     if ((count || 0) >= 5) {
+      console.log('Too many attempts for phone:', phone);
       return NextResponse.json({
         success: false,
         error: 'Превышено число попыток. Попробуйте снова через 10 минут или используйте WhatsApp.',
@@ -62,18 +65,34 @@ export async function POST(request: Request) {
     });
 
     const data = await resp.json();
+    console.log('SMS.ru send response:', data);
 
     if (data.status !== 'OK') {
+      console.error('SMS.ru send error:', data.status_text);
       return NextResponse.json({ success: false, error: 'Не удалось отправить SMS. Попробуйте позже.' }, { status: 500 });
     }
 
+    // Устанавливаем expires_at через 10 минут от текущего времени
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    console.log('Setting expires_at:', expiresAt.toISOString());
+
     // Сохраняем код в Supabase
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Код истекает через 10 минут
-    await supabase.from('sms_codes').insert({ phone, code, used: false, expires_at: expiresAt });
+    const { error: insertError } = await supabase.from('sms_codes').insert({
+      phone,
+      code,
+      used: false,
+      expires_at: expiresAt.toISOString(),
+      created_at: new Date().toISOString(),
+    });
+
+    if (insertError) {
+      console.error('Error inserting SMS code:', insertError);
+      return NextResponse.json({ success: false, error: 'Ошибка сохранения кода' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Server error:', error);
+    console.error('Server error in send-sms:', error);
     return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
