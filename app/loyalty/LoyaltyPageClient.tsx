@@ -1,3 +1,4 @@
+// ✅ Путь: app/loyalty/LoyaltyPageClient.tsx
 'use client';
 
 import Image from 'next/image';
@@ -5,7 +6,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale/ru'; // Исправляем импорт
+import { ru } from 'date-fns/locale/ru';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface BonusHistoryEntry {
   amount: number | null;
@@ -24,10 +26,16 @@ interface FAQ {
   answer: string;
 }
 
+interface Event {
+  whose: string;
+  type: string;
+  date: string;
+}
+
 export default function LoyaltyPageClient() {
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [formData, setFormData] = useState({ birthday: '', anniversary: '' });
+  const [formData, setFormData] = useState<Event[]>([{ whose: '', type: 'День рождения', date: '' }]);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -67,30 +75,55 @@ export default function LoyaltyPageClient() {
     fetchUserData();
   }, []);
 
+  const handleAddEvent = () => {
+    if (formData.length < 10) {
+      setFormData([...formData, { whose: '', type: 'День рождения', date: '' }]);
+    } else {
+      toast.error('Максимум 10 событий');
+    }
+  };
+
+  const handleEventChange = (index: number, field: keyof Event, value: string) => {
+    const updatedEvents = [...formData];
+    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+    setFormData(updatedEvents);
+  };
+
   const handleSubmitDates = async () => {
     if (!userId) return;
     setLoading(true);
 
-    await supabase.from('important_dates').insert([
-      {
-        user_id: userId,
-        birthday: formData.birthday,
-        anniversary: formData.anniversary,
-      },
-    ]);
+    try {
+      // Фильтруем события, где заполнены все поля
+      const validEvents = formData.filter((event) => event.whose && event.type && event.date);
 
-    setSubmitted(true);
-    setLoading(false);
+      if (validEvents.length > 0) {
+        await supabase.from('important_dates').insert(
+          validEvents.map((event) => ({
+            user_id: userId,
+            whose: event.whose,
+            type: event.type,
+            date: event.date,
+          }))
+        );
+      }
 
-    // Аналитика: событие отправки важных дат
-    window.gtag?.('event', 'submit_dates', { event_category: 'loyalty' });
-    window.ym?.(12345678, 'reachGoal', 'submit_dates');
+      setSubmitted(true);
+      setLoading(false);
 
-    setTimeout(() => {
-      setFormOpen(false);
-      setFormData({ birthday: '', anniversary: '' });
-      setSubmitted(false);
-    }, 1500);
+      // Аналитика: событие отправки важных дат
+      window.gtag?.('event', 'submit_dates', { event_category: 'loyalty' });
+      window.ym?.(12345678, 'reachGoal', 'submit_dates');
+
+      setTimeout(() => {
+        setFormOpen(false);
+        setFormData([{ whose: '', type: 'День рождения', date: '' }]);
+        setSubmitted(false);
+      }, 1500);
+    } catch (error: any) {
+      setLoading(false);
+      toast.error('Ошибка сохранения дат: ' + error.message);
+    }
   };
 
   const faqs: FAQ[] = [
@@ -368,38 +401,74 @@ export default function LoyaltyPageClient() {
               >
                 Укажите важные даты
               </h3>
-              <label
-                htmlFor="birthday"
-                className="block mb-2 text-sm font-medium text-gray-700"
-              >
-                День рождения:
-              </label>
-              <input
-                id="birthday"
-                type="date"
-                value={formData.birthday}
-                onChange={(e) =>
-                  setFormData((f) => ({ ...f, birthday: e.target.value }))
-                }
-                className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                aria-required="true"
-              />
-              <label
-                htmlFor="anniversary"
-                className="block mb-2 text-sm font-medium text-gray-700"
-              >
-                Юбилей:
-              </label>
-              <input
-                id="anniversary"
-                type="date"
-                value={formData.anniversary}
-                onChange={(e) =>
-                  setFormData((f) => ({ ...f, anniversary: e.target.value }))
-                }
-                className="w-full mb-6 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                aria-required="true"
-              />
+              {formData.map((event, index) => (
+                <div key={index} className="space-y-4 mb-4">
+                  <div>
+                    <label
+                      htmlFor={`whose-${index}`}
+                      className="block mb-2 text-sm font-medium text-gray-700"
+                    >
+                      Чьё событие:
+                    </label>
+                    <input
+                      id={`whose-${index}`}
+                      type="text"
+                      value={event.whose}
+                      onChange={(e) => handleEventChange(index, 'whose', e.target.value)}
+                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      placeholder="Чьё событие"
+                      aria-required="true"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`type-${index}`}
+                      className="block mb-2 text-sm font-medium text-gray-700"
+                    >
+                      Тип события:
+                    </label>
+                    <select
+                      id={`type-${index}`}
+                      value={event.type}
+                      onChange={(e) => handleEventChange(index, 'type', e.target.value)}
+                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      disabled={loading}
+                    >
+                      <option value="День рождения">День рождения</option>
+                      <option value="Годовщина">Годовщина</option>
+                      <option value="Особенный день">Особенный день</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`date-${index}`}
+                      className="block mb-2 text-sm font-medium text-gray-700"
+                    >
+                      Дата:
+                    </label>
+                    <input
+                      id={`date-${index}`}
+                      type="date"
+                      value={event.date}
+                      onChange={(e) => handleEventChange(index, 'date', e.target.value)}
+                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      aria-required="true"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              ))}
+              {formData.length < 10 && (
+                <button
+                  type="button"
+                  onClick={handleAddEvent}
+                  className="text-sm text-blue-600 hover:underline mb-4"
+                  disabled={loading}
+                >
+                  + Добавить событие
+                </button>
+              )}
               {submitted ? (
                 <p className="text-green-600 text-sm mb-4">
                   Спасибо! Мы сохранили даты.

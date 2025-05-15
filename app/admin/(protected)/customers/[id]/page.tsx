@@ -1,22 +1,29 @@
+// ✅ Путь: app/admin/(protected)/customers/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabasePublic as supabase } from "@/lib/supabase/public";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale/ru"; // Исправляем импорт локали
+import { ru } from "date-fns/locale/ru";
 import Link from "next/link";
 import Image from "next/image";
 import toast, { Toaster } from "react-hot-toast";
+
+interface Event {
+  whose: string;
+  type: string;
+  date: string;
+}
 
 interface Customer {
   id: string;
   phone: string;
   email?: string;
   created_at: string;
-  important_dates: { birthday?: string | null; anniversary?: string | null }; // Исправляем тип
+  important_dates: Event[]; // Обновляем тип
   orders: any[];
-  bonuses: { bonus_balance: number | null; level: string | null }; // Исправляем тип
+  bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
 }
 
@@ -28,10 +35,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingDates, setEditingDates] = useState(false);
-  const [tempDates, setTempDates] = useState<{ birthday?: string; anniversary?: string }>({
-    birthday: "",
-    anniversary: "",
-  });
+  const [tempDates, setTempDates] = useState<Event[]>([]); // Обновляем тип
   const [bonusAction, setBonusAction] = useState<"add" | "subtract" | null>(null);
   const [bonusAmount, setBonusAmount] = useState("");
   const [bonusReason, setBonusReason] = useState("");
@@ -47,15 +51,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         if (userError) throw userError;
         if (!userResponse.user) throw new Error("Пользователь не найден");
 
-        const user = userResponse.user; // Извлекаем объект user из ответа
+        const user = userResponse.user;
         const phone = user.user_metadata?.phone || user.phone;
         if (!phone) throw new Error("Телефон пользователя не указан");
 
         const { data: dates } = await supabase
           .from("important_dates")
-          .select("birthday, anniversary")
-          .eq("user_id", user.id)
-          .single();
+          .select("whose, type, date")
+          .eq("user_id", user.id);
 
         const { data: orders } = await supabase
           .from("orders")
@@ -95,17 +98,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
           phone: phone || "—",
           email: user.email || "—",
           created_at: user.created_at,
-          important_dates: dates || { birthday: null, anniversary: null },
+          important_dates: dates || [],
           orders: orders || [],
           bonuses: bonuses || { bonus_balance: null, level: null },
           bonus_history: bonusHistory || [],
         };
 
         setCustomer(customerData);
-        setTempDates({
-          birthday: customerData.important_dates.birthday || "",
-          anniversary: customerData.important_dates.anniversary || "",
-        });
+        setTempDates(dates || []);
       } catch (error: any) {
         toast.error("Ошибка загрузки данных: " + error.message);
         router.push("/admin/customers");
@@ -117,26 +117,50 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
     fetchCustomer();
   }, [params.id, router]);
 
+  // Добавление нового события
+  const handleAddEvent = () => {
+    setTempDates([...tempDates, { whose: '', type: 'День рождения', date: '' }]);
+  };
+
+  // Изменение события
+  const handleEventChange = (index: number, field: keyof Event, value: string) => {
+    const updatedEvents = [...tempDates];
+    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+    setTempDates(updatedEvents);
+  };
+
   // Сохранение важных дат
   const handleSaveDates = async () => {
     if (!customer) return;
     try {
-      const { error } = await supabase
+      // Удаляем существующие записи
+      const { error: deleteError } = await supabase
         .from("important_dates")
-        .upsert(
-          {
-            user_id: customer.id,
-            birthday: tempDates.birthday || null,
-            anniversary: tempDates.anniversary || null,
-          },
-          { onConflict: "user_id" }
-        );
-      if (error) throw error;
+        .delete()
+        .eq("user_id", customer.id);
+
+      if (deleteError) throw deleteError;
+
+      // Фильтруем события, где заполнены все поля
+      const validEvents = tempDates.filter((event) => event.whose && event.type && event.date);
+
+      if (validEvents.length > 0) {
+        const { error: insertError } = await supabase
+          .from("important_dates")
+          .insert(
+            validEvents.map((event) => ({
+              user_id: customer.id,
+              whose: event.whose,
+              type: event.type,
+              date: event.date,
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
 
       setCustomer((prev) =>
-        prev
-          ? { ...prev, important_dates: { ...tempDates } }
-          : prev
+        prev ? { ...prev, important_dates: validEvents } : prev
       );
       setEditingDates(false);
       toast.success("Даты успешно обновлены");
@@ -153,8 +177,6 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       "Телефон",
       "Email",
       "Дата регистрации",
-      "День рождения",
-      "Юбилей",
       "Кол-во заказов",
       "Сумма покупок",
       "Баланс бонусов",
@@ -165,17 +187,18 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       customer.phone,
       customer.email,
       format(new Date(customer.created_at), "dd.MM.yyyy", { locale: ru }),
-      customer.important_dates.birthday
-        ? format(new Date(customer.important_dates.birthday), "dd.MM.yyyy", { locale: ru })
-        : "—",
-      customer.important_dates.anniversary
-        ? format(new Date(customer.important_dates.anniversary), "dd.MM.yyyy", { locale: ru })
-        : "—",
       customer.orders.length,
       customer.orders.reduce((sum, order) => sum + (order.total || 0), 0),
       customer.bonuses.bonus_balance ?? 0,
       customer.bonuses.level ?? "—",
     ];
+
+    const datesHeader = ["Чьё событие", "Тип события", "Дата"];
+    const datesRows = customer.important_dates.map((event) => [
+      event.whose,
+      event.type,
+      format(new Date(event.date), "dd.MM.yyyy", { locale: ru }),
+    ]);
 
     const ordersHeader = ["Заказ ID", "Дата заказа", "Сумма", "Статус", "Способ оплаты"];
     const ordersRows = customer.orders.map((order) => [
@@ -196,6 +219,10 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
     const csv = [
       headers.join(","),
       customerRow.join(","),
+      "",
+      "Важные даты",
+      datesHeader.join(","),
+      ...datesRows.map((row) => row.join(",")),
       "",
       "История заказов",
       ordersHeader.join(","),
@@ -371,10 +398,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
               <button
                 onClick={() => {
                   setEditingDates(false);
-                  setTempDates({
-                    birthday: customer.important_dates.birthday || "",
-                    anniversary: customer.important_dates.anniversary || "",
-                  });
+                  setTempDates(customer.important_dates);
                 }}
                 className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1"
               >
@@ -385,47 +409,67 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         </div>
         {!editingDates ? (
           <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">День рождения:</span>{" "}
-              {customer.important_dates.birthday
-                ? format(new Date(customer.important_dates.birthday), "dd.MM.yyyy", {
-                    locale: ru,
-                  })
-                : "—"}
-            </p>
-            <p>
-              <span className="font-medium">Юбилей:</span>{" "}
-              {customer.important_dates.anniversary
-                ? format(new Date(customer.important_dates.anniversary), "dd.MM.yyyy", {
-                    locale: ru,
-                  })
-                : "—"}
-            </p>
+            {customer.important_dates.length > 0 ? (
+              customer.important_dates.map((event, index) => (
+                <div key={index} className="flex gap-4">
+                  <p>
+                    <span className="font-medium">{event.whose}:</span> {event.type}
+                  </p>
+                  <p>
+                    {format(new Date(event.date), "dd.MM.yyyy", { locale: ru })}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p>Даты отсутствуют</p>
+            )}
           </div>
         ) : (
           <div className="space-y-4 text-sm">
-            <div>
-              <label className="block font-medium mb-1">День рождения:</label>
-              <input
-                type="date"
-                value={tempDates.birthday}
-                onChange={(e) =>
-                  setTempDates((prev) => ({ ...prev, birthday: e.target.value }))
-                }
-                className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1">Юбилей:</label>
-              <input
-                type="date"
-                value={tempDates.anniversary}
-                onChange={(e) =>
-                  setTempDates((prev) => ({ ...prev, anniversary: e.target.value }))
-                }
-                className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
-              />
-            </div>
+            {tempDates.map((event, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-medium mb-1">Чьё событие:</label>
+                  <input
+                    type="text"
+                    value={event.whose}
+                    onChange={(e) => handleEventChange(index, 'whose', e.target.value)}
+                    className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    placeholder="Чьё событие"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Тип события:</label>
+                  <select
+                    value={event.type}
+                    onChange={(e) => handleEventChange(index, 'type', e.target.value)}
+                    className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    <option value="День рождения">День рождения</option>
+                    <option value="Годовщина">Годовщина</option>
+                    <option value="Особенный день">Особенный день</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Дата:</label>
+                  <input
+                    type="date"
+                    value={event.date}
+                    onChange={(e) => handleEventChange(index, 'date', e.target.value)}
+                    className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  />
+                </div>
+              </div>
+            ))}
+            {tempDates.length < 10 && (
+              <button
+                type="button"
+                onClick={handleAddEvent}
+                className="text-sm text-blue-500 hover:underline"
+              >
+                + Добавить событие
+              </button>
+            )}
           </div>
         )}
       </section>

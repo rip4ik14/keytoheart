@@ -1,21 +1,28 @@
+// ✅ Путь: app/admin/(protected)/customers/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabasePublic as supabase } from "@/lib/supabase/public";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale/ru"; // Исправляем импорт локали
+import { ru } from "date-fns/locale/ru";
 import Image from 'next/image';
 import toast, { Toaster } from "react-hot-toast";
+
+interface Event {
+  whose: string;
+  type: string;
+  date: string;
+}
 
 interface Customer {
   id: string;
   phone: string;
   email?: string;
   created_at: string;
-  important_dates: { birthday?: string | null; anniversary?: string | null }; // Исправляем тип
+  important_dates: Event[]; // Обновляем тип
   orders: any[];
-  bonuses: { bonus_balance: number | null; level: string | null }; // Исправляем тип
+  bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
 }
 
@@ -53,9 +60,8 @@ export default function CustomersPage() {
           // Важные даты
           const { data: dates } = await supabase
             .from("important_dates")
-            .select("birthday, anniversary")
-            .eq("user_id", user.id)
-            .single();
+            .select("whose, type, date")
+            .eq("user_id", user.id);
 
           // Заказы
           const { data: orders } = await supabase
@@ -98,7 +104,7 @@ export default function CustomersPage() {
             phone: phone || "—",
             email: user.email || "—",
             created_at: user.created_at,
-            important_dates: dates || { birthday: null, anniversary: null },
+            important_dates: dates || [],
             orders: orders || [],
             bonuses: bonuses || { bonus_balance: null, level: null },
             bonus_history: bonusHistory || [],
@@ -263,20 +269,13 @@ export default function CustomersPage() {
                     })}
                   </td>
                   <td className="p-3">
-                    {customer.important_dates.birthday
-                      ? `ДР: ${format(
-                          new Date(customer.important_dates.birthday),
-                          "dd.MM.yyyy",
-                          { locale: ru }
-                        )}`
-                      : "—"}
-                    <br />
-                    {customer.important_dates.anniversary
-                      ? `Юбилей: ${format(
-                          new Date(customer.important_dates.anniversary),
-                          "dd.MM.yyyy",
-                          { locale: ru }
-                        )}`
+                    {customer.important_dates.length > 0
+                      ? customer.important_dates.map((event, index) => (
+                          <div key={index}>
+                            {event.whose}: {event.type} (
+                            {format(new Date(event.date), "dd.MM.yyyy", { locale: ru })})
+                          </div>
+                        ))
                       : "—"}
                   </td>
                   <td className="p-3">{customer.orders.length}</td>
