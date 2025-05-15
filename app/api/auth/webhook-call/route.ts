@@ -1,4 +1,4 @@
-// ✅ Обновлённый: app/api/auth/webhook-call/route.ts
+// ✅ Исправленный: app/api/auth/webhook-call/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -19,12 +19,17 @@ export async function POST(request: Request) {
     console.log(`[${new Date().toISOString()}] Webhook Content-Type:`, contentType);
 
     if (contentType.includes('multipart/form-data')) {
-      try {
-        const formData = await request.formData();
-        check_id = formData.get('check_id') as string;
-        check_status = formData.get('check_status') as string;
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error parsing multipart/form-data:`, error);
+      const formData = await request.formData();
+      console.log(`[${new Date().toISOString()}] FormData entries:`);
+      for (const [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+      }
+
+      check_id = formData.get('check_id') as string;
+      check_status = formData.get('check_status') as string;
+
+      // Дополнительная проверка на случай, если formData не удалось распарсить
+      if (!check_id || !check_status) {
         const text = await request.text();
         console.log(`[${new Date().toISOString()}] Raw body:`, text);
 
