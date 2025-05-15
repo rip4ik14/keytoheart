@@ -21,7 +21,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [callTimer, setCallTimer] = useState(600); // 10 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-  const [showManualCode, setShowManualCode] = useState(false); // Для ручного ввода кода
+  const [showManualCode, setShowManualCode] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
@@ -308,7 +308,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             Позвоните на номер {callPhonePretty}
           </label>
           <p className="text-sm text-gray-500 mb-4">
-            После звонка авторизация завершится автоматически. Если этого не произошло, попробуйте запросить SMS-код.
+            После звонка авторизация завершится автоматически. Это может занять до 30 секунд. Если этого не произошло, попробуйте запросить SMS-код.
           </p>
           {showManualCode && (
             <>
