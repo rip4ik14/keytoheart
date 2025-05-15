@@ -1,9 +1,39 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
+import type { Database } from '@/lib/supabase/types_new';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+
+// Тип для данных, получаемых из запроса
+interface OrderRequest {
+  phone: string;
+  name: string;
+  recipient: string;
+  address: string;
+  deliveryMethod: string;
+  date: string;
+  time: string;
+  payment: string;
+  items: Array<{
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    isUpsell?: boolean;
+    category?: string;
+  }>;
+  total: number;
+  bonuses_used?: number;
+  bonus?: number;
+  promo_id?: string;
+  promo_discount?: number;
+  delivery_instructions?: string;
+  postcard_text?: string;
+  anonymous?: boolean;
+  whatsapp?: boolean;
+}
 
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
@@ -27,18 +57,18 @@ export async function POST(req: Request) {
       items: cart,
       total,
       bonuses_used = 0,
-      bonus = 0,
+      bonus: initialBonus = 0,
       promo_id,
       promo_discount = 0,
       delivery_instructions,
       postcard_text,
       anonymous,
       whatsapp,
-    } = await req.json();
+    }: OrderRequest = await req.json();
 
     // Валидация обязательных полей
-    if (!phone || !name || !recipient || !total || !cart) {
-      console.error('Missing required fields:', { phone, name, recipient, total, cart });
+    if (!phone || !name || !recipient || !address || !total || !cart) {
+      console.error('Missing required fields:', { phone, name, recipient, address, total, cart });
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
@@ -54,7 +84,7 @@ export async function POST(req: Request) {
     // Санитизация текстовых полей
     const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
     const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedAddress = address ? sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} }) : null;
+    const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedDeliveryInstructions = delivery_instructions
       ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
       : null;
@@ -73,8 +103,8 @@ export async function POST(req: Request) {
     });
 
     // Разделяем основные товары и upsell-дополнения
-    const regularItems = cart.filter((item: any) => !item.isUpsell);
-    const upsellItems = cart.filter((item: any) => item.isUpsell);
+    const regularItems = cart.filter((item) => !item.isUpsell);
+    const upsellItems = cart.filter((item) => item.isUpsell);
 
     // Логируем содержимое корзины для отладки
     console.log('Cart items:', cart);
@@ -83,7 +113,7 @@ export async function POST(req: Request) {
 
     // Проверяем, что все product_id для основных товаров существуют в таблице products
     const productIds = regularItems
-      .map((item: any) => parseInt(item.id, 10))
+      .map((item) => parseInt(item.id, 10))
       .filter((id: number) => !isNaN(id));
 
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
@@ -109,7 +139,7 @@ export async function POST(req: Request) {
       console.log('Existing products:', products);
 
       const existingProductIds = new Set(products.map((p: any) => p.id));
-      const invalidItems = regularItems.filter((item: any) => !existingProductIds.has(parseInt(item.id, 10)));
+      const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
       if (invalidItems.length > 0) {
         console.error('Invalid product IDs:', invalidItems);
         return NextResponse.json(
@@ -119,7 +149,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Сохраняем заказ
+    // Сохраняем заказ (указываем bonus как 0, так как добавим его позже)
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert([
@@ -134,7 +164,7 @@ export async function POST(req: Request) {
           payment_method: payment,
           total,
           bonuses_used,
-          bonus,
+          bonus: 0, // Указываем начальное значение, так как bonus обязателен
           promo_id,
           promo_discount,
           status: 'Ожидает подтверждения',
@@ -143,7 +173,7 @@ export async function POST(req: Request) {
           postcard_text: sanitizedPostcardText,
           anonymous,
           whatsapp,
-          upsell_details: upsellItems.map((item: any) => ({
+          upsell_details: upsellItems.map((item) => ({
             title: sanitizeHtml(item.title, { allowedTags: [], allowedAttributes: {} }),
             price: item.price,
             quantity: item.quantity,
@@ -162,7 +192,7 @@ export async function POST(req: Request) {
     console.log('Successfully saved order:', { id: order.id, order_number: order.order_number });
 
     // Сохраняем основные товары в order_items
-    const orderItems = regularItems.map((item: any) => ({
+    const orderItems = regularItems.map((item) => ({
       order_id: order.id,
       product_id: parseInt(item.id, 10),
       quantity: item.quantity,
@@ -197,19 +227,43 @@ export async function POST(req: Request) {
     }
 
     // Начисление бонусов
+    console.log('Attempting to credit bonuses:', { user_id: phone, order_total: total, order_id: order.id });
     const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: phone, order_total: total, order_id: order.id }),
     });
     if (!resBonus.ok) {
-      console.error('Ошибка начисления бонусов:', await resBonus.text());
+      const errorText = await resBonus.text();
+      console.error('Ошибка начисления бонусов:', errorText);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка начисления бонусов: ' + errorText },
+        { status: 500 }
+      );
     } else {
-      console.log('Successfully credited bonuses:', bonus);
+      const bonusResult = await resBonus.json();
+      console.log('Successfully credited bonuses:', bonusResult);
+
+      // Обновляем заказ с начисленным количеством бонусов
+      const bonusAdded = bonusResult.bonus_added || 0;
+      const { error: updateOrderError } = await supabaseAdmin
+        .from('orders')
+        .update({ bonus: bonusAdded })
+        .eq('id', order.id);
+
+      if (updateOrderError) {
+        console.error('Error updating order with bonus:', updateOrderError);
+        return NextResponse.json(
+          { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
+          { status: 500 }
+        );
+      }
+      console.log('Successfully updated order with bonus:', bonusAdded);
     }
 
     // Обновление промокода
     if (promo_id) {
+      console.log('Updating promo code usage:', { promo_id });
       const { data: promoData, error: promoFetchError } = await supabaseAdmin
         .from('promo_codes')
         .select('used_count')
@@ -234,10 +288,10 @@ export async function POST(req: Request) {
 
     // Формируем сообщение для Telegram
     const itemsList = regularItems.length
-      ? regularItems.map((i: any) => `• ${i.title} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
+      ? regularItems.map((i) => `• ${i.title} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
       : 'Нет основных товаров';
     const upsellList = upsellItems.length
-      ? upsellItems.map((i: any) => `• ${i.title} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
+      ? upsellItems.map((i) => `• ${i.title} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
       : 'Нет дополнений';
     const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
     const promoText = promo_id
@@ -246,12 +300,13 @@ export async function POST(req: Request) {
     const anonymousText = anonymous ? 'Да' : 'Нет';
     const whatsappText = whatsapp ? 'Да' : 'Нет';
     const postcardTextMessage = sanitizedPostcardText || 'Не указан';
+    const bonusAdded = (await resBonus.json()).bonus_added || 0;
     const message = `<b>🆕 Новый заказ #${order.order_number}</b>
 <b>Имя:</b> ${escapeHtml(sanitizedName)}
 <b>Телефон:</b> ${escapeHtml(phone)}
 <b>Сумма:</b> ${total} ₽
 <b>Бонусы списано:</b> ${bonuses_used}
-<b>Бонусы начислено:</b> ${bonus}
+<b>Бонусы начислено:</b> ${bonusAdded}
 <b>Дата/Время:</b> ${date} ${time}
 <b>Способ доставки:</b> ${deliveryMethodText}
 <b>Адрес:</b> ${escapeHtml(sanitizedAddress || 'Не указан (самовывоз)')}
@@ -281,8 +336,9 @@ ${upsellList}`;
     });
 
     if (!telegramResponse.ok) {
-      console.error('Error sending Telegram message:', await telegramResponse.text());
-      return NextResponse.json({ error: 'Ошибка отправки уведомления в Telegram' }, { status: 500 });
+      const telegramError = await telegramResponse.text();
+      console.error('Error sending Telegram message:', telegramError);
+      return NextResponse.json({ error: 'Ошибка отправки уведомления в Telegram: ' + telegramError }, { status: 500 });
     }
 
     console.log('Successfully sent Telegram notification for order:', order.order_number);

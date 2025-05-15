@@ -176,6 +176,26 @@ export default function CartPage() {
     }
   );
 
+  // Проверяем repeatDraft из localStorage при загрузке страницы
+  useEffect(() => {
+    const repeatDraft = localStorage.getItem('repeatDraft');
+    if (repeatDraft) {
+      try {
+        const draft = JSON.parse(repeatDraft);
+        if (draft.items && Array.isArray(draft.items)) {
+          // Добавляем товары в корзину
+          addMultipleItems(draft.items);
+          toast.success('Товары из предыдущего заказа добавлены в корзину');
+        }
+        // Очищаем repeatDraft после использования
+        localStorage.removeItem('repeatDraft');
+      } catch (error) {
+        console.error('Ошибка парсинга repeatDraft:', error);
+        localStorage.removeItem('repeatDraft');
+      }
+    }
+  }, [addMultipleItems]);
+
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -661,7 +681,7 @@ export default function CartPage() {
         id: u.id,
         title: u.title,
         price: u.price,
-        quantity: u.quantity, // Теперь quantity есть в UpsellItem
+        quantity: u.quantity,
         category: u.category,
         isUpsell: true,
       }));
