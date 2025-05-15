@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -15,21 +14,44 @@ export async function POST(request: Request) {
 
     // Проверяем Content-Type запроса
     const contentType = request.headers.get('content-type') || '';
+    console.log('Webhook Content-Type:', contentType);
 
     if (contentType.includes('multipart/form-data')) {
-      // Обрабатываем multipart/form-data
-      const formData = await request.formData();
-      check_id = formData.get('check_id') as string;
-      check_status = formData.get('check_status') as string;
+      try {
+        // Пробуем обработать multipart/form-data
+        const formData = await request.formData();
+        check_id = formData.get('check_id') as string;
+        check_status = formData.get('check_status') as string;
+      } catch (error) {
+        console.error('Error parsing multipart/form-data:', error);
+        // Если formData не сработал, пробуем извлечь данные вручную из тела
+        const text = await request.text();
+        console.log('Raw body:', text);
+
+        // Парсим multipart/form-data вручную
+        const boundary = contentType.split('boundary=')[1];
+        const parts = text.split(`--${boundary}`).filter(part => part.trim() && !part.includes('--'));
+
+        for (const part of parts) {
+          if (part.includes('name="check_id"')) {
+            check_id = part.split('\r\n\r\n')[1]?.split('\r\n')[0]?.trim();
+          }
+          if (part.includes('name="check_status"')) {
+            check_status = part.split('\r\n\r\n')[1]?.split('\r\n')[0]?.trim();
+          }
+        }
+      }
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       // Обрабатываем application/x-www-form-urlencoded
       const text = await request.text();
+      console.log('Raw body (urlencoded):', text);
       const params = new URLSearchParams(text);
       check_id = params.get('check_id');
       check_status = params.get('check_status');
     } else if (contentType.includes('application/json')) {
-      // Обрабатываем JSON (на всякий случай)
+      // Обрабатываем JSON
       const body = await request.json();
+      console.log('Raw body (json):', body);
       check_id = body.check_id;
       check_status = body.check_status;
     } else {
