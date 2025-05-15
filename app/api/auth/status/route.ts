@@ -1,4 +1,4 @@
-// ✅ Проверенный: app/api/auth/status/route.ts
+// ✅ Исправленный: app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -81,13 +81,15 @@ export async function GET(request: Request) {
       const { error: updateError } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
-        .eq('check_id', checkId);
+        .eq('check_id', checkId)
+        .eq('phone', phone.replace(/\D/g, '')); // Добавляем дополнительное условие для надёжности
 
       if (updateError) {
         console.error('Error updating auth_logs:', updateError);
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
+      console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${checkId}`);
       return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     } else if (checkStatus === '402') {
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
