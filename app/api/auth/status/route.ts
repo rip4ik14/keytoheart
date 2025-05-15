@@ -51,7 +51,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка проверки статуса звонка' }, { status: 500 });
     }
 
-    if (apiJson.check_status === '401') {
+    // Приводим check_status к строке для надёжного сравнения
+    const checkStatus = String(apiJson.check_status);
+
+    if (checkStatus === '401') {
       // Номер подтверждён, обновляем статус в auth_logs
       const { error: updateError } = await supabase
         .from('auth_logs')
@@ -65,11 +68,11 @@ export async function GET(req: Request) {
 
       console.log(`[${new Date().toISOString()}] Status updated to VERIFIED for checkId ${checkId}`);
       return NextResponse.json({ success: true, status: 'VERIFIED' });
-    } else if (apiJson.check_status === '402') {
+    } else if (checkStatus === '402') {
       console.log(`[${new Date().toISOString()}] CheckId ${checkId} expired`);
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
     } else {
-      console.log(`[${new Date().toISOString()}] CheckId ${checkId} still pending, status: ${apiJson.check_status}`);
+      console.log(`[${new Date().toISOString()}] CheckId ${checkId} still pending, status: ${checkStatus}`);
       return NextResponse.json({ success: false, status: 'PENDING', error: 'Номер ещё не подтверждён. Совершите звонок.' });
     }
   } catch (error: any) {

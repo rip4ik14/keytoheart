@@ -102,7 +102,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
-        console.log('Callillon: true,
         console.log('Call status expired, switching to SMS');
         setStep('sms');
         setError('Время для звонка истекло. Получите код по SMS.');
@@ -122,13 +121,17 @@ export default function AuthWithCall({ onSuccess }: Props) {
   // Запуск периодической проверки статуса звонка
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
-      checkCallStatus(); // Первая проверка сразу
-      statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
-    }
+      // Даём SMS.ru 10 секунд на обработку звонка перед первой проверкой
+      const initialDelay = setTimeout(() => {
+        checkCallStatus(); // Первая проверка после задержки
+        statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
+      }, 10000); // Задержка 10 секунд
 
-    return () => {
-      if (statusCheckRef.current) clearInterval(statusCheckRef.current);
-    };
+      return () => {
+        clearTimeout(initialDelay);
+        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+      };
+    }
   }, [step, checkId, phone]);
 
   // Очистка таймеров при размонтировании

@@ -40,18 +40,21 @@ export async function POST(request: Request) {
 
         console.log(`[${new Date().toISOString()}] Parsed parts:`, parts);
 
+        // Извлекаем check_id и check_status
         for (const part of parts) {
-          const lines = part.split('\r\n').filter(line => line.trim());
-          const nameMatch = lines.find(line => line.includes('name="check_id"'));
-          const statusMatch = lines.find(line => line.includes('name="check_status"'));
+          const lines = part.split('\n').filter(line => line.trim());
+          console.log(`[${new Date().toISOString()}] Part lines:`, lines);
+          
+          const checkIdMatch = lines.find(line => line.includes('name="check_id"'));
+          const checkStatusMatch = lines.find(line => line.includes('name="check_status"'));
 
-          if (nameMatch) {
-            const valueIndex = lines.indexOf(nameMatch) + 2;
-            check_id = lines[valueIndex]?.trim();
+          if (checkIdMatch) {
+            const valueIndex = lines.indexOf(checkIdMatch) + 2;
+            check_id = lines[valueIndex]?.trim() || null;
           }
-          if (statusMatch) {
-            const valueIndex = lines.indexOf(statusMatch) + 2;
-            check_status = lines[valueIndex]?.trim();
+          if (checkStatusMatch) {
+            const valueIndex = lines.indexOf(checkStatusMatch) + 2;
+            check_status = lines[valueIndex]?.trim() || null;
           }
         }
       }
