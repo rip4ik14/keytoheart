@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { IMaskInput } from 'react-imask'; // Добавляем IMaskInput
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821'; // Ваш номер WhatsApp
 
@@ -73,7 +72,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
     setIsCheckingStatus(true);
     try {
-      const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+      const clearPhone = phone.replace(/\D/g, '');
       console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
@@ -130,12 +129,25 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setError('');
     setIsLoading(true);
     setCheckId(null);
-    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+
+    // Очищаем номер от нецифровых символов
+    const cleanPhone = phone.replace(/\D/g, '');
+    console.log(`Cleaned phone for sending: ${cleanPhone}`);
+
+    // Убедимся, что номер начинается с +7
+    let formattedPhone = cleanPhone;
+    if (!cleanPhone.startsWith('7')) {
+      formattedPhone = '7' + cleanPhone;
+    }
+    formattedPhone = '+7' + formattedPhone.slice(1);
+
+    console.log(`Formatted phone for API: ${formattedPhone}`);
+
     try {
       const res = await fetch('/api/auth/send-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clearPhone }),
+        body: JSON.stringify({ phone: formattedPhone }),
       });
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Send call response:`, data);
@@ -163,12 +175,18 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const handleSendSms = async () => {
     setError('');
     setIsLoading(true);
-    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+    const cleanPhone = phone.replace(/\D/g, '');
+    let formattedPhone = cleanPhone;
+    if (!cleanPhone.startsWith('7')) {
+      formattedPhone = '7' + cleanPhone;
+    }
+    formattedPhone = '+7' + formattedPhone.slice(1);
+
     try {
       const res = await fetch('/api/auth/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clearPhone }),
+        body: JSON.stringify({ phone: formattedPhone }),
       });
       const data = await res.json();
       console.log('Send SMS response:', data);
@@ -192,18 +210,24 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const handleVerifySms = async () => {
     setError('');
     setIsLoading(true);
-    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+    const cleanPhone = phone.replace(/\D/g, '');
+    let formattedPhone = cleanPhone;
+    if (!cleanPhone.startsWith('7')) {
+      formattedPhone = '7' + cleanPhone;
+    }
+    formattedPhone = '+7' + formattedPhone.slice(1);
+
     try {
       const res = await fetch('/api/auth/verify-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clearPhone, code }),
+        body: JSON.stringify({ phone: formattedPhone, code }),
       });
       const data = await res.json();
       console.log('Verify SMS response:', data);
       if (data.success) {
         setStep('success');
-        onSuccess(clearPhone);
+        onSuccess(formattedPhone);
       } else {
         setAttempts((a) => a + 1);
         if (res.status === 429) {
@@ -235,11 +259,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
           <div className="flex gap-2 items-center">
             <span className="pt-2 text-gray-600">+7</span>
             <div className="relative flex-1">
-              <IMaskInput
-                mask="(000) 000-00-00"
+              <input
                 value={phone}
-                onAccept={(value) => handlePhoneInput(value as string)}
-                placeholder="(___) ___-__-__"
+                onChange={(e) => handlePhoneInput(e.target.value)}
+                placeholder="(xxx) xxx-xx-xx"
                 className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2"
                 disabled={isLoading}
                 autoFocus
