@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -40,13 +39,20 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const router = useRouter();
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+    }
   );
 
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
   const [orders, setOrders] = useState<Order[]>(initialOrders || []);
   const [bonusData, setBonusData] = useState<BonusesData | null>(initialBonusData);
-  const [filterDays, setFilterDays] = useState<number>(30);
+  const [filterDays, setFilterDays] = useState<number>(9999);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
@@ -87,38 +93,56 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     if (!phone) return;
     setIsLoading(true);
     try {
-      const bonusesRes = await supabase
-        .from('bonuses')
-        .select('id, bonus_balance, level')
-        .eq('phone', phone)
-        .single();
+      console.log('Fetching account data for phone:', phone);
 
-      let bonusesData: BonusesData;
-      if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
-        console.error('Bonuses fetch error:', bonusesRes.error);
-        throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
+      // Загружаем бонусы
+      let bonusesData: BonusesData = { id: null, bonus_balance: 0, level: 'basic', history: [] };
+      try {
+        const bonusesRes = await supabase
+          .from('bonuses')
+          .select('id, bonus_balance, level')
+          .eq('phone', phone)
+          .single();
+
+        console.log('Bonuses response:', bonusesRes);
+
+        if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
+          console.error('Bonuses fetch error:', bonusesRes.error);
+          throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
+        }
+        if (bonusesRes.data) {
+          bonusesData = { ...bonusesRes.data, history: [] };
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch bonuses:', error.message);
+        // Продолжаем выполнение даже если бонусы не удалось загрузить
       }
-      bonusesData = bonusesRes.data
-        ? { ...bonusesRes.data, history: [] }
-        : { id: null, bonus_balance: 0, level: 'basic', history: [] };
 
       if (bonusesData.id) {
-        const historyRes = await supabase
-          .from('bonus_history')
-          .select('amount, reason, created_at')
-          .eq('bonus_id', bonusesData.id);
+        try {
+          const historyRes = await supabase
+            .from('bonus_history')
+            .select('amount, reason, created_at')
+            .eq('bonus_id', bonusesData.id);
 
-        if (historyRes.error) {
-          console.error('History fetch error:', historyRes.error);
-          throw new Error(`History fetch error: ${historyRes.error.message}`);
+          console.log('Bonus history response:', historyRes);
+
+          if (historyRes.error) {
+            console.error('History fetch error:', historyRes.error);
+            throw new Error(`History fetch error: ${historyRes.error.message}`);
+          }
+          bonusesData.history = historyRes.data.map((item) => ({
+            amount: item.amount ?? 0,
+            reason: item.reason ?? '',
+            created_at: item.created_at ?? '',
+          }));
+        } catch (error: any) {
+          console.error('Failed to fetch bonus history:', error.message);
+          bonusesData.history = [];
         }
-        bonusesData.history = historyRes.data.map((item) => ({
-          amount: item.amount ?? 0,
-          reason: item.reason ?? '',
-          created_at: item.created_at ?? '',
-        }));
       }
 
+      // Загружаем заказы
       const ordersRes = await supabase
         .from('orders')
         .select(`
@@ -133,7 +157,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
             price,
             product_id,
             products(title, image_url)
-          )
+          ),
+          upsell_details
         `)
         .eq('phone', phone)
         .order('created_at', { ascending: false });
@@ -142,6 +167,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         console.error('Orders fetch error:', ordersRes.error);
         throw new Error(`Orders fetch error: ${ordersRes.error.message}`);
       }
+
+      console.log('Raw orders response:', ordersRes.data);
 
       const transformedOrders: Order[] = (ordersRes.data || []).map((order: any) => {
         const paymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
@@ -160,10 +187,11 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
               ? { title: item.products.title, cover_url: item.products.image_url }
               : { title: 'Неизвестный товар', cover_url: null },
           })),
-          upsell_details: [], // Добавляем пустой массив, так как поле отсутствует в запросе
+          upsell_details: order.upsell_details || [],
         };
       });
 
+      console.log('Transformed orders:', transformedOrders);
       setBonusData(bonusesData);
       setOrders(transformedOrders);
 
@@ -225,9 +253,10 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     if (!orders) return [];
     return orders.filter((o) => {
       if (!o.created_at) return false;
-      const orderDate = new Date(o.created_at);
+      const orderDate = new Date(o.created_at.includes('T') ? o.created_at : `${o.created_at}T00:00:00Z`);
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - filterDays);
+      console.log(`Filtering order: ${o.id}, created_at: ${o.created_at}, orderDate: ${orderDate}, cutoff: ${cutoff}`);
       return orderDate >= cutoff;
     });
   }, [orders, filterDays]);
@@ -300,7 +329,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 </div>
                 <BonusCard
                   balance={bonusData?.bonus_balance ?? 0}
-                  level={bonusData?.level ?? 'basic'} // Исправлено: добавлена закрывающая скобка
+                  level={bonusData?.level ?? 'basic'}
                 />
               </div>
             )}
