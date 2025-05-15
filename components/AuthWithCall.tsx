@@ -3,6 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -24,10 +25,53 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
 
   const handlePhoneInput = (value: string) => {
     setPhone(value);
   };
+
+  const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+  };
+
+  const checkSession = async () => {
+    const token = getCookie('sb-access-token');
+    if (token) {
+      try {
+        console.log(`[${new Date().toISOString()}] Checking session with token`);
+        const res = await fetch('/api/get-profile', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await res.json();
+        if (data.success) {
+          console.log('Session is valid, proceeding to success step');
+          setStep('success');
+          onSuccess(phone);
+          return true;
+        } else {
+          console.error('Invalid session:', data.error);
+          document.cookie = 'sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+        document.cookie = 'sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      }
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    // Проверяем сессию при монтировании компонента
+    checkSession();
+  }, []);
 
   const startCallTimer = () => {
     setCallTimer(300); // 5 минут
@@ -43,13 +87,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         return t - 1;
       });
     }, 1000);
-  };
-
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
   };
 
   const checkCallStatus = async () => {
@@ -77,7 +114,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
         }
 
         console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${formattedPhone}`);
-        const accountRes = await fetch('/api/account', {
+        const accountRes = await fetch('/api/get-profile', {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

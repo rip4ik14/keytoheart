@@ -91,25 +91,56 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
-      // Создаём сессию пользователя
+      // Проверяем, существует ли пользователь в Supabase Auth
+      console.log(`[${new Date().toISOString()}] Checking if user exists for phone: ${phone}`);
+      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
+      const userExists = userData.users.find((user: any) => user.phone === phone);
+
+      if (!userExists) {
+        console.log(`[${new Date().toISOString()}] User does not exist, creating new user for phone: ${phone}`);
+        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+          phone: phone,
+          phone_confirm: true,
+          user_metadata: { phone: phone },
+        });
+
+        if (createError || !newUser.user) {
+          console.error('Error creating user:', createError);
+          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+        }
+      }
+
+      // Создаём сессию пользователя с помощью OTP
       console.log(`[${new Date().toISOString()}] Creating session for phone: ${phone}`);
-      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithOtp({
         phone: phone,
-        password: process.env.SMS_AUTH_PASSWORD || 'default_password', // Укажите пароль для SMS-авторизации в .env
+        options: {
+          shouldCreateUser: false, // Пользователь уже создан выше
+        },
       });
 
-      if (sessionError || !sessionData.session) {
+      if (sessionError) {
         console.error('Error creating session:', sessionError);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
+      // Получаем сессию пользователя
+      const { data: session, error: sessionFetchError } = await supabase.auth.getSession();
+      if (sessionFetchError || !session.session) {
+        console.error('Error fetching session:', sessionFetchError);
+        return NextResponse.json({ success: false, error: 'Ошибка получения сессии' }, { status: 500 });
+      }
+
+      const token = session.session.access_token;
+
       // Устанавливаем сессионный токен в куки
       const response = NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
-      response.cookies.set('sb-access-token', sessionData.session.access_token, {
+      response.cookies.set('sb-access-token', token, {
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === 'production', // Устанавливаем secure: false для разработки
         maxAge: 60 * 60 * 24 * 7, // 7 дней
         path: '/',
+        sameSite: 'lax',
       });
 
       console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${checkId}`);
