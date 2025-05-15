@@ -19,15 +19,16 @@ export async function GET(req: Request) {
   }
 
   try {
-    console.log(`Fetching status for checkId: ${checkId}, phone: ${phone}`);
+    console.log(`[${new Date().toISOString()}] Fetching status for checkId: ${checkId}, phone: ${phone}`);
 
     // Проверяем статус в SMS.ru
     const url = `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&phone=${encodeURIComponent(phone)}&check_id=${encodeURIComponent(checkId)}&json=1`;
-    console.log(`Calling SMS.ru API: ${url}`);
+    console.log(`[${new Date().toISOString()}] Calling SMS.ru API: ${url}`);
+    const startTime = Date.now();
     const apiRes = await fetch(url);
     const apiJson = await apiRes.json();
-
-    console.log('SMS.ru status response:', apiJson);
+    const duration = Date.now() - startTime;
+    console.log(`[${new Date().toISOString()}] SMS.ru API response (duration: ${duration}ms):`, apiJson);
 
     if (!apiJson || apiJson.status !== 'OK') {
       console.error('SMS.ru API error:', apiJson?.status_text || 'Unknown error');
@@ -46,13 +47,13 @@ export async function GET(req: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
-      console.log(`Status updated to VERIFIED for checkId ${checkId}`);
+      console.log(`[${new Date().toISOString()}] Status updated to VERIFIED for checkId ${checkId}`);
       return NextResponse.json({ success: true, status: 'VERIFIED' });
     } else if (apiJson.check_status === '402') {
-      console.log(`CheckId ${checkId} expired`);
+      console.log(`[${new Date().toISOString()}] CheckId ${checkId} expired`);
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
     } else {
-      console.log(`CheckId ${checkId} still pending, status: ${apiJson.check_status}`);
+      console.log(`[${new Date().toISOString()}] CheckId ${checkId} still pending, status: ${apiJson.check_status}`);
       return NextResponse.json({ success: false, status: 'PENDING', error: 'Номер ещё не подтверждён. Совершите звонок.' });
     }
   } catch (error: any) {
