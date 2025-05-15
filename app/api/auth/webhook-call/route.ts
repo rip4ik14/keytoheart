@@ -12,15 +12,17 @@ export async function POST(request: Request) {
   console.log(`[${new Date().toISOString()}] Webhook called: ${request.method} ${request.url}`);
 
   try {
-    let check_id: string | null = null;
-    let check_status: string | null = null;
-
     const contentType = request.headers.get('content-type') || '';
     console.log(`[${new Date().toISOString()}] Webhook Content-Type:`, contentType);
+
+    let check_id: string | null = null;
+    let check_status: string | null = null;
 
     // Обработка multipart/form-data
     if (contentType.includes('multipart/form-data')) {
       console.log(`[${new Date().toISOString()}] Attempting to parse multipart/form-data`);
+      
+      // Извлекаем formData
       const formData = await request.formData();
       console.log(`[${new Date().toISOString()}] FormData parsed successfully`);
 
@@ -54,8 +56,6 @@ export async function POST(request: Request) {
     // Если Content-Type неизвестен
     else {
       console.error(`[${new Date().toISOString()}] Unsupported Content-Type:`, contentType);
-      const text = await request.text();
-      console.log(`[${new Date().toISOString()}] Raw body:`, text);
       return new NextResponse('Unsupported Content-Type', { status: 400 });
     }
 
