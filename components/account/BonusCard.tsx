@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useEffect } from 'react'; // Добавляем импорт useEffect
+import toast from 'react-hot-toast';
 
 interface BonusCardProps {
   balance: number;
@@ -9,48 +10,61 @@ interface BonusCardProps {
 }
 
 export default function BonusCard({ balance, level }: BonusCardProps) {
-  // Аналитика: просмотр бонусного баланса
-  useEffect(() => {
-    window.gtag?.('event', 'view_bonus_balance', {
-      event_category: 'account',
-      value: balance,
-    });
-    window.ym?.(12345678, 'reachGoal', 'view_bonus_balance', { balance });
-  }, [balance]);
+  const [isInstalling, setIsInstalling] = useState(false);
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  const handleInstallCard = async () => {
+    setIsInstalling(true);
+    try {
+      const authData = localStorage.getItem('auth');
+      if (!authData) {
+        toast.error('Пожалуйста, войдите в аккаунт');
+        return;
+      }
+      const { phone } = JSON.parse(authData);
+
+      const response = await fetch('/api/install-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: phone }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Не удалось установить карту');
+      }
+
+      toast.success('Карта установлена! Начислено 300 бонусов.');
+      // Здесь можно обновить UI, вызвав fetchAccountData через пропс onUpdate, если он есть
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsInstalling(false);
+    }
   };
 
   return (
-    <motion.div
-      className="bg-white p-6 rounded-lg text-center shadow-sm flex flex-col items-center justify-center space-y-3 border border-gray-200 hover:shadow-md transition-shadow duration-300"
-      role="region"
-      aria-labelledby="bonus-card-title"
-      aria-describedby="bonus-card-desc"
-      variants={containerVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true }}
-    >
-      <div className="text-3xl transform hover:scale-110 transition-transform duration-300" aria-hidden="true">
-        🎁
-      </div>
-      <h2 id="bonus-card-title" className="font-semibold text-xl tracking-tight">
-        Ваш бонусный баланс
-      </h2>
-      <p className="text-4xl font-bold text-black">{balance} баллов</p>
-      <div id="bonus-card-desc" className="text-sm text-gray-600 space-y-1">
-        <p>
-          Уровень: <span className="font-medium">{level || '—'}</span>
-        </p>
-        <p className="text-gray-500 leading-relaxed">
-          Начисляется 5% от каждой покупки
-          <br />
-          1 бонус = 1 ₽
-        </p>
-      </div>
-    </motion.div>
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <h3 className="text-lg font-semibold mb-4">Ваш бонусный баланс</h3>
+      <p className="text-2xl font-bold">{balance} баллов</p>
+      <p className="text-sm text-gray-500 mt-2">
+        Уровень: <span className="capitalize">{level}</span>
+      </p>
+      <p className="text-sm text-gray-500 mt-1">
+        Начисляется {level === 'bronze' ? 2.5 : level === 'silver' ? 5 : level === 'gold' ? 7.5 : level === 'platinum' ? 10 : 15}% от каждой покупки
+      </p>
+      <p className="text-sm text-gray-500">1 бонус = 1 ₽</p>
+      <motion.button
+        onClick={handleInstallCard}
+        disabled={isInstalling}
+        className={`mt-4 bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+          isInstalling ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        {isInstalling ? 'Установка...' : 'Установить карту клиента'}
+      </motion.button>
+    </div>
   );
 }

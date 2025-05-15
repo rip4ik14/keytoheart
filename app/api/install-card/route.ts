@@ -2,41 +2,17 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Уровни кешбэка
-const CASHBACK_LEVELS = [
-  { level: 'bronze', percentage: 2.5, minTotal: 0 },
-  { level: 'silver', percentage: 5, minTotal: 10000 },
-  { level: 'gold', percentage: 7.5, minTotal: 20000 },
-  { level: 'platinum', percentage: 10, minTotal: 30000 },
-  { level: 'premium', percentage: 15, minTotal: 50000 },
-];
-
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 export async function POST(request: Request) {
   try {
-    const { user_id, order_total, order_id } = await request.json();
+    const { user_id } = await request.json();
 
     if (!user_id || !/^\+7\d{10}$/.test(user_id)) {
-      console.error('Invalid phone number:', user_id);
       return NextResponse.json(
         { success: false, error: 'Некорректный номер телефона' },
-        { status: 400 }
-      );
-    }
-    if (typeof order_total !== 'number' || order_total < 0) {
-      console.error('Invalid order total:', order_total);
-      return NextResponse.json(
-        { success: false, error: 'Некорректная сумма заказа' },
-        { status: 400 }
-      );
-    }
-    if (!order_id) {
-      console.error('Missing order ID');
-      return NextResponse.json(
-        { success: false, error: 'Отсутствует ID заказа' },
         { status: 400 }
       );
     }
@@ -44,7 +20,7 @@ export async function POST(request: Request) {
     // Проверяем, существует ли пользователь в bonuses
     let { data: bonusRecord, error: getErr } = await supabase
       .from('bonuses')
-      .select('id, bonus_balance, level, total_spent, total_bonus')
+      .select('id, bonus_balance')
       .eq('phone', user_id)
       .single();
 
@@ -56,7 +32,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Если записи нет, создаём новую
     if (!bonusRecord) {
       const { data: newBonus, error: insertErr } = await supabase
         .from('bonuses')
@@ -68,7 +43,7 @@ export async function POST(request: Request) {
           total_bonus: 0,
           updated_at: new Date().toISOString(),
         })
-        .select('id, bonus_balance, level, total_spent, total_bonus')
+        .select('id, bonus_balance')
         .single();
 
       if (insertErr) {
@@ -81,27 +56,36 @@ export async function POST(request: Request) {
       bonusRecord = newBonus;
     }
 
-    // Обновляем total_spent
-    const newTotalSpent = (bonusRecord.total_spent || 0) + order_total;
+    // Проверяем, не были ли бонусы уже начислены за установку карты
+    const { data: historyCheck, error: historyErr } = await supabase
+      .from('bonus_history')
+      .select('id')
+      .eq('bonus_id', bonusRecord.id)
+      .eq('reason', 'Бонус за установку карты клиента');
 
-    // Определяем новый уровень на основе total_spent
-    const cashbackLevel = CASHBACK_LEVELS.find(
-      (level) => newTotalSpent >= level.minTotal
-    ) || CASHBACK_LEVELS[0];
+    if (historyErr) {
+      console.error('Error checking bonus history:', historyErr);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка проверки истории бонусов: ' + historyErr.message },
+        { status: 500 }
+      );
+    }
 
-    // Начисляем бонусы согласно текущему уровню
-    const bonusToAdd = Math.floor(order_total * (cashbackLevel.percentage / 100));
+    if (historyCheck && historyCheck.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Бонусы за установку карты уже начислены' },
+        { status: 400 }
+      );
+    }
+
+    // Начисляем 300 бонусов
+    const bonusToAdd = 300;
     const newBalance = (bonusRecord.bonus_balance || 0) + bonusToAdd;
-    const newTotalBonus = (bonusRecord.total_bonus || 0) + bonusToAdd;
 
-    // Обновляем баланс бонусов и уровень
     const { error: updateErr } = await supabase
       .from('bonuses')
       .update({
         bonus_balance: newBalance,
-        level: cashbackLevel.level,
-        total_spent: newTotalSpent,
-        total_bonus: newTotalBonus,
         updated_at: new Date().toISOString(),
       })
       .eq('phone', user_id);
@@ -115,32 +99,24 @@ export async function POST(request: Request) {
     }
 
     // Записываем историю начисления
-    const { error: historyErr } = await supabase
+    const { error: historyInsertErr } = await supabase
       .from('bonus_history')
       .insert({
         bonus_id: bonusRecord.id,
         amount: bonusToAdd,
-        reason: `Начисление за заказ #${order_id}`,
+        reason: 'Бонус за установку карты клиента',
         created_at: new Date().toISOString(),
       });
 
-    if (historyErr) {
-      console.error('Error logging bonus history:', historyErr);
+    if (historyInsertErr) {
+      console.error('Error logging bonus history:', historyInsertErr);
       // Продолжаем выполнение, но логируем ошибку
     }
-
-    console.log('Successfully credited bonuses:', {
-      user_id,
-      bonus_added: bonusToAdd,
-      new_balance: newBalance,
-      new_level: cashbackLevel.level,
-    });
 
     return NextResponse.json({
       success: true,
       bonus_added: bonusToAdd,
       new_balance: newBalance,
-      new_level: cashbackLevel.level,
     });
   } catch (error: any) {
     console.error('Server error:', error);

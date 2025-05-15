@@ -1,343 +1,217 @@
 'use client';
 
-import { useState, useEffect, memo } from 'react';
-import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import TrackedLink from '@components/TrackedLink';
+import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Тип, соответствующий структуре таблицы important_dates в Supabase
-type ImportantDate = {
-  id: string;
-  user_id: string | null; // Заменяем phone на user_id
-  anniversary: string | null;
-  birthday: string | null;
-  created_at: string | null;
-};
-
-// Тип для интерфейса (отображение в UI)
-type Event = {
-  id: string;
-  type: 'anniversary' | 'birthday' | 'other';
-  date: string;
-  label: string;
-};
-
-interface EventCardProps {
-  event: Event;
-  onChange: (updatedEvent: Event) => void;
-  onDelete: (id: string) => void;
+interface ImportantDatesProps {
+  phone: string;
+  onUpdate?: () => void;
 }
 
-const EventCard = memo(({ event, onChange, onDelete }: EventCardProps) => {
-  // Очистка ввода от потенциально опасных символов
-  const sanitizeInput = (value: string) => {
-    return value.replace(/[<>&'"]/g, '');
+export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps) {
+  const [birthday, setBirthday] = useState<string>('');
+  const [anniversary, setAnniversary] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+    }
+  );
+
+  useEffect(() => {
+    const fetchDates = async () => {
+      const { data, error } = await supabase
+        .from('important_dates')
+        .select('birthday, anniversary')
+        .eq('user_id', phone)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching important dates:', error);
+        toast.error('Ошибка загрузки дат');
+        return;
+      }
+
+      if (data) {
+        setBirthday(data.birthday || '');
+        setAnniversary(data.anniversary || '');
+      }
+    };
+
+    fetchDates();
+  }, [phone, supabase]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Проверяем, были ли даты уже заполнены
+      const { data: existingDates, error: fetchError } = await supabase
+        .from('important_dates')
+        .select('birthday, anniversary')
+        .eq('user_id', phone)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw new Error(`Error fetching existing dates: ${fetchError.message}`);
+      }
+
+      const wasEmptyBefore = !existingDates || (!existingDates.birthday && !existingDates.anniversary);
+      const hasNewData = (birthday && !existingDates?.birthday) || (anniversary && !existingDates?.anniversary);
+
+      // Сохраняем даты
+      const { error: upsertError } = await supabase
+        .from('important_dates')
+        .upsert(
+          { user_id: phone, birthday: birthday || null, anniversary: anniversary || null, created_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+
+      if (upsertError) {
+        throw new Error(`Error saving dates: ${upsertError.message}`);
+      }
+
+      // Если даты заполнены впервые, начисляем бонусы
+      if (wasEmptyBefore && hasNewData) {
+        const { data: bonusRecord, error: bonusError } = await supabase
+          .from('bonuses')
+          .select('id, bonus_balance')
+          .eq('phone', phone)
+          .single();
+
+        if (bonusError && bonusError.code !== 'PGRST116') {
+          throw new Error(`Error fetching bonus record: ${bonusError.message}`);
+        }
+
+        let bonusId: string;
+        let currentBalance: number = 0; // Явно задаём тип number
+        if (!bonusRecord) {
+          const { data: newBonus, error: insertErr } = await supabase
+            .from('bonuses')
+            .insert({
+              phone,
+              bonus_balance: 0,
+              level: 'bronze',
+              total_spent: 0,
+              total_bonus: 0,
+              updated_at: new Date().toISOString(),
+            })
+            .select('id, bonus_balance')
+            .single();
+
+          if (insertErr) {
+            throw new Error(`Error creating bonus record: ${insertErr.message}`);
+          }
+          bonusId = newBonus.id;
+          currentBalance = newBonus.bonus_balance ?? 0; // Используем ?? для обработки null
+        } else {
+          bonusId = bonusRecord.id;
+          currentBalance = bonusRecord.bonus_balance ?? 0; // Используем ?? для обработки null
+        }
+
+        const bonusToAdd = 100; // Например, 100 бонусов за заполнение дат
+        const newBalance = currentBalance + bonusToAdd;
+
+        const { error: updateErr } = await supabase
+          .from('bonuses')
+          .update({
+            bonus_balance: newBalance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('phone', phone);
+
+        if (updateErr) {
+          throw new Error(`Error updating bonus balance: ${updateErr.message}`);
+        }
+
+        const { error: historyErr } = await supabase
+          .from('bonus_history')
+          .insert({
+            bonus_id: bonusId,
+            amount: bonusToAdd,
+            reason: 'Бонус за указание важных дат',
+            created_at: new Date().toISOString(),
+          });
+
+        if (historyErr) {
+          console.error('Error logging bonus history:', historyErr);
+        }
+
+        toast.success('Даты сохранены! Начислено 100 бонусов.');
+      } else {
+        toast.success('Даты успешно сохранены.');
+      }
+
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error: any) {
+      console.error('Error saving important dates:', error);
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <motion.div
-      className="space-y-3 border border-gray-200 p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-300 min-w-[250px]"
-      role="form"
-      aria-label={`Редактировать событие ${event.label || 'Новое событие'}`}
-      variants={{
-        hidden: { opacity: 0, x: -10 },
-        visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
-      }}
+      className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <label htmlFor={`label-${event.id}`} className="block text-sm font-medium text-gray-700">
-        Название события
-      </label>
-      <input
-        id={`label-${event.id}`}
-        type="text"
-        placeholder="Чьё событие"
-        value={event.label}
-        onChange={(ev) => onChange({ ...event, label: sanitizeInput(ev.target.value) })}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-        aria-describedby={`label-desc-${event.id}`}
-        maxLength={50}
-        required
-      />
-      <span id={`label-desc-${event.id}`} className="sr-only">
-        Введите название события, например, "День рождения мамы"
-      </span>
-
-      <label htmlFor={`type-${event.id}`} className="block text-sm font-medium text-gray-700">
-        Тип события
-      </label>
-      <select
-        id={`type-${event.id}`}
-        value={event.type}
-        onChange={(ev) => onChange({ ...event, type: ev.target.value as 'anniversary' | 'birthday' | 'other' })}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-        aria-label="Тип события"
-        aria-describedby={`type-desc-${event.id}`}
-        required
-      >
-        <option value="" disabled>
-          Выберите тип события
-        </option>
-        <option value="birthday">День рождения</option>
-        <option value="anniversary">Годовщина</option>
-        <option value="other">Другое</option>
-      </select>
-      <span id={`type-desc-${event.id}`} className="sr-only">
-        Выберите тип события из списка
-      </span>
-
-      <label htmlFor={`date-${event.id}`} className="block text-sm font-medium text-gray-700">
-        Дата события
-      </label>
-      <input
-        id={`date-${event.id}`}
-        type="date"
-        value={event.date}
-        onChange={(ev) => onChange({ ...event, date: ev.target.value })}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-        aria-describedby={`date-desc-${event.id}`}
-        required
-      />
-      <span id={`date-desc-${event.id}`} className="sr-only">
-        Выберите дату события в формате ГГГГ-ММ-ДД
-      </span>
-
-      <motion.button
-        onClick={() => onDelete(event.id)}
-        className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        aria-label={`Удалить событие ${event.label || 'Новое событие'}`}
-      >
-        Удалить
-      </motion.button>
-    </motion.div>
-  );
-});
-
-export default function ImportantDates() {
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const [events, setEvents] = useState<Event[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUserId = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        fetchDates(session.user.id);
-      }
-    };
-
-    fetchUserId();
-  }, [supabase]);
-
-  async function fetchDates(userId: string) {
-    if (!userId) return;
-    try {
-      const { data, error } = await supabase
-        .from('important_dates')
-        .select('id, user_id, anniversary, birthday, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Ошибка загрузки дат:', error);
-        toast.error('Ошибка загрузки важных дат');
-        return;
-      }
-
-      // Преобразуем данные из Supabase в формат Event
-      const transformedEvents: Event[] = (data || []).flatMap((item: ImportantDate) => {
-        const events: Event[] = [];
-        if (item.birthday) {
-          events.push({
-            id: `${item.id}-birthday`,
-            type: 'birthday',
-            date: item.birthday,
-            label: 'День рождения',
-          });
-        }
-        if (item.anniversary) {
-          events.push({
-            id: `${item.id}-anniversary`,
-            type: 'anniversary',
-            date: item.anniversary,
-            label: 'Годовщина',
-          });
-        }
-        return events;
-      });
-
-      setEvents(transformedEvents);
-    } catch (error) {
-      console.error('Ошибка загрузки дат:', error);
-      toast.error('Не удалось загрузить даты');
-    }
-  }
-
-  function addRow() {
-    setEvents((prev) => [
-      ...prev,
-      { id: `temp-${Date.now()}`, label: '', type: 'other', date: '' },
-    ]);
-    window.gtag?.('event', 'add_important_date', { event_category: 'account' });
-    window.ym?.(12345678, 'reachGoal', 'add_important_date');
-  }
-
-  async function saveDates() {
-    if (!userId) {
-      toast.error('Авторизуйтесь для сохранения дат');
-      return;
-    }
-
-    // Проверяем, что все поля заполнены
-    const isValid = events.every((e) => e.label.trim() && e.type.trim() && e.date.trim());
-    if (!isValid) {
-      toast.error('Пожалуйста, заполните все поля для каждого события');
-      return;
-    }
-
-    try {
-      // Преобразуем события в формат Supabase
-      const payload = events.map((e) => ({
-        id: e.id.startsWith('temp-') ? undefined : e.id.split('-')[0], // Убираем суффикс для существующих записей
-        user_id: userId,
-        anniversary: e.type === 'anniversary' ? e.date : null,
-        birthday: e.type === 'birthday' ? e.date : null,
-        created_at: new Date().toISOString(),
-      }));
-
-      const { error } = await supabase
-        .from('important_dates')
-        .upsert(payload, { onConflict: 'id' });
-
-      if (error) {
-        console.error('Ошибка сохранения дат:', error);
-        toast.error('Ошибка сохранения дат');
-        return;
-      }
-
-      toast.success('Даты успешно сохранены');
-      window.gtag?.('event', 'save_important_dates', {
-        event_category: 'account',
-        event_label: `Сохранено ${events.length} дат`,
-        count: events.length,
-      });
-      window.ym?.(12345678, 'reachGoal', 'save_important_dates', {
-        count: events.length,
-      });
-    } catch (error) {
-      console.error('Ошибка сохранения дат:', error);
-      toast.error('Не удалось сохранить даты');
-    }
-  }
-
-  async function deleteEvent(id: string) {
-    if (!userId) {
-      toast.error('Авторизуйтесь для удаления дат');
-      return;
-    }
-
-    try {
-      const actualId = id.split('-')[0]; // Получаем оригинальный ID записи
-      const { error } = await supabase
-        .from('important_dates')
-        .delete()
-        .eq('id', actualId)
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error('Ошибка удаления события:', error);
-        toast.error('Ошибка удаления события');
-        return;
-      }
-
-      setEvents((prev) => prev.filter((e) => e.id !== id));
-      toast.success('Событие удалено');
-      window.gtag?.('event', 'delete_important_date', { event_category: 'account' });
-      window.ym?.(12345678, 'reachGoal', 'delete_important_date');
-    } catch (error) {
-      console.error('Ошибка удаления события:', error);
-      toast.error('Не удалось удалить событие');
-    }
-  }
-
-  const handleEventChange = (updatedEvent: Event) => {
-    setEvents((prev) => prev.map((x) => (x.id === updatedEvent.id ? updatedEvent : x)));
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
-  };
-
-  return (
-    <motion.section
-      className="space-y-6"
-      aria-labelledby="important-dates-title"
-      variants={containerVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true }}
-    >
-      <div className="space-y-2">
-        <h2 id="important-dates-title" className="text-xl font-semibold tracking-tight">
-          Важные даты
-        </h2>
-        <p className="text-sm text-gray-500 leading-relaxed">
-          Укажите даты, чтобы мы могли напомнить вам о важных событиях и подарить скидки 🎁
-        </p>
-      </div>
-      <motion.button
-        onClick={addRow}
-        className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 hover:shadow-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        aria-label="Добавить новую дату"
-      >
-        + Добавить дату
-      </motion.button>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {events.map((e) => (
-          <EventCard
-            key={e.id}
-            event={e}
-            onChange={handleEventChange}
-            onDelete={deleteEvent}
+      <h3 className="text-lg font-semibold mb-4">Важные даты</h3>
+      <p className="text-sm text-gray-500 mb-4">
+        Укажите день рождения и юбилей — мы напомним и подарим скидку.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="birthday" className="block text-sm font-medium text-gray-700">
+            День рождения
+          </label>
+          <input
+            type="date"
+            id="birthday"
+            value={birthday}
+            onChange={(e) => setBirthday(e.target.value)}
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
           />
-        ))}
-      </div>
-      <div className="space-y-2">
+        </div>
+        <div>
+          <label htmlFor="anniversary" className="block text-sm font-medium text-gray-700">
+            Юбилей
+          </label>
+          <input
+            type="date"
+            id="anniversary"
+            value={anniversary}
+            onChange={(e) => setAnniversary(e.target.value)}
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-black focus:border-black sm:text-sm"
+          />
+        </div>
         <motion.button
-          onClick={saveDates}
-          className="w-full lg:w-auto lg:px-6 bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+          type="submit"
+          disabled={isLoading}
+          className={`w-full bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          aria-label="Сохранить даты"
         >
-          Сохранить
+          {isLoading ? 'Сохранение...' : 'Заполнить'}
         </motion.button>
-        <p className="text-xs text-gray-500 text-center">
-          Данные обрабатываются в соответствии с нашей{' '}
-          <TrackedLink
-            href="/policy"
-            ariaLabel="Перейти к политике конфиденциальности"
-            category="Navigation"
-            action="Click Policy Link"
-            label="Important Dates"
-            className="underline hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-black"
-          >
-            политикой конфиденциальности
-          </TrackedLink>
-          .
-        </p>
-      </div>
-    </motion.section>
+      </form>
+    </motion.div>
   );
 }

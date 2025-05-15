@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import TabsHeader from '@components/account/TabsHeader';
 import PersonalForm from '@components/account/PersonalForm';
 import OrdersList from '@components/account/OrdersList';
@@ -26,6 +26,8 @@ interface BonusesData {
   id: string | null;
   bonus_balance: number | null;
   level: string | null;
+  total_spent: number | null; // Добавляем поле total_spent
+  total_bonus?: number | null; // Добавляем поле total_bonus для полноты
   history: BonusHistoryItem[];
 }
 
@@ -95,53 +97,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     try {
       console.log('Fetching account data for phone:', phone);
 
-      // Загружаем бонусы
-      let bonusesData: BonusesData = { id: null, bonus_balance: 0, level: 'basic', history: [] };
-      try {
-        const bonusesRes = await supabase
-          .from('bonuses')
-          .select('id, bonus_balance, level')
-          .eq('phone', phone)
-          .single();
-
-        console.log('Bonuses response:', bonusesRes);
-
-        if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
-          console.error('Bonuses fetch error:', bonusesRes.error);
-          throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
-        }
-        if (bonusesRes.data) {
-          bonusesData = { ...bonusesRes.data, history: [] };
-        }
-      } catch (error: any) {
-        console.error('Failed to fetch bonuses:', error.message);
-        // Продолжаем выполнение даже если бонусы не удалось загрузить
-      }
-
-      if (bonusesData.id) {
-        try {
-          const historyRes = await supabase
-            .from('bonus_history')
-            .select('amount, reason, created_at')
-            .eq('bonus_id', bonusesData.id);
-
-          console.log('Bonus history response:', historyRes);
-
-          if (historyRes.error) {
-            console.error('History fetch error:', historyRes.error);
-            throw new Error(`History fetch error: ${historyRes.error.message}`);
-          }
-          bonusesData.history = historyRes.data.map((item) => ({
-            amount: item.amount ?? 0,
-            reason: item.reason ?? '',
-            created_at: item.created_at ?? '',
-          }));
-        } catch (error: any) {
-          console.error('Failed to fetch bonus history:', error.message);
-          bonusesData.history = [];
-        }
-      }
-
       // Загружаем заказы
       const ordersRes = await supabase
         .from('orders')
@@ -191,9 +146,83 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         };
       });
 
+      setOrders(transformedOrders);
+
+      // Вычисляем общую сумму заказов
+      const totalSpent = transformedOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+
+      // Загружаем бонусы
+      let bonusesData: BonusesData;
+      const bonusesRes = await supabase
+        .from('bonuses')
+        .select('id, bonus_balance, level, total_spent, total_bonus')
+        .eq('phone', phone)
+        .single();
+
+      console.log('Bonuses response:', bonusesRes);
+
+      if (bonusesRes.error && bonusesRes.error.code === 'PGRST116') {
+        // Если запись не найдена, создаём новую
+        const { data: newBonus, error: insertError } = await supabase
+          .from('bonuses')
+          .insert({
+            phone,
+            bonus_balance: 0,
+            level: 'bronze',
+            total_spent: totalSpent,
+            total_bonus: 0,
+            updated_at: new Date().toISOString(),
+          })
+          .select('id, bonus_balance, level, total_spent, total_bonus')
+          .single();
+
+        if (insertError) {
+          console.error('Error creating bonus record:', insertError);
+          throw new Error(`Error creating bonus record: ${insertError.message}`);
+        }
+        bonusesData = { ...newBonus, history: [] };
+      } else if (bonusesRes.error) {
+        console.error('Bonuses fetch error:', bonusesRes.error);
+        throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
+      } else {
+        bonusesData = { ...bonusesRes.data, history: [] };
+      }
+
+      // Обновляем total_spent, если оно отличается
+      if (bonusesData.total_spent !== totalSpent) {
+        const { error: updateError } = await supabase
+          .from('bonuses')
+          .update({ total_spent: totalSpent, updated_at: new Date().toISOString() })
+          .eq('phone', phone);
+
+        if (updateError) {
+          console.error('Error updating total_spent:', updateError);
+          throw new Error(`Error updating total_spent: ${updateError.message}`);
+        }
+        bonusesData.total_spent = totalSpent;
+      }
+
+      if (bonusesData.id) {
+        const historyRes = await supabase
+          .from('bonus_history')
+          .select('amount, reason, created_at')
+          .eq('bonus_id', bonusesData.id);
+
+        console.log('Bonus history response:', historyRes);
+
+        if (historyRes.error) {
+          console.error('History fetch error:', historyRes.error);
+          throw new Error(`History fetch error: ${historyRes.error.message}`);
+        }
+        bonusesData.history = historyRes.data.map((item) => ({
+          amount: item.amount ?? 0,
+          reason: item.reason ?? '',
+          created_at: item.created_at ?? '',
+        }));
+      }
+
       console.log('Transformed orders:', transformedOrders);
       setBonusData(bonusesData);
-      setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
       window.ym?.(12345678, 'reachGoal', 'view_account');
@@ -329,7 +358,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 </div>
                 <BonusCard
                   balance={bonusData?.bonus_balance ?? 0}
-                  level={bonusData?.level ?? 'basic'}
+                  level={bonusData?.level ?? 'bronze'}
                 />
               </div>
             )}
@@ -360,7 +389,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 )}
               </>
             )}
-            {activeTab === 'dates' && <ImportantDates />}
+            {activeTab === 'dates' && <ImportantDates phone={phone} onUpdate={fetchAccountData} />}
           </>
         )}
       </div>

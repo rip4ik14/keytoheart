@@ -392,7 +392,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 )}
               </>
             )}
-            {activeTab === 'dates' && <ImportantDates />}
+            {activeTab === 'dates' && <ImportantDates phone={phone} onUpdate={fetchAccountData} />}
           </>
         )}
       </div>
