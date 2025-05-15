@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -13,7 +14,7 @@ import StoreScheduleNotice from '@components/StoreScheduleNotice';
 import CartSummary from './components/CartSummary';
 import CartItem from './components/CartItem';
 import ThankYouModal from './components/ThankYouModal';
-import ErrorModal from './components/ErrorModal';
+import ErrorModalComponent from './components/ErrorModal'; // Переименовываем импорт
 import UpsellModal from './components/UpsellModal';
 import Step1ContactDetails from './components/steps/Step1ContactDetails';
 import Step2RecipientDetails from './components/steps/Step2RecipientDetails';
@@ -25,6 +26,15 @@ import useCheckoutForm from './hooks/useCheckoutForm';
 import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Явно указываем типы для ErrorModal
+interface ErrorModalProps {
+  message: string;
+  onRetry: () => Promise<void>;
+  onClose: () => void;
+}
+
+const ErrorModal = ErrorModalComponent as React.FC<ErrorModalProps>;
 
 // Типизация для Yandex Maps API
 interface YandexMaps {
@@ -102,7 +112,10 @@ export default function CartPage() {
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [phone, setPhone] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number>(0);
+  const [useBonuses, setUseBonuses] = useState<boolean>(false);
+  const [bonusesUsed, setBonusesUsed] = useState<number>(0);
   const [agreed, setAgreed] = useState<boolean>(false);
   const [upsellItems, setUpsellItems] = useState<UpsellItem[]>([]);
   const [isUpsellLoading, setIsUpsellLoading] = useState<boolean>(true);
@@ -170,7 +183,7 @@ export default function CartPage() {
     {
       global: {
         headers: {
-          Accept: 'application/json', // Явно указываем Accept для Supabase
+          Accept: 'application/json',
         },
       },
     }
@@ -183,11 +196,9 @@ export default function CartPage() {
       try {
         const draft = JSON.parse(repeatDraft);
         if (draft.items && Array.isArray(draft.items)) {
-          // Добавляем товары в корзину
           addMultipleItems(draft.items);
           toast.success('Товары из предыдущего заказа добавлены в корзину');
         }
-        // Очищаем repeatDraft после использования
         localStorage.removeItem('repeatDraft');
       } catch (error) {
         console.error('Ошибка парсинга repeatDraft:', error);
@@ -205,25 +216,24 @@ export default function CartPage() {
         if (result.success) {
           setIsAuthenticated(true);
           setPhone(result.phone);
+          setUserId(result.userId);
           setFormData({ phone: result.phone });
 
-          // Запрашиваем бонусный баланс
-          const { data: bonusData, error: bonusError } = await supabase
-            .from('bonuses')
+          const { data: profileData, error: profileError } = await supabase
+            .from('user_profiles')
             .select('bonus_balance')
             .eq('phone', result.phone)
             .single();
 
-          if (bonusError) {
-            console.error('Error fetching bonus balance:', bonusError);
+          if (profileError) {
+            console.error('Error fetching bonus balance:', profileError);
             setBonusBalance(0);
           } else {
-            setBonusBalance(bonusData?.bonus_balance || 0);
+            setBonusBalance(profileData?.bonus_balance || 0);
           }
 
           setStep(1);
         } else {
-          // Проверяем localStorage
           const authData = localStorage.getItem('auth');
           if (authData) {
             try {
@@ -231,21 +241,21 @@ export default function CartPage() {
               if (parsedAuth.phone && parsedAuth.isAuthenticated) {
                 setIsAuthenticated(true);
                 setPhone(parsedAuth.phone);
+                setUserId(parsedAuth.userId);
                 setFormData({ phone: parsedAuth.phone });
                 setStep(1);
 
-                // Запрашиваем бонусный баланс
-                const { data: bonusData, error: bonusError } = await supabase
-                  .from('bonuses')
+                const { data: profileData, error: profileError } = await supabase
+                  .from('user_profiles')
                   .select('bonus_balance')
                   .eq('phone', parsedAuth.phone)
                   .single();
 
-                if (bonusError) {
-                  console.error('Error fetching bonus balance from localStorage:', bonusError);
+                if (profileError) {
+                  console.error('Error fetching bonus balance from localStorage:', profileError);
                   setBonusBalance(0);
                 } else {
-                  setBonusBalance(bonusData?.bonus_balance || 0);
+                  setBonusBalance(profileData?.bonus_balance || 0);
                 }
               } else {
                 setStep(0);
@@ -279,37 +289,29 @@ export default function CartPage() {
     setPhone(phone);
 
     try {
-      // Запрашиваем данные профиля пользователя
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select('name')
+        .select('name, bonus_balance')
         .eq('phone', phone)
         .single();
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
         setFormData({ phone, name: '', email: form.email, whatsapp: form.whatsapp });
+        setBonusBalance(0);
       } else {
         const name = profileData?.name || '';
         setFormData({ phone, name, email: form.email, whatsapp: form.whatsapp });
+        setBonusBalance(profileData?.bonus_balance || 0);
       }
 
-      // Запрашиваем бонусный баланс
-      const { data: bonusData, error: bonusError } = await supabase
-        .from('bonuses')
-        .select('bonus_balance')
-        .eq('phone', phone)
-        .single();
-
-      if (bonusError) {
-        console.error('Error fetching bonus balance:', bonusError);
-        setBonusBalance(0);
-      } else {
-        setBonusBalance(bonusData?.bonus_balance || 0);
-      }
-
-      localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
-      document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+      localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true, userId: user?.id }));
+      document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true, userId: user?.id })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
       setStep(1);
     } catch (error) {
       console.error('Error in handleAuthSuccess:', error);
@@ -319,7 +321,6 @@ export default function CartPage() {
 
   const handlePhoneChange = useCallback(
     (value: string) => {
-      // Просто сохраняем значение без форматирования
       onFormChange({
         target: { name: 'phone', value },
       } as React.ChangeEvent<HTMLInputElement>);
@@ -352,7 +353,13 @@ export default function CartPage() {
     return promoDiscount;
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
 
-  const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount);
+  const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
+  const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+  useEffect(() => {
+    setBonusesUsed(bonusesToUse);
+  }, [useBonuses, bonusBalance, maxBonusesAllowed]);
+
+  const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
   useEffect(() => {
@@ -553,7 +560,6 @@ export default function CartPage() {
         if (!success) {
           throw new Error(error || 'Не удалось загрузить дополнительные товары');
         }
-        // Добавляем quantity в каждый upsell-предмет
         const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
           ...item,
           quantity: 1,
@@ -659,13 +665,19 @@ export default function CartPage() {
       return;
     }
 
-    // Проверяем, есть ли товары в корзине
     if (items.length === 0 && selectedUpsells.length === 0) {
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
 
     if (!(await checkItems())) return;
+
+    if (!phone) {
+      setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
+      setIsAuthenticated(false);
+      setStep(0);
+      return;
+    }
 
     setIsSubmittingOrder(true);
     try {
@@ -691,7 +703,7 @@ export default function CartPage() {
       console.log('Items to submit:', payloadItems);
 
       const payload = {
-        phone: phone || `+7${form.phone.replace(/\D/g, '')}`,
+        phone: phone,
         name: form.name,
         recipient: form.recipient,
         address:
@@ -706,7 +718,7 @@ export default function CartPage() {
         payment: form.payment,
         items: payloadItems,
         total: finalTotal,
-        bonuses_used: 0,
+        bonuses_used: bonusesUsed,
         bonus: bonusAccrual,
         promo_id: promoId,
         promo_discount: discountAmount,
@@ -738,6 +750,62 @@ export default function CartPage() {
         return;
       }
 
+      if (bonusesUsed > 0) {
+        const newBalance = bonusBalance - bonusesUsed;
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ bonus_balance: newBalance })
+          .eq('phone', phone);
+
+        if (updateError) {
+          console.error('Error updating bonus balance:', updateError);
+          toast.error('Ошибка обновления бонусного баланса');
+        } else {
+          setBonusBalance(newBalance);
+
+          const { error: historyError } = await supabase
+            .from('bonus_history')
+            .insert({
+              user_id: json.user_id || userId,
+              amount: -bonusesUsed,
+              reason: 'Списание бонусов при заказе #' + json.order_id,
+              created_at: new Date().toISOString(),
+            });
+
+          if (historyError) {
+            console.error('Error logging bonus history:', historyError);
+          }
+        }
+      }
+
+      if (bonusAccrual > 0) {
+        const newBalance = (bonusBalance - bonusesUsed) + bonusAccrual;
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ bonus_balance: newBalance })
+          .eq('phone', phone);
+
+        if (updateError) {
+          console.error('Error updating bonus balance for accrual:', updateError);
+          toast.error('Ошибка начисления бонусов за заказ');
+        } else {
+          setBonusBalance(newBalance);
+
+          const { error: historyError } = await supabase
+            .from('bonus_history')
+            .insert({
+              user_id: json.user_id || userId,
+              amount: bonusAccrual,
+              reason: 'Начисление бонусов за заказ #' + json.order_id,
+              created_at: new Date().toISOString(),
+            });
+
+          if (historyError) {
+            console.error('Error logging bonus history for accrual:', historyError);
+          }
+        }
+      }
+
       setOrderDetails({
         orderId: json.order_id,
         trackingUrl: json.tracking_url,
@@ -751,8 +819,9 @@ export default function CartPage() {
       setPromoDiscount(null);
       setPromoType(null);
       setPromoId(null);
+      setUseBonuses(false);
+      setBonusesUsed(0);
 
-      // Сохраняем флаг успешного заказа
       localStorage.setItem('orderSuccess', 'true');
       router.push('/account');
 
@@ -801,6 +870,9 @@ export default function CartPage() {
     setStep,
     phone,
     router,
+    bonusesUsed,
+    bonusBalance,
+    userId,
   ]);
 
   const containerVariants = {
@@ -1109,6 +1181,9 @@ export default function CartPage() {
             discountAmount={discountAmount}
             removeUpsell={removeUpsell}
             isAuthenticated={isAuthenticated}
+            useBonuses={useBonuses}
+            setUseBonuses={setUseBonuses}
+            bonusesUsed={bonusesUsed}
           />
         </div>
       </motion.div>

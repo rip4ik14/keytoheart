@@ -35,6 +35,13 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
+        toast.error('Ошибка аутентификации');
+        return;
+      }
+
       if (!phone) {
         setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
         toast.error('Номер телефона не найден');
@@ -75,6 +82,13 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
+      toast.error('Ошибка аутентификации');
+      return;
+    }
 
     if (!phone) {
       setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
@@ -120,6 +134,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         .from('user_profiles')
         .upsert(
           {
+            id: sessionData.session.user.id,
             phone,
             name: sanitizedName,
             email: sanitizedEmail || null,
