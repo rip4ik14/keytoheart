@@ -14,7 +14,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
   const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
-  const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
@@ -22,13 +21,32 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [callTimer, setCallTimer] = useState(1200); // 20 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [showManualCode, setShowManualCode] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Форматирование номера телефона
+  const formatPhone = (value: string) => {
+    let cleaned = value.replace(/\D/g, '');
+    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
+    return (
+      '+7 ' +
+      (cleaned.slice(1, 4) || '') +
+      (cleaned.length > 1 ? ' ' : '') +
+      (cleaned.slice(4, 7) || '') +
+      (cleaned.length > 4 ? '-' : '') +
+      (cleaned.slice(7, 9) || '') +
+      (cleaned.length > 7 ? '-' : '') +
+      (cleaned.slice(9, 11) || '')
+    ).replace(/ $/, '');
+  };
+
   // Обработка ввода номера телефона
-  const handlePhoneInput = (value: string) => {
-    setPhone(value);
+  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value.replace(/\D/g, '');
+    if (v.length <= 11) setPhone(formatPhone(v));
   };
 
   // Таймер для блокировки
@@ -72,7 +90,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
     setIsCheckingStatus(true);
     try {
-      const clearPhone = phone.replace(/\D/g, '');
+      const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
       console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
@@ -94,7 +112,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       }
     } catch (err) {
       console.error('Ошибка проверки статуса звонка:', err);
-      setError('Ошибка проверки статуса. Попробуйте запросить SMS-код.');
+      setError('Ошибка проверки статуса. Попробуйте ввести код вручную или запросите SMS.');
     } finally {
       setIsCheckingStatus(false);
     }
@@ -103,10 +121,11 @@ export default function AuthWithCall({ onSuccess }: Props) {
   // Запуск периодической проверки статуса звонка
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
+      // Даём SMS.ru 10 секунд на обработку звонка перед первой проверкой
       const initialDelay = setTimeout(() => {
-        checkCallStatus();
-        statusCheckRef.current = setInterval(checkCallStatus, 3000);
-      }, 10000);
+        checkCallStatus(); // Первая проверка после задержки
+        statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
+      }, 10000); // Задержка 10 секунд
 
       return () => {
         clearTimeout(initialDelay);
@@ -128,26 +147,13 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const handleSendCall = async () => {
     setError('');
     setIsLoading(true);
-    setCheckId(null);
-
-    // Очищаем номер от нецифровых символов
-    const cleanPhone = phone.replace(/\D/g, '');
-    console.log(`Cleaned phone for sending: ${cleanPhone}`);
-
-    // Убедимся, что номер начинается с +7
-    let formattedPhone = cleanPhone;
-    if (!cleanPhone.startsWith('7')) {
-      formattedPhone = '7' + cleanPhone;
-    }
-    formattedPhone = '+7' + formattedPhone.slice(1);
-
-    console.log(`Formatted phone for API: ${formattedPhone}`);
-
+    setCheckId(null); // Сбрасываем checkId перед новым запросом
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
       const res = await fetch('/api/auth/send-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone }),
+        body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Send call response:`, data);
@@ -161,7 +167,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       } else {
         setCheckId(data.check_id);
         setCallPhonePretty(data.call_phone_pretty);
-        setCallPhoneRaw(data.call_phone);
         setStep('call');
         startCallTimer();
       }
@@ -171,22 +176,54 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsLoading(false);
   };
 
+  // Проверка кода из звонка (ручной ввод)
+  const handleVerifyCall = async () => {
+    setError('');
+    setIsLoading(true);
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+    try {
+      const res = await fetch('/api/auth/verify-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: clearPhone,
+          check_id: checkId,
+          code: code,
+        }),
+      });
+      const data = await res.json();
+      console.log('Verify call response:', data);
+      if (data.success) {
+        setStep('success');
+        onSuccess(clearPhone);
+      } else {
+        setAttempts((a) => a + 1);
+        if (attempts >= 2) {
+          setStep('sms');
+          setError('Слишком много попыток. Получите код по SMS.');
+        } else if (res.status === 429) {
+          setStep('ban');
+          startBanTimer();
+        } else {
+          setError(data.error || 'Неверный код.');
+        }
+      }
+    } catch {
+      setError('Ошибка сети.');
+    }
+    setIsLoading(false);
+  };
+
   // Отправка SMS
   const handleSendSms = async () => {
     setError('');
     setIsLoading(true);
-    const cleanPhone = phone.replace(/\D/g, '');
-    let formattedPhone = cleanPhone;
-    if (!cleanPhone.startsWith('7')) {
-      formattedPhone = '7' + cleanPhone;
-    }
-    formattedPhone = '+7' + formattedPhone.slice(1);
-
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
       const res = await fetch('/api/auth/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone }),
+        body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
       console.log('Send SMS response:', data);
@@ -210,24 +247,18 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const handleVerifySms = async () => {
     setError('');
     setIsLoading(true);
-    const cleanPhone = phone.replace(/\D/g, '');
-    let formattedPhone = cleanPhone;
-    if (!cleanPhone.startsWith('7')) {
-      formattedPhone = '7' + cleanPhone;
-    }
-    formattedPhone = '+7' + formattedPhone.slice(1);
-
+    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
       const res = await fetch('/api/auth/verify-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone, code }),
+        body: JSON.stringify({ phone: clearPhone, code }),
       });
       const data = await res.json();
       console.log('Verify SMS response:', data);
       if (data.success) {
         setStep('success');
-        onSuccess(formattedPhone);
+        onSuccess(clearPhone);
       } else {
         setAttempts((a) => a + 1);
         if (res.status === 429) {
@@ -256,23 +287,20 @@ export default function AuthWithCall({ onSuccess }: Props) {
       {step === 'phone' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <label className="text-black block mb-1 text-sm">Ваш номер телефона:</label>
-          <div className="flex gap-2 items-center">
-            <span className="pt-2 text-gray-600">+7</span>
-            <div className="relative flex-1">
-              <input
-                value={phone}
-                onChange={(e) => handlePhoneInput(e.target.value)}
-                placeholder="(xxx) xxx-xx-xx"
-                className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2"
-                disabled={isLoading}
-                autoFocus
-              />
-            </div>
-          </div>
+          <input
+            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2"
+            inputMode="tel"
+            value={phone}
+            placeholder="+7 (___) ___-__-__"
+            onChange={handlePhoneInput}
+            maxLength={16}
+            disabled={isLoading}
+            autoFocus
+          />
           <button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
             onClick={handleSendCall}
-            disabled={isLoading || phone.replace(/\D/g, '').length !== 10}
+            disabled={isLoading || phone.replace(/\D/g, '').length !== 11}
           >
             {isLoading ? 'Отправка...' : 'Получить код по звонку'}
           </button>
@@ -286,18 +314,41 @@ export default function AuthWithCall({ onSuccess }: Props) {
       {step === 'call' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <label className="block text-black mb-1 text-sm">
-            Позвоните на номер{' '}
-            <a
-              href={`tel:${callPhoneRaw}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              aria-label={`Позвонить на номер ${callPhonePretty}`}
-            >
-              {callPhonePretty}
-            </a>
+            Позвоните на номер {callPhonePretty}
           </label>
           <p className="text-sm text-gray-500 mb-4">
             После звонка авторизация завершится автоматически. Это может занять до 1 минуты. Если этого не произошло, попробуйте запросить SMS-код.
           </p>
+          {showManualCode && (
+            <>
+              <input
+                className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
+                inputMode="numeric"
+                maxLength={4}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+                disabled={isLoading || isCheckingStatus}
+                placeholder="Например, 5555"
+              />
+              <button
+                className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
+                onClick={handleVerifyCall}
+                disabled={isLoading || isCheckingStatus || code.length !== 4}
+              >
+                {isLoading || isCheckingStatus ? 'Проверка...' : 'Войти'}
+              </button>
+            </>
+          )}
+          {!showManualCode && (
+            <button
+              className="w-full mt-3 py-2 rounded-xl border border-black bg-gray-100 text-black font-bold transition-all hover:bg-gray-200 hover:shadow"
+              onClick={() => setShowManualCode(true)}
+              disabled={isLoading || isCheckingStatus}
+            >
+              Ввести код вручную
+            </button>
+          )}
           <button
             className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
             onClick={handleSendSms}

@@ -72,22 +72,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Не удалось отправить SMS. Попробуйте позже.' }, { status: 500 });
     }
 
-    // Удаляем старые SMS-коды для данного номера
-    const { error: deleteError } = await supabase
-      .from('sms_codes')
-      .delete()
-      .eq('phone', phone);
-
-    if (deleteError) {
-      console.error('Error deleting old SMS codes:', deleteError);
-      return NextResponse.json({ success: false, error: 'Ошибка удаления старого кода' }, { status: 500 });
-    }
-
     // Устанавливаем expires_at через 10 минут от текущего времени
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     console.log('Setting expires_at:', expiresAt.toISOString());
 
-    // Сохраняем новый код в Supabase
+    // Сохраняем код в Supabase
     const { error: insertError } = await supabase.from('sms_codes').insert({
       phone,
       code,
