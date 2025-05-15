@@ -11,11 +11,10 @@ import OrdersList from '@components/account/OrdersList';
 import ImportantDates from '@components/account/ImportantDates';
 import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
-import AuthWithCall from '@components/AuthWithCall'; // Заменено с AuthWithSms
+import AuthWithCall from '@components/AuthWithCall';
 import type { Database } from '@/lib/supabase/types_new';
 import { createBrowserClient } from '@supabase/ssr';
 
-// Интерфейсы для типизации данных
 interface Order {
   id: number;
   created_at: string;
@@ -26,7 +25,7 @@ interface Order {
   order_items: {
     quantity: number;
     price: number;
-    product_id: number; // Ожидается number в OrdersList, обработаем null
+    product_id: number;
     products: { title: string; cover_url: string | null };
   }[];
 }
@@ -71,7 +70,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     exit: { opacity: 0, x: -20 },
   };
 
-  // Проверяем авторизацию при загрузке компонента
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -165,7 +163,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         throw new Error(`Orders fetch error: ${ordersRes.error.message}`);
       }
 
-      // Преобразуем данные заказов для соответствия интерфейсу Order
       const transformedOrders: Order[] = (ordersRes.data || []).map((order: any) => {
         const paymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
 
@@ -179,7 +176,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           order_items: order.order_items.map((item: any) => ({
             quantity: item.quantity,
             price: item.price,
-            product_id: item.product_id ?? 0, // Заменяем null на 0
+            product_id: item.product_id ?? 0,
             products: item.products
               ? { title: item.products.title, cover_url: item.products.image_url }
               : { title: '', cover_url: '' },
@@ -207,12 +204,20 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData, initialOrders, initialBonusData]);
 
-  const handleAuthSuccess = (phone: string, profile: { name: string }, bonusBalance: number) => {
+  const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
-    setBonusData({ ...bonusData, bonus_balance: bonusBalance, id: null, level: 'basic', history: [] } as BonusesData);
+    // Устанавливаем начальные значения для bonusData, если данные не пришли
+    setBonusData((prev) => ({
+      ...prev,
+      bonus_balance: 0, // Значение по умолчанию, если бонусы не загружены
+      id: null,
+      level: 'basic',
+      history: [],
+    } as BonusesData));
     localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
     document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    fetchAccountData();
   };
 
   const handleLogout = async () => {
@@ -259,7 +264,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         <Toaster position="top-center" />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Вход в кабинет</h1>
         <p className="text-gray-500">Введите номер телефона для входа</p>
-        <AuthWithCall onAuthSuccess={handleAuthSuccess} /> {/* Заменено с AuthWithSms */}
+        <AuthWithCall onSuccess={handleAuthSuccess} />
       </main>
     );
   }

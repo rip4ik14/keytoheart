@@ -1,4 +1,3 @@
-// ✅ Путь: app/api/auth/send-call/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -39,7 +38,6 @@ export async function POST(request: Request) {
       }
     }
 
-<<<<<<< HEAD
     // Проверка количества попыток
     const { count } = await supabase
       .from('auth_codes')
@@ -53,9 +51,7 @@ export async function POST(request: Request) {
     }
 
     // Запрос на звонок через SMS.ru
-=======
     // ---- ВНИМАНИЕ: Правильный эндпоинт и параметры ----
->>>>>>> 65ad9b9eef72b4b2a9c75dac6e67c27f80442e37
     const params = new URLSearchParams();
     params.append('api_id', smsApiId);
     params.append('phone', normalized);
@@ -77,15 +73,12 @@ export async function POST(request: Request) {
       .from('auth_logs')
       .upsert({ phone: phoneNum, check_id: data.check_id, status: 'SENT', updated_at: new Date().toISOString() });
 
-<<<<<<< HEAD
-=======
     // Сбрасываем счетчик попыток
     await supabase
       .from('auth_codes')
       .delete()
       .eq('phone', phoneNum);
 
->>>>>>> 65ad9b9eef72b4b2a9c75dac6e67c27f80442e37
     return NextResponse.json({
       success: true,
       check_id: data.check_id,
