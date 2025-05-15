@@ -1,4 +1,4 @@
-// ✅ Исправленный: app/api/auth/webhook-call/route.ts
+// ✅ Обновлённый: app/api/auth/webhook-call/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -9,6 +9,8 @@ const supabase = createClient<Database>(
 );
 
 export async function POST(request: Request) {
+  console.log(`[${new Date().toISOString()}] Webhook called: ${request.method} ${request.url}`);
+
   try {
     let check_id: string | null = null;
     let check_status: string | null = null;
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
       return new NextResponse('Invalid webhook data', { status: 400 });
     }
 
-    if (check_status === '401') { // Успешная верификация
+    if (check_status === '401') {
       const { error } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
