@@ -2,8 +2,6 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { IMaskInput } from 'react-imask';
-import { phoneMask } from '@utils/phoneMask';
 
 interface Props {
   form: {
@@ -40,6 +38,31 @@ export default function Step2RecipientDetails({
 }: Props) {
   // Добавляем отладочный лог для проверки значения recipientPhone
   console.log('Step2RecipientDetails - form.recipientPhone:', form.recipientPhone);
+
+  // Функция для форматирования номера телефона (для отображения пользователю)
+  const displayPhone = (phone: string) => {
+    if (!phone) return '';
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+      const digits = cleanPhone.slice(1); // Убираем 7
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+    }
+    return phone;
+  };
+
+  // Обработчик изменения номера телефона
+  const handlePhoneChange = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    let formattedValue = cleanValue;
+    if (cleanValue.length === 10) {
+      formattedValue = '+7' + cleanValue;
+    } else if (cleanValue.length === 11 && cleanValue.startsWith('7')) {
+      formattedValue = '+7' + cleanValue.slice(1);
+    }
+    onFormChange({
+      target: { name: 'recipientPhone', value: formattedValue },
+    } as React.ChangeEvent<HTMLInputElement>);
+  };
 
   return (
     <div className="space-y-4">
@@ -110,17 +133,12 @@ export default function Step2RecipientDetails({
             >
               <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
             </motion.div>
-            <IMaskInput
+            <input
               id="recipientPhone"
-              mask="(000) 000-00-00"
               name="recipientPhone"
-              value={form.recipientPhone}
-              onAccept={(value) =>
-                onFormChange({
-                  target: { name: 'recipientPhone', value: phoneMask(value) },
-                } as React.ChangeEvent<HTMLInputElement>)
-              }
-              placeholder="(___) ___-__-__"
+              value={form.recipientPhone ? displayPhone(form.recipientPhone) : ''}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              placeholder="(xxx) xxx-xx-xx"
               className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
                 recipientPhoneError ? 'border-red-500' : 'border-gray-300'
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}

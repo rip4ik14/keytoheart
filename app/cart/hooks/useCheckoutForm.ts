@@ -58,12 +58,23 @@ export default function useCheckoutForm() {
     if (savedForm) {
       try {
         const parsedForm = JSON.parse(savedForm);
+        // Исправляем формат recipientPhone, если он неправильный
+        let formattedRecipientPhone = parsedForm.recipientPhone || '';
+        if (formattedRecipientPhone && !formattedRecipientPhone.startsWith('+7')) {
+          const cleanPhone = formattedRecipientPhone.replace(/\D/g, '');
+          if (cleanPhone.length === 10) {
+            formattedRecipientPhone = '+7' + cleanPhone;
+          } else if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+            formattedRecipientPhone = '+7' + cleanPhone.slice(1);
+          }
+        }
         setForm((prev) => ({
           ...prev,
           ...parsedForm,
           date: '',
           time: '',
           phone: prev.phone || parsedForm.phone || '',
+          recipientPhone: formattedRecipientPhone,
         }));
       } catch (error) {
         console.error('Error parsing saved form:', error);
