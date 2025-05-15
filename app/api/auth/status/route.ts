@@ -1,3 +1,4 @@
+// ✅ Исправленный: app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -50,8 +51,7 @@ export async function GET(request: Request) {
     const checkStatus = apiJson.check_status;
     const checkStatusText = apiJson.check_status_text;
 
-    if (checkStatus === '401') {
-      // Номер подтверждён
+    if (checkStatus === '100') { // Успешная верификация
       const { error: updateError } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
@@ -62,12 +62,10 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, status: 'VERIFIED' });
+      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     } else if (checkStatus === '402') {
-      // Время истекло
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
     } else {
-      // Ожидаем звонка
       return NextResponse.json({ success: true, status: 'PENDING', message: checkStatusText });
     }
   } catch (error: any) {
