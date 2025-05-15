@@ -1,4 +1,4 @@
-// ✅ Исправленный: app/api/auth/webhook-call/route.ts
+// ✅ Проверенный: app/api/auth/webhook-call/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
