@@ -21,7 +21,23 @@ export async function GET(req: Request) {
   try {
     console.log(`[${new Date().toISOString()}] Fetching status for checkId: ${checkId}, phone: ${phone}`);
 
-    // Проверяем статус в SMS.ru
+    // Сначала проверяем статус в auth_logs
+    const { data: logData, error: logError } = await supabase
+      .from('auth_logs')
+      .select('status')
+      .eq('check_id', checkId)
+      .single();
+
+    if (logError) {
+      console.error(`[${new Date().toISOString()}] Error fetching auth_logs:`, logError);
+    }
+
+    if (logData && logData.status === 'VERIFIED') {
+      console.log(`[${new Date().toISOString()}] Status already VERIFIED in auth_logs for checkId: ${checkId}`);
+      return NextResponse.json({ success: true, status: 'VERIFIED' });
+    }
+
+    // Если статус не VERIFIED, проверяем в SMS.ru
     const url = `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&phone=${encodeURIComponent(phone)}&check_id=${encodeURIComponent(checkId)}&json=1`;
     console.log(`[${new Date().toISOString()}] Calling SMS.ru API: ${url}`);
     const startTime = Date.now();

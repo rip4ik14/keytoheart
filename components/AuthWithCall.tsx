@@ -18,7 +18,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(1200); // Увеличиваем до 20 минут
+  const [callTimer, setCallTimer] = useState(1200); // 20 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showManualCode, setShowManualCode] = useState(false);
@@ -102,6 +102,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
+        console.log('Callillon: true,
         console.log('Call status expired, switching to SMS');
         setStep('sms');
         setError('Время для звонка истекло. Получите код по SMS.');
@@ -122,7 +123,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
       checkCallStatus(); // Первая проверка сразу
-      statusCheckRef.current = setInterval(checkCallStatus, 5000); // Проверка каждые 5 секунд
+      statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
     }
 
     return () => {

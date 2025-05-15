@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     // Проверяем Content-Type запроса
     const contentType = request.headers.get('content-type') || '';
-    console.log('Webhook Content-Type:', contentType);
+    console.log(`[${new Date().toISOString()}] Webhook Content-Type:`, contentType);
 
     if (contentType.includes('multipart/form-data')) {
       try {
@@ -23,47 +23,58 @@ export async function POST(request: Request) {
         check_id = formData.get('check_id') as string;
         check_status = formData.get('check_status') as string;
       } catch (error) {
-        console.error('Error parsing multipart/form-data:', error);
-        // Если formData не сработал, пробуем извлечь данные вручную из тела
+        console.error(`[${new Date().toISOString()}] Error parsing multipart/form-data:`, error);
+        // Извлекаем данные вручную
         const text = await request.text();
-        console.log('Raw body:', text);
+        console.log(`[${new Date().toISOString()}] Raw body:`, text);
 
         // Парсим multipart/form-data вручную
-        const boundary = contentType.split('boundary=')[1];
+        const boundaryMatch = contentType.match(/boundary=(.+)/);
+        if (!boundaryMatch) {
+          console.error(`[${new Date().toISOString()}] No boundary found in Content-Type:`, contentType);
+          return new NextResponse('Invalid boundary', { status: 400 });
+        }
+
+        const boundary = boundaryMatch[1];
         const parts = text.split(`--${boundary}`).filter(part => part.trim() && !part.includes('--'));
 
+        console.log(`[${new Date().toISOString()}] Parsed parts:`, parts);
+
         for (const part of parts) {
-          if (part.includes('name="check_id"')) {
-            check_id = part.split('\r\n\r\n')[1]?.split('\r\n')[0]?.trim();
+          const lines = part.split('\r\n').filter(line => line.trim());
+          const nameMatch = lines.find(line => line.includes('name="check_id"'));
+          const statusMatch = lines.find(line => line.includes('name="check_status"'));
+
+          if (nameMatch) {
+            const valueIndex = lines.indexOf(nameMatch) + 2;
+            check_id = lines[valueIndex]?.trim();
           }
-          if (part.includes('name="check_status"')) {
-            check_status = part.split('\r\n\r\n')[1]?.split('\r\n')[0]?.trim();
+          if (statusMatch) {
+            const valueIndex = lines.indexOf(statusMatch) + 2;
+            check_status = lines[valueIndex]?.trim();
           }
         }
       }
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
-      // Обрабатываем application/x-www-form-urlencoded
       const text = await request.text();
-      console.log('Raw body (urlencoded):', text);
+      console.log(`[${new Date().toISOString()}] Raw body (urlencoded):`, text);
       const params = new URLSearchParams(text);
       check_id = params.get('check_id');
       check_status = params.get('check_status');
     } else if (contentType.includes('application/json')) {
-      // Обрабатываем JSON
       const body = await request.json();
-      console.log('Raw body (json):', body);
+      console.log(`[${new Date().toISOString()}] Raw body (json):`, body);
       check_id = body.check_id;
       check_status = body.check_status;
     } else {
-      // Неизвестный Content-Type
-      console.error('Unsupported Content-Type:', contentType);
+      console.error(`[${new Date().toISOString()}] Unsupported Content-Type:`, contentType);
       return new NextResponse('Unsupported Content-Type', { status: 400 });
     }
 
-    console.log('Received webhook data:', { check_id, check_status });
+    console.log(`[${new Date().toISOString()}] Received webhook data:`, { check_id, check_status });
 
     if (!check_id || !check_status) {
-      console.error('Invalid webhook data:', { check_id, check_status });
+      console.error(`[${new Date().toISOString()}] Invalid webhook data:`, { check_id, check_status });
       return new NextResponse('Invalid webhook data', { status: 400 });
     }
 
@@ -74,19 +85,19 @@ export async function POST(request: Request) {
         .eq('check_id', check_id);
 
       if (error) {
-        console.error('Error updating auth_logs:', error);
+        console.error(`[${new Date().toISOString()}] Error updating auth_logs:`, error);
         return new NextResponse('Error updating status', { status: 500 });
       }
 
-      console.log(`Successfully updated status to VERIFIED for check_id: ${check_id}`);
+      console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${check_id}`);
     } else {
-      console.log(`Received check_status: ${check_status}, no action required`);
+      console.log(`[${new Date().toISOString()}] Received check_status: ${check_status}, no action required`);
     }
 
     // SMS.ru ожидает простой текстовый ответ "100"
     return new NextResponse('100', { status: 200, headers: { 'Content-Type': 'text/plain' } });
   } catch (error: any) {
-    console.error('Webhook error:', error);
+    console.error(`[${new Date().toISOString()}] Webhook error:`, error);
     return new NextResponse('Server error', { status: 500 });
   }
 }
