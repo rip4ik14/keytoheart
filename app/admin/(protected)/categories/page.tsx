@@ -6,7 +6,7 @@ import { useQuery, useMutation, QueryClientProvider, QueryClient } from '@tansta
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import AdminLayout from '../../layout';
+import AdminLayout from '@/app/admin/layout';
 
 interface Category {
   id: number;
@@ -44,9 +44,9 @@ const transliterate = (text: string) => {
 const generateSlug = (name: string) =>
   transliterate(name)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-') // Убираем все, кроме латинских букв и цифр
-    .replace(/(^-|-$)/g, '') // Убираем дефисы в начале и конце
-    .replace(/-+/g, '-'); // Убираем множественные дефисы
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .replace(/-+/g, '-');
 
 export default function AdminCategoriesPage() {
   return (
@@ -102,6 +102,7 @@ function CategoriesContent() {
         .order('id', { ascending: true });
 
       if (error) throw new Error(error.message);
+      console.log('Fetched categories:', data);
       return (data || []) as Category[];
     },
     enabled: isAuthenticated === true,
@@ -135,12 +136,15 @@ function CategoriesContent() {
   const updateCategoryMutation = useMutation({
     mutationFn: async (cat: Category) => {
       if (!cat.name.trim() || !cat.slug.trim()) throw new Error('Название и slug обязательны');
-      console.log('Updating category:', { id: cat.id, name: cat.name, slug: cat.slug, is_visible: cat.is_visible });
+      console.log('Updating category with data:', { id: cat.id, name: cat.name, slug: cat.slug, is_visible: cat.is_visible });
       const { error } = await supabase
         .from('categories')
         .update({ name: cat.name, slug: cat.slug, is_visible: cat.is_visible })
         .eq('id', cat.id);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase update category error:', error);
+        throw new Error(error.message);
+      }
     },
     onSuccess: () => {
       setEditingCategory(null);
@@ -148,7 +152,10 @@ function CategoriesContent() {
       queryClient.refetchQueries({ queryKey: ['categories'] });
       toast.success('Категория обновлена');
     },
-    onError: (error: Error) => toast.error('Ошибка обновления категории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Update category error:', error);
+      toast.error('Ошибка обновления категории: ' + error.message);
+    },
   });
 
   const deleteCategoryMutation = useMutation({
@@ -226,7 +233,7 @@ function CategoriesContent() {
         .update({ name: sub.name, slug, is_visible: sub.is_visible })
         .eq('id', sub.id);
       if (error) {
-        console.log('Supabase update error:', error);
+        console.error('Supabase update subcategory error:', error);
         throw new Error(error.message);
       }
     },
@@ -361,7 +368,9 @@ function CategoriesContent() {
                             checked={editingCategory.is_visible}
                             onChange={(e) => {
                               if (editingCategory) {
-                                setEditingCategory({ ...editingCategory, is_visible: e.target.checked });
+                                const newState = { ...editingCategory, is_visible: e.target.checked };
+                                console.log('Updating editingCategory:', newState);
+                                setEditingCategory(newState);
                               }
                             }}
                             className="mr-2"

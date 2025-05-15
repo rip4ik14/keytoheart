@@ -5,12 +5,13 @@ import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Product } from '@components/CatalogClient'; // Импортируем Product из CatalogClient
+import { Product } from '@components/CatalogClient';
 
 export interface Subcategory {
   id: number;
   name: string;
   slug: string;
+  is_visible: boolean;
 }
 
 export interface Props {
@@ -38,9 +39,13 @@ export default function CategoryPageClient({
     // Фильтрация по подкатегории
     if (subcategory !== 'all') {
       const subcategoryId = subcategories.find((sub) => sub.slug === subcategory)?.id;
-      sortedProducts = sortedProducts.filter(
-        (p) => p.subcategory_id === subcategoryId
-      );
+      if (subcategoryId) {
+        sortedProducts = sortedProducts.filter(
+          (p) => p.subcategory_id === subcategoryId
+        );
+      } else {
+        sortedProducts = [];
+      }
     }
 
     // Сортировка
@@ -53,6 +58,7 @@ export default function CategoryPageClient({
       sortedProducts.sort((a, b) => b.id - a.id);
     }
 
+    console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
     setFilteredProducts(sortedProducts);
   }, [sort, subcategory, products, subcategories]);
 
@@ -84,7 +90,7 @@ export default function CategoryPageClient({
           {subcategories.map((sub) => (
             <Link
               key={sub.id}
-              href={`/category/${slug}?sort=${sort}&subcategory=${sub.slug}`}
+              href={`/category/${slug}/${sub.slug}?sort=${sort}`}
               className={`px-3 py-1 rounded-full text-sm font-medium transition ${
                 subcategory === sub.slug
                   ? 'bg-black text-white'

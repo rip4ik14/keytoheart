@@ -1,35 +1,47 @@
 import { NextResponse } from 'next/server';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types_new';
 
-interface OrderBonusResponse {
-  success: boolean;
-  bonusAmount?: number;
-  error?: string;
-}
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-export async function POST(req: Request) {
-  const { user_id, order_total, order_id } = await req.json();
+export async function POST(request: Request) {
+  try {
+    const { phone, bonus_balance } = await request.json();
 
-  if (!user_id || !order_total || order_total <= 0) {
-    return NextResponse.json({ error: 'Отсутствует user_id или order_total' }, { status: 400 });
+    if (!phone || !/^\+7\d{10}$/.test(phone)) {
+      return NextResponse.json(
+        { success: false, error: 'Некорректный номер телефона' },
+        { status: 400 }
+      );
+    }
+    if (typeof bonus_balance !== 'number') {
+      return NextResponse.json(
+        { success: false, error: 'Некорректный формат бонуса' },
+        { status: 400 }
+      );
+    }
+
+    // Только update бонусов — ничего не трогаем кроме bonus_balance!
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ bonus_balance, updated_at: new Date().toISOString() })
+      .eq('phone', phone);
+
+    if (error) {
+      console.error('Ошибка обновления бонусов:', error);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка обновления бонусов: ' + error.message },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Ошибка в order-bonus:', error);
+    return NextResponse.json(
+      { success: false, error: 'Ошибка сервера: ' + error.message },
+      { status: 500 }
+    );
   }
-
-  const percent = 0.05;
-  const bonusAmount = Math.floor(order_total * percent);
-
-  // Вызываем функцию increment_balance_and_log
-  const { data: rpcData, error: rpcError } = await supabase.rpc('increment_balance_and_log', {
-    p_user_id: user_id,
-    p_amount: bonusAmount,
-    p_reason: `Начисление за заказ №${order_id || 'без номера'}`,
-  });
-
-  if (rpcError) {
-    console.error('RPC error:', rpcError);
-    return NextResponse.json({ success: false, error: 'Ошибка начисления бонусов: ' + rpcError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, bonusAmount } as OrderBonusResponse, {
-    headers: { 'Cache-Control': 'private, no-store' },
-  });
 }

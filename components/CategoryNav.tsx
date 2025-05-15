@@ -5,44 +5,24 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-import { Category } from '@/types/category'; // Импортируем тип Category
+
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+  is_visible: boolean;
+  subcategories: { id: number; name: string; slug: string; is_visible: boolean }[];
+};
 
 // Локальный кэш для категорий
 let categoryCache: Category[] | null = null;
 
 const transliterate = (text: string) => {
   const map: Record<string, string> = {
-    а: 'a',
-    б: 'b',
-    в: 'v',
-    г: 'g',
-    д: 'd',
-    е: 'e',
-    ё: 'yo',
-    ж: 'zh',
-    з: 'z',
-    и: 'i',
-    й: 'y',
-    к: 'k',
-    л: 'l',
-    м: 'm',
-    н: 'n',
-    о: 'o',
-    п: 'p',
-    р: 'r',
-    с: 's',
-    т: 't',
-    у: 'u',
-    ф: 'f',
-    х: 'kh',
-    ц: 'ts',
-    ч: 'ch',
-    ш: 'sh',
-    щ: 'shch',
-    ы: 'y',
-    э: 'e',
-    ю: 'yu',
-    я: 'ya',
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
+    и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+    с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
+    ы: 'y', э: 'e', ю: 'yu', я: 'ya',
   };
   return text
     .split('')
@@ -64,10 +44,8 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Функция для загрузки категорий
   const fetchCategories = async () => {
     try {
-      // Используем кэшированные данные, если они есть
       if (categoryCache) {
         setCategories(categoryCache);
         setLoading(false);
@@ -85,28 +63,36 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           is_visible,
           subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
         `)
-        .eq('is_visible', true) // Фильтруем только видимые категории
+        .eq('is_visible', true)
         .order('id', { ascending: true });
       console.log('Supabase query duration for categories in CategoryNav:', Date.now() - start, 'ms');
+      console.log('Fetched categories:', data);
 
       if (error) throw error;
 
-      const updatedData: Category[] = data.map((cat: any) => ({
-        ...cat,
-        is_visible: cat.is_visible ?? true, // Преобразуем boolean | null в boolean
-        slug: cat.slug || generateSlug(cat.name),
-        subcategories: cat.subcategories
+      const updatedData: Category[] = data.map((cat: any) => {
+        const subcategories = cat.subcategories
           ? cat.subcategories
-              .filter((sub: any) => sub.is_visible === true) // Фильтруем только видимые подкатегории
-              .map((sub: any) => ({
-                ...sub,
-                slug: sub.slug || generateSlug(sub.name),
-                is_visible: sub.is_visible ?? true, // Преобразуем boolean | null в boolean
-              }))
-          : [],
-      }));
+              .filter((sub: any) => sub.is_visible !== false)
+              .map((sub: any) => {
+                const processedSub = {
+                  ...sub,
+                  slug: sub.slug || generateSlug(sub.name),
+                  is_visible: sub.is_visible ?? true,
+                };
+                console.log(`Processed subcategory for ${cat.name}:`, processedSub);
+                return processedSub;
+              })
+          : [];
+        console.log(`Subcategories for ${cat.name} after filtering:`, subcategories);
+        return {
+          ...cat,
+          is_visible: cat.is_visible ?? true,
+          slug: cat.slug || generateSlug(cat.name),
+          subcategories,
+        };
+      });
 
-      // Сохраняем в кэш
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
@@ -118,28 +104,60 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   };
 
   useEffect(() => {
-    // Если начальные данные переданы, используем их
     if (initialCategories && initialCategories.length > 0) {
-      const updatedData: Category[] = initialCategories
-        .filter((cat) => cat.is_visible) // Фильтруем только видимые категории
-        .map((cat) => ({
-          ...cat,
-          slug: cat.slug || generateSlug(cat.name),
-          subcategories: cat.subcategories
+      const updatedData = initialCategories
+        .filter((cat) => cat.is_visible !== false)
+        .map((cat) => {
+          const subcategories = cat.subcategories
             ? cat.subcategories
-                .filter((sub) => sub.is_visible) // Фильтруем только видимые подкатегории
-                .map((sub) => ({
-                  ...sub,
-                  slug: sub.slug || generateSlug(sub.name),
-                }))
-            : [],
-        }));
+                .filter((sub) => sub.is_visible !== false)
+                .map((sub) => {
+                  const processedSub = {
+                    ...sub,
+                    slug: sub.slug || generateSlug(sub.name),
+                  };
+                  console.log(`Initial subcategory for ${cat.name}:`, processedSub);
+                  return processedSub;
+                })
+            : [];
+          console.log(`Initial subcategories for ${cat.name} after filtering:`, subcategories);
+          return {
+            ...cat,
+            slug: cat.slug || generateSlug(cat.name),
+            subcategories,
+          };
+        });
       setCategories(updatedData);
-      setLoading(false);
-      categoryCache = updatedData; // Сохраняем в кэш
+      categoryCache = updatedData;
     } else {
-      fetchCategories(); // Вызываем функцию для загрузки категорий
+      fetchCategories();
     }
+
+    const channel = supabase
+      .channel('categories-subcategories-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('Categories change detected:', payload);
+          categoryCache = null;
+          fetchCategories();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subcategories' },
+        (payload) => {
+          console.log('Subcategories change detected:', payload);
+          categoryCache = null;
+          fetchCategories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [initialCategories]);
 
   const scroll = (dir: 'left' | 'right') => {
@@ -319,7 +337,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
             onClick={() => {
               setLoading(true);
               setError(null);
-              fetchCategories(); // Теперь функция доступна
+              fetchCategories();
             }}
             className="mt-2 px-4 py-1 bg-black text-white rounded hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Повторить попытку загрузки категорий"

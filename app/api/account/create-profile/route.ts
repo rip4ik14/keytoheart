@@ -8,9 +8,8 @@ const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const { phone, name } = await request.json();
 
-    // Валидация входных данных
     if (!phone || !/^\+7\d{10}$/.test(phone)) {
       return NextResponse.json(
         { success: false, error: 'Некорректный номер телефона' },
@@ -18,22 +17,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Создаём или обновляем профиль
-    const { error: upsertError } = await supabase
-      .from('user_profiles')
-      .upsert(
-        { phone, updated_at: new Date().toISOString() },
-        { onConflict: 'phone' }
-      );
+    // Имя не обязательно, но если есть — чистим от XSS
+    const sanitizedName = typeof name === 'string' ? name.replace(/[<>&'"]/g, '') : null;
 
-    if (upsertError) {
-      console.error('Ошибка создания профиля:', upsertError);
+    // Создаём профиль только если не существует
+    const { data: existing } = await supabase
+      .from('user_profiles')
+      .select('phone')
+      .eq('phone', phone)
+      .single();
+
+    if (existing) {
+      return NextResponse.json({ success: true }); // Уже создан
+    }
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .insert([{ phone, name: sanitizedName, updated_at: new Date().toISOString() }]);
+    if (error) {
+      console.error('Ошибка создания профиля:', error);
       return NextResponse.json(
-        { success: false, error: 'Ошибка создания профиля: ' + upsertError.message },
+        { success: false, error: 'Ошибка создания профиля: ' + error.message },
         { status: 500 }
       );
     }
-
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Ошибка в create-profile:', error);

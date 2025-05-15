@@ -1,66 +1,44 @@
 import { NextResponse } from 'next/server';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
-import sanitizeHtml from 'sanitize-html';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types_new';
 
-interface BonusResponse {
-  success: boolean;
-  data: {
-    bonus_balance: number;
-    level: string;
-    history: { amount: number; reason: string; created_at: string }[];
-  } | null;
-  error?: string;
-}
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-export async function GET(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
+    const { phone, bonus_balance } = await request.json();
 
-    // Санитизация номера телефона
-    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone) {
-      return NextResponse.json({ success: false, error: 'Телефон не указан' }, { status: 400 });
-    }
-
-    // Валидация формата телефона
-    const phoneRegex = /^\+7\d{10}$/;
-    if (!phoneRegex.test(sanitizedPhone)) {
+    if (!phone || !/^\+7\d{10}$/.test(phone)) {
       return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { success: false, error: 'Некорректный номер телефона' },
+        { status: 400 }
+      );
+    }
+    if (typeof bonus_balance !== 'number') {
+      return NextResponse.json(
+        { success: false, error: 'Некорректный формат бонуса' },
         { status: 400 }
       );
     }
 
-    const [bonusRes, historyRes] = await Promise.all([
-      supabase.from('bonuses').select('bonus_balance, level').eq('phone', sanitizedPhone).single(),
-      supabase
-        .from('bonus_history')
-        .select('amount, reason, created_at')
-        .eq('phone', sanitizedPhone)
-        .order('created_at', { ascending: false }),
-    ]);
+    // Только обновляем бонусный баланс!
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ bonus_balance, updated_at: new Date().toISOString() })
+      .eq('phone', phone);
 
-    if (bonusRes.error || !bonusRes.data) {
-      console.error('Ошибка получения бонусов:', bonusRes.error);
-      return NextResponse.json({ success: false, data: null }, { status: 200 });
+    if (error) {
+      console.error('Ошибка обновления бонусов:', error);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка обновления бонусов: ' + error.message },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          bonus_balance: bonusRes.data.bonus_balance,
-          level: bonusRes.data.level,
-          history: historyRes.data || [],
-        },
-      } as BonusResponse,
-      {
-        headers: { 'Cache-Control': 'private, no-store' },
-      }
-    );
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Ошибка обработки запроса бонусов:', error);
+    console.error('Ошибка в bonuses:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

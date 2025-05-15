@@ -67,10 +67,14 @@ export const revalidate = 300;
 
 export default async function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ sort?: string; subcategory?: string }>;
 }) {
   const { category } = await params;
+  const { sort = 'newest', subcategory: initialSubcategory = 'all' } = await searchParams;
+
   const apiName = nameMap[category];
 
   if (!apiName) {
@@ -80,8 +84,9 @@ export default async function CategoryPage({
 
   const { data: categoryData, error: categoryError } = await supabaseAdmin
     .from('categories')
-    .select('id, name, slug')
+    .select('id, name, slug, is_visible')
     .eq('name', apiName)
+    .eq('is_visible', true)
     .single();
 
   if (categoryError || !categoryData) {
@@ -89,7 +94,6 @@ export default async function CategoryPage({
     redirect('/404');
   }
 
-  // Проверяем соответствие slug
   if (categoryData.slug !== category) {
     console.error(`Slug mismatch for category ${apiName}: expected ${categoryData.slug}, got ${category}`);
     redirect(`/category/${categoryData.slug}`);
@@ -99,15 +103,32 @@ export default async function CategoryPage({
 
   const { data: subcategoriesData, error: subcategoriesError } = await supabaseAdmin
     .from('subcategories')
-    .select('id, name, slug')
+    .select('id, name, slug, is_visible')
     .eq('category_id', categoryId)
+    .eq('is_visible', true)
     .order('name', { ascending: true });
 
   if (subcategoriesError) {
     console.error('Error fetching subcategories:', subcategoriesError.message);
   }
 
-  const subcategories: Subcategory[] = subcategoriesData ?? [];
+  // Преобразуем is_visible из boolean | null в boolean
+  const subcategories: Subcategory[] = subcategoriesData?.map((sub: any) => ({
+    id: sub.id,
+    name: sub.name,
+    slug: sub.slug,
+    is_visible: sub.is_visible ?? true, // Приводим к boolean
+  })) ?? [];
+
+  // Проверяем, если URL содержит подкатегорию (например, /category/klubnichnye-bukety/club-nabory)
+  // и перенаправляем на корректный URL с параметром ?subcategory=...
+  if (subcategories.length > 0) {
+    const subcategoryFromUrl = subcategories.find((sub) => sub.slug === initialSubcategory);
+    if (initialSubcategory !== 'all' && !subcategoryFromUrl) {
+      // Если подкатегория в URL не найдена, перенаправляем на страницу категории без подкатегории
+      redirect(`/category/${category}?sort=${sort}`);
+    }
+  }
 
   const { data: productsData, error: productsError } = await supabaseAdmin
     .from('products')
@@ -132,9 +153,9 @@ export default async function CategoryPage({
       category_id,
       subcategories!products_subcategory_id_fkey(id, name)
     `)
-    .eq('category', apiName)
+    .eq('category_id', categoryId)
     .eq('in_stock', true)
-    .eq('is_visible', true) // Добавляем фильтр по видимости
+    .eq('is_visible', true)
     .order('id', { ascending: false });
 
   if (productsError) {
@@ -142,7 +163,7 @@ export default async function CategoryPage({
     redirect('/404');
   }
 
-  const products: Product[] = productsData?.map(product => ({
+  const products: Product[] = productsData?.map((product) => ({
     id: product.id,
     title: product.title,
     price: product.price,
