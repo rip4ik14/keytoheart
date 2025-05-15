@@ -91,13 +91,12 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsCheckingStatus(true);
     try {
       const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+      console.log(`Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
       console.log('Check call status response:', data);
 
-      if (data
-
-.success && data.status === 'VERIFIED') {
+      if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
         onSuccess(clearPhone);
@@ -144,6 +143,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const handleSendCall = async () => {
     setError('');
     setIsLoading(true);
+    setCheckId(null); // Сбрасываем checkId перед новым запросом
     const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
       const res = await fetch('/api/auth/send-call', {
