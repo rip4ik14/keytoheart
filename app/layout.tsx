@@ -14,7 +14,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import Script from 'next/script';
-import { Category } from '@/types/category'; // Импортируем тип Category
+import { Category } from '@/types/category';
 
 export const revalidate = 3600;
 
@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image' },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
+  other: {
+    'yandex-verification': '2d95e0ee66415497', // ✅ вот сюда добавлен метатег
+  },
 };
 
 export const viewport: Viewport = {
@@ -85,7 +88,7 @@ export default async function RootLayout({
         is_visible,
         subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
       `)
-      .eq('is_visible', true) // Фильтруем только видимые категории
+      .eq('is_visible', true)
       .order('id', { ascending: true });
     console.log('Supabase query duration for categories in layout:', Date.now() - startCategories, 'ms');
     console.log('Categories fetch result:', { data, error });
@@ -94,13 +97,13 @@ export default async function RootLayout({
     categories = Array.isArray(data)
       ? data.map((cat) => ({
           ...cat,
-          is_visible: cat.is_visible ?? true, // Преобразуем boolean | null в boolean
+          is_visible: cat.is_visible ?? true,
           subcategories: cat.subcategories
             ? cat.subcategories
-                .filter((sub: any) => sub.is_visible === true) // Фильтруем только видимые подкатегории
+                .filter((sub: any) => sub.is_visible === true)
                 .map((sub: any) => ({
                   ...sub,
-                  is_visible: sub.is_visible ?? true, // Преобразуем boolean | null в boolean
+                  is_visible: sub.is_visible ?? true,
                 }))
             : [],
         }))
