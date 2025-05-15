@@ -17,12 +17,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(1200); // 20 минут
+  const [callTimer, setCallTimer] = useState(300); // 5 минут
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
   // Обработка ввода номера телефона
   const handlePhoneInput = (value: string) => {
@@ -47,9 +45,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Таймер для звонка
+  // Таймер для звонка (5 минут)
   const startCallTimer = () => {
-    setCallTimer(1200); // 20 минут
+    setCallTimer(300); // 5 минут
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallTimer((t) => {
@@ -64,61 +62,11 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Проверка статуса звонка
-  const checkCallStatus = async () => {
-    if (!checkId || !phone) return;
-
-    setIsCheckingStatus(true);
-    try {
-      const clearPhone = phone.replace(/\D/g, '');
-      console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
-      const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
-      const data = await res.json();
-      console.log(`[${new Date().toISOString()}] Check call status response:`, data);
-
-      if (data.success && data.status === 'VERIFIED') {
-        console.log('Call status verified, proceeding to success step');
-        setStep('success');
-        onSuccess(clearPhone);
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
-      } else if (data.status === 'EXPIRED') {
-        console.log('Call status expired, switching to SMS');
-        setStep('sms');
-        setError('Время для ввода кода истекло. Получите код по SMS.');
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
-      } else if (data.error) {
-        console.log('Error in call status:', data.error);
-        setError(data.error);
-      }
-    } catch (err) {
-      console.error('Ошибка проверки статуса звонка:', err);
-      setError('Ошибка проверки статуса. Попробуйте ввести код вручную или запросить SMS-код.');
-    } finally {
-      setIsCheckingStatus(false);
-    }
-  };
-
-  // Запуск периодической проверки статуса звонка
-  useEffect(() => {
-    if (step === 'call' && checkId && phone) {
-      const initialDelay = setTimeout(() => {
-        checkCallStatus();
-        statusCheckRef.current = setInterval(checkCallStatus, 3000);
-      }, 10000); // Задержка 10 секунд
-
-      return () => {
-        clearTimeout(initialDelay);
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
-      };
-    }
-  }, [step, checkId, phone]);
-
   // Очистка таймеров при размонтировании
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (callTimerRef.current) clearInterval(callTimerRef.current);
-      if (statusCheckRef.current) clearInterval(statusCheckRef.current);
     };
   }, []);
 
@@ -329,7 +277,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             Введите 4-значный код из звонка
           </label>
           <p className="text-sm text-gray-500 mb-4">
-            На ваш номер поступит звонок с кодом. Введите его ниже. Это может занять до 1 минуты.
+            На ваш номер поступил звонок с кодом. Введите его ниже. Код действителен 5 минут.
           </p>
           <input
             className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
@@ -338,20 +286,20 @@ export default function AuthWithCall({ onSuccess }: Props) {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             autoFocus
-            disabled={isLoading || isCheckingStatus}
+            disabled={isLoading}
             placeholder="Например, 7819"
           />
           <button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
             onClick={handleVerifyCall}
-            disabled={isLoading || isCheckingStatus || code.length !== 4}
+            disabled={isLoading || code.length !== 4}
           >
-            {isLoading || isCheckingStatus ? 'Проверка...' : 'Подтвердить'}
+            {isLoading ? 'Проверка...' : 'Подтвердить'}
           </button>
           <button
             className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
             onClick={handleSendSms}
-            disabled={isLoading || isCheckingStatus}
+            disabled={isLoading}
           >
             Получить код по SMS
           </button>
