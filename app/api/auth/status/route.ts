@@ -46,6 +46,7 @@ export async function GET(request: Request) {
 
     // Если статус в базе данных уже VERIFIED, возвращаем его
     if (authLog.status === 'VERIFIED') {
+      console.log(`[${new Date().toISOString()}] Status already VERIFIED, returning immediately`);
       return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     }
 
@@ -92,8 +93,10 @@ export async function GET(request: Request) {
       console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${checkId}`);
       return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     } else if (checkStatus === '402') {
+      console.log(`[${new Date().toISOString()}] SMS.ru status EXPIRED`);
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
     } else {
+      console.log(`[${new Date().toISOString()}] SMS.ru status PENDING`);
       return NextResponse.json({ success: true, status: 'PENDING', message: checkStatusText });
     }
   } catch (error: any) {
