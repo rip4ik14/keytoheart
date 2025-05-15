@@ -1,4 +1,4 @@
-// ✅ Исправленный: app/api/auth/status/route.ts
+// ✅ Проверенный: app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -14,6 +14,8 @@ export async function GET(request: Request) {
   const checkId = searchParams.get('checkId');
   const phone = searchParams.get('phone');
 
+  console.log(`[${new Date().toISOString()}] Checking status for checkId: ${checkId}, phone: ${phone}`);
+
   if (!checkId || !phone) {
     console.error('Missing checkId or phone in query parameters');
     return NextResponse.json({ success: false, error: 'checkId and phone required' }, { status: 400 });
@@ -26,13 +28,35 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Проверяем статус в базе данных
+    console.log(`[${new Date().toISOString()}] Querying auth_logs for checkId: ${checkId}`);
+    const { data: authLog, error: dbError } = await supabase
+      .from('auth_logs')
+      .select('status')
+      .eq('check_id', checkId)
+      .eq('phone', phone.replace(/\D/g, '')) // Убираем нецифровые символы для соответствия записи в базе
+      .single();
+
+    if (dbError || !authLog) {
+      console.error(`[${new Date().toISOString()}] Error fetching auth log:`, dbError);
+      return NextResponse.json({ success: false, error: 'Auth log not found' }, { status: 404 });
+    }
+
+    console.log(`[${new Date().toISOString()}] Auth log status from database:`, authLog.status);
+
+    // Если статус в базе данных уже VERIFIED, возвращаем его
+    if (authLog.status === 'VERIFIED') {
+      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
+    }
+
+    // Если статус не VERIFIED, проверяем через SMS.ru
     const url = `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`;
-    console.log(`Calling SMS.ru API: ${url}`);
+    console.log(`[${new Date().toISOString()}] Calling SMS.ru API: ${url}`);
     const startTime = Date.now();
     const apiRes = await fetch(url);
     const responseText = await apiRes.text();
     const duration = Date.now() - startTime;
-    console.log(`SMS.ru API response (duration: ${duration}ms):`, responseText);
+    console.log(`[${new Date().toISOString()}] SMS.ru API response (duration: ${duration}ms):`, responseText);
 
     let apiJson;
     try {
@@ -51,7 +75,9 @@ export async function GET(request: Request) {
     const checkStatus = apiJson.check_status;
     const checkStatusText = apiJson.check_status_text;
 
-    if (checkStatus === '100') { // Успешная верификация
+    if (checkStatus === '401') {
+      // Номер подтверждён, обновляем статус в базе данных
+      console.log(`[${new Date().toISOString()}] SMS.ru confirmed verification, updating auth_logs`);
       const { error: updateError } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
