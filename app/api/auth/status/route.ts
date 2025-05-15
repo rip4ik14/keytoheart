@@ -73,17 +73,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка проверки статуса' }, { status: 500 });
     }
 
-    const checkStatus = apiJson.check_status;
+    const checkStatus = apiJson.check_status.toString(); // Приводим к строке для надёжности
     const checkStatusText = apiJson.check_status_text;
 
     if (checkStatus === '401') {
       // Номер подтверждён, обновляем статус в базе данных
-      console.log(`[${new Date().toISOString()}] SMS.ru confirmed verification, updating auth_logs`);
+      console.log(`[${new Date().toISOString()}] SMS.ru confirmed verification (check_status: ${checkStatus}), updating auth_logs`);
       const { error: updateError } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
         .eq('check_id', checkId)
-        .eq('phone', phone.replace(/\D/g, '')); // Добавляем дополнительное условие для надёжности
+        .eq('phone', phone.replace(/\D/g, ''));
 
       if (updateError) {
         console.error('Error updating auth_logs:', updateError);
@@ -93,10 +93,10 @@ export async function GET(request: Request) {
       console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${checkId}`);
       return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     } else if (checkStatus === '402') {
-      console.log(`[${new Date().toISOString()}] SMS.ru status EXPIRED`);
+      console.log(`[${new Date().toISOString()}] SMS.ru status EXPIRED (check_status: ${checkStatus})`);
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
     } else {
-      console.log(`[${new Date().toISOString()}] SMS.ru status PENDING`);
+      console.log(`[${new Date().toISOString()}] SMS.ru status remains PENDING (check_status: ${checkStatus})`);
       return NextResponse.json({ success: true, status: 'PENDING', message: checkStatusText });
     }
   } catch (error: any) {
