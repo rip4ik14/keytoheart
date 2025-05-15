@@ -20,7 +20,7 @@ import Step2RecipientDetails from './components/steps/Step2RecipientDetails';
 import Step3Address from './components/steps/Step3Address';
 import Step4DateTime from './components/steps/Step4DateTime';
 import Step5Payment from './components/steps/Step5Payment';
-import AuthWithCall from '@components/AuthWithCall'; // Заменено с AuthWithSms
+import AuthWithCall from '@components/AuthWithCall';
 import useCheckoutForm from './hooks/useCheckoutForm';
 import { phoneMask } from '@utils/phoneMask';
 import debounce from 'lodash/debounce';
@@ -218,19 +218,47 @@ export default function CartPage() {
     onFormChange({ target: { name: 'whatsapp', value: data.whatsapp ?? form.whatsapp } } as any);
   };
 
-  const handleAuthSuccess = (phone: string, profile: { name: string }, bonusBalance: number) => {
+  const handleAuthSuccess = async (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
-    setBonusBalance(bonusBalance);
-    setFormData({
-      phone,
-      name: profile.name,
-      email: form.email,
-      whatsapp: form.whatsapp,
-    });
-    localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
-    document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
-    setStep(1);
+
+    try {
+      // Запрашиваем данные профиля пользователя
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('name')
+        .eq('phone', phone)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setFormData({ phone, name: '', email: form.email, whatsapp: form.whatsapp });
+      } else {
+        const name = profileData?.name || '';
+        setFormData({ phone, name, email: form.email, whatsapp: form.whatsapp });
+      }
+
+      // Запрашиваем бонусный баланс
+      const { data: bonusData, error: bonusError } = await supabase
+        .from('bonuses')
+        .select('bonus_balance')
+        .eq('phone', phone)
+        .single();
+
+      if (bonusError) {
+        console.error('Error fetching bonus balance:', bonusError);
+        setBonusBalance(0);
+      } else {
+        setBonusBalance(bonusData?.bonus_balance || 0);
+      }
+
+      localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
+      document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+      setStep(1);
+    } catch (error) {
+      console.error('Error in handleAuthSuccess:', error);
+      toast.error('Ошибка при загрузке данных после авторизации');
+    }
   };
 
   const handlePhoneChange = useCallback(
@@ -771,7 +799,7 @@ export default function CartPage() {
           >
             {step === 0 && (
               <OrderStep step={0} currentStep={step} title="Авторизация">
-                <AuthWithCall onAuthSuccess={handleAuthSuccess} />
+                <AuthWithCall onSuccess={handleAuthSuccess} />
               </OrderStep>
             )}
             {step === 1 && (
