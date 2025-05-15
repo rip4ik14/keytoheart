@@ -18,7 +18,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(900); // 15 минут
+  const [callTimer, setCallTimer] = useState(1200); // Увеличиваем до 20 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showManualCode, setShowManualCode] = useState(false);
@@ -69,7 +69,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   // Таймер для звонка
   const startCallTimer = () => {
-    setCallTimer(900); // 15 минут
+    setCallTimer(1200); // 20 минут
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallTimer((t) => {
@@ -91,10 +91,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsCheckingStatus(true);
     try {
       const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
-      console.log(`Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
+      console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
-      console.log('Check call status response:', data);
+      console.log(`[${new Date().toISOString()}] Check call status response:`, data);
 
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
@@ -152,7 +152,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
-      console.log('Send call response:', data);
+      console.log(`[${new Date().toISOString()}] Send call response:`, data);
       if (!data.success) {
         if (res.status === 429) {
           setStep('ban');
