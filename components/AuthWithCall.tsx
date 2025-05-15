@@ -13,8 +13,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [step, setStep] = useState<'phone' | 'call' | 'sms' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
-  const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
-  const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
@@ -58,7 +56,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (t <= 1) {
           clearInterval(callTimerRef.current!);
           setStep('sms');
-          setError('Время для звонка истекло. Получите код по SMS.');
+          setError('Время для ввода кода истекло. Получите код по SMS.');
           return 0;
         }
         return t - 1;
@@ -86,7 +84,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       } else if (data.status === 'EXPIRED') {
         console.log('Call status expired, switching to SMS');
         setStep('sms');
-        setError('Время для звонка истекло. Получите код по SMS.');
+        setError('Время для ввода кода истекло. Получите код по SMS.');
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.error) {
         console.log('Error in call status:', data.error);
@@ -94,7 +92,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       }
     } catch (err) {
       console.error('Ошибка проверки статуса звонка:', err);
-      setError('Ошибка проверки статуса. Попробуйте запросить SMS-код.');
+      setError('Ошибка проверки статуса. Попробуйте ввести код вручную или запросить SMS-код.');
     } finally {
       setIsCheckingStatus(false);
     }
@@ -106,7 +104,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const initialDelay = setTimeout(() => {
         checkCallStatus();
         statusCheckRef.current = setInterval(checkCallStatus, 3000);
-      }, 10000);
+      }, 10000); // Задержка 10 секунд
 
       return () => {
         clearTimeout(initialDelay);
@@ -160,13 +158,55 @@ export default function AuthWithCall({ onSuccess }: Props) {
         }
       } else {
         setCheckId(data.check_id);
-        setCallPhonePretty(data.call_phone_pretty);
-        setCallPhoneRaw(data.call_phone);
         setStep('call');
         startCallTimer();
       }
     } catch {
       setError('Ошибка сети. Попробуйте ещё раз.');
+    }
+    setIsLoading(false);
+  };
+
+  // Проверка кода (ручной ввод)
+  const handleVerifyCall = async () => {
+    setError('');
+    setIsLoading(true);
+    const cleanPhone = phone.replace(/\D/g, '');
+    let formattedPhone = cleanPhone;
+    if (!cleanPhone.startsWith('7')) {
+      formattedPhone = '7' + cleanPhone;
+    }
+    formattedPhone = '+7' + formattedPhone.slice(1);
+
+    try {
+      const res = await fetch('/api/auth/verify-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: formattedPhone,
+          check_id: checkId,
+          code: code,
+        }),
+      });
+      const data = await res.json();
+      console.log('Verify call response:', data);
+      if (data.success) {
+        setStep('success');
+        onSuccess(formattedPhone);
+      } else {
+        setAttempts((a) => a + 1);
+        if (attempts >= 2) {
+          setStep('sms');
+          setError('Слишком много попыток. Получите код по SMS.');
+        } else if (res.status === 429) {
+          setStep('ban');
+          startBanTimer();
+        } else {
+          setError(data.error || 'Неверный код.');
+        }
+      }
+    } catch {
+      setError('Ошибка сети.');
     }
     setIsLoading(false);
   };
@@ -277,7 +317,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? 'Отправка...' : 'Получить код по звонку'}
           </button>
           <p className="text-xs mt-2 text-gray-500 text-center">
-            Позвоните на указанный номер для подтверждения.
+            На ваш номер поступит звонок с кодом подтверждения.
           </p>
           {error && <div className="mt-2 text-center text-red-600">{error}</div>}
         </motion.div>
@@ -286,18 +326,28 @@ export default function AuthWithCall({ onSuccess }: Props) {
       {step === 'call' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <label className="block text-black mb-1 text-sm">
-            Позвоните на номер{' '}
-            <a
-              href={`tel:${callPhoneRaw}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              aria-label={`Позвонить на номер ${callPhonePretty}`}
-            >
-              {callPhonePretty}
-            </a>
+            Введите 4-значный код из звонка
           </label>
           <p className="text-sm text-gray-500 mb-4">
-            После звонка авторизация завершится автоматически. Это может занять до 1 минуты. Если этого не произошло, попробуйте запросить SMS-код.
+            На ваш номер поступит звонок с кодом. Введите его ниже. Это может занять до 1 минуты.
           </p>
+          <input
+            className="w-full border border-black rounded-lg px-4 py-2 font-mono text-base outline-none focus:ring-2 tracking-widest text-center"
+            inputMode="numeric"
+            maxLength={4}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            autoFocus
+            disabled={isLoading || isCheckingStatus}
+            placeholder="Например, 7819"
+          />
+          <button
+            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-bold transition-all hover:bg-white hover:text-black hover:shadow"
+            onClick={handleVerifyCall}
+            disabled={isLoading || isCheckingStatus || code.length !== 4}
+          >
+            {isLoading || isCheckingStatus ? 'Проверка...' : 'Подтвердить'}
+          </button>
           <button
             className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-bold transition-all hover:bg-black hover:text-white hover:shadow"
             onClick={handleSendSms}
@@ -306,7 +356,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             Получить код по SMS
           </button>
           <p className="text-xs mt-2 text-gray-500 text-center">
-            Время на звонок: {Math.floor(callTimer / 60)}:{('0' + (callTimer % 60)).slice(-2)}
+            Время на ввод кода: {Math.floor(callTimer / 60)}:{('0' + (callTimer % 60)).slice(-2)}
           </p>
           {error && <div className="mt-2 text-center text-red-600">{error}</div>}
         </motion.div>

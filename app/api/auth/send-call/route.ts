@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const url = `https://sms.ru/code/call?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}`;
     console.log(`Sending request to SMS.ru: ${url}`);
     
-    let apiResponse;
+    let apiJson;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // Тайм-аут 10 секунд
@@ -100,23 +100,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
       }
 
-      // Ответ SMS.ru для /code/call приходит в текстовом формате: "100\nCHECK_ID\nCALL_PHONE\nCALL_PHONE_PRETTY"
-      const lines = responseText.trim().split('\n');
-      console.log('SMS.ru response lines:', lines);
-
-      if (lines[0] !== '100') {
-        console.error('SMS.ru API error:', lines[0], lines.slice(1).join(' '));
-        return NextResponse.json({ success: false, error: 'Ошибка отправки звонка' }, { status: 500 });
+      // Парсим JSON-ответ
+      try {
+        apiJson = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error('Failed to parse SMS.ru response as JSON:', parseError.message);
+        console.error('Raw response:', responseText);
+        return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
       }
 
-      // Парсим ответ
-      apiResponse = {
-        status: 'OK',
-        check_id: lines[1],
-        call_phone: lines.length > 2 ? lines[2] : '',
-        call_phone_pretty: lines.length > 3 ? lines[3] : '',
-      };
-      console.log('SMS.ru parsed response:', apiResponse);
+      console.log('SMS.ru parsed response:', apiJson);
+
+      if (!apiJson || apiJson.status !== 'OK') {
+        console.error('SMS.ru API error:', apiJson?.status_text || 'Unknown error');
+        return NextResponse.json({ success: false, error: 'Ошибка отправки звонка' }, { status: 500 });
+      }
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
         console.error('Request to SMS.ru timed out after 10 seconds');
@@ -131,7 +129,7 @@ export async function POST(request: Request) {
       .from('auth_logs')
       .insert({
         phone: formattedPhone,
-        check_id: apiResponse.check_id,
+        check_id: apiJson.call_id, // Используем call_id вместо check_id
         status: 'PENDING',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -146,9 +144,7 @@ export async function POST(request: Request) {
     console.log(`Successfully sent call request for phone: ${formattedPhone}`);
     return NextResponse.json({
       success: true,
-      check_id: apiResponse.check_id,
-      call_phone: apiResponse.call_phone,
-      call_phone_pretty: apiResponse.call_phone_pretty,
+      check_id: apiJson.call_id, // Возвращаем call_id
     });
   } catch (error: any) {
     console.error('Error in send-call:', error.message, error.stack);
