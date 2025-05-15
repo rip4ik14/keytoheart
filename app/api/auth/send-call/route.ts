@@ -77,31 +77,51 @@ export async function POST(request: Request) {
     }
 
     // Отправляем запрос на звонок через SMS.ru
-    const url = `https://sms.ru/callcheck/send?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}&json=1`;
+    const url = `https://sms.ru/code/call?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}`;
     console.log(`Sending request to SMS.ru: ${url}`);
     
-    let apiJson;
+    let apiResponse;
     try {
-      const apiRes = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // Тайм-аут 10 секунд
+
+      const apiRes = await fetch(url, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       const responseText = await apiRes.text(); // Получаем текст ответа
       console.log('SMS.ru raw response:', responseText);
 
-      // Проверяем, что ответ можно разобрать как JSON
-      try {
-        apiJson = JSON.parse(responseText);
-      } catch (parseError: any) {
-        console.error('Failed to parse SMS.ru response as JSON:', parseError.message);
+      // Проверяем статус ответа
+      if (!apiRes.ok) {
+        console.error(`SMS.ru returned non-OK status: ${apiRes.status} ${apiRes.statusText}`);
         console.error('Raw response:', responseText);
         return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
       }
 
-      console.log('SMS.ru parsed response:', apiJson);
+      // Ответ SMS.ru для /code/call приходит в текстовом формате: "100\nCHECK_ID\nCALL_PHONE\nCALL_PHONE_PRETTY"
+      const lines = responseText.trim().split('\n');
+      console.log('SMS.ru response lines:', lines);
 
-      if (!apiJson || apiJson.status !== 'OK') {
-        console.error('SMS.ru API error:', apiJson?.status_text || 'Unknown error');
+      if (lines[0] !== '100') {
+        console.error('SMS.ru API error:', lines[0], lines.slice(1).join(' '));
         return NextResponse.json({ success: false, error: 'Ошибка отправки звонка' }, { status: 500 });
       }
+
+      // Парсим ответ
+      apiResponse = {
+        status: 'OK',
+        check_id: lines[1],
+        call_phone: lines.length > 2 ? lines[2] : '',
+        call_phone_pretty: lines.length > 3 ? lines[3] : '',
+      };
+      console.log('SMS.ru parsed response:', apiResponse);
     } catch (fetchError: any) {
+      if (fetchError.name === 'AbortError') {
+        console.error('Request to SMS.ru timed out after 10 seconds');
+        return NextResponse.json({ success: false, error: 'Превышено время ожидания ответа от SMS.ru' }, { status: 500 });
+      }
       console.error('Error fetching from SMS.ru:', fetchError.message, fetchError.stack);
       return NextResponse.json({ success: false, error: 'Ошибка связи с SMS.ru' }, { status: 500 });
     }
@@ -111,7 +131,7 @@ export async function POST(request: Request) {
       .from('auth_logs')
       .insert({
         phone: formattedPhone,
-        check_id: apiJson.check_id,
+        check_id: apiResponse.check_id,
         status: 'PENDING',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -126,9 +146,9 @@ export async function POST(request: Request) {
     console.log(`Successfully sent call request for phone: ${formattedPhone}`);
     return NextResponse.json({
       success: true,
-      check_id: apiJson.check_id,
-      call_phone: apiJson.call_phone,
-      call_phone_pretty: apiJson.call_phone_pretty,
+      check_id: apiResponse.check_id,
+      call_phone: apiResponse.call_phone,
+      call_phone_pretty: apiResponse.call_phone_pretty,
     });
   } catch (error: any) {
     console.error('Error in send-call:', error.message, error.stack);
