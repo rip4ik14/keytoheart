@@ -4,23 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
-
-type OrderItem = {
-  products: { title: string; cover_url: string | null };
-  quantity: number;
-  price: number;
-  product_id: number;
-};
-
-type Order = {
-  id: number;
-  created_at: string;
-  total: number;
-  bonuses_used: number;
-  payment_method: 'cash' | 'card';
-  status: string;
-  order_items: OrderItem[];
-};
+import { Order } from '@/types/order'; // Импортируем тип
 
 interface OrdersListProps {
   orders: Order[] | undefined;
@@ -80,58 +64,74 @@ export default function OrdersList({ orders }: OrdersListProps) {
           </tr>
         </thead>
         <tbody>
-          {orders.map((o) => (
-            <motion.tr
-              key={o.id}
-              className="bg-white hover:shadow-md transition-all duration-200 border border-gray-200 rounded-lg"
-              variants={rowVariants}
-            >
-              <td className="px-4 py-3 font-medium">#{o.id}</td>
-              <td className="px-4 py-3">
-                {o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}
-              </td>
-              <td className="px-4 py-3 capitalize">{o.status}</td>
-              <td className="px-4 py-3">
-                {new Date(o.created_at).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </td>
-              <td className="px-4 py-3 font-semibold">{o.total} ₽</td>
-              <td className="px-4 py-3 text-right">
-                <motion.button
-                  className="text-black hover:underline text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                  onClick={() => {
-                    const draft = {
-                      items: o.order_items.map((it) => ({
-                        id: it.product_id,
-                        title: it.products.title,
-                        price: it.price,
-                        quantity: it.quantity,
-                        imageUrl: it.products.cover_url || '/no-image.jpg',
-                      })),
-                    };
-                    localStorage.setItem('repeatDraft', JSON.stringify(draft));
-                    toast.success('Заказ скопирован в корзину');
-                    router.push('/cart');
-                    window.gtag?.('event', 'repeat_order', {
-                      event_category: 'account',
-                      order_id: o.id,
-                    });
-                    window.ym?.(12345678, 'reachGoal', 'repeat_order', {
-                      order_id: o.id,
-                    });
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  aria-label={`Повторить заказ #${o.id}`}
-                >
-                  🔁 Повторить
-                </motion.button>
-              </td>
-            </motion.tr>
-          ))}
+          {orders.map((o) => {
+            // Формируем список товаров для повторного заказа
+            const draftItems = [
+              ...o.items.map((it) => ({
+                id: it.product_id,
+                title: it.products.title,
+                price: it.price,
+                quantity: it.quantity,
+                imageUrl: it.products.cover_url || '/no-image.jpg',
+              })),
+              ...o.upsell_details.map((upsell) => ({
+                id: upsell.title, // Для upsell используем title как id (должно быть уникальным)
+                title: upsell.title,
+                price: upsell.price,
+                quantity: upsell.quantity,
+                imageUrl: '/no-image.jpg',
+                isUpsell: true,
+                category: upsell.category,
+              })),
+            ];
+
+            return (
+              <motion.tr
+                key={o.id}
+                className="bg-white hover:shadow-md transition-all duration-200 border border-gray-200 rounded-lg"
+                variants={rowVariants}
+              >
+                <td className="px-4 py-3 font-medium">#{o.id}</td>
+                <td className="px-4 py-3">
+                  {o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}
+                </td>
+                <td className="px-4 py-3 capitalize">{o.status}</td>
+                <td className="px-4 py-3">
+                  {new Date(o.created_at).toLocaleDateString('ru-RU', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </td>
+                <td className="px-4 py-3 font-semibold">{o.total} ₽</td>
+                <td className="px-4 py-3 text-right">
+                  <motion.button
+                    className="text-black hover:underline text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                    onClick={() => {
+                      const draft = {
+                        items: draftItems,
+                      };
+                      localStorage.setItem('repeatDraft', JSON.stringify(draft));
+                      toast.success('Заказ скопирован в корзину');
+                      router.push('/cart');
+                      window.gtag?.('event', 'repeat_order', {
+                        event_category: 'account',
+                        order_id: o.id,
+                      });
+                      window.ym?.(12345678, 'reachGoal', 'repeat_order', {
+                        order_id: o.id,
+                      });
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    aria-label={`Повторить заказ #${o.id}`}
+                  >
+                    🔁 Повторить
+                  </motion.button>
+                </td>
+              </motion.tr>
+            );
+          })}
         </tbody>
       </table>
     </motion.section>

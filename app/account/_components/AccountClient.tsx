@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -14,22 +15,7 @@ import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
 import type { Database } from '@/lib/supabase/types_new';
 import { createBrowserClient } from '@supabase/ssr';
-
-// Интерфейсы для типизации данных
-interface Order {
-  id: number;
-  created_at: string;
-  total: number;
-  bonuses_used: number;
-  payment_method: "cash" | "card";
-  status: string;
-  order_items: {
-    quantity: number;
-    price: number;
-    product_id: number;
-    products: { title: string; cover_url: string | null };
-  }[];
-}
+import { Order } from '@/types/order';
 
 interface BonusHistoryItem {
   amount: number;
@@ -166,14 +152,15 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           bonuses_used: order.bonuses_used ?? 0,
           payment_method: paymentMethod,
           status: order.status ?? '',
-          order_items: order.order_items.map((item: any) => ({
+          items: order.order_items.map((item: any) => ({
             quantity: item.quantity,
             price: item.price,
             product_id: item.product_id ?? 0,
             products: item.products
               ? { title: item.products.title, cover_url: item.products.image_url }
-              : { title: '', cover_url: '' },
+              : { title: 'Неизвестный товар', cover_url: null },
           })),
+          upsell_details: [], // Добавляем пустой массив, так как поле отсутствует в запросе
         };
       });
 
@@ -313,7 +300,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 </div>
                 <BonusCard
                   balance={bonusData?.bonus_balance ?? 0}
-                  level={bonusData?.level ?? 'basic'}
+                  level={bonusData?.level ?? 'basic'} // Исправлено: добавлена закрывающая скобка
                 />
               </div>
             )}

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { createBrowserClient } from '@supabase/ssr';
@@ -24,6 +24,7 @@ import AuthWithCall from '@components/AuthWithCall';
 import useCheckoutForm from './hooks/useCheckoutForm';
 import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
+import { AnimatePresence, motion } from 'framer-motion';
 
 // Типизация для Yandex Maps API
 interface YandexMaps {
@@ -160,6 +161,8 @@ export default function CartPage() {
     getMinDate,
     resetForm,
   } = useCheckoutForm();
+
+  const router = useRouter();
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -510,7 +513,7 @@ export default function CartPage() {
   useEffect(() => {
     const allItems: CartItemType[] = [...items, ...selectedUpsells];
     const idCounts = allItems.reduce((acc, item) => {
-      acc[item.id] = (acc[item.id] || 0) + 1;
+      acc[item.id] = (acc[item.id] || 0) + (item.quantity);
       return acc;
     }, {} as Record<string, number>);
     const duplicates = Object.entries(idCounts)
@@ -530,7 +533,12 @@ export default function CartPage() {
         if (!success) {
           throw new Error(error || 'Не удалось загрузить дополнительные товары');
         }
-        setUpsellItems(data || []);
+        // Добавляем quantity в каждый upsell-предмет
+        const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
+          ...item,
+          quantity: 1,
+        }));
+        setUpsellItems(upsellWithQuantity);
       } catch (err: any) {
         setUpsellItems([]);
         toast.error(err.message || 'Не удалось загрузить дополнительные товары');
@@ -631,10 +639,37 @@ export default function CartPage() {
       return;
     }
 
+    // Проверяем, есть ли товары в корзине
+    if (items.length === 0 && selectedUpsells.length === 0) {
+      toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
+      return;
+    }
+
     if (!(await checkItems())) return;
 
     setIsSubmittingOrder(true);
     try {
+      const cartItems = items.map((item: CartItemType) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+        isUpsell: false,
+      }));
+
+      const upsellItems = selectedUpsells.map((u: UpsellItem) => ({
+        id: u.id,
+        title: u.title,
+        price: u.price,
+        quantity: u.quantity, // Теперь quantity есть в UpsellItem
+        category: u.category,
+        isUpsell: true,
+      }));
+
+      const payloadItems = [...cartItems, ...upsellItems];
+
+      console.log('Items to submit:', payloadItems);
+
       const payload = {
         phone: phone || `+7${form.phone.replace(/\D/g, '')}`,
         name: form.name,
@@ -649,18 +684,7 @@ export default function CartPage() {
         date: form.date,
         time: form.time,
         payment: form.payment,
-        items: [
-          ...items,
-          ...selectedUpsells.map((u: UpsellItem) => ({
-            id: u.id,
-            title: u.title,
-            price: u.price,
-            quantity: 1,
-            imageUrl: u.image_url,
-            isUpsell: true,
-            category: u.category,
-          })),
-        ],
+        items: payloadItems,
         total: finalTotal,
         bonuses_used: 0,
         bonus: bonusAccrual,
@@ -671,6 +695,8 @@ export default function CartPage() {
         anonymous: form.anonymous,
         whatsapp: form.whatsapp,
       };
+
+      console.log('Submitting order with payload:', payload);
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -705,6 +731,11 @@ export default function CartPage() {
       setPromoDiscount(null);
       setPromoType(null);
       setPromoId(null);
+
+      // Сохраняем флаг успешного заказа
+      localStorage.setItem('orderSuccess', 'true');
+      router.push('/account');
+
       window.gtag?.('event', 'submit_order', {
         event_category: 'cart',
         event_label: json.order_id,
@@ -749,6 +780,7 @@ export default function CartPage() {
     setIsAuthenticated,
     setStep,
     phone,
+    router,
   ]);
 
   const containerVariants = {
@@ -1106,7 +1138,7 @@ export default function CartPage() {
               if (prev.some((i) => i.id === item.id)) {
                 return prev;
               }
-              return [...prev, { ...item, category: 'postcard', isUpsell: true }];
+              return [...prev, { ...item, category: 'postcard', isUpsell: true, quantity: 1 }];
             });
             setShowPostcard(false);
           }}
@@ -1121,7 +1153,7 @@ export default function CartPage() {
               if (prev.some((i) => i.id === item.id)) {
                 return prev;
               }
-              return [...prev, { ...item, category: 'balloon', isUpsell: true }];
+              return [...prev, { ...item, category: 'balloon', isUpsell: true, quantity: 1 }];
             });
             setShowBalloons(false);
           }}

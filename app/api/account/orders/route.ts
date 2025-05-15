@@ -12,6 +12,7 @@ interface OrderResponse {
     payment_method: string;
     status: string;
     items: { quantity: number; price: number; product_id: number; title: string }[];
+    upsell_details: { title: string; price: number; quantity: number; category: string }[];
   }[];
   error?: string;
 }
@@ -40,29 +41,44 @@ export async function GET(req: Request) {
 
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, created_at, total, bonuses_used, payment_method, status')
+      .select('id, created_at, total, bonuses_used, payment_method, status, upsell_details')
       .eq('phone', sanitizedPhone)
       .order('created_at', { ascending: false });
 
-    if (error || !orders) {
+    if (error) {
       console.error('Ошибка получения заказов:', error);
-      return NextResponse.json({ success: false, data: [] }, { status: 200 });
+      return NextResponse.json({ success: false, data: [], error: error.message }, { status: 500 });
+    }
+
+    if (!orders || orders.length === 0) {
+      console.log('Заказы не найдены для телефона:', sanitizedPhone);
+      return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
     const orderIds = orders.map((order) => order.id);
-    const { data: allItems } = await supabase
+    const { data: allItems, error: itemsError } = await supabase
       .from('order_items')
       .select('order_id, quantity, price, product_id')
       .in('order_id', orderIds);
+
+    if (itemsError) {
+      console.error('Ошибка получения элементов заказов:', itemsError);
+      return NextResponse.json({ success: false, data: [], error: itemsError.message }, { status: 500 });
+    }
 
     // Фильтруем null значения из product_id и приводим к number[]
     const productIds = [
       ...new Set(allItems?.map((item) => item.product_id).filter((id): id is number => id !== null) || []),
     ];
-    const { data: products } = await supabase
+    const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id, title')
       .in('id', productIds);
+
+    if (productsError) {
+      console.error('Ошибка получения товаров:', productsError);
+      return NextResponse.json({ success: false, data: [], error: productsError.message }, { status: 500 });
+    }
 
     const productMap = new Map(products?.map((p) => [p.id, p.title]) || []);
 
@@ -75,14 +91,26 @@ export async function GET(req: Request) {
           product_id: item.product_id ?? 0,
           title: item.product_id !== null ? productMap.get(item.product_id) || 'Неизвестный товар' : 'Неизвестный товар',
         }));
+
+      // Обрабатываем upsell_details
+      const upsellDetails = Array.isArray(order.upsell_details)
+        ? order.upsell_details.map((upsell: any) => ({
+            title: upsell.title || 'Неизвестный товар',
+            price: upsell.price || 0,
+            quantity: upsell.quantity || 1,
+            category: upsell.category || 'unknown',
+          }))
+        : [];
+
       return {
-        ...order,
+        id: order.id,
         created_at: order.created_at ?? '',
         total: order.total ?? 0,
         bonuses_used: order.bonuses_used ?? 0,
         payment_method: order.payment_method ?? '',
         status: order.status ?? '',
         items,
+        upsell_details: upsellDetails,
       };
     });
 

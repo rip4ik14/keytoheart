@@ -17,6 +17,7 @@ export interface UpsellItem {
   image_url?: string;
   category?: 'postcard' | 'balloon';
   isUpsell: true;
+  quantity: number; // Добавляем поле quantity
 }
 
 // Объединённый тип для товаров в корзине

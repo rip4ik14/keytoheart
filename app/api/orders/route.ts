@@ -5,6 +5,14 @@ import sanitizeHtml from 'sanitize-html';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
+// Функция для экранирования HTML-символов в Telegram-сообщении
+const escapeHtml = (text: string) => {
+  return text
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
+};
+
 export async function POST(req: Request) {
   try {
     const {
@@ -78,7 +86,7 @@ export async function POST(req: Request) {
       .map((item: any) => parseInt(item.id, 10))
       .filter((id: number) => !isNaN(id));
 
-    if (productIds.length !== regularItems.length) {
+    if (productIds.length !== regularItems.length && regularItems.length > 0) {
       console.error('Invalid product IDs (not numbers):', regularItems);
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
@@ -133,6 +141,14 @@ export async function POST(req: Request) {
           created_at: new Date().toISOString(),
           delivery_instructions: sanitizedDeliveryInstructions,
           postcard_text: sanitizedPostcardText,
+          anonymous,
+          whatsapp,
+          upsell_details: upsellItems.map((item: any) => ({
+            title: sanitizeHtml(item.title, { allowedTags: [], allowedAttributes: {} }),
+            price: item.price,
+            quantity: item.quantity,
+            category: item.category,
+          })),
         },
       ])
       .select('id, order_number')
@@ -140,8 +156,10 @@ export async function POST(req: Request) {
 
     if (orderError || !order) {
       console.error('Error saving order:', orderError);
-      return NextResponse.json({ error: 'Ошибка сохранения заказа' }, { status: 500 });
+      return NextResponse.json({ error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') }, { status: 500 });
     }
+
+    console.log('Successfully saved order:', { id: order.id, order_number: order.order_number });
 
     // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item: any) => ({
@@ -155,26 +173,11 @@ export async function POST(req: Request) {
       const { error: itemError } = await supabaseAdmin.from('order_items').insert(orderItems);
       if (itemError) {
         console.error('Error saving order items:', itemError);
-        return NextResponse.json({ error: 'Ошибка сохранения товаров' }, { status: 500 });
+        return NextResponse.json({ error: 'Ошибка сохранения товаров: ' + itemError.message }, { status: 500 });
       }
-    }
-
-    // Сохраняем upsell-дополнения
-    const upsellDetails = upsellItems.map((item: any) => ({
-      title: sanitizeHtml(item.title, { allowedTags: [], allowedAttributes: {} }),
-      price: item.price,
-      quantity: item.quantity,
-      category: item.category, // postcard или balloon
-    }));
-
-    const { error: updateOrderError } = await supabaseAdmin
-      .from('orders')
-      .update({ upsell_details: upsellDetails })
-      .eq('id', order.id);
-
-    if (updateOrderError) {
-      console.error('Error saving upsell details:', updateOrderError);
-      return NextResponse.json({ error: 'Ошибка сохранения дополнений' }, { status: 500 });
+      console.log('Successfully saved order items:', orderItems);
+    } else {
+      console.log('No regular items to save in order_items');
     }
 
     const baseUrl = new URL(req.url).origin;
@@ -188,6 +191,8 @@ export async function POST(req: Request) {
       });
       if (!res.ok) {
         console.error('Ошибка списания бонусов:', await res.text());
+      } else {
+        console.log('Successfully redeemed bonuses:', bonuses_used);
       }
     }
 
@@ -199,6 +204,8 @@ export async function POST(req: Request) {
     });
     if (!resBonus.ok) {
       console.error('Ошибка начисления бонусов:', await resBonus.text());
+    } else {
+      console.log('Successfully credited bonuses:', bonus);
     }
 
     // Обновление промокода
@@ -219,6 +226,8 @@ export async function POST(req: Request) {
           .eq('id', promo_id);
         if (promoUpdateError) {
           console.error('Ошибка обновления промокода:', promoUpdateError.message);
+        } else {
+          console.log('Successfully updated promo code usage:', { promo_id, newUsedCount });
         }
       }
     }
@@ -238,19 +247,19 @@ export async function POST(req: Request) {
     const whatsappText = whatsapp ? 'Да' : 'Нет';
     const postcardTextMessage = sanitizedPostcardText || 'Не указан';
     const message = `<b>🆕 Новый заказ #${order.order_number}</b>
-<b>Имя:</b> ${sanitizedName}
-<b>Телефон:</b> ${phone}
+<b>Имя:</b> ${escapeHtml(sanitizedName)}
+<b>Телефон:</b> ${escapeHtml(phone)}
 <b>Сумма:</b> ${total} ₽
 <b>Бонусы списано:</b> ${bonuses_used}
 <b>Бонусы начислено:</b> ${bonus}
 <b>Дата/Время:</b> ${date} ${time}
 <b>Способ доставки:</b> ${deliveryMethodText}
-<b>Адрес:</b> ${sanitizedAddress || 'Не указан (самовывоз)'}
-<b>Получатель:</b> ${sanitizedRecipient}
+<b>Адрес:</b> ${escapeHtml(sanitizedAddress || 'Не указан (самовывоз)')}
+<b>Получатель:</b> ${escapeHtml(sanitizedRecipient)}
 <b>Оплата:</b> ${payment === 'cash' ? 'Наличные' : 'Онлайн'}
 <b>Анонимный заказ:</b> ${anonymousText}
 <b>Связь через WhatsApp:</b> ${whatsappText}
-<b>Текст открытки:</b> ${postcardTextMessage}
+<b>Текст открытки:</b> ${escapeHtml(postcardTextMessage)}
 ${promoText}
 
 <b>Основные товары:</b>
@@ -260,6 +269,7 @@ ${itemsList}
 ${upsellList}`;
 
     // Отправляем сообщение в Telegram
+    console.log('Sending Telegram message:', message);
     const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -272,9 +282,10 @@ ${upsellList}`;
 
     if (!telegramResponse.ok) {
       console.error('Error sending Telegram message:', await telegramResponse.text());
-      return NextResponse.json({ error: 'Ошибка отправки уведомления' }, { status: 500 });
+      return NextResponse.json({ error: 'Ошибка отправки уведомления в Telegram' }, { status: 500 });
     }
 
+    console.log('Successfully sent Telegram notification for order:', order.order_number);
     return NextResponse.json({ success: true, order_id: order.order_number });
   } catch (error: any) {
     console.error('Ошибка обработки заказа:', error);

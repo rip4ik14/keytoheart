@@ -12,23 +12,33 @@ import ImportantDates from '@components/account/ImportantDates';
 import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
-import type { Database } from '@/lib/supabase/types_new';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '@/lib/supabase/types_new';
 
 // Интерфейсы для типизации данных
+interface OrderItem {
+  products: { title: string; cover_url: string | null };
+  quantity: number;
+  price: number;
+  product_id: number;
+}
+
+interface UpsellDetail {
+  title: string;
+  price: number;
+  quantity: number;
+  category: string;
+}
+
 interface Order {
   id: number;
   created_at: string;
   total: number;
   bonuses_used: number;
-  payment_method: "cash" | "card";
+  payment_method: 'cash' | 'card';
   status: string;
-  order_items: {
-    quantity: number;
-    price: number;
-    product_id: number;
-    products: { title: string; cover_url: string | null };
-  }[];
+  items: OrderItem[];
+  upsell_details: UpsellDetail[];
 }
 
 interface BonusHistoryItem {
@@ -58,7 +68,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     {
       global: {
         headers: {
-          Accept: 'application/json', // Явно указываем Accept
+          Accept: 'application/json',
         },
       },
     }
@@ -91,12 +101,10 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
             try {
               const parsedAuth = JSON.parse(authData);
               if (parsedAuth.phone && parsedAuth.isAuthenticated) {
-                // Исправляем формат номера, если он неправильный
                 let formattedPhone = parsedAuth.phone;
                 if (!formattedPhone.startsWith('+7')) {
                   const cleanPhone = formattedPhone.replace(/\D/g, '');
                   formattedPhone = '+7' + cleanPhone;
-                  // Обновляем localStorage
                   localStorage.setItem('auth', JSON.stringify({ phone: formattedPhone, isAuthenticated: true }));
                 }
                 setIsAuthenticated(true);
@@ -140,10 +148,13 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     if (!phone) return;
     setIsLoading(true);
     try {
+      console.log('Fetching account data for phone:', phone);
+
+      // Загружаем бонусы
       const bonusesRes = await supabase
         .from('bonuses')
         .select('id, bonus_balance, level')
-        .eq('phone', phone) // phone уже в формате +79180300643
+        .eq('phone', phone)
         .single();
 
       let bonusesData: BonusesData;
@@ -172,50 +183,40 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         }));
       }
 
-      const ordersRes = await supabase
-        .from('orders')
-        .select(`
-          id,
-          created_at,
-          total,
-          bonuses_used,
-          payment_method,
-          status,
-          order_items(
-            quantity,
-            price,
-            product_id,
-            products(title, image_url)
-          )
-        `)
-        .eq('phone', phone)
-        .order('created_at', { ascending: false });
+      // Загружаем заказы через API
+      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`);
+      const ordersResult = await ordersRes.json();
 
-      if (ordersRes.error) {
-        console.error('Orders fetch error:', ordersRes.error);
-        throw new Error(`Orders fetch error: ${ordersRes.error.message}`);
+      if (!ordersRes.ok || !ordersResult.success) {
+        console.error('Orders fetch error:', ordersResult.error);
+        throw new Error(`Orders fetch error: ${ordersResult.error || 'Неизвестная ошибка'}`);
       }
 
-      const transformedOrders: Order[] = (ordersRes.data || []).map((order: any) => {
-        const paymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
-        return {
-          id: parseInt(order.id, 10),
-          created_at: order.created_at ?? '',
-          total: order.total ?? 0,
-          bonuses_used: order.bonuses_used ?? 0,
-          payment_method: paymentMethod,
-          status: order.status ?? '',
-          order_items: order.order_items.map((item: any) => ({
-            quantity: item.quantity,
-            price: item.price,
-            product_id: item.product_id ?? 0,
-            products: item.products
-              ? { title: item.products.title, cover_url: item.products.image_url }
-              : { title: '', cover_url: '' },
-          })),
-        };
-      });
+      const transformedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
+        id: parseInt(order.id, 10),
+        created_at: order.created_at ?? '',
+        total: order.total ?? 0,
+        bonuses_used: order.bonuses_used ?? 0,
+        payment_method: order.payment_method ?? 'cash',
+        status: order.status ?? '',
+        items: (order.items || []).map((item: any) => ({
+          quantity: item.quantity,
+          price: item.price,
+          product_id: item.product_id ?? 0,
+          products: {
+            title: item.title || 'Неизвестный товар',
+            cover_url: item.imageUrl || null,
+          },
+        })),
+        upsell_details: (order.upsell_details || []).map((upsell: any) => ({
+          title: upsell.title || 'Неизвестный товар',
+          price: upsell.price || 0,
+          quantity: upsell.quantity || 1,
+          category: upsell.category || 'unknown',
+        })),
+      }));
 
+      console.log('Fetched orders:', transformedOrders);
       setBonusData(bonusesData);
       setOrders(transformedOrders);
 
@@ -231,10 +232,18 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   }, [phone, supabase]);
 
   useEffect(() => {
-    if (isAuthenticated && !initialOrders?.length && !initialBonusData) {
+    if (isAuthenticated) {
       fetchAccountData();
+      // Проверяем, есть ли флаг успешного заказа
+      const orderSuccess = localStorage.getItem('orderSuccess');
+      if (orderSuccess) {
+        console.log('Order success detected, refreshing data');
+        fetchAccountData();
+        localStorage.removeItem('orderSuccess');
+        toast.success('Заказ успешно оформлен!');
+      }
     }
-  }, [isAuthenticated, fetchAccountData, initialOrders, initialBonusData]);
+  }, [isAuthenticated, fetchAccountData]);
 
   // Обработчик успешной авторизации — только телефон
   const handleAuthSuccess = (phone: string) => {
