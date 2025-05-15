@@ -29,44 +29,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setPhone(value);
   };
 
-  // Временно убираем таймер бана
-  /*
-  const startBanTimer = () => {
-    setBanTimer(600); // 10 минут
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setBanTimer((t) => {
-        if (t <= 1) {
-          clearInterval(timerRef.current!);
-          setStep('phone');
-          setError('');
-          resetAttempts();
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
-  };
-
-  const resetAttempts = async () => {
-    try {
-      const cleanPhone = phone.replace(/\D/g, '');
-      const formattedPhone = '+7' + cleanPhone;
-      const res = await fetch('/api/auth/reset-attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        console.error('Failed to reset attempts:', data.error);
-      }
-    } catch (err) {
-      console.error('Error resetting attempts:', err);
-    }
-  };
-  */
-
   const startCallTimer = () => {
     setCallTimer(300); // 5 минут
     if (callTimerRef.current) clearInterval(callTimerRef.current);
@@ -81,6 +43,13 @@ export default function AuthWithCall({ onSuccess }: Props) {
         return t - 1;
       });
     }, 1000);
+  };
+
+  const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
   };
 
   const checkCallStatus = async () => {
@@ -98,6 +67,31 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
+
+        // Загружаем данные аккаунта с токеном
+        const token = getCookie('sb-access-token');
+        if (!token) {
+          console.error('No access token found in cookies');
+          setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
+          return;
+        }
+
+        console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${formattedPhone}`);
+        const accountRes = await fetch('/api/account', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const accountData = await accountRes.json();
+
+        if (!accountRes.ok || !accountData.success) {
+          console.error('Failed to fetch account data:', accountData.error);
+          setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
+          return;
+        }
+
+        console.log('Fetched account data:', accountData);
         onSuccess(formattedPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
@@ -168,15 +162,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Send call response:`, data);
       if (!data.success) {
-        // Временно убираем переход в состояние ban
-        /*
-        if (res.status === 429) {
-          setStep('ban');
-          startBanTimer();
-        } else {
-          setError(data.error || 'Не удалось инициировать звонок.');
-        }
-        */
         setError(data.error || 'Не удалось инициировать звонок.');
       } else {
         setCheckId(data.check_id);
@@ -212,15 +197,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (data.success) {
         setStep('sms');
       } else {
-        // Временно убираем переход в состояние ban
-        /*
-        if (res.status === 429) {
-          setStep('ban');
-          startBanTimer();
-        } else {
-          setError(data.error || 'Не удалось отправить SMS.');
-        }
-        */
         setError(data.error || 'Не удалось отправить SMS.');
       }
     } catch {
@@ -322,25 +298,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? 'Проверка...' : 'Войти'}
           </button>
           {error && <div className="mt-2 text-center text-red-600">{error}</div>}
-        </motion.div>
-      )}
-
-      {step === 'ban' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="text-center text-red-700 font-bold mb-2">
-            Превышено число попыток
-          </div>
-          <div className="text-center mb-2">
-            Повторная авторизация будет доступна через {Math.floor(banTimer / 60)}:{('0' + (banTimer % 60)).slice(-2)}
-          </div>
-          <a
-            href={WHATSAPP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full block py-2 rounded-xl border border-green-500 bg-green-50 text-green-800 font-bold text-center transition-all hover:bg-green-500 hover:text-white"
-          >
-            Оформить заказ через WhatsApp
-          </a>
         </motion.div>
       )}
 

@@ -6,7 +6,8 @@ import type { Database } from '@/lib/supabase/types_new';
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: true, persistSession: false } }
 );
 
 export async function GET(request: Request) {
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка проверки статуса' }, { status: 500 });
     }
 
-    const checkStatus = apiJson.check_status.toString(); // Приводим к строке для надёжности
+    const checkStatus = apiJson.check_status.toString();
     const checkStatusText = apiJson.check_status_text;
 
     if (checkStatus === '401') {
@@ -90,8 +91,29 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
+      // Создаём сессию пользователя
+      console.log(`[${new Date().toISOString()}] Creating session for phone: ${phone}`);
+      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+        phone: phone,
+        password: process.env.SMS_AUTH_PASSWORD || 'default_password', // Укажите пароль для SMS-авторизации в .env
+      });
+
+      if (sessionError || !sessionData.session) {
+        console.error('Error creating session:', sessionError);
+        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
+      }
+
+      // Устанавливаем сессионный токен в куки
+      const response = NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
+      response.cookies.set('sb-access-token', sessionData.session.access_token, {
+        httpOnly: true,
+        secure: true,
+        maxAge: 60 * 60 * 24 * 7, // 7 дней
+        path: '/',
+      });
+
       console.log(`[${new Date().toISOString()}] Successfully updated status to VERIFIED for check_id: ${checkId}`);
-      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
+      return response;
     } else if (checkStatus === '402') {
       console.log(`[${new Date().toISOString()}] SMS.ru status EXPIRED (check_status: ${checkStatus})`);
       return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });

@@ -1,22 +1,47 @@
+// ✅ Исправленный: app/api/update-profile/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const supabase = createClient<Database>(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: true, persistSession: false } }
+);
 
 export async function POST(request: Request) {
   try {
-    const { phone, name } = await request.json();
-
-    // Валидация входных данных
-    if (!phone || !/^\+7\d{10}$/.test(phone)) {
+    // Проверяем токен
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      console.error('No token provided in Authorization header');
       return NextResponse.json(
-        { success: false, error: 'Некорректный номер телефона' },
+        { success: false, error: 'Ошибка аутентификации. Пожалуйста, войдите заново.' },
+        { status: 401 }
+      );
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getUser(token);
+    if (sessionError || !sessionData.user) {
+      console.error('Invalid token:', sessionError);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка аутентификации. Пожалуйста, войдите заново.' },
+        { status: 401 }
+      );
+    }
+
+    const phone = sessionData.user.phone;
+    if (!phone || !/^\+7\d{10}$/.test(phone)) {
+      console.error('Invalid phone number in session:', phone);
+      return NextResponse.json(
+        { success: false, error: 'Некорректный номер телефона в сессии' },
         { status: 400 }
       );
     }
+
+    const { name } = await request.json();
+
+    // Валидация входных данных
     if (typeof name !== 'string' || name.length > 50) {
       return NextResponse.json(
         { success: false, error: 'Имя должно быть строкой до 50 символов' },
