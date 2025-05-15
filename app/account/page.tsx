@@ -85,10 +85,35 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
-          setIsAuthenticated(false);
-          setPhone('');
-          setOrders([]);
-          setBonusData(null);
+          // Проверяем localStorage
+          const authData = localStorage.getItem('auth');
+          if (authData) {
+            try {
+              const parsedAuth = JSON.parse(authData);
+              if (parsedAuth.phone && parsedAuth.isAuthenticated) {
+                setIsAuthenticated(true);
+                setPhone(parsedAuth.phone);
+                setOrders(initialOrders || []);
+                setBonusData(initialBonusData);
+              } else {
+                setIsAuthenticated(false);
+                setPhone('');
+                setOrders([]);
+                setBonusData(null);
+              }
+            } catch (error) {
+              console.error('Ошибка парсинга auth из localStorage:', error);
+              setIsAuthenticated(false);
+              setPhone('');
+              setOrders([]);
+              setBonusData(null);
+            }
+          } else {
+            setIsAuthenticated(false);
+            setPhone('');
+            setOrders([]);
+            setBonusData(null);
+          }
         }
       } catch (error) {
         console.error('Error checking session:', error);
@@ -100,7 +125,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     };
 
     checkSession();
-    // eslint-disable-next-line
   }, [initialOrders, initialBonusData]);
 
   // Загрузка данных после авторизации

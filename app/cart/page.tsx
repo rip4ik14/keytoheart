@@ -164,7 +164,14 @@ export default function CartPage() {
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Accept: 'application/json', // Явно указываем Accept для Supabase
+        },
+      },
+    }
   );
 
   useEffect(() => {
@@ -177,36 +184,63 @@ export default function CartPage() {
           setIsAuthenticated(true);
           setPhone(result.phone);
           setFormData({ phone: result.phone });
-          const { data: bonusData } = await fetch('/api/account/bonuses').then(res => res.json());
-          setBonusBalance(bonusData?.bonusBalance || 0);
+
+          // Запрашиваем бонусный баланс
+          const { data: bonusData, error: bonusError } = await supabase
+            .from('bonuses')
+            .select('bonus_balance')
+            .eq('phone', result.phone)
+            .single();
+
+          if (bonusError) {
+            console.error('Error fetching bonus balance:', bonusError);
+            setBonusBalance(0);
+          } else {
+            setBonusBalance(bonusData?.bonus_balance || 0);
+          }
+
           setStep(1);
         } else {
-          setStep(0);
+          // Проверяем localStorage
+          const authData = localStorage.getItem('auth');
+          if (authData) {
+            try {
+              const parsedAuth = JSON.parse(authData);
+              if (parsedAuth.phone && parsedAuth.isAuthenticated) {
+                setIsAuthenticated(true);
+                setPhone(parsedAuth.phone);
+                setFormData({ phone: parsedAuth.phone });
+                setStep(1);
+
+                // Запрашиваем бонусный баланс
+                const { data: bonusData, error: bonusError } = await supabase
+                  .from('bonuses')
+                  .select('bonus_balance')
+                  .eq('phone', parsedAuth.phone)
+                  .single();
+
+                if (bonusError) {
+                  console.error('Error fetching bonus balance from localStorage:', bonusError);
+                  setBonusBalance(0);
+                } else {
+                  setBonusBalance(bonusData?.bonus_balance || 0);
+                }
+              } else {
+                setStep(0);
+              }
+            } catch (error) {
+              console.error('Ошибка парсинга auth из localStorage:', error);
+              setStep(0);
+            }
+          } else {
+            setStep(0);
+          }
         }
       } catch (err) {
         console.error('Error checking session:', err);
         setStep(0);
       }
     };
-
-    const authCookie = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('auth='))
-      ?.split('=')[1];
-
-    if (authCookie) {
-      try {
-        const authData = JSON.parse(authCookie);
-        if (authData.phone && authData.isAuthenticated) {
-          setIsAuthenticated(true);
-          setPhone(authData.phone);
-          setFormData({ phone: authData.phone });
-          setStep(1);
-        }
-      } catch (error) {
-        console.error('Ошибка парсинга cookie auth:', error);
-      }
-    }
 
     checkSession();
   }, []);
@@ -252,6 +286,7 @@ export default function CartPage() {
         setBonusBalance(bonusData?.bonus_balance || 0);
       }
 
+      // Синхронизируем localStorage и cookie
       localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
       document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
       setStep(1);
