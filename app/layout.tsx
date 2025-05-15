@@ -31,9 +31,6 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image' },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
-  other: {
-    'yandex-verification': '2d95e0ee66415497', // ✅ вот сюда добавлен метатег
-  },
 };
 
 export const viewport: Viewport = {
@@ -118,6 +115,9 @@ export default async function RootLayout({
   return (
     <html lang="ru">
       <head>
+        {/* ✅ Вставляем мета-тег подтверждения для Яндекса */}
+        <meta name="yandex-verification" content="2d95e0ee66415497" />
+
         <link
           rel="preload"
           href="/fonts/Ubuntu-Regular.woff2"
