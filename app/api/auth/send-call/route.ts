@@ -36,22 +36,36 @@ export async function POST(request: Request) {
 
     // Форматируем номер для SMS.ru (например, убираем +)
     const formattedPhone = cleanPhone;
+    console.log(`Formatted phone for Supabase query: ${formattedPhone}`);
 
     // Проверяем попытки авторизации
-    const { data: recentAttempts, error: attemptsError } = await supabase
-      .from('auth_logs')
-      .select('created_at')
-      .eq('phone', formattedPhone)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+    let recentAttemptsCount = 0;
+    try {
+      const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      console.log(`Querying auth_logs with phone: ${formattedPhone}, cutoff date: ${cutoffDate}`);
 
-    if (attemptsError) {
-      console.error('Error checking auth_logs:', attemptsError);
-      return NextResponse.json({ success: false, error: 'Ошибка проверки попыток' }, { status: 500 });
-    }
+      const { data: recentAttempts, error: attemptsError } = await supabase
+        .from('auth_logs')
+        .select('created_at')
+        .eq('phone', formattedPhone)
+        .gte('created_at', cutoffDate);
 
-    if (recentAttempts && recentAttempts.length >= 5) {
-      console.error(`Too many attempts for phone: ${formattedPhone}`);
-      return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
+      if (attemptsError) {
+        console.error('Error checking auth_logs:', attemptsError.message, attemptsError.details);
+        console.error('Full error object:', JSON.stringify(attemptsError, null, 2));
+        // Продолжаем выполнение, не прерывая запрос
+      } else {
+        recentAttemptsCount = recentAttempts ? recentAttempts.length : 0;
+        console.log(`Found ${recentAttemptsCount} recent attempts for phone: ${formattedPhone}`);
+      }
+
+      if (recentAttemptsCount >= 5) {
+        console.error(`Too many attempts for phone: ${formattedPhone}`);
+        return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
+      }
+    } catch (error: any) {
+      console.error('Unexpected error while checking auth_logs:', error.message, error.stack);
+      // Продолжаем выполнение, не прерывая запрос
     }
 
     // Отправляем запрос на звонок через SMS.ru
@@ -78,7 +92,8 @@ export async function POST(request: Request) {
       });
 
     if (insertError) {
-      console.error('Error inserting auth_logs:', insertError);
+      console.error('Error inserting auth_logs:', insertError.message, insertError.details);
+      console.error('Full error object:', JSON.stringify(insertError, null, 2));
       return NextResponse.json({ success: false, error: 'Ошибка записи в базу данных' }, { status: 500 });
     }
 
@@ -90,7 +105,7 @@ export async function POST(request: Request) {
       call_phone_pretty: apiJson.call_phone_pretty,
     });
   } catch (error: any) {
-    console.error('Error in send-call:', error);
+    console.error('Error in send-call:', error.message, error.stack);
     return NextResponse.json({ success: false, error: 'Серверная ошибка' }, { status: 500 });
   }
 }
