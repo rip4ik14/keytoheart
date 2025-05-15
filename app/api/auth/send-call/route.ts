@@ -76,8 +76,8 @@ export async function POST(request: Request) {
       // Продолжаем выполнение
     }
 
-    // Отправляем запрос на звонок через SMS.ru
-    const url = `https://sms.ru/code/call?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}`;
+    // Отправляем запрос на звонок через SMS.ru (используем /callcheck/add)
+    const url = `https://sms.ru/callcheck/add?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}&json=1`;
     console.log(`Sending request to SMS.ru: ${url}`);
     
     let apiJson;
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       .from('auth_logs')
       .insert({
         phone: formattedPhone,
-        check_id: apiJson.call_id, // Используем call_id вместо check_id
+        check_id: apiJson.check_id,
         status: 'PENDING',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -144,7 +144,9 @@ export async function POST(request: Request) {
     console.log(`Successfully sent call request for phone: ${formattedPhone}`);
     return NextResponse.json({
       success: true,
-      check_id: apiJson.call_id, // Возвращаем call_id
+      check_id: apiJson.check_id,
+      call_phone: apiJson.call_phone,
+      call_phone_pretty: apiJson.call_phone_pretty,
     });
   } catch (error: any) {
     console.error('Error in send-call:', error.message, error.stack);
