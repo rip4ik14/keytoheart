@@ -140,6 +140,11 @@ export default function AuthWithCall({ onSuccess }: Props) {
       } else if (data.error) {
         console.log('Error in call status:', data.error);
         setError(data.error);
+        // Если ошибка связана с созданием пользователя, продолжаем пытаться
+        if (data.error.includes('Ошибка создания пользователя')) {
+          console.log('Retrying due to user creation error');
+          setTimeout(checkCallStatus, 3000); // Повторяем через 3 секунды
+        }
       } else {
         console.log('Call status still pending:', data.status);
       }
