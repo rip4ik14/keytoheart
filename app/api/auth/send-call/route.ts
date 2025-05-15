@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -57,7 +56,13 @@ export async function POST(request: Request) {
         // Фильтруем записи за последние 24 часа вручную
         const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
         recentAttemptsCount = recentAttempts
-          ? recentAttempts.filter((attempt) => new Date(attempt.created_at) >= cutoffDate).length
+          ? recentAttempts.filter((attempt) => {
+              if (!attempt.created_at) {
+                console.warn(`Found record with null created_at for phone: ${formattedPhone}`);
+                return false; // Пропускаем записи с null created_at
+              }
+              return new Date(attempt.created_at) >= cutoffDate;
+            }).length
           : 0;
         console.log(`Found ${recentAttemptsCount} recent attempts for phone: ${formattedPhone}`);
       }
