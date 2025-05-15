@@ -35,6 +35,41 @@ export async function POST(request: Request) {
       // Извлекаем check_id и check_status
       check_id = formData.get('check_id')?.toString() || null;
       check_status = formData.get('check_status')?.toString() || null;
+      
+      // Дополнительная проверка на случай, если formData не удалось распарсить
+      if (!check_id || !check_status) {
+        console.error(`[${new Date().toISOString()}] Failed to extract data from FormData, attempting raw parsing`);
+        const text = await request.text();
+        console.log(`[${new Date().toISOString()}] Raw body:`, text);
+
+        const boundaryMatch = contentType.match(/boundary=(.+)/);
+        if (!boundaryMatch) {
+          console.error(`[${new Date().toISOString()}] No boundary found in Content-Type:`, contentType);
+          return new NextResponse('Invalid boundary', { status: 400 });
+        }
+
+        const boundary = boundaryMatch[1];
+        const parts = text.split(`--${boundary}`).filter(part => part.trim() && !part.includes('--'));
+
+        console.log(`[${new Date().toISOString()}] Parsed parts:`, parts);
+
+        for (const part of parts) {
+          const lines = part.split('\n').filter(line => line.trim());
+          console.log(`[${new Date().toISOString()}] Part lines:`, lines);
+
+          const checkIdMatch = lines.find(line => line.includes('name="check_id"'));
+          const checkStatusMatch = lines.find(line => line.includes('name="check_status"'));
+
+          if (checkIdMatch) {
+            const valueIndex = lines.indexOf(checkIdMatch) + 2;
+            check_id = lines[valueIndex]?.trim() || null;
+          }
+          if (checkStatusMatch) {
+            const valueIndex = lines.indexOf(checkStatusMatch) + 2;
+            check_status = lines[valueIndex]?.trim() || null;
+          }
+        }
+      }
     }
     // Обработка application/x-www-form-urlencoded
     else if (contentType.includes('application/x-www-form-urlencoded')) {
@@ -56,6 +91,8 @@ export async function POST(request: Request) {
     // Если Content-Type неизвестен
     else {
       console.error(`[${new Date().toISOString()}] Unsupported Content-Type:`, contentType);
+      const text = await request.text();
+      console.log(`[${new Date().toISOString()}] Raw body:`, text);
       return new NextResponse('Unsupported Content-Type', { status: 400 });
     }
 
