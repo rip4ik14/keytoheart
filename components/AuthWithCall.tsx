@@ -18,7 +18,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(600); // 10 минут
+  const [callTimer, setCallTimer] = useState(900); // 15 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showManualCode, setShowManualCode] = useState(false);
@@ -69,7 +69,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   // Таймер для звонка
   const startCallTimer = () => {
-    setCallTimer(600); // 10 минут
+    setCallTimer(900); // 15 минут
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallTimer((t) => {
@@ -95,15 +95,20 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const data = await res.json();
       console.log('Check call status response:', data);
 
-      if (data.success && data.status === 'VERIFIED') {
+      if (data
+
+.success && data.status === 'VERIFIED') {
+        console.log('Call status verified, proceeding to success step');
         setStep('success');
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.status === 'EXPIRED') {
+        console.log('Call status expired, switching to SMS');
         setStep('sms');
         setError('Время для звонка истекло. Получите код по SMS.');
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.error) {
+        console.log('Error in call status:', data.error);
         setError(data.error);
       }
     } catch (err) {
@@ -118,7 +123,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
       checkCallStatus(); // Первая проверка сразу
-      statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
+      statusCheckRef.current = setInterval(checkCallStatus, 5000); // Проверка каждые 5 секунд
     }
 
     return () => {
@@ -308,7 +313,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             Позвоните на номер {callPhonePretty}
           </label>
           <p className="text-sm text-gray-500 mb-4">
-            После звонка авторизация завершится автоматически. Это может занять до 30 секунд. Если этого не произошло, попробуйте запросить SMS-код.
+            После звонка авторизация завершится автоматически. Это может занять до 1 минуты. Если этого не произошло, попробуйте запросить SMS-код.
           </p>
           {showManualCode && (
             <>

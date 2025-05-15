@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import TabsHeader from '@components/account/TabsHeader';
 import PersonalForm from '@components/account/PersonalForm';
 import OrdersList from '@components/account/OrdersList';
@@ -15,6 +15,7 @@ import AuthWithCall from '@components/AuthWithCall';
 import type { Database } from '@/lib/supabase/types_new';
 import { createBrowserClient } from '@supabase/ssr';
 
+// Интерфейсы для типизации данных
 interface Order {
   id: number;
   created_at: string;
@@ -53,7 +54,14 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const router = useRouter();
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Accept: 'application/json', // Явно указываем Accept
+        },
+      },
+    }
   );
 
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
@@ -64,12 +72,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
-  const variants = {
-    initial: { opacity: 0, x: 20 },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -20 },
-  };
-
+  // Проверяем авторизацию при загрузке компонента
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -97,14 +100,12 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     };
 
     checkSession();
+    // eslint-disable-next-line
   }, [initialOrders, initialBonusData]);
 
+  // Загрузка данных после авторизации
   const fetchAccountData = useCallback(async () => {
-    if (!phone) {
-      console.log('No phone found, skipping fetchAccountData');
-      return;
-    }
-
+    if (!phone) return;
     setIsLoading(true);
     try {
       const bonusesRes = await supabase
@@ -165,7 +166,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
 
       const transformedOrders: Order[] = (ordersRes.data || []).map((order: any) => {
         const paymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
-
         return {
           id: parseInt(order.id, 10),
           created_at: order.created_at ?? '',
@@ -204,22 +204,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData, initialOrders, initialBonusData]);
 
+  // Обработчик успешной авторизации — только телефон
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
-    // Устанавливаем начальные значения для bonusData, если данные не пришли
-    setBonusData((prev) => ({
-      ...prev,
-      bonus_balance: 0, // Значение по умолчанию, если бонусы не загружены
-      id: null,
-      level: 'basic',
-      history: [],
-    } as BonusesData));
-    localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
-    document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    localStorage.setItem('auth', JSON.stringify({ phone, isAuthenticated: true }));
+    document.cookie = `auth=${JSON.stringify({ phone, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
     fetchAccountData();
   };
 
+  // Выход
   const handleLogout = async () => {
     setIsLoading(true);
     try {
