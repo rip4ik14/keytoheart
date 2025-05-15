@@ -106,28 +106,46 @@ export async function GET(request: Request) {
 
         if (createError) {
           console.error('Error creating user:', createError);
-          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+          // Если пользователь уже существует, попробуем его найти снова
+          if (createError.message.includes('Phone number already registered')) {
+            const { data: existingUserData, error: fetchError } = await supabase.auth.admin.listUsers();
+            user = existingUserData.users.find((u: any) => u.phone === phone);
+            if (fetchError || !user) {
+              console.error('Error fetching existing user:', fetchError);
+              return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+            }
+          } else {
+            return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+          }
+        } else {
+          user = newUser.user;
         }
-        user = newUser.user;
       }
 
-      // Создаём сессионный токен для пользователя
-      console.log(`[${new Date().toISOString()}] Generating session token for phone: ${phone}`);
-      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: `${phone}@example.com`, // Используем временный email для генерации токена
+      // Создаём сессию для пользователя
+      console.log(`[${new Date().toISOString()}] Signing in user with OTP for phone: ${phone}`);
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: phone,
+        options: {
+          shouldCreateUser: false, // Пользователь уже создан
+        },
       });
 
-      if (sessionError || !sessionData.properties?.action_link) {
-        console.error('Error generating session token:', sessionError);
+      if (otpError) {
+        console.error('Error signing in with OTP:', otpError);
+        return NextResponse.json({ success: false, error: 'Ошибка авторизации через SMS' }, { status: 500 });
+      }
+
+      // Получаем сессию пользователя
+      console.log(`[${new Date().toISOString()}] Fetching session for user: ${user.id}`);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !sessionData.session) {
+        console.error('Error fetching session:', sessionError);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      const token = sessionData.properties.action_link.split('token=')[1]?.split('&')[0];
-      if (!token) {
-        console.error('Failed to extract token from magic link');
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
-      }
+      const token = sessionData.session.access_token;
 
       // Устанавливаем сессионный токен в куки
       const response = NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });

@@ -1,40 +1,19 @@
-// ✅ Исправленный: app/api/get-profile/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: true, persistSession: false } }
-);
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 export async function POST(request: Request) {
   try {
-    // Проверяем токен
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      console.error('No token provided in Authorization header');
-      return NextResponse.json(
-        { success: false, error: 'Ошибка аутентификации. Пожалуйста, войдите заново.' },
-        { status: 401 }
-      );
-    }
+    const { phone } = await request.json();
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getUser(token);
-    if (sessionError || !sessionData.user) {
-      console.error('Invalid token:', sessionError);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка аутентификации. Пожалуйста, войдите заново.' },
-        { status: 401 }
-      );
-    }
-
-    const phone = sessionData.user.phone;
+    // Валидация входных данных
     if (!phone || !/^\+7\d{10}$/.test(phone)) {
-      console.error('Invalid phone number in session:', phone);
       return NextResponse.json(
-        { success: false, error: 'Некорректный номер телефона в сессии' },
+        { success: false, error: 'Некорректный номер телефона' },
         { status: 400 }
       );
     }
