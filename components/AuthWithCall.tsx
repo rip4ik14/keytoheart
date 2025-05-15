@@ -85,20 +85,29 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   // Проверка статуса звонка
   const checkCallStatus = async () => {
-    if (!checkId) return;
+    if (!checkId || !phone) return;
 
     setIsCheckingStatus(true);
     try {
-      const res = await fetch(`/api/auth/status?checkId=${checkId}`);
+      const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
+      const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
+      console.log('Check call status response:', data);
+
       if (data.success && data.status === 'VERIFIED') {
-        const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
         setStep('success');
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+      } else if (data.status === 'EXPIRED') {
+        setStep('sms');
+        setError('Время для звонка истекло. Получите код по SMS.');
+        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+      } else if (data.error) {
+        setError(data.error);
       }
     } catch (err) {
       console.error('Ошибка проверки статуса звонка:', err);
+      setError('Ошибка проверки статуса. Попробуйте ввести код вручную.');
     } finally {
       setIsCheckingStatus(false);
     }
@@ -106,15 +115,15 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   // Запуск периодической проверки статуса звонка
   useEffect(() => {
-    if (step === 'call' && checkId) {
+    if (step === 'call' && checkId && phone) {
       checkCallStatus(); // Первая проверка сразу
-      statusCheckRef.current = setInterval(checkCallStatus, 5000); // Проверка каждые 5 секунд
+      statusCheckRef.current = setInterval(checkCallStatus, 3000); // Проверка каждые 3 секунды
     }
 
     return () => {
       if (statusCheckRef.current) clearInterval(statusCheckRef.current);
     };
-  }, [step, checkId]);
+  }, [step, checkId, phone]);
 
   // Очистка таймеров при размонтировании
   useEffect(() => {

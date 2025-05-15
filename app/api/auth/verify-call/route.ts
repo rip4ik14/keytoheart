@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     const apiRes = await fetch(url);
     const apiJson = await apiRes.json();
 
+    console.log('SMS.ru verify response:', apiJson);
+
     if (!apiJson || apiJson.status !== 'OK') {
       return NextResponse.json({ success: false, error: 'Ошибка проверки звонка' }, { status: 500 });
     }
