@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { phoneMask } from '@utils/phoneMask';
 
 interface FormState {
   phone: string;
@@ -43,7 +42,7 @@ const initialFormState: FormState = {
 };
 
 export default function useCheckoutForm() {
-  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0); // Обновлено: добавлен шаг 0, начальное значение 0
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [phoneError, setPhoneError] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
@@ -90,12 +89,13 @@ export default function useCheckoutForm() {
   const validateStep1 = () => {
     let isValid = true;
 
+    // Убираем всё, кроме цифр, и проверяем
     const cleanPhone = form.phone.replace(/\D/g, '');
-    if (!form.phone || cleanPhone.length !== 10) {
-      setPhoneError('Введите корректный номер телефона (10 цифр)');
+    if (!form.phone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
+      setPhoneError('Введите корректный номер в формате +7xxxxxxxxxx');
       isValid = false;
-    } else if (!cleanPhone.startsWith('9')) {
-      setPhoneError('Номер телефона должен начинаться с 9 после +7');
+    } else if (cleanPhone.slice(1).length !== 10 || !cleanPhone.slice(1).startsWith('9')) {
+      setPhoneError('Номер должен начинаться с +79xxxxxxxx');
       isValid = false;
     } else {
       setPhoneError('');
@@ -129,11 +129,11 @@ export default function useCheckoutForm() {
     }
 
     const cleanRecipientPhone = form.recipientPhone.replace(/\D/g, '');
-    if (!cleanRecipientPhone || form.recipientPhone === '(___) ___-__-__') {
+    if (!cleanRecipientPhone || cleanRecipientPhone.length === 0) {
       setRecipientPhoneError('Введите номер телефона получателя');
       isValid = false;
-    } else if (cleanRecipientPhone.length !== 10) {
-      setRecipientPhoneError('Введите корректный номер телефона (10 цифр)');
+    } else if (cleanRecipientPhone.length !== 11 || !cleanRecipientPhone.startsWith('7')) {
+      setRecipientPhoneError('Введите корректный номер телефона в формате +7xxxxxxxxxx');
       isValid = false;
     } else {
       setRecipientPhoneError('');

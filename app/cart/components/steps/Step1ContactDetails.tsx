@@ -2,9 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { IMaskInput } from 'react-imask';
 import TrackedLink from '@components/TrackedLink';
-import { phoneMask } from '@utils/phoneMask';
 
 interface Props {
   form: {
@@ -39,30 +37,26 @@ export default function Step1ContactDetails({
         <label htmlFor="phone" className="text-sm font-medium mb-1 block text-gray-700">
           Телефон
         </label>
-        <div className="flex gap-2 items-center">
-          <span className="pt-2 text-gray-600">+7</span>
-          <div className="relative flex-1">
-            <motion.div
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              whileHover={{ scale: 1.1 }}
-            >
-              <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
-            </motion.div>
-            <IMaskInput
-              id="phone"
-              mask="(000) 000-00-00"
-              name="phone"
-              value={form.phone}
-              onAccept={handlePhoneChange}
-              placeholder="(___) ___-__-__"
-              className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
-                phoneError ? 'border-red-500' : 'border-gray-300'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-              disabled
-              aria-label="Номер телефона"
-              aria-invalid={phoneError ? 'true' : 'false'}
-            />
-          </div>
+        <div className="relative">
+          <motion.div
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            whileHover={{ scale: 1.1 }}
+          >
+            <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
+          </motion.div>
+          <input
+            id="phone"
+            name="phone"
+            value={form.phone}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            placeholder="+7xxxxxxxxxx"
+            className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
+              phoneError ? 'border-red-500' : 'border-gray-300'
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            disabled
+            aria-label="Номер телефона"
+            aria-invalid={phoneError ? 'true' : 'false'}
+          />
         </div>
         {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
       </motion.div>

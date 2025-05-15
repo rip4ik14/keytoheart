@@ -22,7 +22,6 @@ import Step4DateTime from './components/steps/Step4DateTime';
 import Step5Payment from './components/steps/Step5Payment';
 import AuthWithCall from '@components/AuthWithCall';
 import useCheckoutForm from './hooks/useCheckoutForm';
-import { phoneMask } from '@utils/phoneMask';
 import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 
@@ -286,7 +285,6 @@ export default function CartPage() {
         setBonusBalance(bonusData?.bonus_balance || 0);
       }
 
-      // Синхронизируем localStorage и cookie
       localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
       document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
       setStep(1);
@@ -298,10 +296,9 @@ export default function CartPage() {
 
   const handlePhoneChange = useCallback(
     (value: string) => {
-      const cleanValue = value.replace(/\D/g, '');
-      const formattedPhone = phoneMask(cleanValue);
+      // Просто сохраняем значение без форматирования
       onFormChange({
-        target: { name: 'phone', value: formattedPhone },
+        target: { name: 'phone', value },
       } as React.ChangeEvent<HTMLInputElement>);
       setPhoneError('');
     },
