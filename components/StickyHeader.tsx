@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Database } from '@/lib/supabase/types_new';
-import { Category } from '@/types/category'; // Импортируем тип Category
+import { Category } from '@/types/category';
 
 // Хелпер для аналитики
 const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
@@ -108,67 +108,21 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         className="sticky top-0 z-50 bg-white border-b shadow-sm"
         aria-label="Основная навигация"
       >
-        <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-3 gap-4 min-w-[320px]">
-          <div className="flex flex-wrap items-center gap-4 text-sm text-black">
+        <div className="container mx-auto flex items-center justify-between px-4 py-2 sm:py-3 gap-2 min-w-[320px]">
+          {/* Left Section: Burger Menu and Logo */}
+          <div className="flex items-center gap-2">
             <BurgerMenu />
-            <span className="hidden md:inline">Краснодар</span>
-            <div className="flex flex-col leading-tight">
-              <a
-                href="tel:+79886033821"
-                className="font-medium hover:underline"
-                aria-label="Позвонить по номеру +7 (988) 603-38-21"
-              >
-                +7 (988) 603-38-21
-              </a>
-              <span className="text-xs text-gray-400 hidden sm:block">с 08:00 до 22:00</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href="https://wa.me/79886033821"
-                className="border rounded-full p-2 hover:bg-gray-100"
-                title="WhatsApp"
-                aria-label="Перейти в WhatsApp"
-                rel="nofollow"
-                onClick={() => trackEvent('whatsapp_click', 'header')}
-              >
-                <Image
-                  src="/icons/whatsapp.svg"
-                  alt="WhatsApp"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 text-black"
-                  loading="lazy"
-                />
-              </a>
-              <a
-                href="https://t.me/keytomyheart"
-                className="border rounded-full p-2 hover:bg-gray-100"
-                title="Telegram"
-                aria-label="Перейти в Telegram"
-                rel="nofollow"
-                onClick={() => trackEvent('telegram_click', 'header')}
-              >
-                <Image
-                  src="/icons/telegram.svg"
-                  alt="Telegram"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 text-black"
-                  loading="lazy"
-                />
-              </a>
-            </div>
+            <Link
+              href="/"
+              className="text-xl sm:text-2xl font-bold"
+              aria-label="Перейти на главную страницу"
+            >
+              KeytoHeart
+            </Link>
           </div>
 
-          <Link
-            href="/"
-            className="mx-auto text-2xl font-bold"
-            aria-label="Перейти на главную страницу"
-          >
-            KeytoHeart
-          </Link>
-
-          <div className="flex items-center gap-3 relative">
+          {/* Right Section: Search, Profile, Cart */}
+          <div className="flex items-center gap-2">
             <button
               ref={searchButtonRef}
               onClick={() => {
@@ -183,9 +137,9 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <Image
                 src="/icons/search.svg"
                 alt="Search"
-                width={16}
-                height={16}
-                className="w-4 h-4 text-black"
+                width={20}
+                height={20}
+                className="w-5 h-5 text-black"
                 loading="lazy"
               />
             </button>
@@ -194,17 +148,19 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
-                  className="flex items-center gap-2 px-4 py-1 border rounded-full hover:bg-gray-100 focus:ring-2 focus:ring-black"
+                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
                   aria-label="Открыть меню профиля"
                   aria-expanded={openProfile}
                   aria-controls="profile-menu"
                 >
-                  {bonus !== null && (
-                    <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
-                      Бонусов: {bonus}
-                    </span>
-                  )}
-                  Профиль
+                  <Image
+                    src="/icons/user.svg"
+                    alt="Profile"
+                    width={20}
+                    height={20}
+                    className="w-5 h-5 text-black"
+                    loading="lazy"
+                  />
                 </button>
 
                 <AnimatePresence>
@@ -220,6 +176,11 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                       aria-label="Меню профиля"
                     >
                       <div className="py-1">
+                        {bonus !== null && (
+                          <div className="px-4 py-2 text-sm text-gray-700">
+                            Бонусов: {bonus}
+                          </div>
+                        )}
                         <Link
                           href="/account"
                           className="block px-4 py-2 text-sm text-black hover:bg-gray-100 focus:bg-gray-100 outline-none"
@@ -248,18 +209,25 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             ) : (
               <Link
                 href="/account"
-                className="px-4 py-1 border rounded-full hover:bg-gray-100 focus:ring-2 focus:ring-black"
+                className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
                 onClick={() => trackEvent('login_click', 'header')}
                 aria-label="Войти в аккаунт"
                 aria-current={pathname === '/account' ? 'page' : undefined}
               >
-                Вход
+                <Image
+                  src="/icons/user.svg"
+                  alt="Login"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 text-black"
+                  loading="lazy"
+                />
               </Link>
             )}
 
             <Link
               href="/cart"
-              className="flex items-center gap-1 border px-3 py-1 rounded-full hover:bg-gray-100 focus:ring-2 focus:ring-black"
+              className="flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
               title="Корзина"
               aria-label="Перейти в корзину"
               aria-current={pathname === '/cart' ? 'page' : undefined}
@@ -268,46 +236,53 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <Image
                 src="/icons/shopping-cart.svg"
                 alt="Shopping Cart"
-                width={16}
-                height={16}
-                className="w-4 h-4 text-black"
+                width={20}
+                height={20}
+                className="w-5 h-5 text-black"
                 loading="lazy"
               />
-              {cartSum > 0 && <span>{formattedCartSum}</span>}
+              {cartSum > 0 && (
+                <span className="text-xs font-medium">{formattedCartSum}</span>
+              )}
             </Link>
           </div>
         </div>
-        <CategoryNav initialCategories={initialCategories} />
+
+        {/* Category Navigation - Collapsible on Mobile */}
+        <div className="border-t">
+          <CategoryNav initialCategories={initialCategories} />
+        </div>
       </header>
 
+      {/* Search Modal Optimized for Mobile */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
             id="search-modal"
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            className="fixed inset-0 z-[9999] flex items-start justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
             role="dialog"
             aria-modal="true"
             aria-label="Модальное окно поиска"
           >
             <motion.div
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: 'easeInOut' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
               onClick={() => setIsSearchOpen(false)}
               aria-hidden="true"
             />
-            <div className="relative">
+            <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
-                className="w-full max-w-2xl rounded-2xl bg-white z-10"
-                initial={{ scale: 0.95, y: -20, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.95, y: -20, opacity: 0 }}
+                className="w-full rounded-2xl bg-white z-10"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.1 }}
               >
                 <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
