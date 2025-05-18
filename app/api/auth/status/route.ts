@@ -87,7 +87,7 @@ export async function GET(request: Request) {
 
       // Проверяем или создаём пользователя
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-      const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+      let { data: users, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
         console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
         return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
@@ -151,7 +151,43 @@ export async function GET(request: Request) {
                 console.log(`[${new Date().toISOString()}] Пользователь успешно создан после удаления: ${userId}`);
               } else {
                 console.error(`[${new Date().toISOString()}] Пользователь не найден даже после полного поиска`);
-                return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+                // Дополнительная попытка поиска через user_profiles
+                console.log(`[${new Date().toISOString()}] Проверяем наличие пользователя в user_profiles`);
+                const { data: profileData, error: profileError } = await supabase
+                  .from('user_profiles')
+                  .select('id, phone')
+                  .eq('phone', phone)
+                  .single();
+
+                if (profileError && profileError.code !== 'PGRST116') {
+                  console.error(`[${new Date().toISOString()}] Ошибка при поиске в user_profiles:`, profileError.message);
+                  return NextResponse.json({ success: false, error: 'Ошибка поиска в user_profiles' }, { status: 500 });
+                }
+
+                if (profileData) {
+                  console.log(`[${new Date().toISOString()}] Пользователь найден в user_profiles, удаляем связанные данные`);
+                  // Удаляем связанные данные
+                  await supabase.from('user_profiles').delete().eq('phone', phone);
+                  await supabase.from('auth_logs').delete().eq('phone', phone);
+                  // Повторяем создание пользователя
+                  const { data: newUserRetry, error: createRetryError } = await supabase.auth.admin.createUser({
+                    phone: phone,
+                    phone_confirm: true,
+                    user_metadata: { phone: phone },
+                    email: email,
+                    email_confirm: true,
+                  });
+                  if (createRetryError) {
+                    console.error(`[${new Date().toISOString()}] Ошибка повторного создания пользователя:`, createRetryError.message);
+                    return NextResponse.json({ success: false, error: 'Ошибка повторного создания пользователя' }, { status: 500 });
+                  }
+                  user = newUserRetry.user;
+                  userId = user.id;
+                  console.log(`[${new Date().toISOString()}] Пользователь успешно создан после удаления связанных данных: ${userId}`);
+                } else {
+                  console.error(`[${new Date().toISOString()}] Пользователь не найден в user_profiles, требуется вмешательство поддержки Supabase`);
+                  return NextResponse.json({ success: false, error: 'Пользователь не найден, обратитесь в поддержку Supabase' }, { status: 500 });
+                }
               }
             } else {
               userId = user.id;
