@@ -1,249 +1,181 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: true, persistSession: false } }
 );
 
+const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
+
+async function findUserByPhone(phone: string) {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/admin/users?phone=${encodeURIComponent(phone)}`,
+    {
+      headers: {
+        apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+      },
+    }
+  );
+
+  const json = await res.json();
+  return json.users?.[0] || null;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const checkId = searchParams.get('checkId');
   const phone = searchParams.get('phone');
 
-  console.log(`[${new Date().toISOString()}] Проверка статуса для checkId: ${checkId}, телефон: ${phone}`);
+  if (!checkId || !phone) {
+    return NextResponse.json({ success: false, error: 'Не указаны обязательные параметры' }, { status: 400 });
+  }
+
+  const { data: authLog, error: logError } = await supabase
+    .from('auth_logs')
+    .select('status')
+    .eq('check_id', checkId)
+    .single();
+
+  if (logError || !authLog) {
+    return NextResponse.json({ success: false, error: 'Запись не найдена' }, { status: 404 });
+  }
+
+  const statusInDb = authLog.status;
+
+  if (statusInDb === 'VERIFIED') {
+    return NextResponse.json({ success: true, status: 'VERIFIED', phone });
+  }
+
+  const smsRes = await fetch(
+    `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`,
+    { cache: 'no-store' }
+  );
+
+  const text = await smsRes.text();
+  let smsData: any;
 
   try {
-    if (!checkId || !phone) {
-      console.error(`[${new Date().toISOString()}] Отсутствуют обязательные параметры: checkId=${checkId}, phone=${phone}`);
-      return NextResponse.json({ success: false, error: 'Не указаны обязательные параметры' }, { status: 400 });
-    }
-
-    // Проверяем статус в auth_logs
-    console.log(`[${new Date().toISOString()}] Запрос в auth_logs для checkId: ${checkId}`);
-    const { data: authLog, error: logError } = await supabase
-      .from('auth_logs')
-      .select('status')
-      .eq('check_id', checkId)
-      .single();
-
-    if (logError || !authLog) {
-      console.error(`[${new Date().toISOString()}] Ошибка получения записи из auth_logs:`, logError);
-      return NextResponse.json({ success: false, error: 'Запись не найдена' }, { status: 404 });
-    }
-
-    console.log(`[${new Date().toISOString()}] Статус из базы данных: ${authLog.status}`);
-
-    if (authLog.status === 'VERIFIED') {
-      console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, возвращаем сразу`);
-      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена', phone });
-    }
-
-    if (authLog.status === 'EXPIRED') {
-      console.log(`[${new Date().toISOString()}] Статус EXPIRED, возвращаем сразу`);
-      return NextResponse.json({ success: true, status: 'EXPIRED', message: 'Срок действия истёк' });
-    }
-
-    // Проверяем статус через SMS.ru API
-    const start = Date.now();
-    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`);
-    const res = await fetch(
-      `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`,
-      { cache: 'no-store' }
-    );
-
-    const responseText = await res.text();
-    console.log(`[${new Date().toISOString()}] Ответ SMS.ru API (длительность: ${Date.now() - start}ms):`, responseText);
-
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError: any) {
-      console.error(`[${new Date().toISOString()}] Ошибка парсинга ответа SMS.ru:`, parseError.message);
-      return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
-    }
-
-    if (!res.ok || data.status !== 'OK') {
-      console.error(`[${new Date().toISOString()}] Ошибка SMS.ru API:`, data?.status_text || 'Unknown error');
-      return NextResponse.json({ success: false, error: 'Ошибка проверки статуса' }, { status: 500 });
-    }
-
-    const checkStatus = data.check_status;
-
-    if (checkStatus === 401) {
-      console.log(`[${new Date().toISOString()}] SMS.ru подтвердил верификацию (check_status: 401), обновляем auth_logs`);
-      const { error: updateError } = await supabase
-        .from('auth_logs')
-        .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
-        .eq('check_id', checkId);
-
-      if (updateError) {
-        console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, updateError);
-        return NextResponse.json({ success: false, error: 'Ошибка обновления статуса' }, { status: 500 });
-      }
-
-      // Проверяем или создаём пользователя
-      console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-      let { data: users, error: listError } = await supabase.auth.admin.listUsers();
-      if (listError) {
-        console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
-        return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
-      }
-
-      let userId: string | undefined;
-      let user = users.users.find((u: any) => u.phone === phone);
-
-      if (!user) {
-        console.log(`[${new Date().toISOString()}] Пользователь не найден, создаём нового для телефона: ${phone}`);
-        const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`; // Уникальный email с временной меткой
-        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-          phone: phone,
-          phone_confirm: true,
-          user_metadata: { phone: phone },
-          email: email,
-          email_confirm: true,
-        });
-
-        if (createError) {
-          console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message, createError);
-          if (createError.message.includes('Phone number already registered')) {
-            console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через listUsers`);
-            const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
-            if (retryError) {
-              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message, retryError);
-              return NextResponse.json({ success: false, error: 'Ошибка повторного поиска пользователей' }, { status: 500 });
-            }
-            user = retryUsers.users.find((u: any) => u.phone === phone);
-            if (!user) {
-              console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
-              // Проверяем наличие пользователя в user_profiles
-              console.log(`[${new Date().toISOString()}] Проверяем наличие пользователя в user_profiles`);
-              const { data: profileData, error: profileError } = await supabase
-                .from('user_profiles')
-                .select('id, phone')
-                .eq('phone', phone)
-                .single();
-
-              if (profileError && profileError.code !== 'PGRST116') {
-                console.error(`[${new Date().toISOString()}] Ошибка при поиске в user_profiles:`, profileError.message);
-                return NextResponse.json({ success: false, error: 'Ошибка поиска в user_profiles' }, { status: 500 });
-              }
-
-              if (profileData) {
-                console.log(`[${new Date().toISOString()}] Пользователь найден в user_profiles, удаляем связанные данные`);
-                // Удаляем связанные данные
-                await supabase.from('user_profiles').delete().eq('phone', phone);
-                await supabase.from('auth_logs').delete().eq('phone', phone);
-                // Повторяем создание пользователя
-                const { data: newUserRetry, error: createRetryError } = await supabase.auth.admin.createUser({
-                  phone: phone,
-                  phone_confirm: true,
-                  user_metadata: { phone: phone },
-                  email: email,
-                  email_confirm: true,
-                });
-                if (createRetryError) {
-                  console.error(`[${new Date().toISOString()}] Ошибка повторного создания пользователя:`, createRetryError.message);
-                  return NextResponse.json({ success: false, error: 'Ошибка повторного создания пользователя' }, { status: 500 });
-                }
-                user = newUserRetry.user;
-                userId = user.id;
-                console.log(`[${new Date().toISOString()}] Пользователь успешно создан после удаления связанных данных: ${userId}`);
-              } else {
-                console.error(`[${new Date().toISOString()}] Пользователь не найден в user_profiles, требуется вмешательство поддержки Supabase`);
-                return NextResponse.json({ success: false, error: 'Пользователь не найден, обратитесь в поддержку Supabase' }, { status: 500 });
-              }
-            } else {
-              userId = user.id;
-            }
-          } else {
-            return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-          }
-        } else {
-          userId = newUser.user.id;
-          console.log(`[${new Date().toISOString()}] Пользователь успешно создан: ${userId}`);
-          user = newUser.user;
-        }
-      } else {
-        userId = user.id;
-        console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
-      }
-
-      // Создаём сессию через admin API
-      console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${userId}`);
-      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`,
-        options: {
-          redirectTo: 'https://keytoheart.ru',
-        },
-      });
-
-      if (sessionError || !sessionData.properties?.action_link) {
-        console.error(`[${new Date().toISOString()}] Ошибка генерации сессии:`, sessionError?.message, sessionError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
-      }
-
-      const magicLink = sessionData.properties.action_link;
-      const token = magicLink.split('token=')[1]?.split('&')[0];
-      if (!token) {
-        console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
-      }
-
-      // Создаём сессию через admin API
-      const browserSupabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      const { data: authSession, error: authError } = await browserSupabase.auth.setSession({
-        access_token: token,
-        refresh_token: '',
-      });
-
-      if (authError || !authSession.session) {
-        console.error(`[${new Date().toISOString()}] Ошибка установки сессии:`, authError?.message, authError);
-        return NextResponse.json({ success: false, error: 'Ошибка установки сессии' }, { status: 500 });
-      }
-
-      const accessToken = authSession.session.access_token;
-      const refreshToken = authSession.session.refresh_token;
-      console.log(`[${new Date().toISOString()}] Сессия успешно создана, access_token: ${accessToken}`);
-
-      // Возвращаем токены клиенту
-      return NextResponse.json({
-        success: true,
-        status: 'VERIFIED',
-        message: 'Авторизация завершена',
-        phone: phone,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-    }
-
-    if (checkStatus === 402) {
-      console.log(`[${new Date().toISOString()}] SMS.ru статус истёк (check_status: 402), обновляем auth_logs`);
-      const { error: updateError } = await supabase
-        .from('auth_logs')
-        .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
-        .eq('check_id', checkId);
-
-      if (updateError) {
-        console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, updateError);
-        return NextResponse.json({ success: false, error: 'Ошибка обновления статуса' }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true, status: 'EXPIRED', message: 'Срок действия истёк' });
-    }
-
-    console.log(`[${new Date().toISOString()}] SMS.ru статус остаётся PENDING (check_status: ${checkStatus})`);
-    return NextResponse.json({ success: true, status: 'PENDING', message: 'Ожидание подтверждения' });
-  } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Ошибка в статусе:`, error.message, error.stack);
-    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
+    smsData = JSON.parse(text);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Ошибка парсинга SMS.ru' }, { status: 500 });
   }
+
+  if (smsData.status !== 'OK') {
+    return NextResponse.json({ success: false, error: 'Ошибка SMS.ru' }, { status: 500 });
+  }
+
+  const checkStatus = smsData.check_status;
+  const newStatus = checkStatus === 401 ? 'VERIFIED' : checkStatus === 402 ? 'EXPIRED' : 'PENDING';
+
+  await supabase
+    .from('auth_logs')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('check_id', checkId);
+
+  if (newStatus !== 'VERIFIED') {
+    return NextResponse.json({ success: true, status: newStatus, phone });
+  }
+
+  // Найти или создать пользователя
+  let user = await findUserByPhone(phone);
+  const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
+
+  if (!user) {
+    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      phone,
+      phone_confirm: true,
+      email,
+      email_confirm: true,
+      user_metadata: { phone },
+    });
+
+    if (createError) {
+      if (createError.message.includes('already registered')) {
+        user = await findUserByPhone(phone);
+      } else {
+        return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+      }
+    } else {
+      user = newUser.user;
+    }
+  }
+
+  // Создание профиля
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('phone', phone)
+    .single();
+
+  if (!profile && (!profileError || profileError.code === 'PGRST116')) {
+    await supabase
+      .from('user_profiles')
+      .insert([{ phone, updated_at: new Date().toISOString() }]);
+  }
+
+  // Magic Link и токен
+  const { data: sessionData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
+    email: user.email || email,
+    options: { redirectTo: 'https://keytoheart.ru' },
+  });
+
+  const magicLink = sessionData?.properties?.action_link;
+  const token = magicLink?.split('token=')[1]?.split('&')[0];
+
+  if (!token) {
+    return NextResponse.json({ success: false, error: 'Не удалось извлечь токен' }, { status: 500 });
+  }
+
+  // Устанавливаем сессию
+  const client = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: authSession, error: sessionError } = await client.auth.setSession({
+    access_token: token,
+    refresh_token: '',
+  });
+
+  if (sessionError || !authSession.session) {
+    return NextResponse.json({ success: false, error: 'Ошибка установки сессии' }, { status: 500 });
+  }
+
+  const accessToken = authSession.session.access_token;
+  const refreshToken = authSession.session.refresh_token;
+
+  // Устанавливаем cookies
+  const response = NextResponse.json({
+    success: true,
+    status: 'VERIFIED',
+    message: 'Авторизация завершена',
+    phone,
+  });
+
+  const accessExpires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3); // 3 дня
+  const refreshExpires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 дней
+
+  response.cookies.set('access_token', accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    expires: accessExpires,
+    path: '/',
+  });
+
+  response.cookies.set('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    expires: refreshExpires,
+    path: '/',
+  });
+
+  return response;
 }
