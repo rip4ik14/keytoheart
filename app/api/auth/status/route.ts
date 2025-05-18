@@ -87,22 +87,16 @@ export async function GET(request: Request) {
 
       // Проверяем или создаём пользователя
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-      const { data: users, error: listError } = await supabase.auth.admin.listUsers();
-      if (listError) {
-        console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
-        return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
-      }
-
-      const formattedPhone = phone;
-      let user = users.users.find((u: any) => u.phone === formattedPhone);
-
-      if (!user) {
-        console.log(`[${new Date().toISOString()}] Пользователь не существует, создаём нового для телефона: ${phone}`);
+      const { data: user, error: userError } = await supabase.auth.admin.getUserByPhone(phone);
+      
+      let userId: string | undefined;
+      if (userError || !user?.user) {
+        console.log(`[${new Date().toISOString()}] Пользователь не найден через getUserByPhone, создаём нового:`, userError?.message);
         const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`; // Уникальный email с временной меткой
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-          phone: formattedPhone,
+          phone: phone,
           phone_confirm: true,
-          user_metadata: { phone: formattedPhone },
+          user_metadata: { phone: phone },
           email: email,
           email_confirm: true,
         });
@@ -110,61 +104,52 @@ export async function GET(request: Request) {
         if (createError) {
           console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message, createError);
           if (createError.message.includes('Phone number already registered')) {
-            console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск`);
-            const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
-            if (retryError) {
-              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message, retryError);
+            console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через listUsers`);
+            const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+            if (listError) {
+              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, listError.message, listError);
               return NextResponse.json({ success: false, error: 'Ошибка повторного поиска пользователей' }, { status: 500 });
             }
-            user = retryUsers.users.find((u: any) => u.phone === formattedPhone);
-            if (!user) {
+            const foundUser = users.users.find((u: any) => u.phone === phone);
+            if (!foundUser) {
               console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
               return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
             }
+            userId = foundUser.id;
           } else {
             return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
           }
         } else {
-          user = newUser.user;
-          console.log(`[${new Date().toISOString()}] Пользователь успешно создан: ${user.id}`);
+          userId = newUser.user.id;
+          console.log(`[${new Date().toISOString()}] Пользователь успешно создан: ${userId}`);
         }
       } else {
-        console.log(`[${new Date().toISOString()}] Пользователь найден: ${user.id}`);
+        userId = user.user.id;
+        console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
       }
 
-      // Создаём сессию через setSession
-      console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${user.id}`);
-      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`,
+      // Создаём сессию через signInWithOtp
+      console.log(`[${new Date().toISOString()}] Создаём сессию для телефона: ${phone}`);
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        phone: phone,
         options: {
-          redirectTo: 'https://keytoheart.ru',
+          shouldCreateUser: false, // Пользователь уже создан
         },
       });
 
-      if (sessionError || !sessionData.properties?.action_link) {
-        console.error(`[${new Date().toISOString()}] Ошибка генерации токена сессии:`, sessionError?.message, sessionError);
+      if (signInError) {
+        console.error(`[${new Date().toISOString()}] Ошибка создания сессии через signInWithOtp:`, signInError.message, signInError);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      const token = sessionData.properties.action_link.split('token=')[1]?.split('&')[0];
-      if (!token) {
-        console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
+      // Получаем сессию
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        console.error(`[${new Date().toISOString()}] Ошибка получения сессии:`, sessionError?.message, sessionError);
+        return NextResponse.json({ success: false, error: 'Ошибка получения сессии' }, { status: 500 });
       }
 
-      // Используем token для создания сессии
-      const { data: session, error: setSessionError } = await supabase.auth.setSession({
-        access_token: token,
-        refresh_token: '', // refresh_token не требуется для magiclink
-      });
-
-      if (setSessionError || !session.session) {
-        console.error(`[${new Date().toISOString()}] Ошибка установки сессии:`, setSessionError?.message, setSessionError);
-        return NextResponse.json({ success: false, error: 'Ошибка установки сессии' }, { status: 500 });
-      }
-
-      const accessToken = session.session.access_token;
+      const accessToken = sessionData.session.access_token;
       console.log(`[${new Date().toISOString()}] Сессия успешно создана, access_token: ${accessToken}`);
 
       // Устанавливаем сессионный токен в куки
