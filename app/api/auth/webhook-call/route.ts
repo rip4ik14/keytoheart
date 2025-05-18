@@ -34,7 +34,22 @@ export async function POST(request: Request) {
       check_status = formData.get('check_status')?.toString() || null;
       phone = formData.get('phone')?.toString() || null;
 
-      // Обработка альтернативных форматов (например, data[0])
+      // Обработка нестандартного формата SMS.ru (data[1], data[2])
+      if (!check_id || !check_status) {
+        console.log(`[${new Date().toISOString()}] Attempting to parse data fields`);
+        const dataFields = Array.from(formData.entries()).filter(([key]) => key.startsWith('data['));
+        for (const [key, value] of dataFields) {
+          if (value.toString().includes('callcheck_status')) {
+            const lines = value.toString().split('\n');
+            if (lines.length >= 2) {
+              check_id = lines[1] || null; // Например, 202520-33107599
+              check_status = lines[2] || null; // Например, 402
+            }
+          }
+        }
+      }
+
+      // Попытка парсинга data[0] как JSON
       if (!check_id && formData.get('data[0]')) {
         console.log(`[${new Date().toISOString()}] Attempting to parse data[0] as JSON`);
         try {
@@ -187,8 +202,6 @@ export async function POST(request: Request) {
       });
 
       console.log(`[${new Date().toISOString()}] Токен успешно установлен в куки: sb-access-token`);
-      window.gtag?.('event', 'auth_webhook_success', { event_category: 'auth', phone });
-      window.ym?.(12345678, 'reachGoal', 'auth_webhook_success');
       return response;
     } else {
       console.log(`[${new Date().toISOString()}] Received check_status: ${check_status}, no action required`);

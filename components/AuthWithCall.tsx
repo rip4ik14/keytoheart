@@ -175,6 +175,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (res.status === 429) {
           setStep('ban');
           startBanTimer();
+          window.gtag?.('event', 'auth_attempt_limit', { event_category: 'auth', phone: clearPhone });
+          window.ym?.(12345678, 'reachGoal', 'auth_attempt_limit');
         } else {
           setError(data.error || 'Не удалось инициировать звонок.');
         }
@@ -184,7 +186,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         setCallPhoneRaw(data.call_phone);
         setStep('call');
         startCallTimer();
-        window.gtag?.('event', 'auth_call_initiated', { event_category: 'auth' });
+        window.gtag?.('event', 'auth_call_initiated', { event_category: 'auth', phone: clearPhone });
         window.ym?.(12345678, 'reachGoal', 'auth_call_initiated');
       }
     } catch {

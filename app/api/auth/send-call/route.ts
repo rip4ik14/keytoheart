@@ -65,8 +65,6 @@ export async function POST(request: Request) {
 
     if (recentAttemptsCount >= 5) {
       console.error(`[${new Date().toISOString()}] Too many attempts for phone: ${cleanPhone}`);
-      window.gtag?.('event', 'auth_attempt_limit', { event_category: 'auth', phone: cleanPhone });
-      window.ym?.(12345678, 'reachGoal', 'auth_attempt_limit');
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
 
@@ -132,8 +130,6 @@ export async function POST(request: Request) {
     }
 
     console.log(`[${new Date().toISOString()}] Successfully sent call request for phone: ${cleanPhone}`);
-    window.gtag?.('event', 'auth_call_initiated', { event_category: 'auth', phone: cleanPhone });
-    window.ym?.(12345678, 'reachGoal', 'auth_call_initiated');
     return NextResponse.json({
       success: true,
       check_id: apiJson.check_id,
