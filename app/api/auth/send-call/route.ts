@@ -93,19 +93,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка отправки звонка' }, { status: 500 });
     }
 
-    // Сохраняем лог авторизации
-    const { error: insertError } = await supabase
+    // Сохраняем или обновляем лог авторизации
+    const { error: upsertError } = await supabase
       .from('auth_logs')
-      .insert({
-        phone: cleanPhone,
-        check_id: apiJson.check_id,
-        status: 'PENDING',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      .upsert(
+        {
+          phone: cleanPhone,
+          check_id: apiJson.check_id,
+          status: 'PENDING',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'check_id' } // Исправлено: строка вместо массива
+      );
 
-    if (insertError) {
-      console.error('Error inserting auth_logs:', insertError);
+    if (upsertError) {
+      console.error('Error upserting auth_logs:', upsertError);
       return NextResponse.json({ success: false, error: 'Ошибка записи в базу данных' }, { status: 500 });
     }
 

@@ -33,6 +33,19 @@ export async function POST(request: Request) {
       check_id = formData.get('check_id')?.toString() || null;
       check_status = formData.get('check_status')?.toString() || null;
       phone = formData.get('phone')?.toString() || null;
+
+      // Обработка альтернативных форматов (например, data[0])
+      if (!check_id && formData.get('data[0]')) {
+        console.log(`[${new Date().toISOString()}] Attempting to parse data[0] as JSON`);
+        try {
+          const data = JSON.parse(formData.get('data[0]')?.toString() || '{}');
+          check_id = data.check_id?.toString() || null;
+          check_status = data.check_status?.toString() || null;
+          phone = data.phone?.toString() || null;
+        } catch (parseError: any) {
+          console.error(`[${new Date().toISOString()}] Failed to parse data[0]:`, parseError.message);
+        }
+      }
     }
     // Обработка application/x-www-form-urlencoded
     else if (contentType.includes('application/x-www-form-urlencoded')) {

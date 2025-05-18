@@ -301,7 +301,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg"
+                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
@@ -376,7 +376,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isCheckingStatus ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg"
+                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
@@ -427,7 +427,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg"
+                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
