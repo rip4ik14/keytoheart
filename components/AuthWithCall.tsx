@@ -3,7 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '@/lib/supabase/types_new';
+import toast from 'react-hot-toast';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -13,6 +16,7 @@ type Props = {
 
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [step, setStep] = useState<'phone' | 'call' | 'sms' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
@@ -28,6 +32,11 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   // Проверяем параметры URL для отображения ошибок
   useEffect(() => {
@@ -109,13 +118,37 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const data = await res.json();
       console.log(`[${new Date().toISOString()}] Check call status response:`, data);
 
+      if (!res.ok) {
+        throw new Error(data.error || 'Ошибка проверки статуса');
+      }
+
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
+
+        // Устанавливаем сессию с полученными токенами
+        const { access_token, refresh_token } = data;
+        if (!access_token || !refresh_token) {
+          throw new Error('Токены не получены');
+        }
+
+        const { error: authError } = await supabase.auth.setSession({
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+
+        if (authError) {
+          throw new Error(`Ошибка авторизации: ${authError.message}`);
+        }
+
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
-        window.gtag?.('event', 'auth_success', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'auth_success');
+        window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
+        window.ym?.(12345678, 'reachGoal', 'auth_success', { phone: clearPhone });
+
+        // Перенаправление после успешной авторизации
+        const redirectTo = searchParams.get('from') || '/account';
+        router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
         console.log('Call status expired, switching to SMS');
         setStep('sms');
@@ -125,9 +158,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
         console.log('Error in call status:', data.error);
         setError(data.error);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Ошибка проверки статуса звонка:', err);
       setError('Ошибка проверки статуса. Попробуйте запросить SMS-код.');
+      toast.error(err.message);
     } finally {
       setIsCheckingStatus(false);
     }
@@ -146,7 +180,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       };
     }
-  }, [step, checkId, phone]);
+  }, [step, checkId, phone, router, supabase]);
 
   // Очистка таймеров при размонтировании
   useEffect(() => {
@@ -241,9 +275,29 @@ export default function AuthWithCall({ onSuccess }: Props) {
       console.log('Verify SMS response:', data);
       if (data.success) {
         setStep('success');
+
+        // Устанавливаем сессию с полученными токенами
+        const { access_token, refresh_token } = data;
+        if (!access_token || !refresh_token) {
+          throw new Error('Токены не получены');
+        }
+
+        const { error: authError } = await supabase.auth.setSession({
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+
+        if (authError) {
+          throw new Error(`Ошибка авторизации: ${authError.message}`);
+        }
+
         onSuccess(clearPhone);
         window.gtag?.('event', 'auth_sms_success', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'auth_sms_success');
+
+        // Перенаправление после успешной авторизации
+        const redirectTo = searchParams.get('from') || '/account';
+        router.push(redirectTo);
       } else {
         setAttempts((a) => a + 1);
         if (res.status === 429) {
@@ -253,8 +307,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
           setError(data.error || 'Неверный код.');
         }
       }
-    } catch {
-      setError('Ошибка сети.');
+    } catch (err: any) {
+      setError('Ошибка сети: ' + err.message);
+      toast.error(err.message);
     }
     setIsLoading(false);
   };
