@@ -126,22 +126,19 @@ export default function AuthWithCall({ onSuccess }: Props) {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
 
-        // Создаём сессию на клиентской стороне через signInWithOtp
-        const { error: signInError } = await supabase.auth.signInWithOtp({
-          phone: clearPhone,
-          options: {
-            shouldCreateUser: false, // Пользователь уже создан сервером
-          },
-        });
-
-        if (signInError) {
-          throw new Error(`Ошибка авторизации: ${signInError.message}`);
+        // Используем access_token и refresh_token из ответа для установки сессии
+        const { access_token, refresh_token } = data;
+        if (!access_token || !refresh_token) {
+          throw new Error('Токены не получены от сервера');
         }
 
-        // Получаем сессию
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) {
-          throw new Error(`Ошибка получения сессии: ${sessionError?.message || 'Сессия не найдена'}`);
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+
+        if (sessionError) {
+          throw new Error(`Ошибка установки сессии: ${sessionError.message}`);
         }
 
         onSuccess(clearPhone);
@@ -279,22 +276,19 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (data.success) {
         setStep('success');
 
-        // Создаём сессию на клиентской стороне через signInWithOtp
-        const { error: signInError } = await supabase.auth.signInWithOtp({
-          phone: clearPhone,
-          options: {
-            shouldCreateUser: false, // Пользователь уже создан сервером
-          },
-        });
-
-        if (signInError) {
-          throw new Error(`Ошибка авторизации: ${signInError.message}`);
+        // Используем access_token и refresh_token из ответа для установки сессии
+        const { access_token, refresh_token } = data;
+        if (!access_token || !refresh_token) {
+          throw new Error('Токены не получены от сервера');
         }
 
-        // Получаем сессию
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) {
-          throw new Error(`Ошибка получения сессии: ${sessionError?.message || 'Сессия не найдена'}`);
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+
+        if (sessionError) {
+          throw new Error(`Ошибка установки сессии: ${sessionError.message}`);
         }
 
         onSuccess(clearPhone);
