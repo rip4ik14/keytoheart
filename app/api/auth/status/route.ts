@@ -16,6 +16,10 @@ async function findUserByPhone(phone: string) {
   const perPage = 100; // Количество пользователей на страницу
   let user: any = null;
 
+  // Приводим телефон к обоим возможным форматам
+  const phoneWithPlus = phone.startsWith('+') ? phone : `+${phone}`;
+  const phoneWithoutPlus = phone.startsWith('+') ? phone.slice(1) : phone;
+
   while (!user) {
     const { data: users, error } = await supabase.auth.admin.listUsers({
       page,
@@ -27,7 +31,7 @@ async function findUserByPhone(phone: string) {
       throw new Error('Ошибка получения списка пользователей');
     }
 
-    user = users.users.find((u: any) => u.phone === phone);
+    user = users.users.find((u: any) => u.phone === phoneWithPlus || u.phone === phoneWithoutPlus);
 
     if (user || !users.users.length) {
       break; // Пользователь найден или больше нет пользователей
@@ -149,17 +153,38 @@ export async function GET(request: Request) {
 
     // Найти пользователя
     console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-    const user = await findUserByPhone(phone);
+    let user = await findUserByPhone(phone);
 
+    // Если пользователь не найден, регистрируем его
     if (!user) {
-      console.error(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден в базе данных`);
-      return NextResponse.json(
-        { success: false, error: 'Пользователь не найден. Пожалуйста, зарегистрируйтесь.' },
-        { status: 404 }
-      );
+      console.log(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден, регистрируем нового`);
+      const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        phone,
+        phone_confirm: true,
+        email,
+        email_confirm: true,
+        user_metadata: { phone },
+      });
+
+      if (createError) {
+        console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message);
+        if (createError.message.includes('already registered')) {
+          console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через findUserByPhone`);
+          user = await findUserByPhone(phone);
+          if (!user) {
+            console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
+            return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+          }
+        } else {
+          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+        }
+      } else {
+        user = newUser.user;
+      }
     }
 
-    console.log(`[${new Date().toISOString()}] Пользователь найден: ${user.id}`);
+    console.log(`[${new Date().toISOString()}] Пользователь найден или создан: ${user.id}`);
 
     // Создание профиля
     console.log(`[${new Date().toISOString()}] Проверка наличия профиля в user_profiles`);

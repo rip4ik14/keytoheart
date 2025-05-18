@@ -30,161 +30,95 @@ export async function POST(request: Request) {
       method: request.method,
     });
 
-    // Попробуем обработать данные в разных форматах
-    let checkId: string | undefined;
-    let phone: string | undefined;
-    let status: string | undefined;
+    // Парсим multipart/form-data
+    const formData = await request.formData();
+    const formDataEntries = Object.fromEntries(formData.entries());
+    console.log(`[${new Date().toISOString()}] Webhook form-data:`, formDataEntries);
 
-    // Сначала пытаемся обработать как multipart/form-data
-    try {
-      const formData = await request.formData();
-      const formDataEntries = Object.fromEntries(formData.entries());
-      console.log(`[${new Date().toISOString()}] Webhook form-data:`, formDataEntries);
+    // Извлекаем все элементы data[]
+    const dataEntries = Object.keys(formDataEntries)
+      .filter((key) => key.startsWith('data['))
+      .map((key) => formDataEntries[key]);
 
-      // Проверяем возможные варианты имен полей
-      const checkIdValue = formData.get('check_id') || formData.get('checkId') || formData.get('check_id ');
-      const phoneValue = formData.get('phone');
-      const statusValue = formData.get('status');
-
-      // Преобразуем string | null в string | undefined
-      checkId = checkIdValue !== null ? checkIdValue.toString() : undefined;
-      phone = phoneValue !== null ? phoneValue.toString() : undefined;
-      status = statusValue !== null ? statusValue.toString() : undefined;
-    } catch (formError) {
-      console.error(`[${new Date().toISOString()}] Ошибка парсинга form-data:`, formError);
-    }
-
-    // Если не удалось обработать как form-data, пробуем как JSON
-    if (!checkId || !phone || !status) {
-      try {
-        const jsonData = await request.json();
-        console.log(`[${new Date().toISOString()}] Webhook JSON data:`, jsonData);
-
-        checkId = jsonData.check_id || jsonData.checkId || jsonData['check_id '];
-        phone = jsonData.phone;
-        status = jsonData.status;
-      } catch (jsonError) {
-        console.error(`[${new Date().toISOString()}] Ошибка парсинга JSON:`, jsonError);
+    // Парсим каждую строку из data[]
+    for (const entry of dataEntries) {
+      // Проверяем, что entry — это строка
+      if (typeof entry !== 'string') {
+        console.error(`[${new Date().toISOString()}] Webhook запись не является строкой:`, entry);
+        continue;
       }
-    }
 
-    // Если не удалось извлечь данные, пробуем как текст (для отладки)
-    if (!checkId || !phone || !status) {
-      try {
-        const textData = await request.text();
-        console.log(`[${new Date().toISOString()}] Webhook raw text data:`, textData);
+      const lines = entry.split('\n');
+      if (lines[0] !== 'callcheck_status') continue; // Пропускаем записи, не связанные с callcheck_status
 
-        // Попытка извлечь параметры из текста (например, если это query-string формат)
-        const params = new URLSearchParams(textData);
-        const checkIdValue = params.get('check_id') || params.get('checkId') || params.get('check_id ');
-        const phoneValue = params.get('phone');
-        const statusValue = params.get('status');
+      const checkId = lines[1]; // check_id
+      const status = lines[2]; // status (например, 401 или 402)
+      const timestamp = lines[3]; // timestamp
 
-        checkId = checkIdValue !== null ? checkIdValue : undefined;
-        phone = phoneValue !== null ? phoneValue : undefined;
-        status = statusValue !== null ? statusValue : undefined;
-      } catch (textError) {
-        console.error(`[${new Date().toISOString()}] Ошибка парсинга текста:`, textError);
+      console.log(`[${new Date().toISOString()}] Обработка webhook: checkId=${checkId}, status=${status}, timestamp=${timestamp}`);
+
+      if (!checkId || !status) {
+        console.error(`[${new Date().toISOString()}] Отсутствуют обязательные параметры в записи: checkId=${checkId}, status=${status}`);
+        continue;
       }
-    }
 
-    console.log(`[${new Date().toISOString()}] Parsed webhook data: checkId=${checkId}, phone=${phone}, status=${status}`);
+      // Находим phone в auth_logs по checkId
+      const { data: authLog, error: logError } = await supabase
+        .from('auth_logs')
+        .select('phone')
+        .eq('check_id', checkId)
+        .single();
 
-    if (!checkId || !phone || !status) {
-      console.error(`[${new Date().toISOString()}] Отсутствуют обязательные параметры: checkId=${checkId}, phone=${phone}, status=${status}`);
-      return NextResponse.json({ success: false, error: 'Отсутствуют обязательные параметры' }, { status: 400 });
-    }
-
-    const newStatus = status === '401' ? 'VERIFIED' : 'PENDING';
-
-    const { error: logError } = await supabase
-      .from('auth_logs')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('check_id', checkId);
-
-    if (logError) {
-      console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, logError);
-      return NextResponse.json({ success: false, error: 'Ошибка обновления статуса' }, { status: 500 });
-    }
-
-    if (newStatus !== 'VERIFIED') {
-      console.log(`[${new Date().toISOString()}] Статус не VERIFIED, пропускаем создание пользователя`);
-      return NextResponse.json({ success: true, message: 'Статус обновлён, но пользователь не создан' });
-    }
-
-    // Проверяем или создаём пользователя
-    console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message);
-      return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
-    }
-
-    let userId: string | undefined;
-    let user = users.users.find((u: any) => u.phone === phone);
-
-    if (!user) {
-      console.log(`[${new Date().toISOString()}] Пользователь не найден, создаём нового для телефона: ${phone}`);
-      const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        phone: phone,
-        phone_confirm: true,
-        user_metadata: { phone: phone },
-        email: email,
-        email_confirm: true,
-      });
-
-      if (createError) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message);
-        if (createError.message.includes('Phone number already registered')) {
-          console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через listUsers`);
-          const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
-          if (retryError) {
-            console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message);
-            return NextResponse.json({ success: false, error: 'Ошибка повторного поиска пользователей' }, { status: 500 });
-          }
-          user = retryUsers.users.find((u: any) => u.phone === phone);
-          if (!user) {
-            console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
-            return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-          }
-          userId = user.id;
-        } else {
-          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-        }
-      } else {
-        userId = newUser.user.id;
-        console.log(`[${new Date().toISOString()}] Пользователь успешно создан: ${userId}`);
-        user = newUser.user;
+      if (logError || !authLog) {
+        console.error(`[${new Date().toISOString()}] Ошибка получения записи из auth_logs для checkId=${checkId}:`, logError);
+        continue;
       }
-    } else {
-      userId = user.id;
-      console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
-    }
 
-    // Создаём профиль в user_profiles, если не существует
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('phone', phone)
-      .single();
+      const phone = authLog.phone;
+      console.log(`[${new Date().toISOString()}] Найден phone для checkId=${checkId}: ${phone}`);
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error(`[${new Date().toISOString()}] Ошибка проверки профиля:`, profileError);
-      return NextResponse.json({ success: false, error: 'Ошибка проверки профиля' }, { status: 500 });
-    }
+      const newStatus = status === '401' ? 'VERIFIED' : status === '402' ? 'EXPIRED' : 'PENDING';
 
-    if (!profile) {
-      const { error: insertError } = await supabase
+      // Обновляем статус в auth_logs
+      const { error: updateError } = await supabase
+        .from('auth_logs')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('check_id', checkId);
+
+      if (updateError) {
+        console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, updateError);
+        continue;
+      }
+
+      if (newStatus !== 'VERIFIED') {
+        console.log(`[${new Date().toISOString()}] Статус не VERIFIED, пропускаем создание профиля`);
+        continue;
+      }
+
+      // Проверяем или создаём профиль в user_profiles
+      const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .insert([{ phone, updated_at: new Date().toISOString() }]);
-      if (insertError) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания профиля:`, insertError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания профиля' }, { status: 500 });
+        .select('id')
+        .eq('phone', phone)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error(`[${new Date().toISOString()}] Ошибка проверки профиля:`, profileError);
+        continue;
+      }
+
+      if (!profile) {
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert([{ phone, updated_at: new Date().toISOString() }]);
+        if (insertError) {
+          console.error(`[${new Date().toISOString()}] Ошибка создания профиля:`, insertError);
+          continue;
+        }
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Статус обновлён, пользователь обработан' });
+    return NextResponse.json({ success: true, message: 'Webhook обработан' });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Ошибка в webhook-call:`, error.message, error.stack);
     return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
