@@ -31,7 +31,7 @@ const nextConfig = {
     return [
       {
         source: '/icons/:path*',
-        destination: '/icons/:path*', // Пропускаем запросы к /icons/ через nginx
+        destination: '/icons/:path*',
       },
     ];
   },
@@ -59,7 +59,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://mc.yandex.ru https://www.googletagmanager.com https://www.google-analytics.com https://api-maps.yandex.ru; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru; connect-src 'self' https://*.supabase.co https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru; font-src 'self'; frame-src https://yandex.ru https://*.yandex.ru; object-src 'none'; base-uri 'self'; worker-src 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://mc.yandex.com https://mc.yandex.ru https://www.googletagmanager.com https://www.google-analytics.com https://api-maps.yandex.ru; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com https://mc.yandex.ru; connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co wss://gwbeabfkknhewwoesqax.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru; font-src 'self' data:; frame-src 'self' https://mc.yandex.com https://mc.yandex.ru https://yandex.ru https://*.yandex.ru; object-src 'none'; base-uri 'self'; worker-src 'self'; form-action 'self'; frame-ancestors 'none';",
           },
           {
             key: 'Strict-Transport-Security',

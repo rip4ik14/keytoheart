@@ -1,4 +1,3 @@
-// ✅ Исправленный: app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -35,7 +34,7 @@ export async function GET(request: Request) {
       .from('auth_logs')
       .select('status')
       .eq('check_id', checkId)
-      .eq('phone', phone.replace(/\D/g, '')) // Убираем нецифровые символы для соответствия записи в базе
+      .eq('phone', phone.replace(/\D/g, ''))
       .single();
 
     if (dbError || !authLog) {
@@ -91,16 +90,15 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
       }
 
-      // Проверяем, существует ли пользователь в Supabase Auth
+      // Проверяем или создаём пользователя
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-      let user;
-      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
-      if (userError) {
-        console.error('Ошибка при получении списка пользователей:', userError);
+      const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+      if (listError) {
+        console.error('Ошибка при получении списка пользователей:', listError);
         return NextResponse.json({ success: false, error: 'Ошибка поиска пользователя' }, { status: 500 });
       }
-      console.log(`[${new Date().toISOString()}] Найдено пользователей: ${userData.users.length}`);
-      user = userData.users.find((u: any) => u.phone === phone);
+
+      let user = users.users.find((u: any) => u.phone === phone);
 
       if (!user) {
         console.log(`[${new Date().toISOString()}] Пользователь не существует, создаём нового для телефона: ${phone}`);
@@ -116,10 +114,14 @@ export async function GET(request: Request) {
           console.error('Ошибка создания пользователя:', createError);
           if (createError.message.includes('Phone number already registered')) {
             console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск`);
-            const { data: existingUserData, error: fetchError } = await supabase.auth.admin.listUsers();
-            user = existingUserData.users.find((u: any) => u.phone === phone);
-            if (fetchError || !user) {
-              console.error('Ошибка при поиске существующего пользователя:', fetchError);
+            const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
+            if (retryError) {
+              console.error('Ошибка при повторном поиске пользователей:', retryError);
+              return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+            }
+            user = retryUsers.users.find((u: any) => u.phone === phone);
+            if (!user) {
+              console.error('Пользователь не найден даже после повторного поиска');
               return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
             }
           } else {
@@ -133,8 +135,8 @@ export async function GET(request: Request) {
         console.log(`[${new Date().toISOString()}] Пользователь найден: ${user.id}`);
       }
 
-      // Создаём сессионный токен для пользователя
-      console.log(`[${new Date().toISOString()}] Генерируем токен сессии для пользователя: ${user.id}`);
+      // Создаём сессию
+      console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${user.id}`);
       const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email: `${phone.replace(/\D/g, '')}@temp.example.com`,
@@ -163,12 +165,10 @@ export async function GET(request: Request) {
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7, // 7 дней
         path: '/',
-        sameSite: 'lax',
+        sameSite: 'strict',
       });
 
       console.log(`[${new Date().toISOString()}] Токен успешно установлен в куки: sb-access-token`);
-
-      console.log(`[${new Date().toISOString()}] Успешно обновлён статус на VERIFIED для check_id: ${checkId}`);
       return response;
     } else if (checkStatus === '402') {
       console.log(`[${new Date().toISOString()}] SMS.ru статус EXPIRED (check_status: ${checkStatus})`);

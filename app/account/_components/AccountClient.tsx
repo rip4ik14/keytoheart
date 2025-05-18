@@ -1,4 +1,3 @@
-// ✅ Путь: app/account/AccountClient.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -84,54 +83,21 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
-  // Проверяем авторизацию при загрузке компонента
+  // Проверяем авторизацию через Supabase
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/auth/verify-session');
-        const result = await response.json();
-
-        if (result.success) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
           setIsAuthenticated(true);
-          setPhone(result.phone);
+          setPhone(session.user.phone || '');
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
-          // Проверяем localStorage
-          const authData = localStorage.getItem('auth');
-          if (authData) {
-            try {
-              const parsedAuth = JSON.parse(authData);
-              if (parsedAuth.phone && parsedAuth.isAuthenticated) {
-                let formattedPhone = parsedAuth.phone;
-                if (!formattedPhone.startsWith('+7')) {
-                  const cleanPhone = formattedPhone.replace(/\D/g, '');
-                  formattedPhone = '+7' + cleanPhone;
-                  localStorage.setItem('auth', JSON.stringify({ phone: formattedPhone, isAuthenticated: true }));
-                }
-                setIsAuthenticated(true);
-                setPhone(formattedPhone);
-                setOrders(initialOrders || []);
-                setBonusData(initialBonusData);
-              } else {
-                setIsAuthenticated(false);
-                setPhone('');
-                setOrders([]);
-                setBonusData(null);
-              }
-            } catch (error) {
-              console.error('Ошибка парсинга auth из localStorage:', error);
-              setIsAuthenticated(false);
-              setPhone('');
-              setOrders([]);
-              setBonusData(null);
-            }
-          } else {
-            setIsAuthenticated(false);
-            setPhone('');
-            setOrders([]);
-            setBonusData(null);
-          }
+          setIsAuthenticated(false);
+          setPhone('');
+          setOrders([]);
+          setBonusData(null);
         }
       } catch (error) {
         console.error('Error checking session:', error);
@@ -143,7 +109,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     };
 
     checkSession();
-  }, [initialOrders, initialBonusData]);
+  }, [initialOrders, initialBonusData, supabase]);
 
   // Загрузка данных после авторизации
   const fetchAccountData = useCallback(async () => {
@@ -252,8 +218,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
-    localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true }));
-    document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
     fetchAccountData();
   };
 
@@ -261,22 +225,14 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/signout', { method: 'POST' });
-      const result = await response.json();
-
-      if (result.success) {
-        setIsAuthenticated(false);
-        setPhone('');
-        setOrders([]);
-        setBonusData(null);
-        localStorage.removeItem('auth');
-        document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
-        toast.success('Вы вышли из аккаунта');
-        window.gtag?.('event', 'logout', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'logout');
-      } else {
-        toast.error('Ошибка при выходе из аккаунта');
-      }
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setPhone('');
+      setOrders([]);
+      setBonusData(null);
+      toast.success('Вы вышли из аккаунта');
+      window.gtag?.('event', 'logout', { event_category: 'auth' });
+      window.ym?.(12345678, 'reachGoal', 'logout');
     } catch (error) {
       console.error('Ошибка при выходе:', error);
       toast.error('Ошибка при выходе из аккаунта');
