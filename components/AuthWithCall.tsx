@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function AuthWithCall({ onSuccess }: Props) {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<'phone' | 'call' | 'sms' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
@@ -20,12 +22,22 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(300); // 5 минут, согласно документации SMS.ru
+  const [callTimer, setCallTimer] = useState(300); // 5 минут
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Проверяем параметры URL для отображения ошибок
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'no-session') {
+      setError('Пожалуйста, авторизуйтесь для доступа к личному кабинету.');
+    } else if (errorParam === 'invalid-session') {
+      setError('Сессия истекла. Пожалуйста, авторизуйтесь заново.');
+    }
+  }, [searchParams]);
 
   // Форматирование номера телефона
   const formatPhone = (value: string) => {
@@ -127,7 +139,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       const initialDelay = setTimeout(() => {
         checkCallStatus();
         statusCheckRef.current = setInterval(checkCallStatus, 3000);
-      }, 3000); // Сокращено до 3 секунд
+      }, 3000);
 
       return () => {
         clearTimeout(initialDelay);
@@ -253,7 +265,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
       transition={{ duration: 0.5 }}
     >
       <motion.h2
-        className="text-xl font-bold text-black text-center font-sans"
+        className="text-xl font-bold text-black text-center font-sans tracking-tight"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -303,6 +315,12 @@ export default function AuthWithCall({ onSuccess }: Props) {
           </motion.button>
           <p className="text-xs mt-2 text-gray-500 text-center font-sans">
             Позвоните на указанный номер для подтверждения.
+          </p>
+          <p className="text-xs mt-2 text-gray-500 text-center font-sans">
+            Продолжая, вы соглашаетесь с{' '}
+            <a href="/policy" className="underline hover:text-black">
+              политикой конфиденциальности
+            </a>.
           </p>
           {error && (
             <motion.div

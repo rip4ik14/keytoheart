@@ -30,8 +30,8 @@ export async function middleware(req: NextRequest) {
   ].join('; ');
   response.headers.set('Content-Security-Policy', csp);
 
-  // Пропускаем /admin/login и /login
-  if (pathname === '/admin/login' || pathname === '/login') {
+  // Пропускаем /admin/login и /account
+  if (pathname === '/admin/login' || pathname === '/account') {
     return response;
   }
 
@@ -71,6 +71,7 @@ export async function middleware(req: NextRequest) {
 
       return response;
     } catch (error) {
+      console.error('Admin middleware auth error:', error);
       const login = url.clone();
       login.pathname = '/admin/login';
       login.searchParams.set('from', pathname);
@@ -85,7 +86,7 @@ export async function middleware(req: NextRequest) {
 
     if (!token) {
       const login = url.clone();
-      login.pathname = '/login';
+      login.pathname = '/account'; // Изменено с /login на /account
       login.searchParams.set('from', pathname);
       login.searchParams.set('error', 'no-session');
       return NextResponse.redirect(login);
@@ -95,15 +96,15 @@ export async function middleware(req: NextRequest) {
       const { data: userData, error } = await supabase.auth.getUser(token);
       if (error || !userData.user) {
         const login = url.clone();
-        login.pathname = '/login';
+        login.pathname = '/account'; // Изменено с /login на /account
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'invalid-session');
         return NextResponse.redirect(login);
       }
     } catch (error) {
-      console.error('Middleware auth error:', error);
+      console.error('User middleware auth error:', error);
       const login = url.clone();
-      login.pathname = '/login';
+      login.pathname = '/account'; // Изменено с /login на /account
       login.searchParams.set('from', pathname);
       login.searchParams.set('error', 'invalid-session');
       return NextResponse.redirect(login);

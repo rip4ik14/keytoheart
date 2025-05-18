@@ -115,9 +115,8 @@ export default async function RootLayout({
   return (
     <html lang="ru">
       <head>
-        {/* ✅ Вставляем мета-тег подтверждения для Яндекса */}
         <meta name="yandex-verification" content="2d95e0ee66415497" />
-
+        {/* Предзагрузка шрифтов только если они используются */}
         <link
           rel="preload"
           href="/fonts/Ubuntu-Regular.woff2"
@@ -152,7 +151,7 @@ export default async function RootLayout({
           </Script>
         )}
       </head>
-      <body className="bg-white font-Ubuntu">
+      <body className="bg-white font-sans"> {/* Заменено font-Ubuntu на font-sans для использования Tailwind */}
         <SupabaseProvider initialSession={session}>
           <CartProvider>
             <TopBar />
