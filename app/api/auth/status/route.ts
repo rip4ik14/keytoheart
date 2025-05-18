@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     if (authLog.status === 'VERIFIED') {
       console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, возвращаем сразу`);
-      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
+      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена', phone });
     }
 
     if (authLog.status === 'EXPIRED') {
@@ -169,78 +169,13 @@ export async function GET(request: Request) {
         console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
       }
 
-      // Создаём сессию через generateLink и извлекаем access_token
-      console.log(`[${new Date().toISOString()}] Создаём токен для пользователя: ${userId}`);
-      const email = user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: email,
-        options: {
-          redirectTo: 'https://keytoheart.ru',
-        },
-      });
-
-      if (linkError || !linkData.properties?.action_link) {
-        console.error(`[${new Date().toISOString()}] Ошибка генерации токена:`, linkError?.message, linkError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания токена' }, { status: 500 });
-      }
-
-      const magicLink = linkData.properties.action_link;
-      const token = magicLink.split('token=')[1]?.split('&')[0];
-      if (!token) {
-        console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
-        return NextResponse.json({ success: false, error: 'Ошибка создания токена' }, { status: 500 });
-      }
-
-      console.log(`[${new Date().toISOString()}] Токен успешно сгенерирован: ${token}`);
-
-      // Создаём сессию на сервере
-      const browserSupabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      const { data: sessionData, error: sessionError } = await browserSupabase.auth.setSession({
-        access_token: token,
-        refresh_token: '',
-      });
-
-      if (sessionError || !sessionData.session) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания сессии:`, sessionError?.message, sessionError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
-      }
-
-      const accessToken = sessionData.session.access_token;
-      const refreshToken = sessionData.session.refresh_token;
-      console.log(`[${new Date().toISOString()}] Сессия успешно создана, access_token: ${accessToken}`);
-
-      // Устанавливаем токены в куки
-      const response = NextResponse.json({ 
-        success: true, 
-        status: 'VERIFIED', 
+      // Возвращаем подтверждение верификации и телефон для клиента
+      return NextResponse.json({
+        success: true,
+        status: 'VERIFIED',
         message: 'Авторизация завершена',
-        access_token: accessToken,
-        refresh_token: refreshToken
+        phone: phone,
       });
-
-      response.cookies.set('sb-access-token', accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // 7 дней
-        path: '/',
-        sameSite: 'strict',
-      });
-
-      response.cookies.set('sb-refresh-token', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // 7 дней
-        path: '/',
-        sameSite: 'strict',
-      });
-
-      console.log(`[${new Date().toISOString()}] Токены успешно установлены в куки: sb-access-token, sb-refresh-token`);
-      return response;
     }
 
     if (checkStatus === 402) {
