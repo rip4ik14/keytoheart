@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+import type { Session } from '@supabase/supabase-js';
 
 // ──────────────────────────────────────
 // 1. инициализация admin-клиента
@@ -36,35 +37,6 @@ async function findUserByPhone(phone: string) {
 
   const user = json.users?.find((u: any) => u.phone === phoneWithPlus || u.phone === phoneWithoutPlus);
   return user ?? null;
-}
-
-// ──────────────────────────────────────
-// 2.1 генерация токенов через REST API
-// ──────────────────────────────────────
-async function generateTokens(userId: string) {
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=passwordless`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      phone: true, // Указываем, что это токен для phone-based аутентификации
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok || !data.access_token || !data.refresh_token) {
-    console.error(`[${new Date().toISOString()}] Ошибка генерации токенов через REST API:`, data);
-    throw new Error('Ошибка генерации токенов');
-  }
-
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-  };
 }
 
 // ──────────────────────────────────────
@@ -200,10 +172,29 @@ export async function GET(req: Request) {
     }
 
     // ──────────────────────────────────
-    // 6. генерация токенов через REST API
+    // 6. генерация токенов через signInWithOtp
     // ──────────────────────────────────
     console.log(`[${new Date().toISOString()}] Генерация токенов для пользователя: ${user.id}`);
-    const { access_token, refresh_token } = await generateTokens(user.id);
+    const { data: sessionData, error: signInError } = await supabaseAdmin.auth.signInWithOtp({
+      phone: user.phone,
+      options: {
+        shouldCreateUser: false, // Пользователь уже существует
+      },
+    });
+
+    if (signInError) {
+      console.error(`[${new Date().toISOString()}] Ошибка генерации токенов через signInWithOtp:`, signInError.message);
+      return NextResponse.json({ success: false, error: 'Ошибка генерации токенов: ' + signInError.message }, { status: 500 });
+    }
+
+    if (!sessionData.session) {
+      console.error(`[${new Date().toISOString()}] Сессия не была создана:`, sessionData);
+      return NextResponse.json({ success: false, error: 'Сессия не была создана' }, { status: 500 });
+    }
+
+    const session: Session = sessionData.session;
+    const access_token = session.access_token;
+    const refresh_token = session.refresh_token;
 
     // ──────────────────────────────────
     // 7. cookie + JSON
