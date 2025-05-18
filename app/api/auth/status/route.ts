@@ -87,11 +87,17 @@ export async function GET(request: Request) {
 
       // Проверяем или создаём пользователя
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-      const { data: user, error: userError } = await supabase.auth.admin.getUserByPhone(phone);
-      
+      const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+      if (listError) {
+        console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
+        return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
+      }
+
       let userId: string | undefined;
-      if (userError || !user?.user) {
-        console.log(`[${new Date().toISOString()}] Пользователь не найден через getUserByPhone, создаём нового:`, userError?.message);
+      const user = users.users.find((u: any) => u.phone === phone);
+
+      if (!user) {
+        console.log(`[${new Date().toISOString()}] Пользователь не найден, создаём нового для телефона: ${phone}`);
         const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`; // Уникальный email с временной меткой
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
           phone: phone,
@@ -105,12 +111,12 @@ export async function GET(request: Request) {
           console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message, createError);
           if (createError.message.includes('Phone number already registered')) {
             console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через listUsers`);
-            const { data: users, error: listError } = await supabase.auth.admin.listUsers();
-            if (listError) {
-              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, listError.message, listError);
+            const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
+            if (retryError) {
+              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message, retryError);
               return NextResponse.json({ success: false, error: 'Ошибка повторного поиска пользователей' }, { status: 500 });
             }
-            const foundUser = users.users.find((u: any) => u.phone === phone);
+            const foundUser = retryUsers.users.find((u: any) => u.phone === phone);
             if (!foundUser) {
               console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
               return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
@@ -124,7 +130,7 @@ export async function GET(request: Request) {
           console.log(`[${new Date().toISOString()}] Пользователь успешно создан: ${userId}`);
         }
       } else {
-        userId = user.user.id;
+        userId = user.id;
         console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
       }
 
