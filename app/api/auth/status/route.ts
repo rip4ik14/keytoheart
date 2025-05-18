@@ -12,12 +12,31 @@ const supabase = createClient<Database>(
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 
 async function findUserByPhone(phone: string) {
-  const { data: users, error } = await supabase.auth.admin.listUsers();
-  if (error) {
-    console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, error.message);
-    throw new Error('Ошибка получения списка пользователей');
+  let page = 1;
+  const perPage = 100; // Количество пользователей на страницу
+  let user: any = null;
+
+  while (!user) {
+    const { data: users, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (error) {
+      console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, error.message);
+      throw new Error('Ошибка получения списка пользователей');
+    }
+
+    user = users.users.find((u: any) => u.phone === phone);
+
+    if (user || !users.users.length) {
+      break; // Пользователь найден или больше нет пользователей
+    }
+
+    page++; // Переходим к следующей странице
   }
-  return users.users.find((u: any) => u.phone === phone) || null;
+
+  return user;
 }
 
 async function generateTokens(userId: string) {
@@ -128,39 +147,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, status: newStatus, phone });
     }
 
-    // Найти или создать пользователя
+    // Найти пользователя
     console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-    let user = await findUserByPhone(phone);
-    const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
+    const user = await findUserByPhone(phone);
 
     if (!user) {
-      console.log(`[${new Date().toISOString()}] Пользователь не найден, создаём нового для телефона: ${phone}`);
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        phone,
-        phone_confirm: true,
-        email,
-        email_confirm: true,
-        user_metadata: { phone },
-      });
-
-      if (createError) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message);
-        if (createError.message.includes('already registered')) {
-          console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск через findUserByPhone`);
-          user = await findUserByPhone(phone);
-          if (!user) {
-            console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
-            return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-          }
-        } else {
-          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-        }
-      } else {
-        user = newUser.user;
-      }
+      console.error(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден в базе данных`);
+      return NextResponse.json(
+        { success: false, error: 'Пользователь не найден. Пожалуйста, зарегистрируйтесь.' },
+        { status: 404 }
+      );
     }
 
-    console.log(`[${new Date().toISOString()}] Пользователь найден или создан: ${user.id}`);
+    console.log(`[${new Date().toISOString()}] Пользователь найден: ${user.id}`);
 
     // Создание профиля
     console.log(`[${new Date().toISOString()}] Проверка наличия профиля в user_profiles`);
