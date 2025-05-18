@@ -172,47 +172,46 @@ export async function GET(request: Request) {
         console.log(`[${new Date().toISOString()}] Пользователь найден: ${userId}`);
       }
 
-      // Создаём сессию через generateLink
+      // Создаём сессию через admin API
       console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${userId}`);
-      const email = user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: email,
+        email: user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`,
         options: {
           redirectTo: 'https://keytoheart.ru',
         },
       });
 
-      if (linkError || !linkData.properties?.action_link) {
-        console.error(`[${new Date().toISOString()}] Ошибка генерации токена:`, linkError?.message, linkError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания токена' }, { status: 500 });
+      if (sessionError || !sessionData.properties?.action_link) {
+        console.error(`[${new Date().toISOString()}] Ошибка генерации сессии:`, sessionError?.message, sessionError);
+        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      const magicLink = linkData.properties.action_link;
+      const magicLink = sessionData.properties.action_link;
       const token = magicLink.split('token=')[1]?.split('&')[0];
       if (!token) {
         console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
-        return NextResponse.json({ success: false, error: 'Ошибка создания токена' }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      // Создаём сессию на сервере
+      // Создаём сессию через admin API
       const browserSupabase = createClient<Database>(
         process.env.SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      const { data: sessionData, error: sessionError } = await browserSupabase.auth.setSession({
+      const { data: authSession, error: authError } = await browserSupabase.auth.setSession({
         access_token: token,
         refresh_token: '',
       });
 
-      if (sessionError || !sessionData.session) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания сессии:`, sessionError?.message, sessionError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
+      if (authError || !authSession.session) {
+        console.error(`[${new Date().toISOString()}] Ошибка установки сессии:`, authError?.message, authError);
+        return NextResponse.json({ success: false, error: 'Ошибка установки сессии' }, { status: 500 });
       }
 
-      const accessToken = sessionData.session.access_token;
-      const refreshToken = sessionData.session.refresh_token;
+      const accessToken = authSession.session.access_token;
+      const refreshToken = authSession.session.refresh_token;
       console.log(`[${new Date().toISOString()}] Сессия успешно создана, access_token: ${accessToken}`);
 
       // Возвращаем токены клиенту
