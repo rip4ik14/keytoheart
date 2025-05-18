@@ -16,112 +16,109 @@ export async function GET(request: Request) {
 
   console.log(`[${new Date().toISOString()}] Проверка статуса для checkId: ${checkId}, телефон: ${phone}`);
 
-  if (!checkId || !phone) {
-    console.error('Отсутствует checkId или телефон в параметрах запроса');
-    return NextResponse.json({ success: false, error: 'checkId и телефон обязательны' }, { status: 400 });
-  }
-
-  // Проверяем формат номера
-  if (!phone.startsWith('+7') || phone.replace(/\D/g, '').length !== 11) {
-    console.error('Неверный формат телефона:', phone);
-    return NextResponse.json({ success: false, error: 'Некорректный номер телефона' }, { status: 400 });
-  }
-
   try {
-    // Проверяем статус в базе данных
+    if (!checkId || !phone) {
+      console.error(`[${new Date().toISOString()}] Отсутствуют обязательные параметры: checkId=${checkId}, phone=${phone}`);
+      return NextResponse.json({ success: false, error: 'Не указаны обязательные параметры' }, { status: 400 });
+    }
+
+    // Проверяем статус в auth_logs
     console.log(`[${new Date().toISOString()}] Запрос в auth_logs для checkId: ${checkId}`);
-    const { data: authLog, error: dbError } = await supabase
+    const { data: authLog, error: logError } = await supabase
       .from('auth_logs')
       .select('status')
       .eq('check_id', checkId)
-      .eq('phone', phone.replace(/\D/g, ''))
       .single();
 
-    if (dbError || !authLog) {
-      console.error(`[${new Date().toISOString()}] Ошибка получения записи auth log:`, dbError);
-      return NextResponse.json({ success: false, error: 'Запись авторизации не найдена' }, { status: 404 });
+    if (logError || !authLog) {
+      console.error(`[${new Date().toISOString()}] Ошибка получения записи из auth_logs:`, logError);
+      return NextResponse.json({ success: false, error: 'Запись не найдена' }, { status: 404 });
     }
 
-    console.log(`[${new Date().toISOString()}] Статус из базы данных:`, authLog.status);
+    console.log(`[${new Date().toISOString()}] Статус из базы данных: ${authLog.status}`);
 
-    // Если статус уже VERIFIED, возвращаем его
     if (authLog.status === 'VERIFIED') {
       console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, возвращаем сразу`);
       return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
     }
 
-    // Если статус не VERIFIED, проверяем через SMS.ru
-    const url = `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`;
-    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: ${url}`);
-    const startTime = Date.now();
-    const apiRes = await fetch(url);
-    const responseText = await apiRes.text();
-    const duration = Date.now() - startTime;
-    console.log(`[${new Date().toISOString()}] Ответ SMS.ru API (длительность: ${duration}ms):`, responseText);
+    if (authLog.status === 'EXPIRED') {
+      console.log(`[${new Date().toISOString()}] Статус EXPIRED, возвращаем сразу`);
+      return NextResponse.json({ success: true, status: 'EXPIRED', message: 'Срок действия истёк' });
+    }
 
-    let apiJson;
+    // Проверяем статус через SMS.ru API
+    const start = Date.now();
+    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`);
+    const res = await fetch(
+      `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`,
+      { cache: 'no-store' }
+    );
+
+    const responseText = await res.text();
+    console.log(`[${new Date().toISOString()}] Ответ SMS.ru API (длительность: ${Date.now() - start}ms):`, responseText);
+
+    let data;
     try {
-      apiJson = JSON.parse(responseText);
+      data = JSON.parse(responseText);
     } catch (parseError: any) {
-      console.error('Не удалось разобрать ответ SMS.ru как JSON:', parseError.message);
-      console.error('Необработанный ответ:', responseText);
+      console.error(`[${new Date().toISOString()}] Ошибка парсинга ответа SMS.ru:`, parseError.message);
       return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS.ru' }, { status: 500 });
     }
 
-    if (!apiJson || apiJson.status !== 'OK') {
-      console.error('Ошибка API SMS.ru:', apiJson?.status_text || 'Неизвестная ошибка');
+    if (!res.ok || data.status !== 'OK') {
+      console.error(`[${new Date().toISOString()}] Ошибка SMS.ru API:`, data?.status_text || 'Unknown error');
       return NextResponse.json({ success: false, error: 'Ошибка проверки статуса' }, { status: 500 });
     }
 
-    const checkStatus = apiJson.check_status.toString();
-    const checkStatusText = apiJson.check_status_text;
+    const checkStatus = data.check_status;
 
-    if (checkStatus === '401') {
-      // Номер подтверждён, обновляем статус в базе данных
-      console.log(`[${new Date().toISOString()}] SMS.ru подтвердил верификацию (check_status: ${checkStatus}), обновляем auth_logs`);
+    if (checkStatus === 401) {
+      console.log(`[${new Date().toISOString()}] SMS.ru подтвердил верификацию (check_status: 401), обновляем auth_logs`);
       const { error: updateError } = await supabase
         .from('auth_logs')
         .update({ status: 'VERIFIED', updated_at: new Date().toISOString() })
-        .eq('check_id', checkId)
-        .eq('phone', phone.replace(/\D/g, ''));
+        .eq('check_id', checkId);
 
       if (updateError) {
-        console.error('Ошибка обновления auth_logs:', updateError);
-        return NextResponse.json({ success: false, error: 'Ошибка обновления статуса в базе данных' }, { status: 500 });
+        console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, updateError);
+        return NextResponse.json({ success: false, error: 'Ошибка обновления статуса' }, { status: 500 });
       }
 
       // Проверяем или создаём пользователя
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
       const { data: users, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
-        console.error('Ошибка при получении списка пользователей:', listError);
-        return NextResponse.json({ success: false, error: 'Ошибка поиска пользователя' }, { status: 500 });
+        console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
+        return NextResponse.json({ success: false, error: 'Ошибка получения списка пользователей' }, { status: 500 });
       }
 
-      let user = users.users.find((u: any) => u.phone === phone);
+      const formattedPhone = phone;
+      let user = users.users.find((u: any) => u.phone === formattedPhone);
 
       if (!user) {
         console.log(`[${new Date().toISOString()}] Пользователь не существует, создаём нового для телефона: ${phone}`);
+        const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`; // Уникальный email с временной меткой
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-          phone: phone,
+          phone: formattedPhone,
           phone_confirm: true,
-          user_metadata: { phone: phone },
-          email: `${phone.replace(/\D/g, '')}@temp.example.com`,
+          user_metadata: { phone: formattedPhone },
+          email: email,
           email_confirm: true,
         });
 
         if (createError) {
-          console.error('Ошибка создания пользователя:', createError);
+          console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message, createError);
           if (createError.message.includes('Phone number already registered')) {
             console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск`);
             const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
             if (retryError) {
-              console.error('Ошибка при повторном поиске пользователей:', retryError);
-              return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message, retryError);
+              return NextResponse.json({ success: false, error: 'Ошибка повторного поиска пользователей' }, { status: 500 });
             }
-            user = retryUsers.users.find((u: any) => u.phone === phone);
+            user = retryUsers.users.find((u: any) => u.phone === formattedPhone);
             if (!user) {
-              console.error('Пользователь не найден даже после повторного поиска');
+              console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
               return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
             }
           } else {
@@ -137,22 +134,23 @@ export async function GET(request: Request) {
 
       // Создаём сессию
       console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${user.id}`);
+      const emailForSession = user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
       const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: `${phone.replace(/\D/g, '')}@temp.example.com`,
+        email: emailForSession,
         options: {
           redirectTo: 'https://keytoheart.ru',
         },
       });
 
       if (sessionError || !sessionData.properties?.action_link) {
-        console.error('Ошибка генерации токена сессии:', sessionError);
+        console.error(`[${new Date().toISOString()}] Ошибка генерации токена сессии:`, sessionError?.message, sessionError);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
       const token = sessionData.properties.action_link.split('token=')[1]?.split('&')[0];
       if (!token) {
-        console.error('Не удалось извлечь токен из magic link');
+        console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
@@ -170,15 +168,27 @@ export async function GET(request: Request) {
 
       console.log(`[${new Date().toISOString()}] Токен успешно установлен в куки: sb-access-token`);
       return response;
-    } else if (checkStatus === '402') {
-      console.log(`[${new Date().toISOString()}] SMS.ru статус EXPIRED (check_status: ${checkStatus})`);
-      return NextResponse.json({ success: false, status: 'EXPIRED', error: 'Время для звонка истекло' });
-    } else {
-      console.log(`[${new Date().toISOString()}] SMS.ru статус остаётся PENDING (check_status: ${checkStatus})`);
-      return NextResponse.json({ success: true, status: 'PENDING', message: checkStatusText });
     }
+
+    if (checkStatus === 402) {
+      console.log(`[${new Date().toISOString()}] SMS.ru статус истёк (check_status: 402), обновляем auth_logs`);
+      const { error: updateError } = await supabase
+        .from('auth_logs')
+        .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+        .eq('check_id', checkId);
+
+      if (updateError) {
+        console.error(`[${new Date().toISOString()}] Ошибка обновления auth_logs:`, updateError);
+        return NextResponse.json({ success: false, error: 'Ошибка обновления статуса' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, status: 'EXPIRED', message: 'Срок действия истёк' });
+    }
+
+    console.log(`[${new Date().toISOString()}] SMS.ru статус остаётся PENDING (check_status: ${checkStatus})`);
+    return NextResponse.json({ success: true, status: 'PENDING', message: 'Ожидание подтверждения' });
   } catch (error: any) {
-    console.error('Ошибка проверки статуса:', error);
-    return NextResponse.json({ success: false, error: 'Серверная ошибка' }, { status: 500 });
+    console.error(`[${new Date().toISOString()}] Ошибка в статусе:`, error.message, error.stack);
+    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }

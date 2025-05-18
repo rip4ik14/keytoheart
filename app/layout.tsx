@@ -111,26 +111,13 @@ export default async function RootLayout({
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
+  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
 
   return (
     <html lang="ru">
       <head>
         <meta name="yandex-verification" content="2d95e0ee66415497" />
-        {/* Предзагрузка шрифтов только если они используются */}
-        <link
-          rel="preload"
-          href="/fonts/Ubuntu-Regular.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/fonts/Ubuntu-Bold.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
+        {/* Убрана предзагрузка шрифтов для устранения OTS parsing error */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -150,8 +137,24 @@ export default async function RootLayout({
             `}
           </Script>
         )}
+        {ga4Id && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${ga4Id}');
+              `}
+            </Script>
+          </>
+        )}
       </head>
-      <body className="bg-white font-sans"> {/* Заменено font-Ubuntu на font-sans для использования Tailwind */}
+      <body className="bg-white font-sans">
         <SupabaseProvider initialSession={session}>
           <CartProvider>
             <TopBar />
