@@ -96,6 +96,7 @@ export async function POST(request: Request) {
 
     // Проверяем auth_logs для получения телефона, если он не передан
     if (!phone) {
+      console.log(`[${new Date().toISOString()}] Fetching phone from auth_logs for check_id: ${check_id}`);
       const { data: authLog, error: logError } = await supabase
         .from('auth_logs')
         .select('phone')
@@ -107,6 +108,7 @@ export async function POST(request: Request) {
         return new NextResponse('Auth log not found', { status: 404 });
       }
       phone = authLog.phone;
+      console.log(`[${new Date().toISOString()}] Phone fetched from auth_logs: ${phone}`);
     }
 
     // Обновляем статус и создаём сессию при check_status = '401'
@@ -126,7 +128,7 @@ export async function POST(request: Request) {
       console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
       const { data: users, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
-        console.error('Ошибка при получении списка пользователей:', listError);
+        console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message, listError);
         return new NextResponse('Error fetching users', { status: 500 });
       }
 
@@ -139,22 +141,22 @@ export async function POST(request: Request) {
           phone: formattedPhone,
           phone_confirm: true,
           user_metadata: { phone: formattedPhone },
-          email: `${phone}@temp.example.com`,
+          email: `${phone.replace(/\D/g, '')}@temp.example.com`, // Уникальный email для каждого телефона
           email_confirm: true,
         });
 
         if (createError) {
-          console.error('Ошибка создания пользователя:', createError);
+          console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError.message, createError);
           if (createError.message.includes('Phone number already registered')) {
             console.log(`[${new Date().toISOString()}] Пользователь уже зарегистрирован, повторный поиск`);
             const { data: retryUsers, error: retryError } = await supabase.auth.admin.listUsers();
             if (retryError) {
-              console.error('Ошибка при повторном поиске пользователей:', retryError);
+              console.error(`[${new Date().toISOString()}] Ошибка при повторном поиске пользователей:`, retryError.message, retryError);
               return new NextResponse('Error fetching users', { status: 500 });
             }
             user = retryUsers.users.find((u: any) => u.phone === formattedPhone);
             if (!user) {
-              console.error('Пользователь не найден даже после повторного поиска');
+              console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
               return new NextResponse('Error creating user', { status: 500 });
             }
           } else {
@@ -172,20 +174,20 @@ export async function POST(request: Request) {
       console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${user.id}`);
       const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: `${phone}@temp.example.com`,
+        email: `${phone.replace(/\D/g, '')}@temp.example.com`,
         options: {
           redirectTo: 'https://keytoheart.ru',
         },
       });
 
       if (sessionError || !sessionData.properties?.action_link) {
-        console.error('Ошибка генерации токена сессии:', sessionError);
+        console.error(`[${new Date().toISOString()}] Ошибка генерации токена сессии:`, sessionError?.message, sessionError);
         return new NextResponse('Error creating session', { status: 500 });
       }
 
       const token = sessionData.properties.action_link.split('token=')[1]?.split('&')[0];
       if (!token) {
-        console.error('Не удалось извлечь токен из magic link');
+        console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magic link`);
         return new NextResponse('Error creating session', { status: 500 });
       }
 
@@ -208,7 +210,7 @@ export async function POST(request: Request) {
       return new NextResponse('100', { status: 200, headers: { 'Content-Type': 'text/plain' } });
     }
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Webhook error:`, error.message);
+    console.error(`[${new Date().toISOString()}] Webhook error:`, error.message, error.stack);
     return new NextResponse('Server error', { status: 500 });
   }
 }

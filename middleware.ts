@@ -45,6 +45,7 @@ export async function middleware(req: NextRequest) {
     const token = req.cookies.get('admin_session')?.value;
 
     if (!token) {
+      console.log(`[${new Date().toISOString()}] No admin_session token found for /admin route`);
       const login = url.clone();
       login.pathname = '/admin/login';
       login.searchParams.set('from', pathname);
@@ -62,6 +63,7 @@ export async function middleware(req: NextRequest) {
       const verifyData = await verifyRes.json();
 
       if (!verifyRes.ok || !verifyData.success) {
+        console.log(`[${new Date().toISOString()}] Invalid admin_session token:`, verifyData);
         const login = url.clone();
         login.pathname = '/admin/login';
         login.searchParams.set('from', pathname);
@@ -71,7 +73,7 @@ export async function middleware(req: NextRequest) {
 
       return response;
     } catch (error) {
-      console.error('Admin middleware auth error:', error);
+      console.error(`[${new Date().toISOString()}] Admin middleware auth error:`, error);
       const login = url.clone();
       login.pathname = '/admin/login';
       login.searchParams.set('from', pathname);
@@ -85,8 +87,9 @@ export async function middleware(req: NextRequest) {
     const token = req.cookies.get('sb-access-token')?.value;
 
     if (!token) {
+      console.log(`[${new Date().toISOString()}] No sb-access-token found for ${pathname}`);
       const login = url.clone();
-      login.pathname = '/account'; // Изменено с /login на /account
+      login.pathname = '/account';
       login.searchParams.set('from', pathname);
       login.searchParams.set('error', 'no-session');
       return NextResponse.redirect(login);
@@ -95,16 +98,18 @@ export async function middleware(req: NextRequest) {
     try {
       const { data: userData, error } = await supabase.auth.getUser(token);
       if (error || !userData.user) {
+        console.error(`[${new Date().toISOString()}] Invalid sb-access-token for ${pathname}:`, error?.message || 'No user data');
         const login = url.clone();
-        login.pathname = '/account'; // Изменено с /login на /account
+        login.pathname = '/account';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'invalid-session');
         return NextResponse.redirect(login);
       }
+      console.log(`[${new Date().toISOString()}] Successfully verified sb-access-token for ${pathname}, user: ${userData.user.id}`);
     } catch (error) {
-      console.error('User middleware auth error:', error);
+      console.error(`[${new Date().toISOString()}] User middleware auth error for ${pathname}:`, error);
       const login = url.clone();
-      login.pathname = '/account'; // Изменено с /login на /account
+      login.pathname = '/account';
       login.searchParams.set('from', pathname);
       login.searchParams.set('error', 'invalid-session');
       return NextResponse.redirect(login);

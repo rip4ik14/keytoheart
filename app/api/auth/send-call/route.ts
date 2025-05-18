@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка конфигурации сервера' }, { status: 500 });
     }
 
-    // Проверяем количество попыток за последние 24 часа
+    // Временно убираем проверку количества попыток для отладки
+    /*
     const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     console.log(`[${new Date().toISOString()}] Querying auth_logs for attempts since: ${cutoffDate}`);
     const { data: recentAttempts, error: attemptsError } = await supabase
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
       console.error(`[${new Date().toISOString()}] Too many attempts for phone: ${cleanPhone}`);
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
+    */
 
     // Отправляем запрос на звонок через SMS.ru
     const url = `https://sms.ru/callcheck/add?api_id=${SMS_RU_API_ID}&phone=${cleanPhone}&json=1`;
