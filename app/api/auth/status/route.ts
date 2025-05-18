@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';          // ✅ из next/headers
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-// ─── admin-клиент ───────────────────────────────────────────
+// ─── 1. Инициализируем Supabase Admin клиент ────────────────
 const sb = createClient<Database>(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -11,7 +12,7 @@ const sb = createClient<Database>(
 
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 
-// ─── helper: ищем +7 / 7 формат ────────────────────────────
+// ─── 2. Хелпер: поиск пользователя по телефону (+7 / 7) ──────
 async function findUser(phone: string) {
   const plus = phone.startsWith('+') ? phone : `+${phone}`;
   const raw  = phone.startsWith('+') ? phone.slice(1) : phone;
@@ -22,20 +23,19 @@ async function findUser(phone: string) {
   return data.users.find(u => u.phone === plus || u.phone === raw) ?? null;
 }
 
-// ─── helper: создаём полноценную сессию через magic-link ──
+// ─── 3. Хелпер: выдача сессии через magic-link + setSession ─
 async function issueSession(email: string) {
   const { data, error } = await sb.auth.admin.generateLink({
     type: 'magiclink',
     email,
-    options: { redirectTo: 'https://keytoheart.ru' },   // неважно, ссылку не откроем
+    options: { redirectTo: 'https://keytoheart.ru' },
   });
   if (error) throw new Error('generateLink: ' + error.message);
 
   const token = new URL(data.properties!.action_link as string)
     .searchParams.get('token');
-  if (!token) throw new Error('token not found in magiclink');
+  if (!token) throw new Error('token not found');
 
-  /* setSession принимает access-token и вернёт оба токена */
   const { data: s, error: e } = await sb.auth.setSession({
     access_token: token,
     refresh_token: '',
@@ -48,50 +48,70 @@ async function issueSession(email: string) {
   };
 }
 
-// ─── основной энд-поинт ────────────────────────────────────
+// ─── 4. Основной API-хендлер ────────────────────────────────
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const checkId = searchParams.get('checkId');
   const phone   = searchParams.get('phone');
 
-  if (!checkId || !phone)
-    return NextResponse.json({ success: false, error: 'checkId и phone обязательны' }, { status: 400 });
+  if (!checkId || !phone) {
+    return NextResponse.json(
+      { success: false, error: 'checkId и phone обязательны' },
+      { status: 400 }
+    );
+  }
 
-  /* 1. auth_logs локально */
+  // 4.1 Получаем текущий статус из auth_logs
   const { data: log } = await sb
     .from('auth_logs')
     .select('status')
     .eq('check_id', checkId)
     .single();
 
-  if (!log)
-    return NextResponse.json({ success: false, error: 'checkId не найден' }, { status: 404 });
+  if (!log) {
+    return NextResponse.json(
+      { success: false, error: 'checkId не найден' },
+      { status: 404 }
+    );
+  }
 
-  if (log.status === 'VERIFIED')
+  // 4.2 Читаем куки (await!)
+  const cookieStore = await cookies();
+  const hasToken    = cookieStore.get('access_token')?.value;
+
+  // Если уже VERIFIED и кука есть — сразу ответ
+  if (log.status === 'VERIFIED' && hasToken) {
     return NextResponse.json({ success: true, status: 'VERIFIED', phone });
+  }
 
-  /* 2. спрашиваем SMS.ru */
+  // 4.3 Спрашиваем SMS.ru
   const sms = await fetch(
     `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`,
     { cache: 'no-store' }
   ).then(r => r.json());
 
-  if (sms.status !== 'OK')
-    return NextResponse.json({ success: false, error: 'Ошибка SMS.ru' }, { status: 502 });
+  if (sms.status !== 'OK') {
+    return NextResponse.json(
+      { success: false, error: 'Ошибка SMS.ru' },
+      { status: 502 }
+    );
+  }
 
   const st        = sms.check_status;            // 400|401|402
   const newStatus = st === 401 ? 'VERIFIED'
                  : st === 402 ? 'EXPIRED'
                  : 'PENDING';
 
-  await sb.from('auth_logs')
+  await sb
+    .from('auth_logs')
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq('check_id', checkId);
 
-  if (newStatus !== 'VERIFIED')
+  if (newStatus !== 'VERIFIED') {
     return NextResponse.json({ success: true, status: newStatus, phone });
+  }
 
-  /* 3. user create / fetch */
+  // 4.4 Находим или создаём пользователя
   let user = await findUser(phone);
   if (!user) {
     const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
@@ -100,30 +120,40 @@ export async function GET(req: Request) {
       email, email_confirm: true,
       user_metadata: { phone },
     });
-    if (error && !error.message.includes('already registered'))
-      return NextResponse.json({ success: false, error: 'createUser: ' + error.message }, { status: 500 });
+    if (error && !error.message.includes('already registered')) {
+      return NextResponse.json(
+        { success: false, error: 'createUser: ' + error.message },
+        { status: 500 }
+      );
+    }
     user = data?.user ?? await findUser(phone);
   }
 
-  /* 4. ensure profile */
+  // 4.5 Убеждаемся, что есть профиль
   const { data: prof } = await sb
     .from('user_profiles')
     .select('id')
     .eq('phone', phone)
     .single();
 
-  if (!prof)
-    await sb.from('user_profiles').insert([{ phone, updated_at: new Date().toISOString() }]);
+  if (!prof) {
+    await sb
+      .from('user_profiles')
+      .insert([{ phone, updated_at: new Date().toISOString() }]);
+  }
 
-  /* 5. токены через magic-link */
+  // 4.6 Генерируем новую сессию и токены
   let tokens;
   try {
     tokens = await issueSession(user!.email!);
   } catch (e: any) {
-    return NextResponse.json({ success:false, error:e.message }, { status:500 });
+    return NextResponse.json(
+      { success: false, error: e.message },
+      { status: 500 }
+    );
   }
 
-  /* 6. cookies + JSON */
+  // 4.7 Устанавливаем куки и возвращаем JSON
   const res = NextResponse.json({
     success: true,
     status: 'VERIFIED',
@@ -132,9 +162,14 @@ export async function GET(req: Request) {
     refresh_token: tokens.refresh,
   });
 
-  const cfg = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
-  res.cookies.set('access_token',  tokens.access,  { ...cfg, maxAge: 60*60*24*3  });
-  res.cookies.set('refresh_token', tokens.refresh, { ...cfg, maxAge: 60*60*24*30 });
+  const cfg = {
+    httpOnly: true,
+    secure:   true,
+    sameSite: 'strict' as const,
+    path:     '/',
+  };
+  res.cookies.set('access_token',  tokens.access,  { ...cfg, maxAge: 60 * 60 * 24 * 3  });
+  res.cookies.set('refresh_token', tokens.refresh, { ...cfg, maxAge: 60 * 60 * 24 * 30 });
 
   return res;
 }
