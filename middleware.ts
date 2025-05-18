@@ -96,6 +96,7 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
+      console.log(`[${new Date().toISOString()}] Verifying sb-access-token: ${token}`);
       const { data: userData, error } = await supabase.auth.getUser(token);
       if (error || !userData.user) {
         console.error(`[${new Date().toISOString()}] Invalid sb-access-token for ${pathname}:`, error?.message || 'No user data');

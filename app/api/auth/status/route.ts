@@ -132,12 +132,11 @@ export async function GET(request: Request) {
         console.log(`[${new Date().toISOString()}] Пользователь найден: ${user.id}`);
       }
 
-      // Создаём сессию
+      // Создаём сессию через setSession
       console.log(`[${new Date().toISOString()}] Создаём сессию для пользователя: ${user.id}`);
-      const emailForSession = user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
       const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: emailForSession,
+        email: user.email || `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`,
         options: {
           redirectTo: 'https://keytoheart.ru',
         },
@@ -154,11 +153,23 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
       }
 
-      console.log(`[${new Date().toISOString()}] Токен успешно сгенерирован: ${token}`);
+      // Используем token для создания сессии
+      const { data: session, error: setSessionError } = await supabase.auth.setSession({
+        access_token: token,
+        refresh_token: '', // refresh_token не требуется для magiclink
+      });
+
+      if (setSessionError || !session.session) {
+        console.error(`[${new Date().toISOString()}] Ошибка установки сессии:`, setSessionError?.message, setSessionError);
+        return NextResponse.json({ success: false, error: 'Ошибка установки сессии' }, { status: 500 });
+      }
+
+      const accessToken = session.session.access_token;
+      console.log(`[${new Date().toISOString()}] Сессия успешно создана, access_token: ${accessToken}`);
 
       // Устанавливаем сессионный токен в куки
       const response = NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена' });
-      response.cookies.set('sb-access-token', token, {
+      response.cookies.set('sb-access-token', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7, // 7 дней
