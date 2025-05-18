@@ -119,9 +119,43 @@ export async function GET(request: Request) {
             user = retryUsers.users.find((u: any) => u.phone === phone);
             if (!user) {
               console.error(`[${new Date().toISOString()}] Пользователь не найден даже после повторного поиска`);
-              return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+              // Пытаемся удалить пользователя через API и повторить создание
+              console.log(`[${new Date().toISOString()}] Пытаемся удалить пользователя через API`);
+              const { data: allUsers, error: allUsersError } = await supabase.auth.admin.listUsers();
+              if (allUsersError) {
+                console.error(`[${new Date().toISOString()}] Ошибка при получении всех пользователей:`, allUsersError.message);
+                return NextResponse.json({ success: false, error: 'Ошибка при получении списка пользователей' }, { status: 500 });
+              }
+              const existingUser = allUsers.users.find((u: any) => u.phone === phone);
+              if (existingUser) {
+                console.log(`[${new Date().toISOString()}] Найден существующий пользователь с ID: ${existingUser.id}, удаляем его`);
+                const { error: deleteError } = await supabase.auth.admin.deleteUser(existingUser.id);
+                if (deleteError) {
+                  console.error(`[${new Date().toISOString()}] Ошибка удаления пользователя:`, deleteError.message);
+                  return NextResponse.json({ success: false, error: 'Ошибка удаления пользователя' }, { status: 500 });
+                }
+                console.log(`[${new Date().toISOString()}] Пользователь успешно удалён, повторяем создание`);
+                const { data: newUserRetry, error: createRetryError } = await supabase.auth.admin.createUser({
+                  phone: phone,
+                  phone_confirm: true,
+                  user_metadata: { phone: phone },
+                  email: email,
+                  email_confirm: true,
+                });
+                if (createRetryError) {
+                  console.error(`[${new Date().toISOString()}] Ошибка повторного создания пользователя:`, createRetryError.message);
+                  return NextResponse.json({ success: false, error: 'Ошибка повторного создания пользователя' }, { status: 500 });
+                }
+                user = newUserRetry.user;
+                userId = user.id;
+                console.log(`[${new Date().toISOString()}] Пользователь успешно создан после удаления: ${userId}`);
+              } else {
+                console.error(`[${new Date().toISOString()}] Пользователь не найден даже после полного поиска`);
+                return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
+              }
+            } else {
+              userId = user.id;
             }
-            userId = user.id;
           } else {
             return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
           }
