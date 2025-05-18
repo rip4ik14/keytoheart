@@ -18,6 +18,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Проверяем существование пользователя в auth.users
+    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка проверки пользователя: ' + listError.message },
+        { status: 500 }
+      );
+    }
+
+    const userExists = users.users.some((u: any) => u.phone === phone);
+    if (!userExists) {
+      console.log(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден в auth.users`);
+      return NextResponse.json(
+        { success: false, error: 'Пользователь не зарегистрирован в системе' },
+        { status: 404 }
+      );
+    }
+
     // Получаем профиль
     const { data, error } = await supabase
       .from('user_profiles')
