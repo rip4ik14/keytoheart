@@ -88,8 +88,8 @@ export async function GET(req: Request) {
     // Проверяем наличие токенов в cookies через заголовок Cookie
     const cookieHeader = req.headers.get('cookie');
     const cookies = parseCookies(cookieHeader);
-    const accessToken = cookies['access_token'];
-    const refreshToken = cookies['refresh_token'];
+    const accessToken = cookies['sb-access-token'];
+    const refreshToken = cookies['sb-refresh-token'];
 
     if (authLog.status === 'VERIFIED' && accessToken && refreshToken) {
       console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, токены найдены, возвращаем сразу`);
@@ -239,7 +239,7 @@ export async function GET(req: Request) {
     res.headers.set('X-GA-Event', JSON.stringify({ event: 'auth_success', phone }));
     res.headers.set('X-YM-Event', JSON.stringify({ event: 'auth_success', phone }));
 
-    // Установка токенов в cookies с явными настройками
+    // Установка токенов в cookies с правильными именами
     const cfg = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -247,9 +247,9 @@ export async function GET(req: Request) {
       path: '/',
       domain: process.env.NODE_ENV === 'production' ? '.keytoheart.ru' : undefined,
     };
-    res.cookies.set('access_token', access_token, { ...cfg, maxAge: 3 * 24 * 60 * 60 }); // 3 дня
-    res.cookies.set('refresh_token', refresh_token, { ...cfg, maxAge: 30 * 24 * 60 * 60 }); // 30 дней
-    console.log(`[${new Date().toISOString()}] Cookies set: access_token=${access_token.substring(0, 10)}..., refresh_token=${refresh_token.substring(0, 10)}...`);
+    res.cookies.set('sb-access-token', access_token, { ...cfg, maxAge: 3 * 24 * 60 * 60 }); // 3 дня
+    res.cookies.set('sb-refresh-token', refresh_token, { ...cfg, maxAge: 30 * 24 * 60 * 60 }); // 30 дней
+    console.log(`[${new Date().toISOString()}] Cookies set: sb-access-token=${access_token.substring(0, 10)}..., sb-refresh-token=${refresh_token.substring(0, 10)}...`);
 
     return res;
   } catch (error: any) {

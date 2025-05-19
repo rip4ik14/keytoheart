@@ -87,15 +87,15 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log(`[${new Date().toISOString()}] Client session check:`, { session, error });
+        const { data: { user }, error } = await supabase.auth.getUser();
+        console.log(`[${new Date().toISOString()}] Client user check:`, { user, error });
         if (error) {
-          console.error('Session check error:', error.message);
+          console.error('User check error:', error.message);
           throw error;
         }
-        if (session && session.user) {
+        if (user) {
           setIsAuthenticated(true);
-          setPhone(session.user.phone || '');
+          setPhone(user.phone || '');
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
@@ -105,7 +105,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           setBonusData(null);
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error('Error checking user:', error);
         setIsAuthenticated(false);
         setPhone('');
         setOrders([]);
@@ -128,8 +128,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         .from('bonuses')
         .select('id, bonus_balance, level')
         .eq('phone', phone)
-        .single()
-        .setHeader('Accept', 'application/vnd.pgrst.object+json'); // Явно указываем заголовок
+        .single();
 
       console.log(`[${new Date().toISOString()}] Bonuses response:`, { data: bonusesRes.data, error: bonusesRes.error });
 
