@@ -169,7 +169,7 @@ export async function GET(req: Request) {
       }
     } else {
       userEmail = user.email;
-      // Обновляем пароль для существующего пользователя, если нужно
+      // Обновляем пароль для существующего пользователя
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
         password: temporaryPassword,
       });
@@ -239,10 +239,17 @@ export async function GET(req: Request) {
     res.headers.set('X-GA-Event', JSON.stringify({ event: 'auth_success', phone }));
     res.headers.set('X-YM-Event', JSON.stringify({ event: 'auth_success', phone }));
 
-    // Установка токенов в cookies
-    const cfg = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
-    res.cookies.set('access_token', access_token, { ...cfg, expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3) });
-    res.cookies.set('refresh_token', refresh_token, { ...cfg, expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30) });
+    // Установка токенов в cookies с явными настройками
+    const cfg = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? '.keytoheart.ru' : undefined,
+    };
+    res.cookies.set('access_token', access_token, { ...cfg, maxAge: 3 * 24 * 60 * 60 }); // 3 дня
+    res.cookies.set('refresh_token', refresh_token, { ...cfg, maxAge: 30 * 24 * 60 * 60 }); // 30 дней
+    console.log(`[${new Date().toISOString()}] Cookies set: access_token=${access_token.substring(0, 10)}..., refresh_token=${refresh_token.substring(0, 10)}...`);
 
     return res;
   } catch (error: any) {

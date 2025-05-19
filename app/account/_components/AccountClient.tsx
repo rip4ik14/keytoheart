@@ -69,7 +69,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     {
       global: {
         headers: {
-          Accept: 'application/json',
+          Accept: 'application/vnd.pgrst.object+json', // Исправлено для .single()
         },
       },
     }
@@ -88,6 +88,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Client session check:', session);
         if (session && session.user) {
           setIsAuthenticated(true);
           setPhone(session.user.phone || '');
@@ -152,7 +153,12 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
 
       // Загружаем заказы через API
-      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`);
+      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
       const ordersResult = await ordersRes.json();
 
       if (!ordersRes.ok || !ordersResult.success) {
@@ -190,7 +196,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
-      window.ym?.(12345678, 'reachGoal', 'view_account');
+      window.ym?.(96644553, 'reachGoal', 'view_account'); // Исправлен ID
     } catch (error: any) {
       console.error('Error in fetchAccountData:', error.message);
       toast.error('Ошибка загрузки данных');
@@ -232,7 +238,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setBonusData(null);
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
-      window.ym?.(12345678, 'reachGoal', 'logout');
+      window.ym?.(96644553, 'reachGoal', 'logout'); // Исправлен ID
     } catch (error) {
       console.error('Ошибка при выходе:', error);
       toast.error('Ошибка при выходе из аккаунта');

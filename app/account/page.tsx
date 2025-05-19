@@ -1,21 +1,8 @@
-'use client';
-
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import toast, { Toaster } from 'react-hot-toast';
-import { motion } from 'framer-motion';
-import TabsHeader from '@components/account/TabsHeader';
-import PersonalForm from '@components/account/PersonalForm';
-import OrdersList from '@components/account/OrdersList';
-import ImportantDates from '@components/account/ImportantDates';
-import BonusCard from '@components/account/BonusCard';
-import BonusHistory from '@components/account/BonusHistory';
-import AuthWithCall from '@components/AuthWithCall';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
-import { createBrowserClient } from '@supabase/ssr';
+import AccountClient from './_components/AccountClient';
 
-// Интерфейсы для типизации данных
 interface OrderItem {
   products: { title: string; cover_url: string | null };
   quantity: number;
@@ -55,293 +42,115 @@ interface BonusesData {
   history: BonusHistoryItem[];
 }
 
-interface Props {
-  initialSession: { phone: string; isAuthenticated: boolean } | null;
-  initialOrders: Order[] | undefined;
-  initialBonusData: BonusesData | null;
-}
-
-export default function AccountClient({ initialSession, initialOrders, initialBonusData }: Props) {
-  const router = useRouter();
-  const supabase = createBrowserClient<Database>(
+export default async function AccountPage() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: {
-        headers: {
-          Accept: 'application/json', // Явно указываем Accept
+      cookies: {
+        getAll() {
+          return Array.from(cookieStore.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
         },
       },
     }
   );
 
-  const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
-  const [orders, setOrders] = useState<Order[]>(initialOrders || []);
-  const [bonusData, setBonusData] = useState<BonusesData | null>(initialBonusData);
-  const [filterDays, setFilterDays] = useState<number>(30);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
-  const [phone, setPhone] = useState<string>(initialSession?.phone || '');
+  let initialSession: { phone: string; isAuthenticated: boolean } | null = null;
+  let initialOrders: Order[] = [];
+  let initialBonusData: BonusesData | null = null;
 
-  // Проверяем авторизацию через Supabase
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
-          setIsAuthenticated(true);
-          setPhone(session.user.phone || '');
-          setOrders(initialOrders || []);
-          setBonusData(initialBonusData);
-        } else {
-          setIsAuthenticated(false);
-          setPhone('');
-          setOrders([]);
-          setBonusData(null);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session && session.user) {
+      initialSession = {
+        phone: session.user.phone || '',
+        isAuthenticated: true,
+      };
+
+      const phone = session.user.phone || '';
+      if (phone) {
+        // Загружаем бонусы
+        const bonusesRes = await supabase
+          .from('bonuses')
+          .select('id, bonus_balance, level')
+          .eq('phone', phone)
+          .single();
+
+        initialBonusData = bonusesRes.data
+          ? { ...bonusesRes.data, history: [] }
+          : { id: null, bonus_balance: 0, level: 'basic', history: [] };
+
+        if (initialBonusData.id) {
+          const historyRes = await supabase
+            .from('bonus_history')
+            .select('amount, reason, created_at')
+            .eq('bonus_id', initialBonusData.id);
+
+          initialBonusData.history = historyRes.data?.map((item) => ({
+            amount: item.amount ?? 0,
+            reason: item.reason ?? '',
+            created_at: item.created_at ?? '',
+          })) || [];
         }
-      } catch (error) {
-        console.error('Error checking session:', error);
-        setIsAuthenticated(false);
-        setPhone('');
-        setOrders([]);
-        setBonusData(null);
-      }
-    };
 
-    checkSession();
-  }, [initialOrders, initialBonusData, supabase]);
+        // Загружаем заказы через API
+        const ordersRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/api/account/orders?phone=${encodeURIComponent(phone)}`,
+          {
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        const ordersResult = await ordersRes.json();
 
-  // Загрузка данных после авторизации
-  const fetchAccountData = useCallback(async () => {
-    if (!phone) return;
-    setIsLoading(true);
-    try {
-      const bonusesRes = await supabase
-        .from('bonuses')
-        .select('id, bonus_balance, level')
-        .eq('phone', phone)
-        .single();
-
-      let bonusesData: BonusesData;
-      if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
-        console.error('Bonuses fetch error:', bonusesRes.error);
-        throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
-      }
-      bonusesData = bonusesRes.data
-        ? { ...bonusesRes.data, history: [] }
-        : { id: null, bonus_balance: 0, level: 'basic', history: [] };
-
-      if (bonusesData.id) {
-        const historyRes = await supabase
-          .from('bonus_history')
-          .select('amount, reason, created_at')
-          .eq('bonus_id', bonusesData.id);
-
-        if (historyRes.error) {
-          console.error('History fetch error:', historyRes.error);
-          throw new Error(`History fetch error: ${historyRes.error.message}`);
+        if (ordersRes.ok && ordersResult.success) {
+          initialOrders = (ordersResult.data || []).map((order: any) => ({
+            id: parseInt(order.id, 10),
+            created_at: order.created_at ?? '',
+            total: order.total ?? 0,
+            bonuses_used: order.bonuses_used ?? 0,
+            payment_method: order.payment_method ?? 'cash',
+            status: order.status ?? '',
+            recipient: order.recipient || 'Не указан',
+            items: (order.items || []).map((item: any) => ({
+              quantity: item.quantity,
+              price: item.price,
+              product_id: item.product_id ?? 0,
+              products: {
+                title: item.title || 'Неизвестный товар',
+                cover_url: item.imageUrl || null,
+              },
+            })),
+            upsell_details: (order.upsell_details || []).map((upsell: any) => ({
+              title: upsell.title || 'Неизвестный товар',
+              price: upsell.price || 0,
+              quantity: upsell.quantity || 1,
+              category: upsell.category || 'unknown',
+            })),
+          }));
         }
-        bonusesData.history = historyRes.data.map((item) => ({
-          amount: item.amount ?? 0,
-          reason: item.reason ?? '',
-          created_at: item.created_at ?? '',
-        }));
       }
-
-      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`);
-      const ordersResult = await ordersRes.json();
-
-      if (!ordersRes.ok || !ordersResult.success) {
-        console.error('Orders fetch error:', ordersResult.error);
-        throw new Error(`Orders fetch error: ${ordersResult.error || 'Неизвестная ошибка'}`);
-      }
-
-      const transformedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
-        id: parseInt(order.id, 10),
-        created_at: order.created_at ?? '',
-        total: order.total ?? 0,
-        bonuses_used: order.bonuses_used ?? 0,
-        payment_method: order.payment_method ?? 'cash',
-        status: order.status ?? '',
-        recipient: order.recipient || 'Не указан',
-        items: (order.items || []).map((item: any) => ({
-          quantity: item.quantity,
-          price: item.price,
-          product_id: item.product_id ?? 0,
-          products: {
-            title: item.title || 'Неизвестный товар',
-            cover_url: item.imageUrl || null,
-          },
-        })),
-        upsell_details: (order.upsell_details || []).map((upsell: any) => ({
-          title: upsell.title || 'Неизвестный товар',
-          price: upsell.price || 0,
-          quantity: upsell.quantity || 1,
-          category: upsell.category || 'unknown',
-        })),
-      }));
-
-      setBonusData(bonusesData);
-      setOrders(transformedOrders);
-
-      window.gtag?.('event', 'view_account', { event_category: 'account' });
-      window.ym?.(12345678, 'reachGoal', 'view_account');
-    } catch (error: any) {
-      console.error('Error in fetchAccountData:', error.message);
-      toast.error('Ошибка загрузки данных');
-      setOrders([]);
-    } finally {
-      setIsLoading(false);
     }
-  }, [phone, supabase]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchAccountData();
-    }
-  }, [isAuthenticated, fetchAccountData]);
-
-  // Обработчик успешной авторизации
-  const handleAuthSuccess = (phone: string) => {
-    setIsAuthenticated(true);
-    setPhone(phone);
-    fetchAccountData();
-  };
-
-  // Выход
-  const handleLogout = async () => {
-    setIsLoading(true);
-    try {
-      await supabase.auth.signOut();
-      setIsAuthenticated(false);
-      setPhone('');
-      setOrders([]);
-      setBonusData(null);
-      toast.success('Вы вышли из аккаунта');
-      window.gtag?.('event', 'logout', { event_category: 'auth' });
-      window.ym?.(12345678, 'reachGoal', 'logout');
-    } catch (error) {
-      console.error('Ошибка при выходе:', error);
-      toast.error('Ошибка при выходе из аккаунта');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredOrders = useMemo(() => {
-    if (!orders) return [];
-    return orders.filter((o) => {
-      if (!o.created_at) return false;
-      const orderDate = new Date(o.created_at);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - filterDays);
-      return orderDate >= cutoff;
-    });
-  }, [orders, filterDays]);
-
-  if (!isAuthenticated) {
-    return (
-      <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6 sm:max-w-md" aria-label="Вход в личный кабинет">
-        <Toaster position="top-center" />
-        <h1 className="text-2xl font-bold tracking-play sm:text-3xl">Вход в кабинет</h1>
-        <p className="text-gray-500">Введите номер телефона для входа</p>
-        <AuthWithCall onSuccess={handleAuthSuccess} />
-      </main>
-    );
+  } catch (error) {
+    console.error('Server error in AccountPage:', error);
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10 space-y-6 sm:px-6 lg:px-8" aria-label="Личный кабинет">
-      <Toaster position="top-center" />
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Личный кабинет</h1>
-        <motion.button
-          onClick={handleLogout}
-          disabled={isLoading}
-          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${
-            isLoading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          aria-label="Выйти из аккаунта"
-        >
-          {isLoading ? (
-            <>
-              <Image
-                src="/icons/spinner.svg"
-                alt="Иконка загрузки"
-                width={20}
-                height={20}
-                loading="lazy"
-                className="animate-spin"
-              />
-              <span>Выход...</span>
-            </>
-          ) : (
-            'Выход'
-          )}
-        </motion.button>
-      </div>
-      <TabsHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="pt-6 space-y-6">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-            <Image
-              src="/icons/spinner.svg"
-              alt="Иконка загрузки"
-              width={24}
-              height={24}
-              loading="lazy"
-              className="animate-spin text-gray-500"
-            />
-          </div>
-        ) : (
-          <>
-            {activeTab === 'personal' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <PersonalForm onUpdate={fetchAccountData} phone={phone} />
-                  {bonusData?.history && bonusData.history.length > 0 && (
-                    <BonusHistory history={bonusData.history} />
-                  )}
-                </div>
-                <BonusCard
-                  balance={bonusData?.bonus_balance ?? 0}
-                  level={bonusData?.level ?? 'basic'}
-                />
-              </div>
-            )}
-            {activeTab === 'orders' && (
-              <>
-                <div className="flex items-center gap-2 mb-4 text-sm">
-                  <label htmlFor="filter-days" className="sr-only">
-                    Показать заказы за период
-                  </label>
-                  <select
-                    id="filter-days"
-                    className="border p-2 rounded bg-white border-gray-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-black"
-                    value={filterDays}
-                    onChange={(e) => setFilterDays(+e.target.value)}
-                    aria-label="Фильтр по периоду заказов"
-                  >
-                    <option value={7}>7 дней</option>
-                    <option value={30}>30 дней</option>
-                    <option value={90}>90 дней</option>
-                    <option value={365}>Год</option>
-                    <option value={9999}>Все</option>
-                  </select>
-                </div>
-                {filteredOrders.length > 0 ? (
-                  <OrdersList orders={filteredOrders} />
-                ) : (
-                  <p className="text-gray-500 text-center">Заказы за выбранный период отсутствуют</p>
-                )}
-              </>
-            )}
-            {activeTab === 'dates' && <ImportantDates phone={phone} onUpdate={fetchAccountData} />}
-          </>
-        )}
-      </div>
-    </main>
+    <AccountClient
+      initialSession={initialSession}
+      initialOrders={initialOrders}
+      initialBonusData={initialBonusData}
+    />
   );
 }
