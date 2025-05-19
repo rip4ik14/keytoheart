@@ -1,44 +1,51 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import sanitizeHtml from 'sanitize-html';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const { phone, bonus_balance } = await request.json();
+    const { searchParams } = new URL(request.url);
+    const phone = searchParams.get('phone');
 
-    if (!phone || !/^\+7\d{10}$/.test(phone)) {
+    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
+    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
-        { success: false, error: 'Некорректный номер телефона' },
+        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
       );
     }
-    if (typeof bonus_balance !== 'number') {
-      return NextResponse.json(
-        { success: false, error: 'Некорректный формат бонуса' },
-        { status: 400 }
-      );
-    }
 
-    // Только обновляем бонусный баланс!
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ bonus_balance, updated_at: new Date().toISOString() })
-      .eq('phone', phone);
+    const { data, error } = await supabase
+      .from('bonuses')
+      .select('id, bonus_balance, level')
+      .eq('phone', sanitizedPhone)
+      .limit(1)
+      .single();
 
-    if (error) {
-      console.error('Ошибка обновления бонусов:', error);
+    console.log(`[${new Date().toISOString()}] Bonuses response:`, { data, error });
+
+    if (error && error.code !== 'PGRST116') {
+      console.error(`[${new Date().toISOString()}] Bonuses fetch error:`, error);
       return NextResponse.json(
-        { success: false, error: 'Ошибка обновления бонусов: ' + error.message },
+        { success: false, error: 'Ошибка получения бонусов: ' + error.message },
         { status: 500 }
       );
     }
-    return NextResponse.json({ success: true });
+
+    const bonuses = data
+      ? { id: data.id, bonus_balance: data.bonus_balance ?? 0, level: data.level ?? 'bronze' }
+      : { id: null, bonus_balance: 0, level: 'bronze' };
+
+    return NextResponse.json({ success: true, data: bonuses });
   } catch (error: any) {
-    console.error('Ошибка в bonuses:', error);
+    console.error(`[${new Date().toISOString()}] Server error in bonuses:`, error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

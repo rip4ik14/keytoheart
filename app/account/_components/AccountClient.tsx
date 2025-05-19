@@ -103,6 +103,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         if (user) {
           setIsAuthenticated(true);
           const formattedPhone = user.phone?.startsWith('+') ? user.phone : `+${user.phone}`;
+          console.log(`[${new Date().toISOString()}] Formatted phone: ${formattedPhone}`);
           setPhone(formattedPhone || '');
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
@@ -127,12 +128,15 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   // Загрузка данных
   const fetchAccountData = useCallback(async () => {
     if (!phone || !supabase) return;
+    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+    console.log(`[${new Date().toISOString()}] Normalized phone for fetch: ${normalizedPhone}`);
     setIsLoading(true);
     try {
-      console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${phone}`);
+      console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${normalizedPhone}`);
 
       // Загружаем бонусы через API
-      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
+      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
+        method: 'GET',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
@@ -169,7 +173,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
 
       // Загружаем заказы через API
-      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`, {
+      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(normalizedPhone)}`, {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
@@ -217,7 +221,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: normalizedPhone }),
       });
       const loyaltyResult = await loyaltyRes.json();
 
@@ -258,7 +262,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
 
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
-    setPhone(phone);
+    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+    console.log(`[${new Date().toISOString()}] Auth success phone: ${normalizedPhone}`);
+    setPhone(normalizedPhone);
     fetchAccountData();
   };
 
