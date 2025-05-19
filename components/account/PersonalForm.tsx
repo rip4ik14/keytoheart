@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import type { Database } from '@/lib/supabase/types_new';
 
 interface PersonalFormProps {
   onUpdate: () => Promise<void>;
@@ -28,18 +26,6 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Accept: 'application/json',
-        },
-      },
-    }
-  );
-
   useEffect(() => {
     const fetchUserData = async () => {
       if (!phone) {
@@ -50,26 +36,17 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('name, last_name, email, birthday, receive_offers')
-          .eq('phone', phone)
-          .single();
-
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching profile:', error);
-          setError('Ошибка загрузки данных профиля');
-          toast.error('Ошибка загрузки данных профиля');
-          return;
-        }
-
-        if (data) {
-          const profileData = data as ProfileData;
+        const res = await fetch(`/api/account/profile?phone=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          const profileData: ProfileData = data.data;
           setName(profileData.name || 'Денис');
           setLastName(profileData.last_name || '');
           setEmail(profileData.email || '');
           setBirthday(profileData.birthday || '');
           setReceiveOffers(profileData.receive_offers || false);
+        } else {
+          throw new Error(data.error || 'Ошибка загрузки данных профиля');
         }
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
@@ -121,35 +98,29 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     setIsLoading(true);
     try {
-      const sanitizedName = trimmedName.replace(/[<>&'"]/g, '');
-      const sanitizedLastName = trimmedLastName.replace(/[<>&'"]/g, '');
-      const sanitizedEmail = trimmedEmail.replace(/[<>&'"]/g, '');
-      const sanitizedBirthday = birthday.replace(/[<>&'"]/g, '');
+      const res = await fetch('/api/account/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          name: trimmedName,
+          last_name: trimmedLastName,
+          email: trimmedEmail,
+          birthday,
+          receive_offers: receiveOffers,
+        }),
+      });
+      const data = await res.json();
 
-      const { error: upsertError } = await supabase
-        .from('user_profiles')
-        .upsert(
-          {
-            phone,
-            name: sanitizedName,
-            last_name: sanitizedLastName || null,
-            email: sanitizedEmail || null,
-            birthday: sanitizedBirthday || null,
-            receive_offers: receiveOffers,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'phone' }
-        );
-
-      if (upsertError) {
-        throw new Error(`Error updating profile: ${upsertError.message}`);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Ошибка обновления профиля');
       }
 
       toast.success('Данные успешно обновлены');
       await onUpdate();
 
-      window.gtag?.('event', 'update_profile', { event_category: 'account', value: sanitizedName });
-      window.ym?.(96644553, 'reachGoal', 'update_profile', { name: sanitizedName });
+      window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
+      window.ym?.(96644553, 'reachGoal', 'update_profile', { name: trimmedName });
     } catch (error: any) {
       console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');

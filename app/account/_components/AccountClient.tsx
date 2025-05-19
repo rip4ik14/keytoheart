@@ -88,6 +88,13 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     setSupabase(client);
   }, []);
 
+  // Нормализация телефона
+  const normalizePhone = (phone: string): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    return cleaned.startsWith('7') ? `+${cleaned}` : `+7${cleaned}`;
+  };
+
   // Проверка авторизации
   useEffect(() => {
     if (!supabase) return;
@@ -102,9 +109,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         }
         if (user) {
           setIsAuthenticated(true);
-          const formattedPhone = user.phone?.startsWith('+') ? user.phone : `+${user.phone}`;
+          const formattedPhone = normalizePhone(user.phone || '');
           console.log(`[${new Date().toISOString()}] Formatted phone: ${formattedPhone}`);
-          setPhone(formattedPhone || '');
+          setPhone(formattedPhone);
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
@@ -128,7 +135,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   // Загрузка данных
   const fetchAccountData = useCallback(async () => {
     if (!phone || !supabase) return;
-    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+    const normalizedPhone = normalizePhone(phone);
     console.log(`[${new Date().toISOString()}] Normalized phone for fetch: ${normalizedPhone}`);
     setIsLoading(true);
     try {
@@ -142,12 +149,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           'Content-Type': 'application/json',
         },
       });
+      if (!bonusesRes.ok) {
+        const text = await bonusesRes.text();
+        console.error(`[${new Date().toISOString()}] Bonuses fetch failed:`, { status: bonusesRes.status, text });
+        throw new Error(`Bonuses fetch error: ${text || 'Неизвестная ошибка'}`);
+      }
       const bonusesResult = await bonusesRes.json();
-
       console.log(`[${new Date().toISOString()}] Bonuses response:`, bonusesResult);
 
       let bonuses: BonusesData;
-      if (!bonusesRes.ok || !bonusesResult.success) {
+      if (!bonusesResult.success) {
         console.error('Bonuses fetch error:', bonusesResult.error);
         throw new Error(`Bonuses fetch error: ${bonusesResult.error || 'Неизвестная ошибка'}`);
       }
@@ -174,16 +185,21 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
 
       // Загружаем заказы через API
       const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(normalizedPhone)}`, {
+        method: 'GET',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
       });
+      if (!ordersRes.ok) {
+        const text = await ordersRes.text();
+        console.error(`[${new Date().toISOString()}] Orders fetch failed:`, { status: ordersRes.status, text });
+        throw new Error(`Orders fetch error: ${text || 'Неизвестная ошибка'}`);
+      }
       const ordersResult = await ordersRes.json();
-
       console.log(`[${new Date().toISOString()}] Orders response:`, ordersResult);
 
-      if (!ordersRes.ok || !ordersResult.success) {
+      if (!ordersResult.success) {
         console.error('Orders fetch error:', ordersResult.error);
         throw new Error(`Orders fetch error: ${ordersResult.error || 'Неизвестная ошибка'}`);
       }
@@ -262,7 +278,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
 
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
-    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+    const normalizedPhone = normalizePhone(phone);
     console.log(`[${new Date().toISOString()}] Auth success phone: ${normalizedPhone}`);
     setPhone(normalizedPhone);
     fetchAccountData();
