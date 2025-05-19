@@ -17,20 +17,6 @@ function parseCookies(header: string | null): Record<string, string> {
   return cookies;
 }
 
-// Проверяем переменные окружения
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Missing required Supabase environment variables');
-}
-
-// Инициализация admin-клиента
-const supabaseAdmin = createClient<Database>(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: true, persistSession: false } }
-);
-
-const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
-
 // Поиск пользователя REST-методом
 async function findUserByPhone(phone: string) {
   const phoneWithPlus = phone.startsWith('+') ? phone : `+${phone}`;
@@ -67,6 +53,19 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
+
+    // Проверяем переменные окружения во время выполнения
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error(`[${new Date().toISOString()}] Missing required Supabase environment variables`);
+      throw new Error('Missing required Supabase environment variables');
+    }
+
+    // Инициализация admin-клиента
+    const supabaseAdmin = createClient<Database>(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: true, persistSession: false } }
+    );
 
     // Проверяем статус в auth_logs
     console.log(`[${new Date().toISOString()}] Запрос в auth_logs для checkId: ${checkId}`);
@@ -108,9 +107,9 @@ export async function GET(req: Request) {
 
     // Проверяем статус через SMS.ru API
     const start = Date.now();
-    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`);
+    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=${process.env.SMS_RU_API_ID}&check_id=${checkId}&json=1`);
     const smsRes = await fetch(
-      `https://sms.ru/callcheck/status?api_id=${SMS_RU_API_ID}&check_id=${checkId}&json=1`,
+      `https://sms.ru/callcheck/status?api_id=${process.env.SMS_RU_API_ID}&check_id=${checkId}&json=1`,
       { cache: 'no-store' }
     );
     const sms = await smsRes.json();
