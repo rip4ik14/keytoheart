@@ -8,24 +8,40 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const normalizePhone = (phone: string): string => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  } else if (cleanPhone.length === 10) {
+    return `+7${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
+    return `+7${cleanPhone.slice(1)}`;
+  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  }
+  return phone.startsWith('+') ? phone : `+${phone}`;
+};
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const phone = searchParams.get('phone');
+    const rawPhone = searchParams.get('phone');
 
-    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+    if (!rawPhone) {
+      console.error(`[${new Date().toISOString()}] Missing phone parameter`);
       return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { success: false, error: 'Номер телефона обязателен' },
         { status: 400 }
       );
     }
 
+    const sanitizedPhone = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
+    const normalizedPhone = normalizePhone(sanitizedPhone);
+
     const { data, error } = await supabase
       .from('user_profiles')
       .select('name, last_name, email, birthday, receive_offers')
-      .eq('phone', sanitizedPhone)
+      .eq('phone', normalizedPhone)
       .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -59,13 +75,7 @@ export async function POST(request: Request) {
     const { phone, name, last_name, email, birthday, receive_offers } = await request.json();
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
-      return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
-      );
-    }
+    const normalizedPhone = normalizePhone(sanitizedPhone);
 
     const sanitizedName = sanitizeHtml(name || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedLastName = sanitizeHtml(last_name || '', { allowedTags: [], allowedAttributes: {} });
@@ -76,7 +86,7 @@ export async function POST(request: Request) {
       .from('user_profiles')
       .upsert(
         {
-          phone: sanitizedPhone,
+          phone: normalizedPhone,
           name: sanitizedName || null,
           last_name: sanitizedLastName || null,
           email: sanitizedEmail || null,
@@ -95,7 +105,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[${new Date().toISOString()}] Updated profile for phone ${sanitizedPhone}`);
+    console.log(`[${new Date().toISOString()}] Updated profile for phone ${normalizedPhone}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Server error in profile:`, error);

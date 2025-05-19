@@ -182,7 +182,6 @@ export default function CartPage() {
     validateStep3,
     validateStep4,
     validateStep5,
-    validateAllSteps,
     getMinDate,
     resetForm,
   } = useCheckoutForm();
@@ -367,7 +366,7 @@ export default function CartPage() {
       return (totalBeforeDiscounts * promoDiscount) / 100;
     }
     return promoDiscount;
-  }, [ promoDiscount, promoType, totalBeforeDiscounts]);
+  }, [promoDiscount, promoType, totalBeforeDiscounts]);
 
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
@@ -669,7 +668,8 @@ export default function CartPage() {
       return;
     }
 
-    if (!validateAllSteps()) {
+    // Заменяем validateAllSteps на последовательную проверку
+    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4() || !validateStep5(agreed)) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
@@ -716,8 +716,6 @@ export default function CartPage() {
 
       const payloadItems = [...cartItems, ...upsellItems];
 
-      console.log('Items to submit:', payloadItems);
-
       const normalizedPhone = normalizePhone(phone);
       const normalizedRecipientPhone = normalizePhone(form.recipientPhone);
 
@@ -748,8 +746,6 @@ export default function CartPage() {
         whatsapp: form.whatsapp,
       };
 
-      console.log('Submitting order with payload:', payload);
-
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -773,7 +769,7 @@ export default function CartPage() {
       if (bonusesUsed > 0) {
         const newBalance = bonusBalance - bonusesUsed;
         const { error: updateError } = await supabase
-          .from('user_profiles')
+          .from('bonuses')
           .update({ bonus_balance: newBalance })
           .eq('phone', normalizedPhone);
 
@@ -786,7 +782,7 @@ export default function CartPage() {
           const { error: historyError } = await supabase
             .from('bonus_history')
             .insert({
-              user_id: json.user_id || userId,
+              bonus_id: json.user_id || userId,
               amount: -bonusesUsed,
               reason: 'Списание бонусов при заказе #' + json.order_id,
               created_at: new Date().toISOString(),
@@ -801,7 +797,7 @@ export default function CartPage() {
       if (bonusAccrual > 0) {
         const newBalance = (bonusBalance - bonusesUsed) + bonusAccrual;
         const { error: updateError } = await supabase
-          .from('user_profiles')
+          .from('bonuses')
           .update({ bonus_balance: newBalance })
           .eq('phone', normalizedPhone);
 
@@ -814,7 +810,7 @@ export default function CartPage() {
           const { error: historyError } = await supabase
             .from('bonus_history')
             .insert({
-              user_id: json.user_id || userId,
+              bonus_id: json.user_id || userId,
               amount: bonusAccrual,
               reason: 'Начисление бонусов за заказ #' + json.order_id,
               created_at: new Date().toISOString(),
@@ -843,7 +839,11 @@ export default function CartPage() {
       setBonusesUsed(0);
 
       localStorage.setItem('orderSuccess', 'true');
-      router.push('/account');
+
+      // Задержка редиректа на 3 секунды для отображения ThankYouModal
+      setTimeout(() => {
+        router.push('/account');
+      }, 3000);
 
       window.gtag?.('event', 'submit_order', {
         event_category: 'cart',
@@ -863,7 +863,10 @@ export default function CartPage() {
   }, [
     validateStep5,
     agreed,
-    validateAllSteps,
+    validateStep1,
+    validateStep2,
+    validateStep3,
+    validateStep4,
     canPlaceOrder,
     checkItems,
     form,
