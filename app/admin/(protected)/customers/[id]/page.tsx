@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/(protected)/customers/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,9 +10,9 @@ import Image from "next/image";
 import toast, { Toaster } from "react-hot-toast";
 
 interface Event {
-  whose: string;
   type: string;
-  date: string;
+  date: string | null; // Обновляем тип
+  description: string | null;
 }
 
 interface Customer {
@@ -21,7 +20,7 @@ interface Customer {
   phone: string;
   email?: string;
   created_at: string;
-  important_dates: Event[]; // Обновляем тип
+  important_dates: Event[];
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
@@ -35,7 +34,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingDates, setEditingDates] = useState(false);
-  const [tempDates, setTempDates] = useState<Event[]>([]); // Обновляем тип
+  const [tempDates, setTempDates] = useState<Event[]>([]);
   const [bonusAction, setBonusAction] = useState<"add" | "subtract" | null>(null);
   const [bonusAmount, setBonusAmount] = useState("");
   const [bonusReason, setBonusReason] = useState("");
@@ -57,8 +56,8 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
         const { data: dates } = await supabase
           .from("important_dates")
-          .select("whose, type, date")
-          .eq("user_id", user.id);
+          .select("type, date, description")
+          .eq("phone", phone);
 
         const { data: orders } = await supabase
           .from("orders")
@@ -90,7 +89,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         const { data: bonusHistory } = await supabase
           .from("bonus_history")
           .select("amount, reason, created_at")
-          .eq("user_id", user.id)
+          .eq("phone", phone)
           .order("created_at", { ascending: false });
 
         const customerData: Customer = {
@@ -119,7 +118,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
   // Добавление нового события
   const handleAddEvent = () => {
-    setTempDates([...tempDates, { whose: '', type: 'День рождения', date: '' }]);
+    setTempDates([...tempDates, { type: 'День рождения', date: '', description: '' }]);
   };
 
   // Изменение события
@@ -137,22 +136,22 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       const { error: deleteError } = await supabase
         .from("important_dates")
         .delete()
-        .eq("user_id", customer.id);
+        .eq("phone", customer.phone);
 
       if (deleteError) throw deleteError;
 
-      // Фильтруем события, где заполнены все поля
-      const validEvents = tempDates.filter((event) => event.whose && event.type && event.date);
+      // Фильтруем события, где заполнены обязательные поля
+      const validEvents = tempDates.filter((event) => event.type && event.date);
 
       if (validEvents.length > 0) {
         const { error: insertError } = await supabase
           .from("important_dates")
           .insert(
             validEvents.map((event) => ({
-              user_id: customer.id,
-              whose: event.whose,
+              phone: customer.phone,
               type: event.type,
-              date: event.date,
+              date: event.date || null,
+              description: event.description || null,
             }))
           );
 
@@ -193,11 +192,11 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       customer.bonuses.level ?? "—",
     ];
 
-    const datesHeader = ["Чьё событие", "Тип события", "Дата"];
+    const datesHeader = ["Тип события", "Дата", "Описание"];
     const datesRows = customer.important_dates.map((event) => [
-      event.whose,
       event.type,
-      format(new Date(event.date), "dd.MM.yyyy", { locale: ru }),
+      event.date ? format(new Date(event.date), "dd.MM.yyyy", { locale: ru }) : "—",
+      event.description || "—",
     ]);
 
     const ordersHeader = ["Заказ ID", "Дата заказа", "Сумма", "Статус", "Способ оплаты"];
@@ -275,7 +274,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       const { error: historyError } = await supabase
         .from("bonus_history")
         .insert({
-          user_id: customer.id,
+          phone: customer.phone,
           amount: finalAmount,
           reason: bonusReason,
           created_at: new Date().toISOString(),
@@ -413,10 +412,13 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
               customer.important_dates.map((event, index) => (
                 <div key={index} className="flex gap-4">
                   <p>
-                    <span className="font-medium">{event.whose}:</span> {event.type}
+                    <span className="font-medium">{event.type}</span>
+                    {event.description && `: ${event.description}`}
                   </p>
                   <p>
-                    {format(new Date(event.date), "dd.MM.yyyy", { locale: ru })}
+                    {event.date
+                      ? format(new Date(event.date), "dd.MM.yyyy", { locale: ru })
+                      : "Дата не указана"}
                   </p>
                 </div>
               ))
@@ -428,16 +430,6 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
           <div className="space-y-4 text-sm">
             {tempDates.map((event, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block font-medium mb-1">Чьё событие:</label>
-                  <input
-                    type="text"
-                    value={event.whose}
-                    onChange={(e) => handleEventChange(index, 'whose', e.target.value)}
-                    className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
-                    placeholder="Чьё событие"
-                  />
-                </div>
                 <div>
                   <label className="block font-medium mb-1">Тип события:</label>
                   <select
@@ -454,9 +446,19 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   <label className="block font-medium mb-1">Дата:</label>
                   <input
                     type="date"
-                    value={event.date}
+                    value={event.date || ''}
                     onChange={(e) => handleEventChange(index, 'date', e.target.value)}
                     className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium mb-1">Описание:</label>
+                  <input
+                    type="text"
+                    value={event.description || ''}
+                    onChange={(e) => handleEventChange(index, 'description', e.target.value)}
+                    className="border border-gray-300 px-4 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    placeholder="Описание события"
                   />
                 </div>
               </div>

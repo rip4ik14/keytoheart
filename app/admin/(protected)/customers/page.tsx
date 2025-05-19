@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/(protected)/customers/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,9 +9,9 @@ import Image from 'next/image';
 import toast, { Toaster } from "react-hot-toast";
 
 interface Event {
-  whose: string;
   type: string;
-  date: string;
+  date: string | null; // Обновляем тип
+  description: string | null;
 }
 
 interface Customer {
@@ -20,7 +19,7 @@ interface Customer {
   phone: string;
   email?: string;
   created_at: string;
-  important_dates: Event[]; // Обновляем тип
+  important_dates: Event[];
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
@@ -60,8 +59,8 @@ export default function CustomersPage() {
           // Важные даты
           const { data: dates } = await supabase
             .from("important_dates")
-            .select("whose, type, date")
-            .eq("user_id", user.id);
+            .select("type, date, description")
+            .eq("phone", phone);
 
           // Заказы
           const { data: orders } = await supabase
@@ -96,7 +95,7 @@ export default function CustomersPage() {
           const { data: bonusHistory } = await supabase
             .from("bonus_history")
             .select("amount, reason, created_at")
-            .eq("user_id", user.id)
+            .eq("phone", phone)
             .order("created_at", { ascending: false });
 
           customerData.push({
@@ -272,8 +271,10 @@ export default function CustomersPage() {
                     {customer.important_dates.length > 0
                       ? customer.important_dates.map((event, index) => (
                           <div key={index}>
-                            {event.whose}: {event.type} (
-                            {format(new Date(event.date), "dd.MM.yyyy", { locale: ru })})
+                            {event.type} {event.description && `(${event.description})`}
+                            {event.date
+                              ? `(${format(new Date(event.date), "dd.MM.yyyy", { locale: ru })})`
+                              : "(Дата не указана)"}
                           </div>
                         ))
                       : "—"}
