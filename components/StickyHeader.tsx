@@ -108,13 +108,64 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         className="sticky top-0 z-50 bg-white border-b shadow-sm"
         aria-label="Основная навигация"
       >
-        <div className="container mx-auto flex items-center justify-between px-4 py-2 sm:py-3 gap-2 min-w-[320px]">
-          {/* Left Section: Burger Menu and Logo */}
-          <div className="flex items-center gap-2">
+        <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px]">
+          {/* Left Section: Burger Menu, Contact Info (Desktop), and Logo */}
+          <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
+            {/* Desktop: Contact Info */}
+            <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
+              <span>Краснодар</span>
+              <div className="flex flex-col leading-tight">
+                <a
+                  href="tel:+79886033821"
+                  className="font-medium hover:underline"
+                  aria-label="Позвонить по номеру +7 (988) 603-38-21"
+                >
+                  +7 (988) 603-38-21
+                </a>
+                <span className="text-xs text-gray-400">с 08:00 до 22:00</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://wa.me/79886033821"
+                  className="border rounded-full p-2 hover:bg-gray-100"
+                  title="WhatsApp"
+                  aria-label="Перейти в WhatsApp"
+                  rel="nofollow"
+                  onClick={() => trackEvent('whatsapp_click', 'header')}
+                >
+                  <Image
+                    src="/icons/whatsapp.svg"
+                    alt="WhatsApp"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 text-black"
+                    loading="lazy"
+                  />
+                </a>
+                <a
+                  href="https://t.me/keytomyheart"
+                  className="border rounded-full p-2 hover:bg-gray-100"
+                  title="Telegram"
+                  aria-label="Перейти в Telegram"
+                  rel="nofollow"
+                  onClick={() => trackEvent('telegram_click', 'header')}
+                >
+                  <Image
+                    src="/icons/telegram.svg"
+                    alt="Telegram"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 text-black"
+                    loading="lazy"
+                  />
+                </a>
+              </div>
+            </div>
+            {/* Logo */}
             <Link
               href="/"
-              className="text-xl sm:text-2xl font-bold"
+              className="text-xl md:text-2xl font-bold md:mx-auto"
               aria-label="Перейти на главную страницу"
             >
               KeytoHeart
@@ -122,7 +173,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
           </div>
 
           {/* Right Section: Search, Profile, Cart */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-3 relative">
             <button
               ref={searchButtonRef}
               onClick={() => {
@@ -148,19 +199,29 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
-                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
+                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full"
                   aria-label="Открыть меню профиля"
                   aria-expanded={openProfile}
                   aria-controls="profile-menu"
                 >
+                  {/* Mobile: Icon Only */}
                   <Image
                     src="/icons/user.svg"
                     alt="Profile"
                     width={20}
                     height={20}
-                    className="w-5 h-5 text-black"
+                    className="w-5 h-5 text-black md:hidden"
                     loading="lazy"
                   />
+                  {/* Desktop: Text + Bonus */}
+                  <div className="hidden md:flex items-center gap-2">
+                    {bonus !== null && (
+                      <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
+                        Бонусов: {bonus}
+                      </span>
+                    )}
+                    <span>Профиль</span>
+                  </div>
                 </button>
 
                 <AnimatePresence>
@@ -177,7 +238,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                     >
                       <div className="py-1">
                         {bonus !== null && (
-                          <div className="px-4 py-2 text-sm text-gray-700">
+                          <div className="px-4 py-2 text-sm text-gray-700 md:hidden">
                             Бонусов: {bonus}
                           </div>
                         )}
@@ -209,25 +270,28 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             ) : (
               <Link
                 href="/account"
-                className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
+                className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:px-4 md:py-1 md:border md:rounded-full"
                 onClick={() => trackEvent('login_click', 'header')}
                 aria-label="Войти в аккаунт"
                 aria-current={pathname === '/account' ? 'page' : undefined}
               >
+                {/* Mobile: Icon Only */}
                 <Image
                   src="/icons/user.svg"
                   alt="Login"
                   width={20}
                   height={20}
-                  className="w-5 h-5 text-black"
+                  className="w-5 h-5 text-black md:hidden"
                   loading="lazy"
                 />
+                {/* Desktop: Text */}
+                <span className="hidden md:inline">Вход</span>
               </Link>
             )}
 
             <Link
               href="/cart"
-              className="flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
+              className="flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:border md:px-3 md:py-1 md:rounded-full"
               title="Корзина"
               aria-label="Перейти в корзину"
               aria-current={pathname === '/cart' ? 'page' : undefined}
@@ -242,19 +306,19 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                 loading="lazy"
               />
               {cartSum > 0 && (
-                <span className="text-xs font-medium">{formattedCartSum}</span>
+                <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>
               )}
             </Link>
           </div>
         </div>
 
-        {/* Category Navigation - Collapsible on Mobile */}
+        {/* Category Navigation */}
         <div className="border-t">
           <CategoryNav initialCategories={initialCategories} />
         </div>
       </header>
 
-      {/* Search Modal Optimized for Mobile */}
+      {/* Search Modal */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
