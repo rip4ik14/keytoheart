@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Session } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
 interface SupabaseProviderProps {
   children: ReactNode;
-  initialSession: Session | null;
+  initialUser: User | null;
 }
 
-export default function SupabaseProvider({ children, initialSession }: SupabaseProviderProps) {
-  const [supabase] = useState(() =>
-    createBrowserClient<Database>(
+export default function SupabaseProvider({ children, initialUser }: SupabaseProviderProps) {
+  const [supabase, setSupabase] = useState<any>(null);
+
+  useEffect(() => {
+    const client = createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -22,13 +24,22 @@ export default function SupabaseProvider({ children, initialSession }: SupabaseP
           detectSessionInUrl: true,
         },
       }
-    )
-  );
+    );
+    setSupabase(client);
 
-  // Устанавливаем начальную сессию, если она передана
-  if (initialSession) {
-    supabase.auth.setSession(initialSession);
-  }
+    // Если пользователь аутентифицирован, проверяем сессию
+    if (initialUser) {
+      // Примечание: User не содержит access_token и refresh_token.
+      // Сессия должна быть уже установлена в браузере через cookies.
+      client.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          console.log(`[${new Date().toISOString()}] No active session for user:`, initialUser.id);
+        }
+      });
+    }
+  }, [initialUser]);
+
+  if (!supabase) return null; // Избегаем рендеринга до инициализации клиента
 
   return <>{children}</>;
 }

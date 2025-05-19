@@ -1,3 +1,5 @@
+// app/layout.tsx
+
 import './styles/globals.css';
 import './styles/fonts.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
@@ -45,35 +47,46 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Получаем объект cookies() как ReadonlyRequestCookies
   const cookieStore = await cookies();
+
+  // Создаём SSR-клиент Supabase и передаём ему методы работы с cookies
   const supabaseServer = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return Array.from(cookieStore.getAll()).map((cookie) => ({
-            name: cookie.name,
-            value: cookie.value,
+          return cookieStore.getAll().map((c) => ({
+            name: c.name,
+            value: c.value,
           }));
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+          cookiesToSet.forEach((cookie) => {
+            const { name, value, options } = cookie;
+            // приводим options к тому, что ожидает cookieStore.set
+            cookieStore.set(
+              name,
+              value,
+              options as Parameters<typeof cookieStore.set>[2]
+            );
           });
         },
       },
     }
   );
 
+  // Достаём пользователя
   const startSession = Date.now();
   const {
-    data: { session },
-    error: sessionError,
-  } = await supabaseServer.auth.getSession();
-  console.log('Supabase query duration for session in layout:', Date.now() - startSession, 'ms');
-  console.log('Session in layout:', { session, sessionError });
+    data: { user },
+    error: userError,
+  } = await supabaseServer.auth.getUser();
+  console.log('Supabase query duration for user in layout:', Date.now() - startSession, 'ms');
+  console.log('User in layout:', { user, userError });
 
+  // Загружаем категории для шапки
   let categories: Category[] = [];
   try {
     const startCategories = Date.now();
@@ -92,20 +105,18 @@ export default async function RootLayout({
     console.log('Categories fetch result:', { data, error });
 
     if (error) throw error;
-    categories = Array.isArray(data)
-      ? data.map((cat) => ({
-          ...cat,
-          is_visible: cat.is_visible ?? true,
-          subcategories: cat.subcategories
-            ? cat.subcategories
-                .filter((sub: any) => sub.is_visible === true)
-                .map((sub: any) => ({
-                  ...sub,
-                  is_visible: sub.is_visible ?? true,
-                }))
-            : [],
-        }))
-      : [];
+    categories = data!.map((cat) => ({
+      ...cat,
+      is_visible: cat.is_visible ?? true,
+      subcategories: cat.subcategories
+        ? cat.subcategories
+            .filter((sub) => sub.is_visible === true)
+            .map((sub) => ({
+              ...sub,
+              is_visible: sub.is_visible ?? true,
+            }))
+        : [],
+    }));
   } catch (err) {
     console.error('Ошибка загрузки категорий в layout:', err);
     categories = [];
@@ -118,7 +129,6 @@ export default async function RootLayout({
     <html lang="ru">
       <head>
         <meta name="yandex-verification" content="2d95e0ee66415497" />
-        {/* Убрана предзагрузка шрифтов для устранения OTS parsing error */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -132,7 +142,8 @@ export default async function RootLayout({
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`
               (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-              m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+              m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],
+              k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
               (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
               ym('${ymId}', "init", { clickmap:true, trackLinks:true, accurateTrackBounce:true });
             `}
@@ -157,7 +168,7 @@ export default async function RootLayout({
       </head>
       <body className="bg-white font-sans">
         <CartAnimationProvider>
-          <SupabaseProvider initialSession={session}>
+          <SupabaseProvider initialUser={user}>
             <CartProvider>
               <TopBar />
               <StickyHeader initialCategories={categories} />

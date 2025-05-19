@@ -13,6 +13,7 @@ import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
 import { createBrowserClient } from '@supabase/ssr';
+import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
 // Интерфейсы для типизации данных
@@ -129,7 +130,21 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
     };
 
-    checkSession();
+    checkSession().catch((error) => {
+      console.error('Unhandled error in checkSession:', error);
+    });
+
+    // Добавляем слушатель изменений авторизации
+    const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      console.log(`[${new Date().toISOString()}] Auth state changed:`, { event, session });
+      checkSession().catch((error) => {
+        console.error('Unhandled error in auth state change:', error);
+      });
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [initialOrders, initialBonusData, supabase]);
 
   // Загрузка данных

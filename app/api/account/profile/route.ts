@@ -8,6 +8,52 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const phone = searchParams.get('phone');
+
+    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
+    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      return NextResponse.json(
+        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('name, last_name, email, birthday, receive_offers')
+      .eq('phone', sanitizedPhone)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error(`[${new Date().toISOString()}] Error fetching profile:`, error);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка получения профиля: ' + error.message },
+        { status: 500 }
+      );
+    }
+
+    const profile = data || {
+      name: null,
+      last_name: null,
+      email: null,
+      birthday: null,
+      receive_offers: false,
+    };
+
+    return NextResponse.json({ success: true, data: profile });
+  } catch (error: any) {
+    console.error(`[${new Date().toISOString()}] Server error in profile:`, error);
+    return NextResponse.json(
+      { success: false, error: 'Ошибка сервера: ' + error.message },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { phone, name, last_name, email, birthday, receive_offers } = await request.json();
