@@ -1,3 +1,4 @@
+// ✅ Путь: /var/www/keytoheart/app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -44,6 +45,9 @@ export async function GET(req: Request) {
   const phone = searchParams.get('phone');
 
   console.log(`[${new Date().toISOString()}] Проверка статуса для checkId: ${checkId}, телефон: ${phone}`);
+  console.log(`[${new Date().toISOString()}] SUPABASE_URL: ${process.env.SUPABASE_URL}`);
+  console.log(`[${new Date().toISOString()}] SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY}`);
+  console.log(`[${new Date().toISOString()}] SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY}`);
 
   try {
     if (!checkId || !phone) {
