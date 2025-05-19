@@ -63,18 +63,7 @@ interface Props {
 
 export default function AccountClient({ initialSession, initialOrders, initialBonusData }: Props) {
   const router = useRouter();
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Accept: 'application/json',
-        },
-      },
-    }
-  );
-
+  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
   const [orders, setOrders] = useState<Order[]>(initialOrders || []);
   const [bonusData, setBonusData] = useState<BonusesData | null>(initialBonusData);
@@ -83,8 +72,26 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
-  // Проверяем авторизацию через Supabase
+  // Инициализация клиента Supabase
   useEffect(() => {
+    const client = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      }
+    );
+    setSupabase(client);
+  }, []);
+
+  // Проверка авторизации
+  useEffect(() => {
+    if (!supabase) return;
+
     const checkSession = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -95,7 +102,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         }
         if (user) {
           setIsAuthenticated(true);
-          // Добавляем префикс "+" к номеру телефона
           const formattedPhone = user.phone?.startsWith('+') ? user.phone : `+${user.phone}`;
           setPhone(formattedPhone || '');
           setOrders(initialOrders || []);
@@ -118,30 +124,30 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     checkSession();
   }, [initialOrders, initialBonusData, supabase]);
 
-  // Загрузка данных после авторизации
+  // Загрузка данных
   const fetchAccountData = useCallback(async () => {
-    if (!phone) return;
+    if (!phone || !supabase) return;
     setIsLoading(true);
     try {
       console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${phone}`);
 
-      // Загружаем бонусы
-      const { data: bonusesData, error: bonusesError } = await supabase
-        .from('bonuses')
-        .select('id, bonus_balance, level')
-        .eq('phone', phone)
-        .limit(1);
+      // Загружаем бонусы через API
+      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      const bonusesResult = await bonusesRes.json();
 
-      console.log(`[${new Date().toISOString()}] Bonuses response:`, { data: bonusesData, error: bonusesError });
+      console.log(`[${new Date().toISOString()}] Bonuses response:`, bonusesResult);
 
       let bonuses: BonusesData;
-      if (bonusesError) {
-        console.error('Bonuses fetch error:', bonusesError);
-        throw new Error(`Bonuses fetch error: ${bonusesError.message}`);
+      if (!bonusesRes.ok || !bonusesResult.success) {
+        console.error('Bonuses fetch error:', bonusesResult.error);
+        throw new Error(`Bonuses fetch error: ${bonusesResult.error || 'Неизвестная ошибка'}`);
       }
-      bonuses = bonusesData && bonusesData.length > 0
-        ? { ...bonusesData[0], history: [] }
-        : { id: null, bonus_balance: 0, level: 'bronze', history: [] };
+      bonuses = bonusesResult.data;
 
       if (bonuses.id) {
         const { data: historyData, error: historyError } = await supabase
@@ -155,7 +161,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           console.error('History fetch error:', historyError);
           throw new Error(`History fetch error: ${historyError.message}`);
         }
-        bonuses.history = historyData?.map((item) => ({
+        bonuses.history = historyData?.map((item: BonusHistoryItem) => ({
           amount: item.amount ?? 0,
           reason: item.reason ?? '',
           created_at: item.created_at ?? '',
@@ -178,24 +184,24 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         throw new Error(`Orders fetch error: ${ordersResult.error || 'Неизвестная ошибка'}`);
       }
 
-      const transformedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
-        id: parseInt(order.id, 10),
+      const transformedOrders: Order[] = (ordersResult.data || []).map((order: Order) => ({
+        id: order.id,
         created_at: order.created_at ?? '',
         total: order.total ?? 0,
         bonuses_used: order.bonuses_used ?? 0,
         payment_method: order.payment_method ?? 'cash',
         status: order.status ?? '',
         recipient: order.recipient || 'Не указан',
-        items: (order.items || []).map((item: any) => ({
+        items: (order.items || []).map((item: OrderItem) => ({
           quantity: item.quantity,
           price: item.price,
           product_id: item.product_id ?? 0,
           products: {
-            title: item.title || 'Неизвестный товар',
-            cover_url: item.imageUrl || null,
+            title: item.products.title || 'Неизвестный товар',
+            cover_url: item.products.cover_url || null,
           },
         })),
-        upsell_details: (order.upsell_details || []).map((upsell: any) => ({
+        upsell_details: (order.upsell_details || []).map((upsell: UpsellDetail) => ({
           title: upsell.title || 'Неизвестный товар',
           price: upsell.price || 0,
           quantity: upsell.quantity || 1,
@@ -240,7 +246,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   useEffect(() => {
     if (isAuthenticated) {
       fetchAccountData();
-      // Проверяем, есть ли флаг успешного заказа
       const orderSuccess = localStorage.getItem('orderSuccess');
       if (orderSuccess) {
         console.log('Order success detected, refreshing data');
@@ -251,18 +256,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData]);
 
-  // Обработчик успешной авторизации
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     setPhone(phone);
     fetchAccountData();
   };
 
-  // Выход
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await supabase.auth.signOut();
+      await supabase?.auth.signOut();
       setIsAuthenticated(false);
       setPhone('');
       setOrders([]);

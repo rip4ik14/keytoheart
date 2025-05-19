@@ -32,12 +32,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
 
-  // Проверяем параметры URL для отображения ошибок
+  useEffect(() => {
+    const client = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    setSupabase(client);
+  }, []);
+
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'no-session') {
@@ -47,7 +51,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   }, [searchParams]);
 
-  // Форматирование номера телефона
   const formatPhone = (value: string) => {
     let cleaned = value.replace(/\D/g, '');
     if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
@@ -64,15 +67,13 @@ export default function AuthWithCall({ onSuccess }: Props) {
     ).replace(/ $/, '');
   };
 
-  // Обработка ввода номера телефона
   const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value.replace(/\D/g, '');
     if (v.length <= 11) setPhone(formatPhone(v));
   };
 
-  // Таймер для блокировки
   const startBanTimer = () => {
-    setBanTimer(600); // 10 минут
+    setBanTimer(600);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setBanTimer((t) => {
@@ -88,9 +89,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Таймер для звонка
   const startCallTimer = () => {
-    setCallTimer(300); // 5 минут
+    setCallTimer(300);
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallTimer((t) => {
@@ -105,9 +105,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
-  // Проверка статуса звонка
   const checkCallStatus = async () => {
-    if (!checkId || !phone) return;
+    if (!checkId || !phone || !supabase) return;
 
     setIsCheckingStatus(true);
     try {
@@ -123,7 +122,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
-        // Устанавливаем сессию в Supabase
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -138,7 +136,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
         window.ym?.(96644553, 'reachGoal', 'auth_success', { phone: clearPhone });
 
-        // Перенаправление после успешной авторизации
         const redirectTo = searchParams.get('from') || '/account';
         router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
@@ -159,7 +156,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   };
 
-  // Запуск периодической проверки статуса звонка
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
       const initialDelay = setTimeout(() => {
@@ -174,7 +170,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   }, [step, checkId, phone, router]);
 
-  // Очистка таймеров при размонтировании
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -183,7 +178,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
     };
   }, []);
 
-  // Отправка запроса на звонок
   const handleSendCall = async () => {
     setError('');
     setIsLoading(true);

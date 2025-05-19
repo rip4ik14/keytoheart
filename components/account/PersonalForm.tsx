@@ -1,4 +1,3 @@
-// ✅ Путь: components/account/PersonalForm.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -35,13 +34,6 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData.session) {
-        setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
-        toast.error('Ошибка аутентификации');
-        return;
-      }
-
       if (!phone) {
         setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
         toast.error('Номер телефона не найден');
@@ -52,7 +44,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       try {
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('name, email')
+          .select('name, last_name, email, birthday, receive_offers')
           .eq('phone', phone)
           .single();
 
@@ -65,7 +57,10 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
         if (data) {
           setName(data.name || 'Денис');
+          setLastName(data.last_name || '');
           setEmail(data.email || '');
+          setBirthday(data.birthday || '');
+          setReceiveOffers(data.receive_offers || false);
         }
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
@@ -82,13 +77,6 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session) {
-      setError('Ошибка аутентификации. Пожалуйста, войдите заново.');
-      toast.error('Ошибка аутентификации');
-      return;
-    }
 
     if (!phone) {
       setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
@@ -128,16 +116,19 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       const sanitizedName = trimmedName.replace(/[<>&'"]/g, '');
       const sanitizedLastName = trimmedLastName.replace(/[<>&'"]/g, '');
       const sanitizedEmail = trimmedEmail.replace(/[<>&'"]/g, '');
+      const sanitizedBirthday = birthday.replace(/[<>&'"]/g, '');
 
       // Обновляем профиль через Supabase
       const { error: upsertError } = await supabase
         .from('user_profiles')
         .upsert(
           {
-            id: sessionData.session.user.id,
             phone,
             name: sanitizedName,
+            last_name: sanitizedLastName || null,
             email: sanitizedEmail || null,
+            birthday: sanitizedBirthday || null,
+            receive_offers: receiveOffers,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'phone' }
@@ -147,14 +138,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         throw new Error(`Error updating profile: ${upsertError.message}`);
       }
 
-      // Сохраняем предпочтение по рекламным предложениям (можно добавить в таблицу user_profiles или отдельную)
-      // Для примера предположим, что это поле будет добавлено позже
-
       toast.success('Данные успешно обновлены');
       await onUpdate();
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: sanitizedName });
-      window.ym?.(12345678, 'reachGoal', 'update_profile', { name: sanitizedName });
+      window.ym?.(96644553, 'reachGoal', 'update_profile', { name: sanitizedName });
     } catch (error: any) {
       console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');
