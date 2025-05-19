@@ -1,4 +1,3 @@
-// ✅ Путь: /var/www/keytoheart/app/api/auth/status/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -193,47 +192,37 @@ export async function GET(req: Request) {
       }
     }
 
-    // Генерация сессии через admin API
-    console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
-
-    // Используем admin.generateLink для создания токена
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: user.email,
-      options: { redirectTo: 'https://keytoheart.ru' },
+    // Генерация сессии через signInWithOtp
+    console.log(`[${new Date().toISOString()}] Генерация OTP для пользователя: ${user.id}`);
+    const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
+      phone,
+      options: { shouldCreateUser: false },
     });
 
-    if (linkError || !linkData) {
-      console.error(`[${new Date().toISOString()}] Ошибка генерации magiclink:`, linkError?.message);
-      throw new Error('Ошибка генерации magiclink: ' + (linkError?.message || 'Неизвестная ошибка'));
+    if (otpError) {
+      console.error(`[${new Date().toISOString()}] Ошибка генерации OTP:`, otpError.message);
+      return NextResponse.json({ success: false, error: 'Ошибка генерации OTP' }, { status: 500 });
     }
 
-    const magicToken = new URL(linkData.properties.action_link).searchParams.get('token');
-    if (!magicToken) {
-      console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magiclink`);
-      throw new Error('Не удалось извлечь токен из magiclink');
-    }
-
-    // Создаём сессию с помощью anon-клиента
+    // Получение сессии
     const anonClient = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_ANON_KEY!
     );
 
-    const { data: sessionResult, error: setSessionError } = await anonClient.auth.setSession({
-      access_token: magicToken,
-      refresh_token: '',
-    });
+    const { data: sessionResult, error: sessionError } = await anonClient.auth.getSession();
 
-    if (setSessionError || !sessionResult.session) {
-      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через setSession:`, setSessionError?.message);
-      throw new Error('Ошибка создания сессии: ' + (setSessionError?.message || 'Неизвестная ошибка'));
+    if (sessionError || !sessionResult.session) {
+      console.error(`[${new Date().toISOString()}] Ошибка получения сессии:`, sessionError?.message);
+      return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
     }
 
     const access_token = sessionResult.session.access_token;
     const refresh_token = sessionResult.session.refresh_token;
 
-    // Установка токенов в cookies
+    // Отправка событий аналитики
+    console.log(`[${new Date().toISOString()}] Sending analytics events: auth_success`);
+    // Эти заголовки обрабатываются клиентским кодом
     const res = NextResponse.json({
       success: true,
       status: 'VERIFIED',
@@ -243,6 +232,10 @@ export async function GET(req: Request) {
       refresh_token,
     });
 
+    res.headers.set('X-GA-Event', JSON.stringify({ event: 'auth_success', phone }));
+    res.headers.set('X-YM-Event', JSON.stringify({ event: 'auth_success', phone }));
+
+    // Установка токенов в cookies
     const cfg = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
     res.cookies.set('access_token', access_token, { ...cfg, expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3) });
     res.cookies.set('refresh_token', refresh_token, { ...cfg, expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30) });
