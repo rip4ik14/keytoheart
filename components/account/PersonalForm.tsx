@@ -11,6 +11,14 @@ interface PersonalFormProps {
   phone: string;
 }
 
+interface ProfileData {
+  name: string | null;
+  last_name: string | null;
+  email: string | null;
+  birthday: string | null;
+  receive_offers: boolean | null;
+}
+
 export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [name, setName] = useState<string>('Денис');
   const [lastName, setLastName] = useState<string>('');
@@ -56,11 +64,12 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         }
 
         if (data) {
-          setName(data.name || 'Денис');
-          setLastName(data.last_name || '');
-          setEmail(data.email || '');
-          setBirthday(data.birthday || '');
-          setReceiveOffers(data.receive_offers || false);
+          const profileData = data as ProfileData;
+          setName(profileData.name || 'Денис');
+          setLastName(profileData.last_name || '');
+          setEmail(profileData.email || '');
+          setBirthday(profileData.birthday || '');
+          setReceiveOffers(profileData.receive_offers || false);
         }
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
@@ -112,13 +121,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     setIsLoading(true);
     try {
-      // Защита от XSS
       const sanitizedName = trimmedName.replace(/[<>&'"]/g, '');
       const sanitizedLastName = trimmedLastName.replace(/[<>&'"]/g, '');
       const sanitizedEmail = trimmedEmail.replace(/[<>&'"]/g, '');
       const sanitizedBirthday = birthday.replace(/[<>&'"]/g, '');
 
-      // Обновляем профиль через Supabase
       const { error: upsertError } = await supabase
         .from('user_profiles')
         .upsert(
