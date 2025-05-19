@@ -1,4 +1,3 @@
-// ✅ Путь: components/account/BonusCard.tsx
 'use client';
 
 interface BonusCardProps {
@@ -18,10 +17,10 @@ export default function BonusCard({ balance, level }: BonusCardProps) {
         Бонусы начисляются в размере {cashbackPercentage}% от каждой покупки
       </p>
       <p className="text-sm text-gray-500 mt-1">
-        Использовать бонусы можно при оформлении заказа. 1 бонус = 1 ₽
+        Использовать бонусы можно при оформлении заказа, до 15% от суммы. 1 бонус = 1 ₽
       </p>
-      <p className="text-sm text-gray-700 mt-4">
-        Хочешь еще бонусы? Получите дополнительные 500 рублей на бонусный счёт, установив карту лояльности на телефон и заполнив памятные даты!
+      <p className="text-sm text-gray-500 mt-1">
+        Срок действия бонусов: 6 месяцев с момента последней покупки
       </p>
     </div>
   );

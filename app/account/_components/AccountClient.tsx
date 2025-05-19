@@ -69,7 +69,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     {
       global: {
         headers: {
-          Accept: 'application/vnd.pgrst.object+json', // Для .single()
+          Accept: 'application/json',
         },
       },
     }
@@ -95,7 +95,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         }
         if (user) {
           setIsAuthenticated(true);
-          setPhone(user.phone || '');
+          // Добавляем префикс "+" к номеру телефона
+          const formattedPhone = user.phone?.startsWith('+') ? user.phone : `+${user.phone}`;
+          setPhone(formattedPhone || '');
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
@@ -124,40 +126,40 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${phone}`);
 
       // Загружаем бонусы
-      const bonusesRes = await supabase
+      const { data: bonusesData, error: bonusesError } = await supabase
         .from('bonuses')
         .select('id, bonus_balance, level')
         .eq('phone', phone)
-        .single();
+        .limit(1);
 
-      console.log(`[${new Date().toISOString()}] Bonuses response:`, { data: bonusesRes.data, error: bonusesRes.error });
+      console.log(`[${new Date().toISOString()}] Bonuses response:`, { data: bonusesData, error: bonusesError });
 
-      let bonusesData: BonusesData;
-      if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
-        console.error('Bonuses fetch error:', bonusesRes.error);
-        throw new Error(`Bonuses fetch error: ${bonusesRes.error.message}`);
+      let bonuses: BonusesData;
+      if (bonusesError) {
+        console.error('Bonuses fetch error:', bonusesError);
+        throw new Error(`Bonuses fetch error: ${bonusesError.message}`);
       }
-      bonusesData = bonusesRes.data
-        ? { ...bonusesRes.data, history: [] }
-        : { id: null, bonus_balance: 0, level: 'basic', history: [] };
+      bonuses = bonusesData && bonusesData.length > 0
+        ? { ...bonusesData[0], history: [] }
+        : { id: null, bonus_balance: 0, level: 'bronze', history: [] };
 
-      if (bonusesData.id) {
-        const historyRes = await supabase
+      if (bonuses.id) {
+        const { data: historyData, error: historyError } = await supabase
           .from('bonus_history')
           .select('amount, reason, created_at')
-          .eq('bonus_id', bonusesData.id);
+          .eq('bonus_id', bonuses.id);
 
-        console.log(`[${new Date().toISOString()}] Bonus history response:`, { data: historyRes.data, error: historyRes.error });
+        console.log(`[${new Date().toISOString()}] Bonus history response:`, { data: historyData, error: historyError });
 
-        if (historyRes.error) {
-          console.error('History fetch error:', historyRes.error);
-          throw new Error(`History fetch error: ${historyRes.error.message}`);
+        if (historyError) {
+          console.error('History fetch error:', historyError);
+          throw new Error(`History fetch error: ${historyError.message}`);
         }
-        bonusesData.history = historyRes.data.map((item) => ({
+        bonuses.history = historyData?.map((item) => ({
           amount: item.amount ?? 0,
           reason: item.reason ?? '',
           created_at: item.created_at ?? '',
-        }));
+        })) || [];
       }
 
       // Загружаем заказы через API
@@ -202,7 +204,26 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }));
 
       console.log(`[${new Date().toISOString()}] Fetched orders:`, transformedOrders);
-      setBonusData(bonusesData);
+
+      // Обновляем уровень лояльности
+      const loyaltyRes = await fetch('/api/account/update-loyalty', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      });
+      const loyaltyResult = await loyaltyRes.json();
+
+      console.log(`[${new Date().toISOString()}] Loyalty update response:`, loyaltyResult);
+
+      if (!loyaltyRes.ok || !loyaltyResult.success) {
+        console.error('Loyalty update error:', loyaltyResult.error);
+      } else {
+        bonuses.level = loyaltyResult.level;
+      }
+
+      setBonusData(bonuses);
       setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
@@ -336,7 +357,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 </div>
                 <BonusCard
                   balance={bonusData?.bonus_balance ?? 0}
-                  level={bonusData?.level ?? 'basic'}
+                  level={bonusData?.level ?? 'bronze'}
                 />
               </div>
             )}
