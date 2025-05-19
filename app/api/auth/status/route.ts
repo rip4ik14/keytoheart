@@ -145,14 +145,17 @@ export async function GET(req: Request) {
     // Пользователь: найти или создать
     console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
     let user = await findUserByPhone(phone);
+    let userEmail = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
+    const temporaryPassword = 'TempPassword123!'; // Временный пароль
+
     if (!user) {
       console.log(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден, регистрируем нового`);
-      const email = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
       const { data: nu, error } = await supabaseAdmin.auth.admin.createUser({
         phone,
         phone_confirm: true,
-        email,
+        email: userEmail,
         email_confirm: true,
+        password: temporaryPassword,
         user_metadata: { phone },
       });
       if (error) {
@@ -164,6 +167,8 @@ export async function GET(req: Request) {
       } else {
         user = nu.user;
       }
+    } else {
+      userEmail = user.email;
     }
 
     console.log(`[${new Date().toISOString()}] Пользователь найден или создан: ${user.id}`);
@@ -192,37 +197,28 @@ export async function GET(req: Request) {
       }
     }
 
-    // Генерация сессии через signInWithOtp
-    console.log(`[${new Date().toISOString()}] Генерация OTP для пользователя: ${user.id}`);
-    const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
-      phone,
-      options: { shouldCreateUser: false },
-    });
-
-    if (otpError) {
-      console.error(`[${new Date().toISOString()}] Ошибка генерации OTP:`, otpError.message);
-      return NextResponse.json({ success: false, error: 'Ошибка генерации OTP' }, { status: 500 });
-    }
-
-    // Получение сессии
+    // Создание сессии через signInWithPassword
+    console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
     const anonClient = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_ANON_KEY!
     );
 
-    const { data: sessionResult, error: sessionError } = await anonClient.auth.getSession();
+    const { data: sessionData, error: signInError } = await anonClient.auth.signInWithPassword({
+      email: userEmail,
+      password: temporaryPassword,
+    });
 
-    if (sessionError || !sessionResult.session) {
-      console.error(`[${new Date().toISOString()}] Ошибка получения сессии:`, sessionError?.message);
-      return NextResponse.json({ success: false, error: 'Ошибка создания сессии' }, { status: 500 });
+    if (signInError || !sessionData.session) {
+      console.error(`[${new Date().toISOString()}] Ошибка входа с паролем:`, signInError?.message);
+      return NextResponse.json({ success: false, error: 'Ошибка создания сессии: ' + (signInError?.message || 'Неизвестная ошибка') }, { status: 500 });
     }
 
-    const access_token = sessionResult.session.access_token;
-    const refresh_token = sessionResult.session.refresh_token;
+    const access_token = sessionData.session.access_token;
+    const refresh_token = sessionData.session.refresh_token;
 
     // Отправка событий аналитики
     console.log(`[${new Date().toISOString()}] Sending analytics events: auth_success`);
-    // Эти заголовки обрабатываются клиентским кодом
     const res = NextResponse.json({
       success: true,
       status: 'VERIFIED',
