@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
+import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } }
@@ -28,7 +29,6 @@ export async function GET(request: Request) {
     const rawPhone = searchParams.get('phone');
 
     if (!rawPhone) {
-      console.error(`[${new Date().toISOString()}] Missing phone parameter`);
       return NextResponse.json(
         { success: false, error: 'Номер телефона обязателен' },
         { status: 400 }
@@ -45,9 +45,8 @@ export async function GET(request: Request) {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      console.error(`[${new Date().toISOString()}] Error fetching profile:`, error);
       return NextResponse.json(
-        { success: false, error: 'Ошибка получения профиля: ' + error.message },
+        { success: false, error: 'Ошибка получения профиля' },
         { status: 500 }
       );
     }
@@ -62,9 +61,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: profile });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in profile:`, error);
     return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
+      { success: false, error: 'Ошибка сервера' },
       { status: 500 }
     );
   }
@@ -98,19 +96,16 @@ export async function POST(request: Request) {
       );
 
     if (error) {
-      console.error(`[${new Date().toISOString()}] Error updating profile:`, error);
       return NextResponse.json(
-        { success: false, error: 'Ошибка обновления профиля: ' + error.message },
+        { success: false, error: 'Ошибка обновления профиля' },
         { status: 500 }
       );
     }
 
-    console.log(`[${new Date().toISOString()}] Updated profile for phone ${normalizedPhone}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in profile:`, error);
     return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
+      { success: false, error: 'Ошибка сервера' },
       { status: 500 }
     );
   }

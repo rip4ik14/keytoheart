@@ -51,7 +51,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     if (errorParam === 'no-session') {
       setError('Пожалуйста, авторизуйтесь для доступа к личному кабинету.');
     } else if (errorParam === 'invalid-session') {
-      setError('Сессия истекла. Пожалуйста, авторизуйтесь заново.');
+      setError('Сессия истекла.oscopy Пожалуйста, авторизуйтесь заново.');
     }
   }, [searchParams]);
 
@@ -123,6 +123,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
       }
 
       if (data.success && data.status === 'VERIFIED') {
+        // Очистка старых cookies перед установкой новой сессии
+        document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -242,7 +244,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             aria-label="Введите номер телефона"
           />
           <motion.button
-            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-sans font-bold transition-all hover:bg-finished hover:text-black hover:shadow disabled:opacity-50"
+            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-sans font-bold transition-all hover:bg-white hover:text-black hover:shadow disabled:opacity-50"
             onClick={handleSendCall}
             disabled={isLoading || phone.replace(/\D/g, '').length !== 11}
             whileHover={{ scale: 1.02 }}
