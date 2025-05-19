@@ -1,9 +1,10 @@
+// app/api/orders/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } }
@@ -12,7 +13,6 @@ const supabase = createClient(
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
-// Тип для данных, получаемых из запроса
 interface OrderRequest {
   phone: string;
   name: string;
@@ -33,7 +33,6 @@ interface OrderRequest {
   }>;
   total: number;
   bonuses_used?: number;
-  bonus?: number;
   promo_id?: string;
   promo_discount?: number;
   delivery_instructions?: string;
@@ -42,387 +41,197 @@ interface OrderRequest {
   whatsapp?: boolean;
 }
 
-// Функция для нормализации телефона
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  } else if (cleanPhone.length === 10) {
-    return `+7${cleanPhone}`;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
-    return `+7${cleanPhone.slice(1)}`;
-  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return '+7' + digits;
+  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+    return '+7' + digits.slice(-10);
   }
-  return phone.startsWith('+') ? phone : `+${phone}`;
-};
+  return raw.startsWith('+') ? raw : '+' + raw;
+}
 
-// Функция для экранирования HTML-символов в Telegram-сообщении
-const escapeHtml = (text: string) => {
-  return text
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>');
-};
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 export async function POST(req: Request) {
   try {
-    const body: OrderRequest = await req.json();
+    const body = await req.json() as OrderRequest;
     const {
       phone: rawPhone,
       name,
       recipient,
-      recipientPhone: rawRecipientPhone,
+      recipientPhone: rawRecipient,
       address,
       deliveryMethod,
       date,
       time,
       payment,
-      items: cart,
+      items,
       total,
       bonuses_used = 0,
-      bonus: initialBonus = 0,
       promo_id,
       promo_discount = 0,
       delivery_instructions,
       postcard_text,
-      anonymous,
-      whatsapp,
+      anonymous = false,
+      whatsapp = false,
     } = body;
 
-    console.log(`[${new Date().toISOString()}] Received payload:`, body);
-
-    // Валидация обязательных полей
-    if (!rawPhone || !name || !recipient || !address || !total || !cart || !rawRecipientPhone) {
-      console.error(`[${new Date().toISOString()}] Missing required fields:`, {
-        phone: rawPhone,
-        name,
-        recipient,
-        recipientPhone: rawRecipientPhone,
-        address,
-        total,
-        cart,
-      });
-      return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
+    // обязательные поля
+    if (!rawPhone || !name || !recipient || !address || !Array.isArray(items) || !total || !rawRecipient) {
+      return NextResponse.json({ success: false, error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
-    // Нормализация и валидация телефона
-    const sanitizedPhone = normalizePhone(sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }));
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format:`, { phone: sanitizedPhone });
-      return NextResponse.json(
-        { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
-      );
+    const phone = normalizePhone(sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }));
+    const recipientPhone = normalizePhone(sanitizeHtml(rawRecipient, { allowedTags: [], allowedAttributes: {} }));
+
+    if (!/^\+7\d{10}$/.test(phone) || !/^\+7\d{10}$/.test(recipientPhone)) {
+      return NextResponse.json({ success: false, error: 'Некорректный формат телефона' }, { status: 400 });
     }
 
-    // Нормализация и валидация телефона получателя
-    const sanitizedRecipientPhone = normalizePhone(sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }));
-    if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid recipient phone format:`, { recipientPhone: sanitizedRecipientPhone });
-      return NextResponse.json(
-        { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
-      );
-    }
-
-    // Санитизация текстовых полей
-    const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedDeliveryInstructions = delivery_instructions
+    const cleanName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
+    const cleanRecipientName = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
+    const cleanAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
+    const cleanInstr = delivery_instructions
       ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
       : null;
-    const sanitizedPostcardText = postcard_text
+    const cleanPost = postcard_text
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // Логирование санитизированных данных
-    console.log(`[${new Date().toISOString()}] Sanitized order data:`, {
-      phone: sanitizedPhone,
-      recipientPhone: sanitizedRecipientPhone,
-      name: sanitizedName,
-      recipient: sanitizedRecipient,
-      address: sanitizedAddress,
-      delivery_instructions: sanitizedDeliveryInstructions,
-      postcard_text: sanitizedPostcardText,
-    });
-
-    // Проверка профиля пользователя
-    const { data: profile, error: profileError } = await supabase
+    // находим профиль
+    const { data: profile, error: profileErr } = await supabase
       .from('user_profiles')
       .select('id')
-      .eq('phone', sanitizedPhone)
+      .eq('phone', phone)
       .single();
 
-    if (profileError || !profile) {
-      console.error(`[${new Date().toISOString()}] Profile not found for phone:`, sanitizedPhone);
-      return NextResponse.json(
-        { error: 'Профиль с таким телефоном не найден' },
-        { status: 404 }
-      );
+    if (profileErr || !profile) {
+      return NextResponse.json({ success: false, error: 'Профиль не найден' }, { status: 404 });
     }
-
     const user_id = profile.id;
 
-    // Разделяем основные товары и upsell-дополнения
-    const regularItems = cart.filter((item) => !item.isUpsell);
-    const upsellItems = cart.filter((item) => item.isUpsell);
+    // разделяем товары
+    const regular = items.filter(i => !i.isUpsell);
+    const upsell = items.filter(i => i.isUpsell);
 
-    // Проверяем, что все product_id для основных товаров существуют в таблице products
-    const productIds = regularItems
-      .map((item) => parseInt(item.id, 10))
-      .filter((id: number) => !isNaN(id));
-
-    if (productIds.length !== regularItems.length && regularItems.length > 0) {
-      console.error(`[${new Date().toISOString()}] Invalid product IDs (not numbers):`, regularItems);
-      return NextResponse.json(
-        { error: 'Некоторые ID товаров некорректны (не числа)' },
-        { status: 400 }
-      );
+    // проверяем ID продуктов
+    const productIds = regular.map(i => parseInt(i.id, 10)).filter(n => !isNaN(n));
+    if (productIds.length !== regular.length) {
+      return NextResponse.json({ success: false, error: 'Неверные ID товаров' }, { status: 400 });
     }
-
-    if (productIds.length > 0) {
-      const { data: products, error: productsError } = await supabase
+    if (productIds.length) {
+      const { data: prods, error: prodErr } = await supabase
         .from('products')
         .select('id')
         .in('id', productIds);
-
-      if (productsError) {
-        console.error(`[${new Date().toISOString()}] Error checking products:`, productsError);
-        return NextResponse.json({ error: 'Ошибка проверки товаров' }, { status: 500 });
-      }
-
-      const existingProductIds = new Set(products.map((p: any) => p.id));
-      const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
-      if (invalidItems.length > 0) {
-        console.error(`[${new Date().toISOString()}] Invalid product IDs:`, invalidItems);
-        return NextResponse.json(
-          { error: `Товары с ID ${invalidItems.map((i: any) => i.id).join(', ')} не найдены` },
-          { status: 400 }
-        );
+      if (prodErr) throw prodErr;
+      const exists = new Set(prods.map(p => p.id));
+      const bad = regular.filter(i => !exists.has(parseInt(i.id, 10)));
+      if (bad.length) {
+        return NextResponse.json({
+          success: false,
+          error: `Продукты ${bad.map(i => i.id).join(', ')} не найдены`
+        }, { status: 400 });
       }
     }
 
-    // Сохраняем заказ
-    const { data: order, error: orderError } = await supabase
+    // создаём заказ
+    const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .insert([
-        {
-          user_id,
-          phone: sanitizedPhone,
-          recipient_phone: sanitizedRecipientPhone,
-          contact_name: sanitizedName,
-          recipient: sanitizedRecipient,
-          address: sanitizedAddress,
-          delivery_method: deliveryMethod,
-          delivery_date: date,
-          delivery_time: time,
-          payment_method: payment,
-          total,
-          bonuses_used,
-          bonus: 0,
-          promo_id,
-          promo_discount,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          delivery_instructions: sanitizedDeliveryInstructions,
-          postcard_text: sanitizedPostcardText,
-          anonymous,
-          whatsapp,
-          upsell_details: upsellItems.map((item) => ({
-            title: sanitizeHtml(item.title, { allowedTags: [], allowedAttributes: {} }),
-            price: item.price,
-            quantity: item.quantity,
-            category: item.category,
-          })),
-        },
-      ])
-      .select('id, order_number')
+      .insert([{
+        user_id,
+        phone,
+        recipient_phone: recipientPhone,
+        contact_name: cleanName,
+        recipient: cleanRecipientName,
+        address: cleanAddress,
+        delivery_method: deliveryMethod,
+        delivery_date: date,
+        delivery_time: time,
+        payment_method: payment,
+        total,
+        bonuses_used,
+        bonus: 0,
+        promo_id,
+        promo_discount,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        delivery_instructions: cleanInstr,
+        postcard_text: cleanPost,
+        anonymous,
+        whatsapp,
+        upsell_details: upsell.map(u => ({
+          title: sanitizeHtml(u.title, { allowedTags: [], allowedAttributes: {} }),
+          price: u.price,
+          quantity: u.quantity,
+          category: u.category,
+        })),
+      }])
+      .select('id,order_number')
       .single();
 
-    if (orderError || !order) {
-      console.error(`[${new Date().toISOString()}] Error saving order:`, orderError);
-      return NextResponse.json(
-        { error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') },
-        { status: 500 }
-      );
+    if (orderErr || !order) {
+      return NextResponse.json({ success: false, error: 'Не удалось сохранить заказ' }, { status: 500 });
     }
 
-    console.log(`[${new Date().toISOString()}] Successfully saved order:`, { id: order.id, order_number: order.order_number });
-
-    // Сохраняем основные товары в order_items
-    const orderItems = regularItems.map((item) => ({
-      order_id: order.id,
-      product_id: parseInt(item.id, 10),
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    if (orderItems.length > 0) {
-      const { error: itemError } = await supabase.from('order_items').insert(orderItems);
-      if (itemError) {
-        console.error(`[${new Date().toISOString()}] Error saving order items:`, itemError);
-        return NextResponse.json(
-          { error: 'Ошибка сохранения товаров: ' + itemError.message },
-          { status: 500 }
-        );
-      }
-      console.log(`[${new Date().toISOString()}] Successfully saved order items:`, orderItems);
-    } else {
-      console.log(`[${new Date().toISOString()}] No regular items to save in order_items`);
+    // записываем обычные позиции
+    if (regular.length) {
+      const itemsToInsert = regular.map(i => ({
+        order_id: order.id,
+        product_id: parseInt(i.id, 10),
+        quantity: i.quantity,
+        price: i.price
+      }));
+      const { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert);
+      if (itemsErr) throw itemsErr;
     }
 
-    const baseUrl = new URL(req.url).origin;
+    const origin = new URL(req.url).origin;
 
-    // Обработка списания бонусов
+    // списание бонусов
     if (bonuses_used > 0) {
-      const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
+      await fetch(`${origin}/api/redeem-bonus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }), // Используем phone вместо user_id
+        body: JSON.stringify({ phone, amount: bonuses_used, order_id: order.id })
       });
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`[${new Date().toISOString()}] Error redeeming bonuses:`, errorText);
-      } else {
-        console.log(`[${new Date().toISOString()}] Successfully redeemed bonuses:`, bonuses_used);
-      }
     }
 
-    // Начисление бонусов
-    console.log(`[${new Date().toISOString()}] Attempting to credit bonuses:`, { phone: sanitizedPhone, order_total: total, order_id: order.id });
-    const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
+    // начисление бонусов
+    const bonusRes = await fetch(`${origin}/api/order-bonus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }), // Используем phone вместо user_id
+      body: JSON.stringify({ phone, order_total: total, order_id: order.id })
     });
+    const bonusJson = await bonusRes.json();
+    const bonusAdded = bonusJson.bonus_added ?? 0;
 
-    let bonusResult;
-    if (resBonus.ok) {
-      bonusResult = await resBonus.json();
-      console.log(`[${new Date().toISOString()}] Successfully credited bonuses:`, bonusResult);
-    } else {
-      const errorText = await resBonus.text();
-      console.error(`[${new Date().toISOString()}] Error crediting bonuses:`, errorText);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка начисления бонусов: ' + errorText },
-        { status: 500 }
-      );
-    }
-
-    // Обновляем заказ с начисленным количеством бонусов
-    const bonusAdded = bonusResult.bonus_added || 0;
-    const { error: updateOrderError } = await supabase
+    // обновляем заказ с бонусами
+    await supabase
       .from('orders')
       .update({ bonus: bonusAdded })
       .eq('id', order.id);
 
-    if (updateOrderError) {
-      console.error(`[${new Date().toISOString()}] Error updating order with bonus:`, updateOrderError);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
-        { status: 500 }
-      );
-    }
-    console.log(`[${new Date().toISOString()}] Successfully updated order with bonus:`, bonusAdded);
-
-    // Обновление промокода
-    if (promo_id) {
-      console.log(`[${new Date().toISOString()}] Updating promo code usage:`, { promo_id });
-      const { data: promoData, error: promoFetchError } = await supabase
-        .from('promo_codes')
-        .select('used_count')
-        .eq('id', promo_id)
-        .single();
-
-      if (promoFetchError || !promoData) {
-        console.error(`[${new Date().toISOString()}] Error fetching promo code:`, promoFetchError?.message);
-      } else {
-        const newUsedCount = (promoData.used_count || 0) + 1;
-        const { error: promoUpdateError } = await supabase
-          .from('promo_codes')
-          .update({ used_count: newUsedCount })
-          .eq('id', promo_id);
-        if (promoUpdateError) {
-          console.error(`[${new Date().toISOString()}] Error updating promo code:`, promoUpdateError.message);
-        } else {
-          console.log(`[${new Date().toISOString()}] Successfully updated promo code usage:`, { promo_id, newUsedCount });
-        }
-      }
-    }
-
-    // Формируем сообщение для Telegram
-    const itemsList = regularItems.length
-      ? regularItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
-      : 'Нет основных товаров';
-    const upsellList = upsellItems.length
-      ? upsellItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
-      : 'Нет дополнений';
-    const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
-    const promoText = promo_id
-      ? `<b>Промокод:</b> Применён (скидка: ${promo_discount}₽)`
-      : `<b>Промокод:</b> Не применён`;
-    const anonymousText = anonymous ? 'Да' : 'Нет';
-    const whatsappText = whatsapp ? 'Да' : 'Нет';
-    const postcardTextMessage = sanitizedPostcardText || 'Не указан';
-    const message = `<b>🆕 Новый заказ #${order.order_number}</b>
-<b>Имя:</b> ${escapeHtml(sanitizedName)}
-<b>Телефон:</b> ${escapeHtml(sanitizedPhone)}
-<b>Телефон получателя:</b> ${escapeHtml(sanitizedRecipientPhone)}
-<b>Сумма:</b> ${total} ₽
-<b>Бонусы списано:</b> ${bonuses_used}
-<b>Бонусы начислено:</b> ${bonusAdded}
-<b>Дата/Время:</b> ${date} ${time}
-<b>Способ доставки:</b> ${deliveryMethodText}
-<b>Адрес:</b> ${escapeHtml(sanitizedAddress || 'Не указан (самовывоз)')}
-<b>Получатель:</b> ${escapeHtml(sanitizedRecipient)}
-<b>Оплата:</b> ${payment === 'cash' ? 'Наличные' : 'Онлайн'}
-<b>Анонимный заказ:</b> ${anonymousText}
-<b>Связь через WhatsApp:</b> ${whatsappText}
-<b>Текст открытки:</b> ${escapeHtml(postcardTextMessage)}
-${promoText}
-
-<b>Основные товары:</b>
-${itemsList}
-
-<b>Дополнения:</b>
-${upsellList}`;
-
-    // Отправляем сообщение в Telegram
-    console.log(`[${new Date().toISOString()}] Sending Telegram message:`, message);
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    // отправляем в Telegram
+    const txt = `<b>Новый заказ #${order.order_number}</b>\n` +
+      `Имя: ${escapeHtml(cleanName)}\nТелефон: ${escapeHtml(phone)}\n` +
+      `Сумма: ${total}₽\nБонусы списано: ${bonuses_used}\nБонусы начислено: ${bonusAdded}\n` +
+      `Товары: ${regular.map(i => `${i.title}×${i.quantity}`).join(', ')}`;
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML',
-      }),
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: txt, parse_mode: 'HTML' })
     });
 
-    if (!telegramResponse.ok) {
-      const telegramError = await telegramResponse.text();
-      console.error(`[${new Date().toISOString()}] Error sending Telegram message:`, telegramError);
-      return NextResponse.json(
-        { error: 'Ошибка отправки уведомления в Telegram: ' + telegramError },
-        { status: 500 }
-      );
-    }
-
-    console.log(`[${new Date().toISOString()}] Successfully sent Telegram notification for order:`, order.order_number);
     return NextResponse.json({
       success: true,
       order_id: order.id,
-      order_number: order.order_number,
-      user_id,
-      tracking_url: `/account/orders/${order.id}`,
+      order_number: order.order_number
     });
-  } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Error processing order:`, error);
-    return NextResponse.json(
-      { error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error('Order API error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
