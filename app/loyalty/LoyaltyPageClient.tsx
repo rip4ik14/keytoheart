@@ -1,4 +1,3 @@
-// ✅ Путь: app/loyalty/LoyaltyPageClient.tsx
 'use client';
 
 import Image from 'next/image';
@@ -27,18 +26,18 @@ interface FAQ {
 }
 
 interface Event {
-  whose: string;
   type: string;
-  date: string;
+  date: string | null; // Обновляем тип
+  description: string | null; // Добавляем description
 }
 
 export default function LoyaltyPageClient() {
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [formData, setFormData] = useState<Event[]>([{ whose: '', type: 'День рождения', date: '' }]);
+  const [formData, setFormData] = useState<Event[]>([{ type: 'День рождения', date: '', description: '' }]);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number | null>(null);
   const [bonusHistory, setBonusHistory] = useState<BonusHistoryEntry[]>([]);
 
@@ -53,12 +52,17 @@ export default function LoyaltyPageClient() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      setUserId(user.id);
+      const phone = user.user_metadata?.phone || user.phone;
+      if (!phone) {
+        toast.error('Телефон пользователя не указан');
+        return;
+      }
+      setUserPhone(phone);
 
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('bonus_balance')
-        .eq('id', user.id)
+        .eq('phone', phone)
         .single();
       if (profile?.bonus_balance != null) {
         setBonusBalance(profile.bonus_balance);
@@ -67,7 +71,7 @@ export default function LoyaltyPageClient() {
       const { data: history } = await supabase
         .from('bonus_history')
         .select('amount, reason, created_at')
-        .eq('user_id', user.id)
+        .eq('phone', phone)
         .order('created_at', { ascending: false });
       if (history) setBonusHistory(history);
     };
@@ -77,7 +81,7 @@ export default function LoyaltyPageClient() {
 
   const handleAddEvent = () => {
     if (formData.length < 10) {
-      setFormData([...formData, { whose: '', type: 'День рождения', date: '' }]);
+      setFormData([...formData, { type: 'День рождения', date: '', description: '' }]);
     } else {
       toast.error('Максимум 10 событий');
     }
@@ -90,22 +94,26 @@ export default function LoyaltyPageClient() {
   };
 
   const handleSubmitDates = async () => {
-    if (!userId) return;
+    if (!userPhone) {
+      toast.error('Телефон пользователя не указан');
+      return;
+    }
     setLoading(true);
 
     try {
-      // Фильтруем события, где заполнены все поля
-      const validEvents = formData.filter((event) => event.whose && event.type && event.date);
+      // Фильтруем события, где заполнены обязательные поля
+      const validEvents = formData.filter((event) => event.type && event.date);
 
       if (validEvents.length > 0) {
-        await supabase.from('important_dates').insert(
+        const { error } = await supabase.from('important_dates').insert(
           validEvents.map((event) => ({
-            user_id: userId,
-            whose: event.whose,
+            phone: userPhone,
             type: event.type,
-            date: event.date,
+            date: event.date || null,
+            description: event.description || null,
           }))
         );
+        if (error) throw error;
       }
 
       setSubmitted(true);
@@ -117,7 +125,7 @@ export default function LoyaltyPageClient() {
 
       setTimeout(() => {
         setFormOpen(false);
-        setFormData([{ whose: '', type: 'День рождения', date: '' }]);
+        setFormData([{ type: 'День рождения', date: '', description: '' }]);
         setSubmitted(false);
       }, 1500);
     } catch (error: any) {
@@ -253,7 +261,9 @@ export default function LoyaltyPageClient() {
           quality={75}
         />
         <div className="relative z-10 space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold uppercase">
+          <h1 className="text-4xl md
+
+:text-5xl font-bold uppercase">
             Вернём до 15% бонусами!
           </h1>
           <p className="text-base md:text-lg flex items-center justify-center gap-2">
@@ -405,24 +415,6 @@ export default function LoyaltyPageClient() {
                 <div key={index} className="space-y-4 mb-4">
                   <div>
                     <label
-                      htmlFor={`whose-${index}`}
-                      className="block mb-2 text-sm font-medium text-gray-700"
-                    >
-                      Чьё событие:
-                    </label>
-                    <input
-                      id={`whose-${index}`}
-                      type="text"
-                      value={event.whose}
-                      onChange={(e) => handleEventChange(index, 'whose', e.target.value)}
-                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                      placeholder="Чьё событие"
-                      aria-required="true"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div>
-                    <label
                       htmlFor={`type-${index}`}
                       className="block mb-2 text-sm font-medium text-gray-700"
                     >
@@ -450,10 +442,27 @@ export default function LoyaltyPageClient() {
                     <input
                       id={`date-${index}`}
                       type="date"
-                      value={event.date}
+                      value={event.date || ''}
                       onChange={(e) => handleEventChange(index, 'date', e.target.value)}
                       className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                       aria-required="true"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`description-${index}`}
+                      className="block mb-2 text-sm font-medium text-gray-700"
+                    >
+                      Описание (опционально):
+                    </label>
+                    <input
+                      id={`description-${index}`}
+                      type="text"
+                      value={event.description || ''}
+                      onChange={(e) => handleEventChange(index, 'description', e.target.value)}
+                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      placeholder="Например, день рождения жены"
                       disabled={loading}
                     />
                   </div>
