@@ -4,7 +4,7 @@ import sanitizeHtml from 'sanitize-html';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // Используем сервисный ключ
+  process.env.SUPABASE_SERVICE_ROLE_KEY!, // Используем сервисный ключ для обхода RLS
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
@@ -21,22 +21,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Проверяем, существует ли пользователь с таким телефоном в auth.users
-    const { data: user } = await supabase
-      .from('auth.users')
+    // Проверяем существование профиля в user_profiles вместо auth.users
+    const { data: profile } = await supabase
+      .from('user_profiles')
       .select('phone')
-      .eq('phone', sanitizedPhone.replace('+', ''))
+      .eq('phone', sanitizedPhone)
       .single();
 
-    if (!user) {
-      console.error(`[${new Date().toISOString()}] User not found for phone: ${sanitizedPhone}`);
+    if (!profile) {
+      console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
       return NextResponse.json(
-        { success: false, error: 'Пользователь с таким телефоном не найден' },
+        { success: false, error: 'Профиль с таким телефоном не найден' },
         { status: 404 }
       );
     }
 
-    // Обновляем профиль, игнорируя RLS (сервисный ключ)
+    // Обновляем профиль
     const { error } = await supabase
       .from('user_profiles')
       .upsert(
