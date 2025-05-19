@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -39,52 +38,40 @@ export async function POST(request: Request) {
     const formattedPhone = cleanPhone;
     console.log(`Formatted phone for Supabase query: ${formattedPhone}`);
 
-    // Проверяем попытки авторизации (упрощённый запрос)
-    let recentAttemptsCount = 0;
-    try {
-      console.log(`Querying auth_logs with phone: ${formattedPhone}`);
+    // Проверяем попытки авторизации за последние 10 минут
+    const MAX_ATTEMPTS = 20; // Увеличиваем лимит до 20
+    const TIME_WINDOW = 10 * 60 * 1000; // 10 минут
+    const cutoffDate = new Date(Date.now() - TIME_WINDOW).toISOString();
 
-      const { data: recentAttempts, error: attemptsError } = await supabase
-        .from('auth_logs')
-        .select('created_at')
-        .eq('phone', formattedPhone);
+    console.log(`Querying auth_logs with phone: ${formattedPhone} for attempts after ${cutoffDate}`);
+    const { data: recentAttempts, error: attemptsError } = await supabase
+      .from('auth_logs')
+      .select('created_at')
+      .eq('phone', formattedPhone)
+      .gte('created_at', cutoffDate);
 
-      if (attemptsError) {
-        console.error('Error checking auth_logs:', attemptsError.message, attemptsError.details);
-        console.error('Full error object:', JSON.stringify(attemptsError, null, 2));
-        // Продолжаем выполнение
-      } else {
-        // Фильтруем записи за последние 24 часа вручную
-        const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        recentAttemptsCount = recentAttempts
-          ? recentAttempts.filter((attempt) => {
-              if (!attempt.created_at) {
-                console.warn(`Found record with null created_at for phone: ${formattedPhone}`);
-                return false; // Пропускаем записи с null created_at
-              }
-              return new Date(attempt.created_at) >= cutoffDate;
-            }).length
-          : 0;
-        console.log(`Found ${recentAttemptsCount} recent attempts for phone: ${formattedPhone}`);
-      }
-
-      if (recentAttemptsCount >= 5) {
-        console.error(`Too many attempts for phone: ${formattedPhone}`);
-        return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
-      }
-    } catch (error: any) {
-      console.error('Unexpected error while checking auth_logs:', error.message, error.stack);
+    if (attemptsError) {
+      console.error('Error checking auth_logs:', attemptsError.message, attemptsError.details);
+      console.error('Full error object:', JSON.stringify(attemptsError, null, 2));
       // Продолжаем выполнение
     }
 
-    // Отправляем запрос на звонок через SMS.ru
-    const url = `https://sms.ru/callcheck/send?api_id=${SMS_RU_API_ID}&phone=${formattedPhone}&json=1`;
-    console.log(`Sending request to SMS.ru: ${url}`);
-    
+    const recentAttemptsCount = recentAttempts ? recentAttempts.length : 0;
+    console.log(`Found ${recentAttemptsCount} recent attempts for phone: ${formattedPhone}`);
+
+    if (recentAttemptsCount >= MAX_ATTEMPTS) {
+      console.error(`Too many attempts for phone: ${formattedPhone}`);
+      return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
+    }
+
+    // Отправляем SMS через SMS.ru
+    const url = `https://sms.ru/sms/send?api_id=${SMS_RU_API_ID}&to=${formattedPhone}&msg=${encodeURIComponent('Ваш код для входа: 1234')}&json=1`;
+    console.log(`Sending SMS request to SMS.ru: ${url}`);
+
     let apiJson;
     try {
       const apiRes = await fetch(url);
-      const responseText = await apiRes.text(); // Получаем текст ответа
+      const responseText = await apiRes.text();
       console.log('SMS.ru raw response:', responseText);
 
       // Проверяем, что ответ можно разобрать как JSON
@@ -100,7 +87,7 @@ export async function POST(request: Request) {
 
       if (!apiJson || apiJson.status !== 'OK') {
         console.error('SMS.ru API error:', apiJson?.status_text || 'Unknown error');
-        return NextResponse.json({ success: false, error: 'Ошибка отправки звонка' }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Ошибка отправки SMS' }, { status: 500 });
       }
     } catch (fetchError: any) {
       console.error('Error fetching from SMS.ru:', fetchError.message, fetchError.stack);
@@ -112,7 +99,7 @@ export async function POST(request: Request) {
       .from('auth_logs')
       .insert({
         phone: formattedPhone,
-        check_id: apiJson.check_id,
+        check_id: apiJson.check_id || `sms-${Date.now()}`, // Используем временный ID, если SMS.ru не возвращает check_id
         status: 'PENDING',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -124,15 +111,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка записи в базу данных' }, { status: 500 });
     }
 
-    console.log(`Successfully sent call request for phone: ${formattedPhone}`);
+    console.log(`Successfully sent SMS request for phone: ${formattedPhone}`);
     return NextResponse.json({
       success: true,
-      check_id: apiJson.check_id,
-      call_phone: apiJson.call_phone,
-      call_phone_pretty: apiJson.call_phone_pretty,
+      check_id: apiJson.check_id || `sms-${Date.now()}`,
     });
   } catch (error: any) {
-    console.error('Error in send-call:', error.message, error.stack);
+    console.error('Error in send-sms:', error.message, error.stack);
     return NextResponse.json({ success: false, error: 'Серверная ошибка' }, { status: 500 });
   }
 }
