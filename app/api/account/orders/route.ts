@@ -1,3 +1,4 @@
+// ✅ Путь: /var/www/keytoheart/app/api/account/orders/route.ts
 import { NextResponse } from 'next/server';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import sanitizeHtml from 'sanitize-html';
@@ -19,16 +20,17 @@ interface OrderResponse {
 
 export async function GET(req: Request) {
   try {
+    console.log(`[${new Date().toISOString()}] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
+    console.log(`[${new Date().toISOString()}] NEXT_PUBLIC_SUPABASE_ANON_KEY: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`);
+
     const { searchParams } = new URL(req.url);
     const phone = searchParams.get('phone');
 
-    // Санитизация номера телефона
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone) {
       return NextResponse.json({ success: false, error: 'Телефон не указан' }, { status: 400 });
     }
 
-    // Валидация формата телефона
     const phoneRegex = /^\+7\d{10}$/;
     if (!phoneRegex.test(sanitizedPhone)) {
       return NextResponse.json(
@@ -66,10 +68,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, data: [], error: itemsError.message }, { status: 500 });
     }
 
-    // Фильтруем null значения из product_id и приводим к number[]
-    const productIds = [
-      ...new Set(allItems?.map((item) => item.product_id).filter((id): id is number => id !== null) || []),
-    ];
+    const productIds = Array.from(
+      new Set(allItems?.map((item) => item.product_id).filter((id): id is number => id !== null) || [])
+    );
+
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id, title')
@@ -92,7 +94,6 @@ export async function GET(req: Request) {
           title: item.product_id !== null ? productMap.get(item.product_id) || 'Неизвестный товар' : 'Неизвестный товар',
         }));
 
-      // Обрабатываем upsell_details
       const upsellDetails = Array.isArray(order.upsell_details)
         ? order.upsell_details.map((upsell: any) => ({
             title: upsell.title || 'Неизвестный товар',
