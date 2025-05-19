@@ -17,7 +17,7 @@ interface OrderRequest {
   phone: string;
   name: string;
   recipient: string;
-  recipientPhone: string; // Добавляем recipientPhone
+  recipientPhone: string;
   address: string;
   deliveryMethod: string;
   date: string;
@@ -60,9 +60,9 @@ const normalizePhone = (phone: string): string => {
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
 };
 
 export async function POST(req: Request) {
@@ -221,7 +221,7 @@ export async function POST(req: Request) {
           payment_method: payment,
           total,
           bonuses_used,
-          bonus: 0, // Указываем начальное значение, так как bonus обязателен
+          bonus: 0,
           promo_id,
           promo_discount,
           status: 'pending',
