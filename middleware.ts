@@ -84,10 +84,10 @@ export async function middleware(req: NextRequest) {
 
   // Проверяем токен для /account и /checkout
   if (pathname.startsWith('/account') || pathname.startsWith('/checkout')) {
-    const token = req.cookies.get('sb-access-token')?.value;
+    const token = req.cookies.get('access_token')?.value;
 
     if (!token) {
-      console.log(`[${new Date().toISOString()}] No sb-access-token found for ${pathname}`);
+      console.log(`[${new Date().toISOString()}] No access_token found for ${pathname}`);
       const login = url.clone();
       login.pathname = '/account';
       login.searchParams.set('from', pathname);
@@ -96,17 +96,17 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      console.log(`[${new Date().toISOString()}] Verifying sb-access-token: ${token}`);
+      console.log(`[${new Date().toISOString()}] Verifying access_token: ${token}`);
       const { data: userData, error } = await supabase.auth.getUser(token);
       if (error || !userData.user) {
-        console.error(`[${new Date().toISOString()}] Invalid sb-access-token for ${pathname}:`, error?.message || 'No user data');
+        console.error(`[${new Date().toISOString()}] Invalid access_token for ${pathname}:`, error?.message || 'No user data');
         const login = url.clone();
         login.pathname = '/account';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'invalid-session');
         return NextResponse.redirect(login);
       }
-      console.log(`[${new Date().toISOString()}] Successfully verified sb-access-token for ${pathname}, user: ${userData.user.id}`);
+      console.log(`[${new Date().toISOString()}] Successfully verified access_token for ${pathname}, user: ${userData.user.id}`);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] User middleware auth error for ${pathname}:`, error);
       const login = url.clone();

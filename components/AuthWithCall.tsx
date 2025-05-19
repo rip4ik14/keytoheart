@@ -126,21 +126,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         console.log('Call status verified, proceeding to success step');
         setStep('success');
 
-        // Используем access_token и refresh_token из ответа для установки сессии
-        const { access_token, refresh_token } = data;
-        if (!access_token || !refresh_token) {
-          throw new Error('Токены не получены от сервера');
-        }
-
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: access_token,
-          refresh_token: refresh_token,
-        });
-
-        if (sessionError) {
-          throw new Error(`Ошибка установки сессии: ${sessionError.message}`);
-        }
-
+        // Токены уже установлены в cookies на сервере, нам не нужно вручную вызывать setSession
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
@@ -180,7 +166,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       };
     }
-  }, [step, checkId, phone, router, supabase]);
+  }, [step, checkId, phone, router]);
 
   // Очистка таймеров при размонтировании
   useEffect(() => {
@@ -275,22 +261,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       console.log('Verify SMS response:', data);
       if (data.success) {
         setStep('success');
-
-        // Используем access_token и refresh_token из ответа для установки сессии
-        const { access_token, refresh_token } = data;
-        if (!access_token || !refresh_token) {
-          throw new Error('Токены не получены от сервера');
-        }
-
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: access_token,
-          refresh_token: refresh_token,
-        });
-
-        if (sessionError) {
-          throw new Error(`Ошибка установки сессии: ${sessionError.message}`);
-        }
-
         onSuccess(clearPhone);
         window.gtag?.('event', 'auth_sms_success', { event_category: 'auth' });
         window.ym?.(12345678, 'reachGoal', 'auth_sms_success');
@@ -358,7 +328,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
+                  src="/icons/spinner.svg"
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
@@ -433,7 +403,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isCheckingStatus ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
+                  src="/icons/spinner.svg"
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
@@ -484,7 +454,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <Image
-                  src="/icons/spinner.svg" // Убедитесь, что файл существует в public/icons/
+                  src="/icons/spinner.svg"
                   alt="Иконка загрузки"
                   width={20}
                   height={20}
