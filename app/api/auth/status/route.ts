@@ -189,29 +189,45 @@ export async function GET(req: Request) {
       }
     }
 
-    // Генерация сессии через REST API
+    // Генерация сессии через admin API
     console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
-    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-      },
-      body: JSON.stringify({
-        email: user.email,
-        password: '', // Пароль не требуется, так как используем admin права
-      }),
+
+    // Используем admin.generateLink для создания токена
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: user.email,
+      options: { redirectTo: 'https://keytoheart.ru' },
     });
 
-    const tokenData = await response.json();
-    if (!response.ok || !tokenData.access_token || !tokenData.refresh_token) {
-      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через REST API:`, tokenData);
-      throw new Error('Ошибка создания сессии: ' + (tokenData.error || 'Неизвестная ошибка'));
+    if (linkError || !linkData) {
+      console.error(`[${new Date().toISOString()}] Ошибка генерации magiclink:`, linkError?.message);
+      throw new Error('Ошибка генерации magiclink: ' + (linkError?.message || 'Неизвестная ошибка'));
     }
 
-    const access_token = tokenData.access_token;
-    const refresh_token = tokenData.refresh_token;
+    const magicToken = new URL(linkData.properties.action_link).searchParams.get('token');
+    if (!magicToken) {
+      console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magiclink`);
+      throw new Error('Не удалось извлечь токен из magiclink');
+    }
+
+    // Создаём сессию с помощью anon-клиента
+    const anonClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!
+    );
+
+    const { data: sessionResult, error: setSessionError } = await anonClient.auth.setSession({
+      access_token: magicToken,
+      refresh_token: '',
+    });
+
+    if (setSessionError || !sessionResult.session) {
+      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через setSession:`, setSessionError?.message);
+      throw new Error('Ошибка создания сессии: ' + (setSessionError?.message || 'Неизвестная ошибка'));
+    }
+
+    const access_token = sessionResult.session.access_token;
+    const refresh_token = sessionResult.session.refresh_token;
 
     // Установка токенов в cookies
     const res = NextResponse.json({
