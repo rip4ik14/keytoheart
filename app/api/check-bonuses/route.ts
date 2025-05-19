@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('bonuses')
-      .select('id, bonus_balance, level')
+      .select('bonus_balance, level')
       .eq('phone', phone)
       .single();
 
@@ -37,8 +37,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      bonus_balance: data.bonus_balance,
-      level: data.level,
+      bonus_balance: data.bonus_balance ?? 0,
+      level: data.level ?? 'basic',
     });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Server error in checkbonuses:`, error.message);
