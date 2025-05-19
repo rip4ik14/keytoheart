@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
 import type { Database } from '@/lib/supabase/types_new';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
@@ -11,6 +17,7 @@ interface OrderRequest {
   phone: string;
   name: string;
   recipient: string;
+  recipientPhone: string; // Добавляем recipientPhone
   address: string;
   deliveryMethod: string;
   date: string;
@@ -35,20 +42,37 @@ interface OrderRequest {
   whatsapp?: boolean;
 }
 
+// Функция для нормализации телефона
+const normalizePhone = (phone: string): string => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  } else if (cleanPhone.length === 10) {
+    return `+7${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
+    return `+7${cleanPhone.slice(1)}`;
+  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  }
+  return phone.startsWith('+') ? phone : `+${phone}`;
+};
+
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
   return text
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 };
 
 export async function POST(req: Request) {
   try {
+    const body: OrderRequest = await req.json();
     const {
-      phone,
+      phone: rawPhone,
       name,
       recipient,
+      recipientPhone: rawRecipientPhone,
       address,
       deliveryMethod,
       date,
@@ -64,19 +88,40 @@ export async function POST(req: Request) {
       postcard_text,
       anonymous,
       whatsapp,
-    }: OrderRequest = await req.json();
+    } = body;
+
+    console.log(`[${new Date().toISOString()}] Received payload:`, body);
 
     // Валидация обязательных полей
-    if (!phone || !name || !recipient || !address || !total || !cart) {
-      console.error('Missing required fields:', { phone, name, recipient, address, total, cart });
+    if (!rawPhone || !name || !recipient || !address || !total || !cart || !rawRecipientPhone) {
+      console.error(`[${new Date().toISOString()}] Missing required fields:`, {
+        phone: rawPhone,
+        name,
+        recipient,
+        recipientPhone: rawRecipientPhone,
+        address,
+        total,
+        cart,
+      });
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
-    // Валидация телефона
-    if (!/^\+7\d{10}$/.test(phone)) {
-      console.error('Invalid phone format:', { phone });
+    // Нормализация и валидация телефона
+    const sanitizedPhone = normalizePhone(sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }));
+    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+      console.error(`[${new Date().toISOString()}] Invalid phone format:`, { phone: sanitizedPhone });
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { status: 400 }
+      );
+    }
+
+    // Нормализация и валидация телефона получателя
+    const sanitizedRecipientPhone = normalizePhone(sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }));
+    if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
+      console.error(`[${new Date().toISOString()}] Invalid recipient phone format:`, { recipientPhone: sanitizedRecipientPhone });
+      return NextResponse.json(
+        { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
       );
     }
@@ -93,8 +138,9 @@ export async function POST(req: Request) {
       : null;
 
     // Логирование санитизированных данных
-    console.log('Sanitized order data:', {
-      phone,
+    console.log(`[${new Date().toISOString()}] Sanitized order data:`, {
+      phone: sanitizedPhone,
+      recipientPhone: sanitizedRecipientPhone,
       name: sanitizedName,
       recipient: sanitizedRecipient,
       address: sanitizedAddress,
@@ -102,14 +148,26 @@ export async function POST(req: Request) {
       postcard_text: sanitizedPostcardText,
     });
 
+    // Проверка профиля пользователя
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('phone', sanitizedPhone)
+      .single();
+
+    if (profileError || !profile) {
+      console.error(`[${new Date().toISOString()}] Profile not found for phone:`, sanitizedPhone);
+      return NextResponse.json(
+        { error: 'Профиль с таким телефоном не найден' },
+        { status: 404 }
+      );
+    }
+
+    const user_id = profile.id;
+
     // Разделяем основные товары и upsell-дополнения
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
-
-    // Логируем содержимое корзины для отладки
-    console.log('Cart items:', cart);
-    console.log('Regular items:', regularItems);
-    console.log('Upsell items:', upsellItems);
 
     // Проверяем, что все product_id для основных товаров существуют в таблице products
     const productIds = regularItems
@@ -117,7 +175,7 @@ export async function POST(req: Request) {
       .filter((id: number) => !isNaN(id));
 
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
-      console.error('Invalid product IDs (not numbers):', regularItems);
+      console.error(`[${new Date().toISOString()}] Invalid product IDs (not numbers):`, regularItems);
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
         { status: 400 }
@@ -125,23 +183,20 @@ export async function POST(req: Request) {
     }
 
     if (productIds.length > 0) {
-      const { data: products, error: productsError } = await supabaseAdmin
+      const { data: products, error: productsError } = await supabase
         .from('products')
         .select('id')
         .in('id', productIds);
 
       if (productsError) {
-        console.error('Error checking products:', productsError);
+        console.error(`[${new Date().toISOString()}] Error checking products:`, productsError);
         return NextResponse.json({ error: 'Ошибка проверки товаров' }, { status: 500 });
       }
-
-      console.log('Product IDs to check:', productIds);
-      console.log('Existing products:', products);
 
       const existingProductIds = new Set(products.map((p: any) => p.id));
       const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
       if (invalidItems.length > 0) {
-        console.error('Invalid product IDs:', invalidItems);
+        console.error(`[${new Date().toISOString()}] Invalid product IDs:`, invalidItems);
         return NextResponse.json(
           { error: `Товары с ID ${invalidItems.map((i: any) => i.id).join(', ')} не найдены` },
           { status: 400 }
@@ -149,12 +204,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // Сохраняем заказ (указываем bonus как 0, так как добавим его позже)
-    const { data: order, error: orderError } = await supabaseAdmin
+    // Сохраняем заказ
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert([
         {
-          phone,
+          user_id,
+          phone: sanitizedPhone,
+          recipient_phone: sanitizedRecipientPhone,
           contact_name: sanitizedName,
           recipient: sanitizedRecipient,
           address: sanitizedAddress,
@@ -167,7 +224,7 @@ export async function POST(req: Request) {
           bonus: 0, // Указываем начальное значение, так как bonus обязателен
           promo_id,
           promo_discount,
-          status: 'Ожидает подтверждения',
+          status: 'pending',
           created_at: new Date().toISOString(),
           delivery_instructions: sanitizedDeliveryInstructions,
           postcard_text: sanitizedPostcardText,
@@ -185,11 +242,14 @@ export async function POST(req: Request) {
       .single();
 
     if (orderError || !order) {
-      console.error('Error saving order:', orderError);
-      return NextResponse.json({ error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') }, { status: 500 });
+      console.error(`[${new Date().toISOString()}] Error saving order:`, orderError);
+      return NextResponse.json(
+        { error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') },
+        { status: 500 }
+      );
     }
 
-    console.log('Successfully saved order:', { id: order.id, order_number: order.order_number });
+    console.log(`[${new Date().toISOString()}] Successfully saved order:`, { id: order.id, order_number: order.order_number });
 
     // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item) => ({
@@ -200,14 +260,17 @@ export async function POST(req: Request) {
     }));
 
     if (orderItems.length > 0) {
-      const { error: itemError } = await supabaseAdmin.from('order_items').insert(orderItems);
+      const { error: itemError } = await supabase.from('order_items').insert(orderItems);
       if (itemError) {
-        console.error('Error saving order items:', itemError);
-        return NextResponse.json({ error: 'Ошибка сохранения товаров: ' + itemError.message }, { status: 500 });
+        console.error(`[${new Date().toISOString()}] Error saving order items:`, itemError);
+        return NextResponse.json(
+          { error: 'Ошибка сохранения товаров: ' + itemError.message },
+          { status: 500 }
+        );
       }
-      console.log('Successfully saved order items:', orderItems);
+      console.log(`[${new Date().toISOString()}] Successfully saved order items:`, orderItems);
     } else {
-      console.log('No regular items to save in order_items');
+      console.log(`[${new Date().toISOString()}] No regular items to save in order_items`);
     }
 
     const baseUrl = new URL(req.url).origin;
@@ -217,81 +280,84 @@ export async function POST(req: Request) {
       const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: phone, amount: bonuses_used, order_id: order.id }),
+        body: JSON.stringify({ user_id, amount: bonuses_used, order_id: order.id }),
       });
       if (!res.ok) {
-        console.error('Ошибка списания бонусов:', await res.text());
+        const errorText = await res.text();
+        console.error(`[${new Date().toISOString()}] Error redeeming bonuses:`, errorText);
       } else {
-        console.log('Successfully redeemed bonuses:', bonuses_used);
+        console.log(`[${new Date().toISOString()}] Successfully redeemed bonuses:`, bonuses_used);
       }
     }
 
     // Начисление бонусов
-    console.log('Attempting to credit bonuses:', { user_id: phone, order_total: total, order_id: order.id });
+    console.log(`[${new Date().toISOString()}] Attempting to credit bonuses:`, { user_id, order_total: total, order_id: order.id });
     const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: phone, order_total: total, order_id: order.id }),
+      body: JSON.stringify({ user_id, order_total: total, order_id: order.id }),
     });
-    if (!resBonus.ok) {
+
+    let bonusResult;
+    if (resBonus.ok) {
+      bonusResult = await resBonus.json();
+      console.log(`[${new Date().toISOString()}] Successfully credited bonuses:`, bonusResult);
+    } else {
       const errorText = await resBonus.text();
-      console.error('Ошибка начисления бонусов:', errorText);
+      console.error(`[${new Date().toISOString()}] Error crediting bonuses:`, errorText);
       return NextResponse.json(
         { success: false, error: 'Ошибка начисления бонусов: ' + errorText },
         { status: 500 }
       );
-    } else {
-      const bonusResult = await resBonus.json();
-      console.log('Successfully credited bonuses:', bonusResult);
-
-      // Обновляем заказ с начисленным количеством бонусов
-      const bonusAdded = bonusResult.bonus_added || 0;
-      const { error: updateOrderError } = await supabaseAdmin
-        .from('orders')
-        .update({ bonus: bonusAdded })
-        .eq('id', order.id);
-
-      if (updateOrderError) {
-        console.error('Error updating order with bonus:', updateOrderError);
-        return NextResponse.json(
-          { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
-          { status: 500 }
-        );
-      }
-      console.log('Successfully updated order with bonus:', bonusAdded);
     }
+
+    // Обновляем заказ с начисленным количеством бонусов
+    const bonusAdded = bonusResult.bonus_added || 0;
+    const { error: updateOrderError } = await supabase
+      .from('orders')
+      .update({ bonus: bonusAdded })
+      .eq('id', order.id);
+
+    if (updateOrderError) {
+      console.error(`[${new Date().toISOString()}] Error updating order with bonus:`, updateOrderError);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
+        { status: 500 }
+      );
+    }
+    console.log(`[${new Date().toISOString()}] Successfully updated order with bonus:`, bonusAdded);
 
     // Обновление промокода
     if (promo_id) {
-      console.log('Updating promo code usage:', { promo_id });
-      const { data: promoData, error: promoFetchError } = await supabaseAdmin
+      console.log(`[${new Date().toISOString()}] Updating promo code usage:`, { promo_id });
+      const { data: promoData, error: promoFetchError } = await supabase
         .from('promo_codes')
         .select('used_count')
         .eq('id', promo_id)
         .single();
 
       if (promoFetchError || !promoData) {
-        console.error('Ошибка получения промокода:', promoFetchError?.message);
+        console.error(`[${new Date().toISOString()}] Error fetching promo code:`, promoFetchError?.message);
       } else {
         const newUsedCount = (promoData.used_count || 0) + 1;
-        const { error: promoUpdateError } = await supabaseAdmin
+        const { error: promoUpdateError } = await supabase
           .from('promo_codes')
           .update({ used_count: newUsedCount })
           .eq('id', promo_id);
         if (promoUpdateError) {
-          console.error('Ошибка обновления промокода:', promoUpdateError.message);
+          console.error(`[${new Date().toISOString()}] Error updating promo code:`, promoUpdateError.message);
         } else {
-          console.log('Successfully updated promo code usage:', { promo_id, newUsedCount });
+          console.log(`[${new Date().toISOString()}] Successfully updated promo code usage:`, { promo_id, newUsedCount });
         }
       }
     }
 
     // Формируем сообщение для Telegram
     const itemsList = regularItems.length
-      ? regularItems.map((i) => `• ${i.title} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
+      ? regularItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
       : 'Нет основных товаров';
     const upsellList = upsellItems.length
-      ? upsellItems.map((i) => `• ${i.title} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
+      ? upsellItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
       : 'Нет дополнений';
     const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
     const promoText = promo_id
@@ -300,10 +366,10 @@ export async function POST(req: Request) {
     const anonymousText = anonymous ? 'Да' : 'Нет';
     const whatsappText = whatsapp ? 'Да' : 'Нет';
     const postcardTextMessage = sanitizedPostcardText || 'Не указан';
-    const bonusAdded = (await resBonus.json()).bonus_added || 0;
     const message = `<b>🆕 Новый заказ #${order.order_number}</b>
 <b>Имя:</b> ${escapeHtml(sanitizedName)}
-<b>Телефон:</b> ${escapeHtml(phone)}
+<b>Телефон:</b> ${escapeHtml(sanitizedPhone)}
+<b>Телефон получателя:</b> ${escapeHtml(sanitizedRecipientPhone)}
 <b>Сумма:</b> ${total} ₽
 <b>Бонусы списано:</b> ${bonuses_used}
 <b>Бонусы начислено:</b> ${bonusAdded}
@@ -324,7 +390,7 @@ ${itemsList}
 ${upsellList}`;
 
     // Отправляем сообщение в Telegram
-    console.log('Sending Telegram message:', message);
+    console.log(`[${new Date().toISOString()}] Sending Telegram message:`, message);
     const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -337,14 +403,26 @@ ${upsellList}`;
 
     if (!telegramResponse.ok) {
       const telegramError = await telegramResponse.text();
-      console.error('Error sending Telegram message:', telegramError);
-      return NextResponse.json({ error: 'Ошибка отправки уведомления в Telegram: ' + telegramError }, { status: 500 });
+      console.error(`[${new Date().toISOString()}] Error sending Telegram message:`, telegramError);
+      return NextResponse.json(
+        { error: 'Ошибка отправки уведомления в Telegram: ' + telegramError },
+        { status: 500 }
+      );
     }
 
-    console.log('Successfully sent Telegram notification for order:', order.order_number);
-    return NextResponse.json({ success: true, order_id: order.order_number });
+    console.log(`[${new Date().toISOString()}] Successfully sent Telegram notification for order:`, order.order_number);
+    return NextResponse.json({
+      success: true,
+      order_id: order.id,
+      order_number: order.order_number,
+      user_id,
+      tracking_url: `/account/orders/${order.id}`,
+    });
   } catch (error: any) {
-    console.error('Ошибка обработки заказа:', error);
-    return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
+    console.error(`[${new Date().toISOString()}] Error processing order:`, error);
+    return NextResponse.json(
+      { error: 'Ошибка сервера: ' + error.message },
+      { status: 500 }
+    );
   }
 }

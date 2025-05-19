@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +13,7 @@ import StoreScheduleNotice from '@components/StoreScheduleNotice';
 import CartSummary from './components/CartSummary';
 import CartItem from './components/CartItem';
 import ThankYouModal from './components/ThankYouModal';
-import ErrorModalComponent from './components/ErrorModal'; // Переименовываем импорт
+import ErrorModalComponent from './components/ErrorModal';
 import UpsellModal from './components/UpsellModal';
 import Step1ContactDetails from './components/steps/Step1ContactDetails';
 import Step2RecipientDetails from './components/steps/Step2RecipientDetails';
@@ -62,6 +61,19 @@ interface StoreSettings {
 }
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
+
+// Функция для нормализации телефона
+const normalizePhone = (phone: string): string => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  } else if (cleanPhone.length === 10) {
+    return `+7${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
+    return `+7${cleanPhone.slice(1)}`;
+  }
+  return phone.startsWith('+') ? phone : `+${phone}`;
+};
 
 // Функция для преобразования Json в Record<string, DaySchedule>
 const transformSchedule = (schedule: Json): Record<string, DaySchedule> => {
@@ -214,15 +226,16 @@ export default function CartPage() {
         const result = await response.json();
 
         if (result.success) {
+          const normalizedPhone = normalizePhone(result.phone);
           setIsAuthenticated(true);
-          setPhone(result.phone);
+          setPhone(normalizedPhone);
           setUserId(result.userId);
-          setFormData({ phone: result.phone });
+          setFormData({ phone: normalizedPhone });
 
           const { data: profileData, error: profileError } = await supabase
             .from('user_profiles')
             .select('bonus_balance')
-            .eq('phone', result.phone)
+            .eq('phone', normalizedPhone)
             .single();
 
           if (profileError) {
@@ -239,16 +252,17 @@ export default function CartPage() {
             try {
               const parsedAuth = JSON.parse(authData);
               if (parsedAuth.phone && parsedAuth.isAuthenticated) {
+                const normalizedPhone = normalizePhone(parsedAuth.phone);
                 setIsAuthenticated(true);
-                setPhone(parsedAuth.phone);
+                setPhone(normalizedPhone);
                 setUserId(parsedAuth.userId);
-                setFormData({ phone: parsedAuth.phone });
+                setFormData({ phone: normalizedPhone });
                 setStep(1);
 
                 const { data: profileData, error: profileError } = await supabase
                   .from('user_profiles')
                   .select('bonus_balance')
-                  .eq('phone', parsedAuth.phone)
+                  .eq('phone', normalizedPhone)
                   .single();
 
                 if (profileError) {
@@ -285,8 +299,9 @@ export default function CartPage() {
   };
 
   const handleAuthSuccess = async (phone: string) => {
+    const normalizedPhone = normalizePhone(phone);
     setIsAuthenticated(true);
-    setPhone(phone);
+    setPhone(normalizedPhone);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -297,21 +312,21 @@ export default function CartPage() {
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('name, bonus_balance')
-        .eq('phone', phone)
+        .eq('phone', normalizedPhone)
         .single();
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        setFormData({ phone, name: '', email: form.email, whatsapp: form.whatsapp });
+        setFormData({ phone: normalizedPhone, name: '', email: form.email, whatsapp: form.whatsapp });
         setBonusBalance(0);
       } else {
         const name = profileData?.name || '';
-        setFormData({ phone, name, email: form.email, whatsapp: form.whatsapp });
+        setFormData({ phone: normalizedPhone, name, email: form.email, whatsapp: form.whatsapp });
         setBonusBalance(profileData?.bonus_balance || 0);
       }
 
-      localStorage.setItem('auth', JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true, userId: user?.id }));
-      document.cookie = `auth=${JSON.stringify({ phone: `+${phone.replace(/[^0-9]/g, '')}`, isAuthenticated: true, userId: user?.id })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+      localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user?.id }));
+      document.cookie = `auth=${JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user?.id })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
       setStep(1);
     } catch (error) {
       console.error('Error in handleAuthSuccess:', error);
@@ -321,8 +336,9 @@ export default function CartPage() {
 
   const handlePhoneChange = useCallback(
     (value: string) => {
+      const normalizedPhone = normalizePhone(value);
       onFormChange({
-        target: { name: 'phone', value },
+        target: { name: 'phone', value: normalizedPhone },
       } as React.ChangeEvent<HTMLInputElement>);
       setPhoneError('');
     },
@@ -351,7 +367,7 @@ export default function CartPage() {
       return (totalBeforeDiscounts * promoDiscount) / 100;
     }
     return promoDiscount;
-  }, [promoDiscount, promoType, totalBeforeDiscounts]);
+  }, [ promoDiscount, promoType, totalBeforeDiscounts]);
 
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
@@ -702,10 +718,14 @@ export default function CartPage() {
 
       console.log('Items to submit:', payloadItems);
 
+      const normalizedPhone = normalizePhone(phone);
+      const normalizedRecipientPhone = normalizePhone(form.recipientPhone);
+
       const payload = {
-        phone: phone,
+        phone: normalizedPhone,
         name: form.name,
         recipient: form.recipient,
+        recipientPhone: normalizedRecipientPhone,
         address:
           form.street && form.deliveryMethod !== 'pickup'
             ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${
@@ -755,7 +775,7 @@ export default function CartPage() {
         const { error: updateError } = await supabase
           .from('user_profiles')
           .update({ bonus_balance: newBalance })
-          .eq('phone', phone);
+          .eq('phone', normalizedPhone);
 
         if (updateError) {
           console.error('Error updating bonus balance:', updateError);
@@ -783,7 +803,7 @@ export default function CartPage() {
         const { error: updateError } = await supabase
           .from('user_profiles')
           .update({ bonus_balance: newBalance })
-          .eq('phone', phone);
+          .eq('phone', normalizedPhone);
 
         if (updateError) {
           console.error('Error updating bonus balance for accrual:', updateError);

@@ -41,6 +41,19 @@ const initialFormState: FormState = {
   whatsapp: false,
 };
 
+// Функция для нормализации телефона
+const normalizePhone = (phone: string): string => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  } else if (cleanPhone.length === 10) {
+    return `+7${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
+    return `+7${cleanPhone.slice(1)}`;
+  }
+  return phone.startsWith('+') ? phone : `+${phone}`;
+};
+
 export default function useCheckoutForm() {
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -58,22 +71,17 @@ export default function useCheckoutForm() {
     if (savedForm) {
       try {
         const parsedForm = JSON.parse(savedForm);
-        // Исправляем формат recipientPhone, если он неправильный
+        // Нормализуем recipientPhone
         let formattedRecipientPhone = parsedForm.recipientPhone || '';
-        if (formattedRecipientPhone && !formattedRecipientPhone.startsWith('+7')) {
-          const cleanPhone = formattedRecipientPhone.replace(/\D/g, '');
-          if (cleanPhone.length === 10) {
-            formattedRecipientPhone = '+7' + cleanPhone;
-          } else if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-            formattedRecipientPhone = '+7' + cleanPhone.slice(1);
-          }
+        if (formattedRecipientPhone) {
+          formattedRecipientPhone = normalizePhone(formattedRecipientPhone);
         }
         setForm((prev) => ({
           ...prev,
           ...parsedForm,
           date: '',
           time: '',
-          phone: prev.phone || parsedForm.phone || '',
+          phone: prev.phone || normalizePhone(parsedForm.phone || ''),
           recipientPhone: formattedRecipientPhone,
         }));
       } catch (error) {
@@ -93,16 +101,18 @@ export default function useCheckoutForm() {
       const checked = (e.target as HTMLInputElement).checked;
       setForm((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      // Нормализуем телефонные номера
+      const newValue = name === 'phone' || name === 'recipientPhone' ? normalizePhone(value) : value;
+      setForm((prev) => ({ ...prev, [name]: newValue }));
     }
   };
 
   const validateStep1 = () => {
     let isValid = true;
 
-    // Убираем всё, кроме цифр, и проверяем
-    const cleanPhone = form.phone.replace(/\D/g, '');
-    if (!form.phone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
+    const normalizedPhone = normalizePhone(form.phone);
+    const cleanPhone = normalizedPhone.replace(/\D/g, '');
+    if (!normalizedPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
       setPhoneError('Введите корректный номер в формате +7xxxxxxxxxx');
       isValid = false;
     } else if (cleanPhone.slice(1).length !== 10 || !cleanPhone.slice(1).startsWith('9')) {
@@ -110,6 +120,7 @@ export default function useCheckoutForm() {
       isValid = false;
     } else {
       setPhoneError('');
+      setForm((prev) => ({ ...prev, phone: normalizedPhone }));
     }
 
     if (!form.name.trim()) {
@@ -139,7 +150,8 @@ export default function useCheckoutForm() {
       setRecipientError('');
     }
 
-    const cleanRecipientPhone = form.recipientPhone.replace(/\D/g, '');
+    const normalizedRecipientPhone = normalizePhone(form.recipientPhone);
+    const cleanRecipientPhone = normalizedRecipientPhone.replace(/\D/g, '');
     if (!cleanRecipientPhone || cleanRecipientPhone.length === 0) {
       setRecipientPhoneError('Введите номер телефона получателя');
       isValid = false;
@@ -148,6 +160,7 @@ export default function useCheckoutForm() {
       isValid = false;
     } else {
       setRecipientPhoneError('');
+      setForm((prev) => ({ ...prev, recipientPhone: normalizedRecipientPhone }));
     }
 
     return isValid;
