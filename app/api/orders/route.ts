@@ -280,7 +280,7 @@ export async function POST(req: Request) {
       const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: bonuses_used, order_id: order.id }),
+        body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }), // Используем phone вместо user_id
       });
       if (!res.ok) {
         const errorText = await res.text();
@@ -291,11 +291,11 @@ export async function POST(req: Request) {
     }
 
     // Начисление бонусов
-    console.log(`[${new Date().toISOString()}] Attempting to credit bonuses:`, { user_id, order_total: total, order_id: order.id });
+    console.log(`[${new Date().toISOString()}] Attempting to credit bonuses:`, { phone: sanitizedPhone, order_total: total, order_id: order.id });
     const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id, order_total: total, order_id: order.id }),
+      body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }), // Используем phone вместо user_id
     });
 
     let bonusResult;

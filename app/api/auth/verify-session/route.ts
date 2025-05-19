@@ -1,34 +1,38 @@
-// ✅ Исправленный: app/api/session/route.ts
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: true, persistSession: false } }
-);
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('sb-access-token')?.value; // Используем ту же куки, что в /api/auth/status
+    const supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+      }
+    );
 
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'No session' }, { status: 401 });
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      console.error(`[${new Date().toISOString()}] Error verifying session:`, error?.message || 'No user found');
+      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Проверяем токен
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-      console.error('Invalid token:', userError);
-      return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 });
+    const phone = user.user_metadata?.phone || user.phone;
+    if (!phone) {
+      console.error(`[${new Date().toISOString()}] No phone found for user:`, user.id);
+      return NextResponse.json({ success: false, error: 'No phone associated with user' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, phone: userData.user.phone });
-  } catch (e: any) {
-    console.error('Server error:', e);
-    return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 });
+    console.log(`[${new Date().toISOString()}] Session verified for user:`, { userId: user.id, phone });
+    return NextResponse.json({
+      success: true,
+      userId: user.id,
+      phone,
+    });
+  } catch (error: any) {
+    console.error(`[${new Date().toISOString()}] Server error in verify-session:`, error);
+    return NextResponse.json({ success: false, error: 'Server error: ' + error.message }, { status: 500 });
   }
 }
