@@ -1,8 +1,21 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
-import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
+
+// Парсинг cookies из заголовка
+function parseCookies(header: string | null): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!header) return cookies;
+
+  const pairs = header.split(';');
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=').map(part => part.trim());
+    if (key && value) {
+      cookies[key] = value;
+    }
+  }
+  return cookies;
+}
 
 // Инициализация admin-клиента
 const supabaseAdmin = createClient<Database>(
@@ -65,10 +78,11 @@ export async function GET(req: Request) {
 
     console.log(`[${new Date().toISOString()}] Статус из базы данных: ${authLog.status}`);
 
-    // Проверяем наличие токенов в cookies
-    const cookieStore = cookies() as unknown as ReadonlyRequestCookies;
-    const accessToken = cookieStore.get('access_token')?.value;
-    const refreshToken = cookieStore.get('refresh_token')?.value;
+    // Проверяем наличие токенов в cookies через заголовок Cookie
+    const cookieHeader = req.headers.get('cookie');
+    const cookies = parseCookies(cookieHeader);
+    const accessToken = cookies['access_token'];
+    const refreshToken = cookies['refresh_token'];
 
     if (authLog.status === 'VERIFIED' && accessToken && refreshToken) {
       console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, токены найдены, возвращаем сразу`);
@@ -173,42 +187,39 @@ export async function GET(req: Request) {
 
     // Генерация сессии через admin API
     console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
-    
-    // Используем REST API для создания фактора авторизации
-    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${user.id}/factors`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-      },
-      body: JSON.stringify({
-        friendly_name: 'Phone Verification',
-        factor_type: 'phone',
-        phone: phone,
-      }),
+
+    // Используем admin.generateLink для создания токена
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: user.email,
+      options: { redirectTo: 'https://keytoheart.ru' },
     });
 
-    const factorData = await response.json();
-    if (!response.ok) {
-      console.error(`[${new Date().toISOString()}] Ошибка создания фактора авторизации:`, factorData);
-      throw new Error('Ошибка создания фактора авторизации: ' + (factorData.error || 'Неизвестная ошибка'));
+    if (linkError || !linkData) {
+      console.error(`[${new Date().toISOString()}] Ошибка генерации magiclink:`, linkError?.message);
+      throw new Error('Ошибка генерации magiclink: ' + (linkError?.message || 'Неизвестная ошибка'));
     }
 
-    // Используем anon-клиент для создания сессии
+    const magicToken = new URL(linkData.properties.action_link).searchParams.get('token');
+    if (!magicToken) {
+      console.error(`[${new Date().toISOString()}] Не удалось извлечь токен из magiclink`);
+      throw new Error('Не удалось извлечь токен из magiclink');
+    }
+
+    // Создаём сессию с помощью anon-клиента
     const anonClient = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_ANON_KEY!
     );
 
-    const { data: sessionResult, error: signInError } = await anonClient.auth.signInWithPassword({
-      email: user.email,
-      password: '', // Пароль не нужен, так как мы используем admin API
+    const { data: sessionResult, error: setSessionError } = await anonClient.auth.setSession({
+      access_token: magicToken,
+      refresh_token: '',
     });
 
-    if (signInError || !sessionResult.session) {
-      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через signInWithPassword:`, signInError?.message);
-      throw new Error('Ошибка создания сессии: ' + (signInError?.message || 'Неизвестная ошибка'));
+    if (setSessionError || !sessionResult.session) {
+      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через setSession:`, setSessionError?.message);
+      throw new Error('Ошибка создания сессии: ' + (setSessionError?.message || 'Неизвестная ошибка'));
     }
 
     const access_token = sessionResult.session.access_token;
