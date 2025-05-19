@@ -90,26 +90,14 @@ export async function POST(req: Request) {
       whatsapp,
     } = body;
 
-    console.log(`[${new Date().toISOString()}] Received payload:`, body);
-
     // Валидация обязательных полей
     if (!rawPhone || !name || !recipient || !address || !total || !cart || !rawRecipientPhone) {
-      console.error(`[${new Date().toISOString()}] Missing required fields:`, {
-        phone: rawPhone,
-        name,
-        recipient,
-        recipientPhone: rawRecipientPhone,
-        address,
-        total,
-        cart,
-      });
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
     // Нормализация и валидация телефона
     const sanitizedPhone = normalizePhone(sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }));
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format:`, { phone: sanitizedPhone });
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -119,7 +107,6 @@ export async function POST(req: Request) {
     // Нормализация и валидация телефона получателя
     const sanitizedRecipientPhone = normalizePhone(sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }));
     if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid recipient phone format:`, { recipientPhone: sanitizedRecipientPhone });
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -137,17 +124,6 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // Логирование санитизированных данных
-    console.log(`[${new Date().toISOString()}] Sanitized order data:`, {
-      phone: sanitizedPhone,
-      recipientPhone: sanitizedRecipientPhone,
-      name: sanitizedName,
-      recipient: sanitizedRecipient,
-      address: sanitizedAddress,
-      delivery_instructions: sanitizedDeliveryInstructions,
-      postcard_text: sanitizedPostcardText,
-    });
-
     // Проверка профиля пользователя
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
@@ -156,7 +132,6 @@ export async function POST(req: Request) {
       .single();
 
     if (profileError || !profile) {
-      console.error(`[${new Date().toISOString()}] Profile not found for phone:`, sanitizedPhone);
       return NextResponse.json(
         { error: 'Профиль с таким телефоном не найден' },
         { status: 404 }
@@ -175,7 +150,6 @@ export async function POST(req: Request) {
       .filter((id: number) => !isNaN(id));
 
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
-      console.error(`[${new Date().toISOString()}] Invalid product IDs (not numbers):`, regularItems);
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
         { status: 400 }
@@ -189,14 +163,12 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productsError) {
-        console.error(`[${new Date().toISOString()}] Error checking products:`, productsError);
         return NextResponse.json({ error: 'Ошибка проверки товаров' }, { status: 500 });
       }
 
       const existingProductIds = new Set(products.map((p: any) => p.id));
       const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
       if (invalidItems.length > 0) {
-        console.error(`[${new Date().toISOString()}] Invalid product IDs:`, invalidItems);
         return NextResponse.json(
           { error: `Товары с ID ${invalidItems.map((i: any) => i.id).join(', ')} не найдены` },
           { status: 400 }
@@ -230,26 +202,19 @@ export async function POST(req: Request) {
           postcard_text: sanitizedPostcardText,
           anonymous,
           whatsapp,
-          upsell_details: upsellItems.map((item) => ({
-            title: sanitizeHtml(item.title, { allowedTags: [], allowedAttributes: {} }),
-            price: item.price,
-            quantity: item.quantity,
-            category: item.category,
-          })),
+          items: regularItems,
+          upsell_details: upsellItems,
         },
       ])
       .select('id, order_number')
       .single();
 
     if (orderError || !order) {
-      console.error(`[${new Date().toISOString()}] Error saving order:`, orderError);
       return NextResponse.json(
         { error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') },
         { status: 500 }
       );
     }
-
-    console.log(`[${new Date().toISOString()}] Successfully saved order:`, { id: order.id, order_number: order.order_number });
 
     // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item) => ({
@@ -262,15 +227,11 @@ export async function POST(req: Request) {
     if (orderItems.length > 0) {
       const { error: itemError } = await supabase.from('order_items').insert(orderItems);
       if (itemError) {
-        console.error(`[${new Date().toISOString()}] Error saving order items:`, itemError);
         return NextResponse.json(
           { error: 'Ошибка сохранения товаров: ' + itemError.message },
           { status: 500 }
         );
       }
-      console.log(`[${new Date().toISOString()}] Successfully saved order items:`, orderItems);
-    } else {
-      console.log(`[${new Date().toISOString()}] No regular items to save in order_items`);
     }
 
     const baseUrl = new URL(req.url).origin;
@@ -280,31 +241,26 @@ export async function POST(req: Request) {
       const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }), // Используем phone вместо user_id
+        body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }),
       });
       if (!res.ok) {
         const errorText = await res.text();
         console.error(`[${new Date().toISOString()}] Error redeeming bonuses:`, errorText);
-      } else {
-        console.log(`[${new Date().toISOString()}] Successfully redeemed bonuses:`, bonuses_used);
       }
     }
 
     // Начисление бонусов
-    console.log(`[${new Date().toISOString()}] Attempting to credit bonuses:`, { phone: sanitizedPhone, order_total: total, order_id: order.id });
     const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }), // Используем phone вместо user_id
+      body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }),
     });
 
     let bonusResult;
     if (resBonus.ok) {
       bonusResult = await resBonus.json();
-      console.log(`[${new Date().toISOString()}] Successfully credited bonuses:`, bonusResult);
     } else {
       const errorText = await resBonus.text();
-      console.error(`[${new Date().toISOString()}] Error crediting bonuses:`, errorText);
       return NextResponse.json(
         { success: false, error: 'Ошибка начисления бонусов: ' + errorText },
         { status: 500 }
@@ -319,17 +275,14 @@ export async function POST(req: Request) {
       .eq('id', order.id);
 
     if (updateOrderError) {
-      console.error(`[${new Date().toISOString()}] Error updating order with bonus:`, updateOrderError);
       return NextResponse.json(
         { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
         { status: 500 }
       );
     }
-    console.log(`[${new Date().toISOString()}] Successfully updated order with bonus:`, bonusAdded);
 
     // Обновление промокода
     if (promo_id) {
-      console.log(`[${new Date().toISOString()}] Updating promo code usage:`, { promo_id });
       const { data: promoData, error: promoFetchError } = await supabase
         .from('promo_codes')
         .select('used_count')
@@ -346,8 +299,6 @@ export async function POST(req: Request) {
           .eq('id', promo_id);
         if (promoUpdateError) {
           console.error(`[${new Date().toISOString()}] Error updating promo code:`, promoUpdateError.message);
-        } else {
-          console.log(`[${new Date().toISOString()}] Successfully updated promo code usage:`, { promo_id, newUsedCount });
         }
       }
     }
@@ -390,7 +341,6 @@ ${itemsList}
 ${upsellList}`;
 
     // Отправляем сообщение в Telegram
-    console.log(`[${new Date().toISOString()}] Sending Telegram message:`, message);
     const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -403,14 +353,12 @@ ${upsellList}`;
 
     if (!telegramResponse.ok) {
       const telegramError = await telegramResponse.text();
-      console.error(`[${new Date().toISOString()}] Error sending Telegram message:`, telegramError);
       return NextResponse.json(
         { error: 'Ошибка отправки уведомления в Telegram: ' + telegramError },
         { status: 500 }
       );
     }
 
-    console.log(`[${new Date().toISOString()}] Successfully sent Telegram notification for order:`, order.order_number);
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -419,7 +367,6 @@ ${upsellList}`;
       tracking_url: `/account/orders/${order.id}`,
     });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Error processing order:`, error);
     return NextResponse.json(
       { error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { createBrowserClient } from '@supabase/ssr';
@@ -186,8 +185,6 @@ export default function CartPage() {
     resetForm,
   } = useCheckoutForm();
 
-  const router = useRouter();
-
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -196,6 +193,9 @@ export default function CartPage() {
         headers: {
           Accept: 'application/json',
         },
+      },
+      auth: {
+        autoRefreshToken: true,
       },
     }
   );
@@ -221,66 +221,35 @@ export default function CartPage() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/auth/verify-session');
-        const result = await response.json();
-
-        if (result.success) {
-          const normalizedPhone = normalizePhone(result.phone);
-          setIsAuthenticated(true);
-          setPhone(normalizedPhone);
-          setUserId(result.userId);
-          setFormData({ phone: normalizedPhone });
-
-          const { data: profileData, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('bonus_balance')
-            .eq('phone', normalizedPhone)
-            .single();
-
-          if (profileError) {
-            console.error('Error fetching bonus balance:', profileError);
-            setBonusBalance(0);
-          } else {
-            setBonusBalance(profileData?.bonus_balance || 0);
-          }
-
-          setStep(1);
-        } else {
-          const authData = localStorage.getItem('auth');
-          if (authData) {
-            try {
-              const parsedAuth = JSON.parse(authData);
-              if (parsedAuth.phone && parsedAuth.isAuthenticated) {
-                const normalizedPhone = normalizePhone(parsedAuth.phone);
-                setIsAuthenticated(true);
-                setPhone(normalizedPhone);
-                setUserId(parsedAuth.userId);
-                setFormData({ phone: normalizedPhone });
-                setStep(1);
-
-                const { data: profileData, error: profileError } = await supabase
-                  .from('user_profiles')
-                  .select('bonus_balance')
-                  .eq('phone', normalizedPhone)
-                  .single();
-
-                if (profileError) {
-                  console.error('Error fetching bonus balance from localStorage:', profileError);
-                  setBonusBalance(0);
-                } else {
-                  setBonusBalance(profileData?.bonus_balance || 0);
-                }
-              } else {
-                setStep(0);
-              }
-            } catch (error) {
-              console.error('Ошибка парсинга auth из localStorage:', error);
-              setStep(0);
-            }
-          } else {
-            setStep(0);
-          }
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          setStep(0);
+          return;
         }
+
+        const normalizedPhone = normalizePhone(user.phone || '');
+        setIsAuthenticated(true);
+        setPhone(normalizedPhone);
+        setUserId(user.id);
+        setFormData({ phone: normalizedPhone });
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('bonus_balance')
+          .eq('phone', normalizedPhone)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching bonus balance:', profileError);
+          setBonusBalance(0);
+        } else {
+          setBonusBalance(profileData?.bonus_balance || 0);
+        }
+
+        setStep(1);
+
+        // Сохраняем данные в localStorage для восстановления
+        localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
       } catch (err) {
         console.error('Error checking session:', err);
         setStep(0);
@@ -303,10 +272,12 @@ export default function CartPage() {
     setPhone(normalizedPhone);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        throw new Error('Не удалось получить данные пользователя');
       }
+
+      setUserId(user.id);
 
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
@@ -324,8 +295,7 @@ export default function CartPage() {
         setBonusBalance(profileData?.bonus_balance || 0);
       }
 
-      localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user?.id }));
-      document.cookie = `auth=${JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user?.id })}; path=/; max-age=604800; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+      localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
       setStep(1);
     } catch (error) {
       console.error('Error in handleAuthSuccess:', error);
@@ -668,7 +638,6 @@ export default function CartPage() {
       return;
     }
 
-    // Заменяем validateAllSteps на последовательную проверку
     if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4() || !validateStep5(agreed)) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
@@ -766,6 +735,21 @@ export default function CartPage() {
         return;
       }
 
+      // Получаем bonus_id из таблицы bonuses
+      const { data: bonusData, error: bonusError } = await supabase
+        .from('bonuses')
+        .select('id')
+        .eq('phone', normalizedPhone)
+        .single();
+
+      if (bonusError || !bonusData) {
+        console.error('Error fetching bonus_id:', bonusError);
+        toast.error('Ошибка получения бонусного ID');
+        return;
+      }
+
+      const bonusId = bonusData.id;
+
       if (bonusesUsed > 0) {
         const newBalance = bonusBalance - bonusesUsed;
         const { error: updateError } = await supabase
@@ -782,7 +766,7 @@ export default function CartPage() {
           const { error: historyError } = await supabase
             .from('bonus_history')
             .insert({
-              bonus_id: json.user_id || userId,
+              bonus_id: bonusId,
               amount: -bonusesUsed,
               reason: 'Списание бонусов при заказе #' + json.order_id,
               created_at: new Date().toISOString(),
@@ -810,7 +794,7 @@ export default function CartPage() {
           const { error: historyError } = await supabase
             .from('bonus_history')
             .insert({
-              bonus_id: json.user_id || userId,
+              bonus_id: bonusId,
               amount: bonusAccrual,
               reason: 'Начисление бонусов за заказ #' + json.order_id,
               created_at: new Date().toISOString(),
@@ -839,11 +823,6 @@ export default function CartPage() {
       setBonusesUsed(0);
 
       localStorage.setItem('orderSuccess', 'true');
-
-      // Задержка редиректа на 3 секунды для отображения ThankYouModal
-      setTimeout(() => {
-        router.push('/account');
-      }, 3000);
 
       window.gtag?.('event', 'submit_order', {
         event_category: 'cart',
@@ -892,7 +871,6 @@ export default function CartPage() {
     setIsAuthenticated,
     setStep,
     phone,
-    router,
     bonusesUsed,
     bonusBalance,
     userId,
