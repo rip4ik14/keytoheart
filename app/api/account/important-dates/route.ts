@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { phone, birthday, anniversary } = await request.json();
+    const { phone, events } = await request.json();
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Проверяем существование профиля в user_profiles вместо auth.users
+    // Проверяем существование профиля в user_profiles
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('phone')
@@ -36,23 +36,48 @@ export async function POST(request: Request) {
       );
     }
 
-    // Обновляем профиль
-    const { error } = await supabase
-      .from('user_profiles')
-      .upsert(
-        {
-          phone: sanitizedPhone,
-          birthday: sanitizeHtml(birthday || '', { allowedTags: [], allowedAttributes: {} }) || null,
-          anniversary: sanitizeHtml(anniversary || '', { allowedTags: [], allowedAttributes: {} }) || null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'phone' }
-      );
-
-    if (error) {
-      console.error(`[${new Date().toISOString()}] Error updating important dates:`, error);
+    // Проверяем, что events — это массив
+    if (!Array.isArray(events)) {
+      console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
       return NextResponse.json(
-        { success: false, error: 'Ошибка обновления дат: ' + error.message },
+        { success: false, error: 'События должны быть переданы в виде массива' },
+        { status: 400 }
+      );
+    }
+
+    // Удаляем существующие события для данного телефона
+    const { error: deleteError } = await supabase
+      .from('important_dates')
+      .delete()
+      .eq('phone', sanitizedPhone);
+
+    if (deleteError) {
+      console.error(`[${new Date().toISOString()}] Error deleting existing important dates:`, deleteError);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка удаления старых дат: ' + deleteError.message },
+        { status: 500 }
+      );
+    }
+
+    // Подготавливаем данные для вставки
+    const sanitizedEvents = events.map((event: { type: string; date: string; description: string }) => ({
+      phone: sanitizedPhone,
+      type: sanitizeHtml(event.type || '', { allowedTags: [], allowedAttributes: {} }),
+      date: event.date ? new Date(event.date).toISOString().split('T')[0] : null,
+      description: sanitizeHtml(event.description || '', { allowedTags: [], allowedAttributes: {} }) || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    // Вставляем новые события
+    const { error: insertError } = await supabase
+      .from('important_dates')
+      .insert(sanitizedEvents);
+
+    if (insertError) {
+      console.error(`[${new Date().toISOString()}] Error inserting important dates:`, insertError);
+      return NextResponse.json(
+        { success: false, error: 'Ошибка сохранения дат: ' + insertError.message },
         { status: 500 }
       );
     }
@@ -83,12 +108,11 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('birthday, anniversary')
-      .eq('phone', sanitizedPhone)
-      .single();
+      .from('important_dates')
+      .select('type, date, description')
+      .eq('phone', sanitizedPhone);
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error(`[${new Date().toISOString()}] Error fetching important dates:`, error);
       return NextResponse.json(
         { success: false, error: 'Ошибка получения дат: ' + error.message },
@@ -98,7 +122,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: data || { birthday: null, anniversary: null },
+      data: data || [],
     });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);

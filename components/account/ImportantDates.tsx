@@ -28,11 +28,18 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
         const res = await fetch(`/api/account/important-dates?phone=${encodeURIComponent(phone)}`);
         const data = await res.json();
         if (data.success && data.data) {
-          const { birthday, anniversary } = data.data;
-          setEvents([
-            { type: 'День рождения', date: birthday || '', description: '' },
-            { type: 'Годовщина', date: anniversary || '', description: '' },
-          ]);
+          setEvents(
+            data.data.length > 0
+              ? data.data.map((item: { type: string; date: string; description: string }) => ({
+                  type: item.type,
+                  date: item.date || '',
+                  description: item.description || '',
+                }))
+              : [
+                  { type: 'День рождения', date: '', description: '' },
+                  { type: 'Годовщина', date: '', description: '' },
+                ]
+          );
         } else {
           throw new Error(data.error || 'Ошибка загрузки дат');
         }
@@ -64,16 +71,16 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
     setIsLoading(true);
 
     try {
-      const birthdayEvent = events.find((event) => event.type === 'День рождения');
-      const anniversaryEvent = events.find((event) => event.type === 'Годовщина');
-
       const res = await fetch('/api/account/important-dates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone,
-          birthday: birthdayEvent?.date || null,
-          anniversary: anniversaryEvent?.date || null,
+          events: events.map((event) => ({
+            type: event.type,
+            date: event.date || null,
+            description: event.description || null,
+          })),
         }),
       });
       const data = await res.json();
