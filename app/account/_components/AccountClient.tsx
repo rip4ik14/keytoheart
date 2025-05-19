@@ -69,7 +69,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     {
       global: {
         headers: {
-          Accept: 'application/vnd.pgrst.object+json', // Исправлено для .single()
+          Accept: 'application/vnd.pgrst.object+json', // Для .single()
         },
       },
     }
@@ -87,8 +87,12 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Client session check:', session);
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log(`[${new Date().toISOString()}] Client session check:`, { session, error });
+        if (error) {
+          console.error('Session check error:', error.message);
+          throw error;
+        }
         if (session && session.user) {
           setIsAuthenticated(true);
           setPhone(session.user.phone || '');
@@ -117,14 +121,17 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     if (!phone) return;
     setIsLoading(true);
     try {
-      console.log('Fetching account data for phone:', phone);
+      console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${phone}`);
 
       // Загружаем бонусы
       const bonusesRes = await supabase
         .from('bonuses')
         .select('id, bonus_balance, level')
         .eq('phone', phone)
-        .single();
+        .single()
+        .setHeader('Accept', 'application/vnd.pgrst.object+json'); // Явно указываем заголовок
+
+      console.log(`[${new Date().toISOString()}] Bonuses response:`, { data: bonusesRes.data, error: bonusesRes.error });
 
       let bonusesData: BonusesData;
       if (bonusesRes.error && bonusesRes.error.code !== 'PGRST116') {
@@ -140,6 +147,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           .from('bonus_history')
           .select('amount, reason, created_at')
           .eq('bonus_id', bonusesData.id);
+
+        console.log(`[${new Date().toISOString()}] Bonus history response:`, { data: historyRes.data, error: historyRes.error });
 
         if (historyRes.error) {
           console.error('History fetch error:', historyRes.error);
@@ -160,6 +169,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         },
       });
       const ordersResult = await ordersRes.json();
+
+      console.log(`[${new Date().toISOString()}] Orders response:`, ordersResult);
 
       if (!ordersRes.ok || !ordersResult.success) {
         console.error('Orders fetch error:', ordersResult.error);
@@ -191,14 +202,14 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         })),
       }));
 
-      console.log('Fetched orders:', transformedOrders);
+      console.log(`[${new Date().toISOString()}] Fetched orders:`, transformedOrders);
       setBonusData(bonusesData);
       setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
-      window.ym?.(96644553, 'reachGoal', 'view_account'); // Исправлен ID
+      window.ym?.(96644553, 'reachGoal', 'view_account');
     } catch (error: any) {
-      console.error('Error in fetchAccountData:', error.message);
+      console.error(`[${new Date().toISOString()}] Error in fetchAccountData:`, error.message);
       toast.error('Ошибка загрузки данных');
       setOrders([]);
     } finally {
@@ -238,7 +249,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setBonusData(null);
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
-      window.ym?.(96644553, 'reachGoal', 'logout'); // Исправлен ID
+      window.ym?.(96644553, 'reachGoal', 'logout');
     } catch (error) {
       console.error('Ошибка при выходе:', error);
       toast.error('Ошибка при выходе из аккаунта');

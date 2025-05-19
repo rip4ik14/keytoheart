@@ -17,12 +17,11 @@ type Props = {
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [step, setStep] = useState<'phone' | 'call' | 'sms' | 'success' | 'ban'>('phone');
+  const [step, setStep] = useState<'phone' | 'call' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
   const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
   const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
-  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
@@ -97,8 +96,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
       setCallTimer((t) => {
         if (t <= 1) {
           clearInterval(callTimerRef.current!);
-          setStep('sms');
-          setError('Время для звонка истекло. Получите код по SMS.');
+          setStep('phone');
+          setError('Время для звонка истекло. Попробуйте снова.');
           return 0;
         }
         return t - 1;
@@ -124,21 +123,28 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
       if (data.success && data.status === 'VERIFIED') {
         console.log('Call status verified, proceeding to success step');
+        // Устанавливаем сессию в Supabase
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        });
+        if (sessionError) {
+          console.error('Error setting session:', sessionError.message);
+          throw new Error('Ошибка установки сессии');
+        }
         setStep('success');
-
-        // Токены уже установлены в cookies на сервере, нам не нужно вручную вызывать setSession
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
-        window.ym?.(12345678, 'reachGoal', 'auth_success', { phone: clearPhone });
+        window.ym?.(96644553, 'reachGoal', 'auth_success', { phone: clearPhone });
 
         // Перенаправление после успешной авторизации
         const redirectTo = searchParams.get('from') || '/account';
         router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
-        console.log('Call status expired, switching to SMS');
-        setStep('sms');
-        setError('Время для звонка истекло. Получите код по SMS.');
+        console.log('Call status expired, returning to phone input');
+        setStep('phone');
+        setError('Время для звонка истекло. Попробуйте снова.');
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.error) {
         console.log('Error in call status:', data.error);
@@ -196,7 +202,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
           setStep('ban');
           startBanTimer();
           window.gtag?.('event', 'auth_attempt_limit', { event_category: 'auth', phone: clearPhone });
-          window.ym?.(12345678, 'reachGoal', 'auth_attempt_limit');
+          window.ym?.(96644553, 'reachGoal', 'auth_attempt_limit');
         } else {
           setError(data.error || 'Не удалось инициировать звонок.');
         }
@@ -207,79 +213,10 @@ export default function AuthWithCall({ onSuccess }: Props) {
         setStep('call');
         startCallTimer();
         window.gtag?.('event', 'auth_call_initiated', { event_category: 'auth', phone: clearPhone });
-        window.ym?.(12345678, 'reachGoal', 'auth_call_initiated');
+        window.ym?.(96644553, 'reachGoal', 'auth_call_initiated');
       }
     } catch {
       setError('Ошибка сети. Попробуйте ещё раз.');
-    }
-    setIsLoading(false);
-  };
-
-  // Отправка SMS
-  const handleSendSms = async () => {
-    setError('');
-    setIsLoading(true);
-    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
-    try {
-      const res = await fetch('/api/auth/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clearPhone }),
-      });
-      const data = await res.json();
-      console.log('Send SMS response:', data);
-      if (data.success) {
-        setStep('sms');
-        window.gtag?.('event', 'auth_sms_initiated', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'auth_sms_initiated');
-      } else {
-        if (res.status === 429) {
-          setStep('ban');
-          startBanTimer();
-        } else {
-          setError(data.error || 'Не удалось отправить SMS.');
-        }
-      }
-    } catch {
-      setError('Ошибка сети. Попробуйте ещё раз.');
-    }
-    setIsLoading(false);
-  };
-
-  // Проверка SMS-кода
-  const handleVerifySms = async () => {
-    setError('');
-    setIsLoading(true);
-    const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
-    try {
-      const res = await fetch('/api/auth/verify-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clearPhone, code }),
-      });
-      const data = await res.json();
-      console.log('Verify SMS response:', data);
-      if (data.success) {
-        setStep('success');
-        onSuccess(clearPhone);
-        window.gtag?.('event', 'auth_sms_success', { event_category: 'auth' });
-        window.ym?.(12345678, 'reachGoal', 'auth_sms_success');
-
-        // Перенаправление после успешной авторизации
-        const redirectTo = searchParams.get('from') || '/account';
-        router.push(redirectTo);
-      } else {
-        setAttempts((a) => a + 1);
-        if (res.status === 429) {
-          setStep('ban');
-          startBanTimer();
-        } else {
-          setError(data.error || 'Неверный код.');
-        }
-      }
-    } catch (err: any) {
-      setError('Ошибка сети: ' + err.message);
-      toast.error(err.message);
     }
     setIsLoading(false);
   };
@@ -392,80 +329,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
           <p className="text-xs mt-2 text-gray-500 text-center font-sans">
             Время на звонок: {Math.floor(callTimer / 60)}:{('0' + (callTimer % 60)).slice(-2)}
           </p>
-          <motion.button
-            className="w-full mt-3 py-2 rounded-xl border border-black bg-white text-black font-sans font-bold transition-all hover:bg-black hover:text-white hover:shadow disabled:opacity-50"
-            onClick={handleSendSms}
-            disabled={isLoading || isCheckingStatus}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            aria-label="Получить код по SMS"
-          >
-            {isCheckingStatus ? (
-              <div className="flex items-center justify-center gap-2">
-                <Image
-                  src="/icons/spinner.svg"
-                  alt="Иконка загрузки"
-                  width={20}
-                  height={20}
-                  className="animate-spin"
-                />
-                <span>Проверка...</span>
-              </div>
-            ) : (
-              'Получить код по SMS'
-            )}
-          </motion.button>
-          {error && (
-            <motion.div
-              className="mt-2 text-center text-red-600 font-sans"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              {error}
-            </motion.div>
-          )}
-        </motion.div>
-      )}
-
-      {step === 'sms' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-          <label htmlFor="code-input" className="block text-black mb-1 text-sm font-sans">
-            Введите 4-значный код из SMS
-          </label>
-          <input
-            id="code-input"
-            className="w-full border border-black rounded-lg px-4 py-2 font-sans text-base outline-none focus:ring-2 focus:ring-black tracking-widest text-center"
-            inputMode="numeric"
-            maxLength={4}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            autoFocus
-            disabled={isLoading}
-            aria-label="Введите SMS-код"
-          />
-          <motion.button
-            className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-sans font-bold transition-all hover:bg-white hover:text-black hover:shadow disabled:opacity-50"
-            onClick={handleVerifySms}
-            disabled={isLoading || code.length !== 4}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            aria-label="Войти"
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2">
-                <Image
-                  src="/icons/spinner.svg"
-                  alt="Иконка загрузки"
-                  width={20}
-                  height={20}
-                  className="animate-spin"
-                />
-                <span>Проверка...</span>
-              </div>
-            ) : (
-              'Войти'
-            )}
-          </motion.button>
           {error && (
             <motion.div
               className="mt-2 text-center text-red-600 font-sans"

@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const supabase = createClient<Database>(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const { phone } = await request.json();
 
     if (!phone || !/^\+7\d{10}$/.test(phone)) {
+      console.error(`[${new Date().toISOString()}] Invalid phone format: ${phone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный номер телефона' },
         { status: 400 }
@@ -18,19 +20,28 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('bonus_balance')
+      .from('bonuses')
+      .select('id, bonus_balance, level')
       .eq('phone', phone)
       .single();
 
+    console.log(`[${new Date().toISOString()}] Bonuses check response:`, { data, error });
+
     if (error || !data) {
+      console.error(`[${new Date().toISOString()}] Bonuses fetch error:`, error?.message);
       return NextResponse.json(
         { success: false, error: 'Ошибка поиска бонусов: ' + (error?.message || 'не найден') },
         { status: 500 }
       );
     }
-    return NextResponse.json({ success: true, bonus_balance: data.bonus_balance });
+
+    return NextResponse.json({
+      success: true,
+      bonus_balance: data.bonus_balance,
+      level: data.level,
+    });
   } catch (error: any) {
+    console.error(`[${new Date().toISOString()}] Server error in checkbonuses:`, error.message);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
