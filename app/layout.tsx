@@ -1,5 +1,3 @@
-// app/layout.tsx
-
 import './styles/globals.css';
 import './styles/fonts.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
@@ -18,6 +16,7 @@ import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import Script from 'next/script';
 import { Category } from '@/types/category';
+import { setSupabaseCookies } from './actions/supabaseCookies';
 
 export const revalidate = 3600;
 
@@ -47,10 +46,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Получаем объект cookies() как ReadonlyRequestCookies
+  // здесь await!
   const cookieStore = await cookies();
 
-  // Создаём SSR-клиент Supabase и передаём ему методы работы с cookies
   const supabaseServer = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -62,34 +60,18 @@ export default async function RootLayout({
             value: c.value,
           }));
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach((cookie) => {
-            const { name, value, options } = cookie;
-            // приводим options к тому, что ожидает cookieStore.set
-            cookieStore.set(
-              name,
-              value,
-              options as Parameters<typeof cookieStore.set>[2]
-            );
-          });
+        async setAll(cookiesToSet) {
+          // делегируем в server action
+          await setSupabaseCookies(cookiesToSet);
         },
       },
     }
   );
 
-  // Достаём пользователя
-  const startSession = Date.now();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseServer.auth.getUser();
-  console.log('Supabase query duration for user in layout:', Date.now() - startSession, 'ms');
-  console.log('User in layout:', { user, userError });
+  const { data: { user }, error: userError } = await supabaseServer.auth.getUser();
 
-  // Загружаем категории для шапки
   let categories: Category[] = [];
   try {
-    const startCategories = Date.now();
     const { data, error } = await supabaseServer
       .from('categories')
       .select(`
@@ -101,16 +83,13 @@ export default async function RootLayout({
       `)
       .eq('is_visible', true)
       .order('id', { ascending: true });
-    console.log('Supabase query duration for categories in layout:', Date.now() - startCategories, 'ms');
-    console.log('Categories fetch result:', { data, error });
-
     if (error) throw error;
     categories = data!.map((cat) => ({
       ...cat,
       is_visible: cat.is_visible ?? true,
       subcategories: cat.subcategories
         ? cat.subcategories
-            .filter((sub) => sub.is_visible === true)
+            .filter((sub) => sub.is_visible)
             .map((sub) => ({
               ...sub,
               is_visible: sub.is_visible ?? true,
@@ -119,7 +98,6 @@ export default async function RootLayout({
     }));
   } catch (err) {
     console.error('Ошибка загрузки категорий в layout:', err);
-    categories = [];
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
