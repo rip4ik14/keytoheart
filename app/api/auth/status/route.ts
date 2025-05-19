@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
 // Инициализация admin-клиента
 const supabaseAdmin = createClient<Database>(
@@ -31,32 +32,6 @@ async function findUserByPhone(phone: string) {
 
   const user = json.users?.find((u: any) => u.phone === phoneWithPlus || u.phone === phoneWithoutPlus);
   return user ?? null;
-}
-
-// Генерация токенов через REST API
-async function generateTokens(userId: string) {
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=client_credentials`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-    },
-    body: JSON.stringify({
-      user_id: userId,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok || !data.access_token || !data.refresh_token) {
-    console.error(`[${new Date().toISOString()}] Ошибка генерации токенов через REST API:`, data);
-    throw new Error('Ошибка генерации токенов: ' + (data.error || 'Неизвестная ошибка'));
-  }
-
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-  };
 }
 
 export async function GET(req: Request) {
@@ -90,9 +65,21 @@ export async function GET(req: Request) {
 
     console.log(`[${new Date().toISOString()}] Статус из базы данных: ${authLog.status}`);
 
-    if (authLog.status === 'VERIFIED') {
-      console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, возвращаем сразу`);
-      return NextResponse.json({ success: true, status: 'VERIFIED', message: 'Авторизация завершена', phone });
+    // Проверяем наличие токенов в cookies
+    const cookieStore = cookies() as unknown as ReadonlyRequestCookies;
+    const accessToken = cookieStore.get('access_token')?.value;
+    const refreshToken = cookieStore.get('refresh_token')?.value;
+
+    if (authLog.status === 'VERIFIED' && accessToken && refreshToken) {
+      console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, токены найдены, возвращаем сразу`);
+      return NextResponse.json({
+        success: true,
+        status: 'VERIFIED',
+        message: 'Авторизация завершена',
+        phone,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
     }
 
     if (authLog.status === 'EXPIRED') {
@@ -184,9 +171,48 @@ export async function GET(req: Request) {
       }
     }
 
-    // Генерация токенов через REST API
-    console.log(`[${new Date().toISOString()}] Генерация токенов для пользователя: ${user.id}`);
-    const { access_token, refresh_token } = await generateTokens(user.id);
+    // Генерация сессии через admin API
+    console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
+    
+    // Используем REST API для создания фактора авторизации
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${user.id}/factors`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+      },
+      body: JSON.stringify({
+        friendly_name: 'Phone Verification',
+        factor_type: 'phone',
+        phone: phone,
+      }),
+    });
+
+    const factorData = await response.json();
+    if (!response.ok) {
+      console.error(`[${new Date().toISOString()}] Ошибка создания фактора авторизации:`, factorData);
+      throw new Error('Ошибка создания фактора авторизации: ' + (factorData.error || 'Неизвестная ошибка'));
+    }
+
+    // Используем anon-клиент для создания сессии
+    const anonClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!
+    );
+
+    const { data: sessionResult, error: signInError } = await anonClient.auth.signInWithPassword({
+      email: user.email,
+      password: '', // Пароль не нужен, так как мы используем admin API
+    });
+
+    if (signInError || !sessionResult.session) {
+      console.error(`[${new Date().toISOString()}] Ошибка создания сессии через signInWithPassword:`, signInError?.message);
+      throw new Error('Ошибка создания сессии: ' + (signInError?.message || 'Неизвестная ошибка'));
+    }
+
+    const access_token = sessionResult.session.access_token;
+    const refresh_token = sessionResult.session.refresh_token;
 
     // Установка токенов в cookies
     const res = NextResponse.json({
