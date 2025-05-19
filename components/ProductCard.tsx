@@ -3,15 +3,18 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@context/CartContext';
-import { useState, useEffect } from 'react';
+import { useCartAnimation } from '@context/CartAnimationContext';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Product } from '@/types/product';
 
 export default function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
+  const { triggerCartAnimation } = useCartAnimation();
   const [hovered, setHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const imageUrl = product.images?.[0] || '/placeholder.jpg';
   const bonus = Math.floor(product.price * 0.025);
@@ -35,6 +38,34 @@ export default function ProductCard({ product }: { product: Product }) {
   const buttonVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
+  };
+
+  const handleAddToCart = () => {
+    const item = {
+      id: product.id.toString(),
+      title: product.title,
+      price: discountedPrice,
+      quantity: 1,
+      imageUrl,
+    };
+    addItem(item);
+
+    // Запускаем анимацию "полёта" на мобильных устройствах
+    if (isMobile && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+      triggerCartAnimation(startX, startY, imageUrl);
+    }
+
+    toast.success('Товар добавлен в корзину');
+    window.gtag?.('event', 'add_to_cart', {
+      event_category: 'product',
+      product_id: product.id,
+    });
+    window.ym?.(12345678, 'reachGoal', 'add_to_cart', {
+      product_id: product.id,
+    });
   };
 
   return (
@@ -108,23 +139,8 @@ export default function ProductCard({ product }: { product: Product }) {
       <AnimatePresence>
         {showButton && (
           <motion.button
-            onClick={() => {
-              addItem({
-                id: product.id.toString(), // Преобразуем number в string
-                title: product.title,
-                price: discountedPrice,
-                quantity: 1,
-                imageUrl,
-              });
-              toast.success('Товар добавлен в корзину');
-              window.gtag?.('event', 'add_to_cart', {
-                event_category: 'product',
-                product_id: product.id,
-              });
-              window.ym?.(12345678, 'reachGoal', 'add_to_cart', {
-                product_id: product.id,
-              });
-            }}
+            ref={buttonRef}
+            onClick={handleAddToCart}
             className="mt-2 bg-black text-white text-sm px-6 py-2 rounded-md shadow hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
             initial="hidden"
             animate="visible"

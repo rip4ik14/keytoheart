@@ -8,9 +8,10 @@ import CategoryNav from '@components/CategoryNav';
 import SearchModal from '@components/SearchModal';
 import CookieBanner from '@components/CookieBanner';
 import { useCart } from '@context/CartContext';
+import { useCartAnimation } from '@context/CartAnimationContext';
 import { createBrowserClient } from '@supabase/ssr';
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Database } from '@/lib/supabase/types_new';
 import { Category } from '@/types/category';
@@ -27,12 +28,15 @@ interface CartItem {
   price: number;
   quantity: number;
   imageUrl: string;
+  production_time?: number | null;
 }
 
 export default function StickyHeader({ initialCategories }: { initialCategories: Category[] }) {
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: CartItem[] };
-  const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
+  const cartSum = items.reduce((s: number, i: CartItem) => s + i.price * i.quantity, 0);
+  const totalItems = items.reduce((s: number, i: CartItem) => s + i.quantity, 0);
   const formattedCartSum = new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
@@ -45,11 +49,49 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const cartIconRef = useRef<HTMLImageElement>(null);
+  const cartControls = useAnimation();
+  const [isFlying, setIsFlying] = useState(false);
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  // Отслеживаем изменения в корзине для анимации
+  useEffect(() => {
+    if (totalItems > 0) {
+      cartControls.start({
+        scale: [1, 1.2, 1],
+        transition: { duration: 0.3, ease: 'easeInOut' },
+      });
+    }
+  }, [totalItems, cartControls]);
+
+  // Отслеживаем позицию иконки корзины
+  useEffect(() => {
+    const updateCartIconPosition = () => {
+      if (cartIconRef.current) {
+        const rect = cartIconRef.current.getBoundingClientRect();
+        setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      }
+    };
+
+    updateCartIconPosition();
+    window.addEventListener('resize', updateCartIconPosition);
+    window.addEventListener('scroll', updateCartIconPosition);
+    return () => {
+      window.removeEventListener('resize', updateCartIconPosition);
+      window.removeEventListener('scroll', updateCartIconPosition);
+    };
+  }, [setCartIconPosition]);
+
+  // Запускаем анимацию "полёта" при изменении animationState
+  useEffect(() => {
+    if (animationState.isAnimating) {
+      setIsFlying(true);
+    }
+  }, [animationState]);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -291,26 +333,61 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
 
             <Link
               href="/cart"
-              className="flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:border md:px-3 md:py-1 md:rounded-full"
+              className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:border md:px-3 md:py-1 md:rounded-full"
               title="Корзина"
               aria-label="Перейти в корзину"
               aria-current={pathname === '/cart' ? 'page' : undefined}
               onClick={() => trackEvent('cart_click', 'header')}
             >
-              <Image
-                src="/icons/shopping-cart.svg"
-                alt="Shopping Cart"
-                width={20}
-                height={20}
-                className="w-5 h-5 text-black"
-                loading="lazy"
-              />
+              <motion.div animate={cartControls}>
+                <Image
+                  ref={cartIconRef}
+                  src="/icons/shopping-cart.svg"
+                  alt="Shopping Cart"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 text-black"
+                  loading="lazy"
+                />
+              </motion.div>
               {cartSum > 0 && (
                 <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>
               )}
             </Link>
           </div>
         </div>
+
+        {/* Анимация "полёта" товара */}
+        {isFlying && animationState.isAnimating && (
+          <motion.div
+            className="fixed pointer-events-none z-[9999]"
+            initial={{
+              x: animationState.startX,
+              y: animationState.startY,
+              opacity: 1,
+              scale: 1,
+            }}
+            animate={{
+              x: cartIconPosition.x,
+              y: cartIconPosition.y,
+              opacity: 0,
+              scale: 0.5,
+            }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            onAnimationComplete={() => {
+              setIsFlying(false);
+              setAnimationState({ ...animationState, isAnimating: false });
+            }}
+          >
+            <Image
+              src={animationState.imageUrl}
+              alt="Product"
+              width={40}
+              height={40}
+              className="w-10 h-10 object-cover rounded-full border border-gray-300"
+            />
+          </motion.div>
+        )}
 
         {/* Category Navigation */}
         <div className="border-t">

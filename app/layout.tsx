@@ -9,6 +9,7 @@ import Footer from '@components/Footer';
 import CookieBanner from '@components/CookieBanner';
 import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import { CartProvider } from '@context/CartContext';
+import { CartAnimationProvider } from '@context/CartAnimationContext';
 import SupabaseProvider from './providers/SupabaseProvider';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -155,18 +156,20 @@ export default async function RootLayout({
         )}
       </head>
       <body className="bg-white font-sans">
-        <SupabaseProvider initialSession={session}>
-          <CartProvider>
-            <TopBar />
-            <StickyHeader initialCategories={categories} />
-            <ClientBreadcrumbs />
-            <main className="pt-12 sm:pt-14" aria-label="Основной контент">
-              {children}
-            </main>
-            <Footer />
-            <CookieBanner />
-          </CartProvider>
-        </SupabaseProvider>
+        <CartAnimationProvider>
+          <SupabaseProvider initialSession={session}>
+            <CartProvider>
+              <TopBar />
+              <StickyHeader initialCategories={categories} />
+              <ClientBreadcrumbs />
+              <main className="pt-12 sm:pt-14" aria-label="Основной контент">
+                {children}
+              </main>
+              <Footer />
+              <CookieBanner />
+            </CartProvider>
+          </SupabaseProvider>
+        </CartAnimationProvider>
       </body>
     </html>
   );
