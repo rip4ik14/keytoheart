@@ -7,10 +7,6 @@ import type { Database } from '@/lib/supabase/types_new';
 import { usePathname } from 'next/navigation';
 
 export default function StoreBanner() {
-  // Логируем переменные окружения для отладки
-  console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log('Supabase Anon Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -31,40 +27,25 @@ export default function StoreBanner() {
   }, [isBannerActive, bannerMessage]);
 
   const fetchBannerSettings = async () => {
-    // Проверяем наличие переменных окружения
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.error('Missing Supabase environment variables');
-      setBannerMessage(null);
-      setIsBannerActive(false);
-      return;
-    }
-
     try {
-      console.log('Fetching banner settings...');
-      const start = Date.now();
       const { data, error } = await supabase
         .from('store_settings')
         .select('banner_message, banner_active')
         .single();
-      console.log('Supabase query duration in StoreBanner:', Date.now() - start, 'ms');
-      console.log('Supabase fetch result in StoreBanner:', { data, error });
 
       if (error) {
-        throw new Error(`Supabase error: ${error.message || 'Unknown error'} (code: ${error.code || 'N/A'}, details: ${error.details || 'N/A'}, hint: ${error.hint || 'N/A'})`);
+        throw new Error(`Supabase error: ${error.message}`);
       }
 
       if (!data) {
-        console.warn('No banner settings found in store_settings table');
         setBannerMessage(null);
         setIsBannerActive(false);
         return;
       }
 
-      console.log('Banner settings fetched:', { banner_message: data.banner_message, banner_active: data.banner_active });
       setBannerMessage(data.banner_message);
-      setIsBannerActive(data.banner_active ?? false); // Преобразуем null в false
+      setIsBannerActive(data.banner_active ?? false);
     } catch (error: any) {
-      console.error('Fetch banner settings error:', error.message || error);
       setBannerMessage(null);
       setIsBannerActive(false);
     }
@@ -73,7 +54,6 @@ export default function StoreBanner() {
   useEffect(() => {
     fetchBannerSettings();
 
-    // Подписка на изменения включается только в продакшене
     if (process.env.NODE_ENV === 'production') {
       const subscription = supabase
         .channel('store_settings_channel')
@@ -81,24 +61,18 @@ export default function StoreBanner() {
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'store_settings' },
           (payload) => {
-            console.log('Store settings updated:', payload);
             const { banner_message, banner_active } = payload.new;
             setBannerMessage(banner_message);
-            setIsBannerActive(banner_active ?? false); // Преобразуем null в false
+            setIsBannerActive(banner_active ?? false);
           }
         )
-        .subscribe((status, error) => {
-          if (error) {
-            console.error('Supabase subscription error:', error);
-          }
-          console.log('Supabase subscription status:', status);
-        });
+        .subscribe();
 
       return () => {
         subscription.unsubscribe();
       };
     }
-  }, [supabase]); // Добавляем supabase в зависимости
+  }, [supabase]);
 
   useEffect(() => {
     fetchBannerSettings();
@@ -109,7 +83,6 @@ export default function StoreBanner() {
   };
 
   if (!isBannerActive || !bannerMessage) {
-    console.log('Banner not displayed:', { isBannerActive, bannerMessage });
     return null;
   }
 

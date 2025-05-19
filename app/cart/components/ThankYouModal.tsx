@@ -1,10 +1,10 @@
-// ✅ Путь: app/cart/components/ThankYouModal.tsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import TrackedLink from '@components/TrackedLink';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface Props {
   onClose: () => void;
@@ -13,6 +13,8 @@ interface Props {
 }
 
 export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) {
+  const [timer, setTimer] = useState(15); // 15 секунд для авто-закрытия
+
   // Варианты анимации для контейнера
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -22,7 +24,7 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
 
   // Варианты анимации для содержимого модального окна
   const modalVariants = {
-    hidden: { scale: 0.7, opacity: 0, rotate: -5 },
+    hidden: { scale: 0.8, opacity: 0, rotate: -5 },
     visible: {
       scale: 1,
       opacity: 1,
@@ -35,7 +37,7 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
       },
     },
     exit: {
-      scale: 0.7,
+      scale: 0.8,
       opacity: 0,
       rotate: 5,
       transition: { duration: 0.3 },
@@ -84,14 +86,31 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
     },
   };
 
-  // Эффект для автоматического закрытия через 10 секунд
+  // Эффект для автоматического закрытия через 15 секунд
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 10000); // 10 секунд
+    const timerInterval = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(timerInterval);
   }, [onClose]);
+
+  // Функция копирования trackingUrl
+  const copyTrackingUrl = () => {
+    if (trackingUrl) {
+      navigator.clipboard.writeText(trackingUrl).then(() => {
+        toast.success('Ссылка скопирована!');
+      }).catch(() => {
+        toast.error('Не удалось скопировать ссылку');
+      });
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -161,15 +180,15 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
             Ваш заказ <span className="font-semibold text-gray-800">#{orderId}</span> успешно оформлен.
           </motion.p>
 
-          {/* Ссылка для отслеживания */}
+          {/* Ссылка для отслеживания и копирование */}
           {trackingUrl && (
-            <motion.p
-              className="mb-4 text-center text-sm sm:text-base text-gray-600"
+            <motion.div
+              className="mb-4 text-center text-sm sm:text-base text-gray-600 flex items-center justify-center gap-2"
               variants={textVariants}
               initial="hidden"
               animate="visible"
             >
-              Отследить заказ:{' '}
+              <span>Отследить заказ:</span>
               <TrackedLink
                 href={trackingUrl}
                 ariaLabel="Отследить заказ"
@@ -182,7 +201,22 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
               >
                 здесь
               </TrackedLink>
-            </motion.p>
+              <motion.button
+                onClick={copyTrackingUrl}
+                className="text-indigo-600 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 p-1"
+                aria-label="Копировать ссылку для отслеживания"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <Image
+                  src="/icons/copy.svg"
+                  alt="Копировать"
+                  width={16}
+                  height={16}
+                  loading="lazy"
+                />
+              </motion.button>
+            </motion.div>
           )}
 
           {/* Сообщение о подтверждении */}
@@ -222,7 +256,7 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
             initial="hidden"
             animate="visible"
           >
-            Окно закроется через 10 секунд...
+            Окно закроется через {timer} секунд...
           </motion.div>
         </motion.div>
       </motion.div>

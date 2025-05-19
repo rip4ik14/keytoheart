@@ -181,6 +181,7 @@ export default function CartPage() {
     validateStep3,
     validateStep4,
     validateStep5,
+    validateAllSteps,
     getMinDate,
     resetForm,
   } = useCheckoutForm();
@@ -200,6 +201,11 @@ export default function CartPage() {
     }
   );
 
+  // Очистка старых cookies при загрузке
+  useEffect(() => {
+    document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  }, []);
+
   // Проверяем repeatDraft из localStorage при загрузке страницы
   useEffect(() => {
     const repeatDraft = localStorage.getItem('repeatDraft');
@@ -218,11 +224,13 @@ export default function CartPage() {
     }
   }, [addMultipleItems]);
 
+  // Проверка сессии
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error || !user) {
+          localStorage.removeItem('auth');
           setStep(0);
           return;
         }
@@ -247,11 +255,10 @@ export default function CartPage() {
         }
 
         setStep(1);
-
-        // Сохраняем данные в localStorage для восстановления
         localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
       } catch (err) {
         console.error('Error checking session:', err);
+        localStorage.removeItem('auth');
         setStep(0);
       }
     };
@@ -300,6 +307,7 @@ export default function CartPage() {
     } catch (error) {
       console.error('Error in handleAuthSuccess:', error);
       toast.error('Ошибка при загрузке данных после авторизации');
+      setStep(0);
     }
   };
 
@@ -638,7 +646,7 @@ export default function CartPage() {
       return;
     }
 
-    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4() || !validateStep5(agreed)) {
+    if (!validateAllSteps()) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
@@ -806,11 +814,21 @@ export default function CartPage() {
         }
       }
 
+      // Проверяем сессию после заказа
+      const { data: { user }, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError || !user) {
+        console.error('Session lost after order submission:', sessionError);
+        setIsAuthenticated(false);
+        setStep(0);
+        return;
+      }
+
       setOrderDetails({
         orderId: json.order_id,
         trackingUrl: json.tracking_url,
       });
       setShowSuccess(true);
+      console.log('Showing ThankYouModal with order:', json.order_id);
       clearCart();
       resetForm();
       setSelectedUpsells([]);
@@ -842,10 +860,7 @@ export default function CartPage() {
   }, [
     validateStep5,
     agreed,
-    validateStep1,
-    validateStep2,
-    validateStep3,
-    validateStep4,
+    validateAllSteps,
     canPlaceOrder,
     checkItems,
     form,

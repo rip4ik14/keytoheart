@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import sanitizeHtml from 'sanitize-html';
 import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } }
@@ -60,9 +60,9 @@ const normalizePhone = (phone: string): string => {
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
   return text
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 };
 
 export async function POST(req: Request) {
@@ -206,7 +206,7 @@ export async function POST(req: Request) {
           upsell_details: upsellItems,
         },
       ])
-      .select('id, order_number')
+      .select('id, order_number, items, upsell_details')
       .single();
 
     if (orderError || !order) {
@@ -364,6 +364,8 @@ ${upsellList}`;
       order_id: order.id,
       order_number: order.order_number,
       user_id,
+      items: order.items,
+      upsell_details: order.upsell_details,
       tracking_url: `/account/orders/${order.id}`,
     });
   } catch (error: any) {
