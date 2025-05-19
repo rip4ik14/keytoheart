@@ -111,7 +111,7 @@ export default function CartPage() {
   try {
     cartContext = useCart();
   } catch (error) {
-    console.error(error);
+    console.error('Cart context error:', error);
     return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-red-500">Ошибка: Корзина недоступна. Пожалуйста, обновите страницу.</p>
@@ -190,13 +190,9 @@ export default function CartPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: {
-        headers: {
-          Accept: 'application/json',
-        },
-      },
       auth: {
         autoRefreshToken: true,
+        persistSession: true,
       },
     }
   );
@@ -204,6 +200,7 @@ export default function CartPage() {
   // Очистка старых cookies при загрузке
   useEffect(() => {
     document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    console.log('Cleared old auth cookies on page load');
   }, []);
 
   // Проверяем repeatDraft из localStorage при загрузке страницы
@@ -230,12 +227,14 @@ export default function CartPage() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error || !user) {
+          console.error('Check session failed:', error?.message);
           localStorage.removeItem('auth');
           setStep(0);
           return;
         }
 
         const normalizedPhone = normalizePhone(user.phone || '');
+        console.log('Session found for user:', user.id, 'phone:', normalizedPhone);
         setIsAuthenticated(true);
         setPhone(normalizedPhone);
         setUserId(user.id);
@@ -281,9 +280,11 @@ export default function CartPage() {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
+        console.error('Auth success failed:', error?.message);
         throw new Error('Не удалось получить данные пользователя');
       }
 
+      console.log('Auth success for user:', user.id, 'phone:', normalizedPhone);
       setUserId(user.id);
 
       const { data: profileData, error: profileError } = await supabase
@@ -723,6 +724,7 @@ export default function CartPage() {
         whatsapp: form.whatsapp,
       };
 
+      console.log('Submitting order with payload:', payload);
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -731,6 +733,7 @@ export default function CartPage() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
+        console.error('Order submission failed:', json.error, res.status);
         if (res.status === 429) {
           setErrorModal('Слишком много запросов. Попробуйте снова через несколько минут.');
         } else if (res.status === 401) {
@@ -743,7 +746,7 @@ export default function CartPage() {
         return;
       }
 
-      // Получаем bonus_id из таблицы bonuses
+      console.log('Order submitted successfully:', json.order_id);
       const { data: bonusData, error: bonusError } = await supabase
         .from('bonuses')
         .select('id')
@@ -814,7 +817,6 @@ export default function CartPage() {
         }
       }
 
-      // Проверяем сессию после заказа
       const { data: { user }, error: sessionError } = await supabase.auth.getUser();
       if (sessionError || !user) {
         console.error('Session lost after order submission:', sessionError);
@@ -828,7 +830,7 @@ export default function CartPage() {
         trackingUrl: json.tracking_url,
       });
       setShowSuccess(true);
-      console.log('Showing ThankYouModal with order:', json.order_id);
+      console.log('Showing ThankYouModal with order:', json.order_id, 'trackingUrl:', json.tracking_url);
       clearCart();
       resetForm();
       setSelectedUpsells([]);

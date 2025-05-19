@@ -22,7 +22,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
   const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
   const [callTimer, setCallTimer] = useState(300); // 5 минут
   const [isLoading, setIsLoading] = useState(false);
@@ -31,27 +30,23 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
-
-  useEffect(() => {
-    const client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: true,
-        },
-      }
-    );
-    setSupabase(client);
-  }, []);
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+      },
+    }
+  );
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'no-session') {
       setError('Пожалуйста, авторизуйтесь для доступа к личному кабинету.');
     } else if (errorParam === 'invalid-session') {
-      setError('Сессия истекла.oscopy Пожалуйста, авторизуйтесь заново.');
+      setError('Сессия истекла. Пожалуйста, авторизуйтесь заново.');
     }
   }, [searchParams]);
 
@@ -84,7 +79,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (t <= 1) {
           clearInterval(timerRef.current!);
           setStep('phone');
-          setAttempts(0);
           setError('');
           return 0;
         }
@@ -110,7 +104,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
   };
 
   const checkCallStatus = async () => {
-    if (!checkId || !phone || !supabase) return;
+    if (!checkId || !phone) return;
 
     setIsCheckingStatus(true);
     try {
@@ -123,8 +117,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       }
 
       if (data.success && data.status === 'VERIFIED') {
-        // Очистка старых cookies перед установкой новой сессии
-        document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
