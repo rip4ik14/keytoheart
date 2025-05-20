@@ -1,9 +1,9 @@
 import React from 'react';
 import OrdersTableClient from './OrdersTableClient';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { verifyAdminJwt } from '@/lib/auth';
 
 export default async function AdminOrdersPage() {
   const cookieStore = await cookies();
@@ -21,41 +21,20 @@ export default async function AdminOrdersPage() {
     }
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return Array.from(cookieStore.getAll()).map((cookie) => ({
-            name: cookie.name,
-            value: cookie.value,
-          }));
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  // Проверяем наличие сессии
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session) {
-    console.error('Session check failed:', sessionError);
+  // Проверяем admin_session токен
+  const token = cookieStore.get('admin_session')?.value;
+  if (!token) {
+    console.error('No admin session token found');
     redirect('/admin/login?error=no-session');
   }
 
-  // Проверяем наличие пользователя
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user || !user.id) {
-    console.error('User check failed:', userError);
-    redirect('/admin/login?error=no-user');
+  const isValidToken = await verifyAdminJwt(token);
+  if (!isValidToken) {
+    console.error('Invalid admin session token');
+    redirect('/admin/login?error=invalid-session');
   }
 
-  console.log('Accessing orders for user:', { id: user.id, phone: user.phone }); // Отладка
+  console.log('Accessing orders with admin_session token'); // Отладка
 
   // Получаем заказы
   const { data: orders, error } = await supabaseAdmin

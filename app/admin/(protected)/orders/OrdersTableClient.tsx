@@ -7,7 +7,6 @@ import type { Database } from '@/lib/supabase/types_new';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 type Order = Database['public']['Tables']['orders']['Row'];
@@ -24,62 +23,25 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [searchPhone, setSearchPhone] = useState<string>('');
   const router = useRouter();
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  // Очистка некорректных cookies и проверка сессии
+  // Проверка наличия admin_session токена
   useEffect(() => {
-    // Проверяем и очищаем некорректные cookies
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'sb-gwbeabfkknhewwoesqax-auth-token' && value) {
-        try {
-          JSON.parse(value);
-        } catch (e) {
-          console.error('Clearing invalid cookie:', name);
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-        }
-      }
-    }
-
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error || !session) {
-          console.error('No session found:', error);
-          router.push('/admin/login?error=no-session');
+        const res = await fetch('/api/check-admin-session', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          throw new Error('No admin session');
         }
       } catch (err) {
-        console.error('Error checking session:', err);
-        router.push('/admin/login?error=session-error');
+        console.error('Session check failed:', err);
+        router.push('/admin/login?error=no-session');
       }
     };
 
     checkSession();
-
-    // Слушатель изменений авторизации
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, !!session);
-      if (event === 'SIGNED_OUT' || !session) {
-        router.push('/admin/login?error=session-expired');
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [router, supabase]);
-
-  const filteredOrders = orders.filter((order) => {
-    const matchesStatus = statusFilter ? order.status === statusFilter : true;
-    const matchesPhone = searchPhone
-      ? order.phone?.includes(searchPhone.replace(/\D/g, '')) ?? false
-      : true;
-    return matchesStatus && matchesPhone;
-  });
+  }, [router]);
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
@@ -94,19 +56,13 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         throw new Error('Недопустимый статус');
       }
 
-      // Получаем сессию для JWT-токена
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('Не авторизован: Требуется вход');
-      }
-
       const res = await fetch('/api/admin/update-order-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ id, status: newStatus }),
+        credentials: 'include',
       });
 
       const result = await res.json();
@@ -122,7 +78,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       console.error('Error updating status:', err);
       setError(err.message);
       toast.error(err.message);
-      if (err.message.includes('Не авторизован')) {
+      if (err.message.includes('Unauthorized')) {
         router.push('/admin/login?error=unauthorized');
       }
     }
@@ -190,7 +146,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.map((order) => (
+            {orders.map((order) => (
               <motion.tr
                 key={order.id}
                 initial={{ opacity: 0 }}
@@ -204,7 +160,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     : '-'}
                 </td>
                 <td className="p-3">{order.contact_name || '-'}</td>
-                <td className="p-3">{order.phone ? order.phone : '-'}</td>
+                <td className="p-3">{order.phone || '-'}</td>
                 <td className="p-3 font-medium">{order.total?.toLocaleString() ?? 0} ₽</td>
                 <td className="p-3">
                   {order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}

@@ -1,11 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-);
+import { verifyAdminJwt } from '@/lib/auth';
 
 const supabaseAdmin = createClient<Database>(
   process.env.SUPABASE_URL!,
@@ -24,26 +20,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Проверяем авторизацию
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Проверяем admin_session токен
+    const token = req.cookies.get('admin_session')?.value;
+    if (!token) {
       return NextResponse.json(
-        { error: 'Unauthorized: Missing or invalid token' },
+        { error: 'Unauthorized: Missing admin session token' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user || !user.id) {
-      console.error('Error fetching user:', userError);
+    const isValidToken = await verifyAdminJwt(token);
+    if (!isValidToken) {
       return NextResponse.json(
-        { error: 'Unauthorized: Invalid token' },
+        { error: 'Unauthorized: Invalid admin session token' },
         { status: 401 }
       );
     }
 
-    console.log('Updating order status for user:', { id: user.id, phone: user.phone }); // Отладка
+    console.log('Updating order status with admin_session token'); // Отладка
 
     // Проверяем существование заказа
     const { data: order, error: orderError } = await supabaseAdmin
@@ -83,10 +77,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Обновляем статус заказа
+    // Обновляем только статус заказа
     const { error: updateError } = await supabaseAdmin
       .from('orders')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ status })
       .eq('id', id);
 
     if (updateError) {
