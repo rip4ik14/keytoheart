@@ -86,13 +86,24 @@ function CategoriesContent() {
         const res = await fetch('/api/admin-session', {
           credentials: 'include',
         });
-        const data = await res.json();
+        const text = await res.text();
+        console.log(`[${new Date().toISOString()}] Admin session response:`, {
+          status: res.status,
+          headers: Object.fromEntries(res.headers),
+          body: text,
+        });
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Unexpected response format: ' + text);
+        }
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Доступ запрещён');
         }
         setIsAuthenticated(true);
       } catch (err: any) {
-        console.error('Auth check failed:', err.message);
+        console.error(`[${new Date().toISOString()}] Auth check failed:`, err.message);
         toast.error('Войдите как администратор');
         setTimeout(() => {
           router.push(`/admin/login?from=${encodeURIComponent('/admin/categories')}`);
@@ -128,7 +139,7 @@ function CategoriesContent() {
   // Обработка ошибок загрузки
   useEffect(() => {
     if (isError && error) {
-      console.error('Categories load error:', error.message);
+      console.error(`[${new Date().toISOString()}] Categories load error:`, error.message);
       toast.error('Ошибка загрузки категорий: ' + error.message);
     }
   }, [isError, error]);
@@ -146,9 +157,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify(newCategory),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Add category response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Add category error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка добавления категории');
       }
       return data;
@@ -160,7 +181,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('add_category', { category_name: newCategory.name });
     },
     onError: (error: Error) => {
-      console.error('Add category mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Add category mutation error:`, error.message);
       toast.error(error.message);
     },
   });
@@ -178,9 +199,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify(cat),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Update category response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Update category error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка обновления категории');
       }
       return data;
@@ -192,7 +223,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('update_category', { category_id: editingCategory?.id });
     },
     onError: (error: Error) => {
-      console.error('Update category mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Update category mutation error:`, error.message);
       toast.error('Ошибка обновления категории: ' + error.message);
     },
   });
@@ -207,9 +238,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify({ id }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Delete category response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Delete category error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка удаления категории');
       }
       return data;
@@ -220,7 +261,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('delete_category', { category_id: editingCategory?.id });
     },
     onError: (error: Error) => {
-      console.error('Delete category mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Delete category mutation error:`, error.message);
       toast.error('Ошибка удаления категории: ' + error.message);
     },
   });
@@ -237,9 +278,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify({ category_id, name, slug, is_visible }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Add subcategory response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Add subcategory error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка добавления подкатегории');
       }
       return data;
@@ -251,7 +302,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('add_subcategory', { category_id: variables.category_id, subcategory_name: variables.name });
     },
     onError: (error: Error) => {
-      console.error('Add subcategory mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Add subcategory mutation error:`, error.message);
       toast.error('Ошибка добавления подкатегории: ' + error.message);
     },
   });
@@ -266,9 +317,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify({ id }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Delete subcategory response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Delete subcategory error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка удаления подкатегории');
       }
       return data;
@@ -279,7 +340,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('delete_subcategory', { subcategory_id: editingSub?.id });
     },
     onError: (error: Error) => {
-      console.error('Delete subcategory mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Delete subcategory mutation error:`, error.message);
       toast.error('Ошибка удаления подкатегории: ' + error.message);
     },
   });
@@ -296,9 +357,19 @@ function CategoriesContent() {
         },
         body: JSON.stringify({ id: sub.id, name: sub.name, slug, is_visible: sub.is_visible }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`[${new Date().toISOString()}] Update subcategory response:`, {
+        status: res.status,
+        headers: Object.fromEntries(res.headers),
+        body: text,
+      });
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unexpected response format: ' + text);
+      }
       if (!res.ok) {
-        console.error('Update subcategory error:', data.error, 'Status:', res.status);
         throw new Error(data.message || 'Ошибка обновления подкатегории');
       }
       return data;
@@ -310,7 +381,7 @@ function CategoriesContent() {
       sendAnalyticsEvent('update_subcategory', { subcategory_id: editingSub?.id });
     },
     onError: (error: Error) => {
-      console.error('Update subcategory mutation error:', error.message);
+      console.error(`[${new Date().toISOString()}] Update subcategory mutation error:`, error.message);
       toast.error('Ошибка обновления подкатегории: ' + error.message);
     },
   });

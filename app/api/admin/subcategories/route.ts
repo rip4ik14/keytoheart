@@ -13,13 +13,27 @@ const supabase = createClient<Database>(
 
 // POST: Добавить подкатегорию
 export async function POST(request: Request) {
+  console.log(`[${new Date().toISOString()}] Incoming POST request to /api/admin/subcategories:`, {
+    method: request.method,
+    headers: Object.fromEntries(new Headers(request.headers)),
+    body: await request.text(),
+  });
+
   try {
     const { category_id, name, slug, is_visible } = await request.json();
     if (!category_id || !name || !slug) {
-      console.warn('Missing required fields:', { category_id, name, slug });
+      console.warn(`[${new Date().toISOString()}] Missing required fields:`, { category_id, name, slug });
       return NextResponse.json(
         { error: 'Bad Request', message: 'Category ID, name, and slug are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
@@ -28,35 +42,75 @@ export async function POST(request: Request) {
       .insert({ category_id, name, slug, is_visible });
 
     if (error) {
-      console.error('Supabase error:', error.message);
+      console.error(`[${new Date().toISOString()}] Supabase error:`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        { status: 500 }
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: true },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
+    console.log(`[${new Date().toISOString()}] Response from POST /api/admin/subcategories:`, response);
+    return response;
   } catch (error: any) {
-    console.error('Error in POST /api/admin/subcategories:', error.message, error.stack);
+    console.error(`[${new Date().toISOString()}] Error in POST /api/admin/subcategories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
   }
 }
 
 // PATCH: Обновить подкатегорию
 export async function PATCH(request: Request) {
+  console.log(`[${new Date().toISOString()}] Incoming PATCH request to /api/admin/subcategories:`, {
+    method: request.method,
+    headers: Object.fromEntries(new Headers(request.headers)),
+    body: await request.text(),
+  });
+
   try {
     const { id, name, slug, is_visible } = await request.json();
     if (!id || !name || !slug) {
-      console.warn('Missing required fields:', { id, name, slug });
+      console.warn(`[${new Date().toISOString()}] Missing required fields:`, { id, name, slug });
       return NextResponse.json(
         { error: 'Bad Request', message: 'ID, name, and slug are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
@@ -66,35 +120,75 @@ export async function PATCH(request: Request) {
       .eq('id', id);
 
     if (error) {
-      console.error('Supabase error:', error.message);
+      console.error(`[${new Date().toISOString()}] Supabase error:`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        { status: 500 }
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: true },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
+    console.log(`[${new Date().toISOString()}] Response from PATCH /api/admin/subcategories:`, response);
+    return response;
   } catch (error: any) {
-    console.error('Error in PATCH /api/admin/subcategories:', error.message, error.stack);
+    console.error(`[${new Date().toISOString()}] Error in PATCH /api/admin/subcategories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
   }
 }
 
 // DELETE: Удалить подкатегорию
 export async function DELETE(request: Request) {
+  console.log(`[${new Date().toISOString()}] Incoming DELETE request to /api/admin/subcategories:`, {
+    method: request.method,
+    headers: Object.fromEntries(new Headers(request.headers)),
+    body: await request.text(),
+  });
+
   try {
     const { id } = await request.json();
     if (!id) {
-      console.warn('Missing ID');
+      console.warn(`[${new Date().toISOString()}] Missing ID`);
       return NextResponse.json(
         { error: 'Bad Request', message: 'ID is required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
@@ -104,22 +198,48 @@ export async function DELETE(request: Request) {
       .eq('id', id);
 
     if (error) {
-      console.error('Supabase error:', error.message);
+      console.error(`[${new Date().toISOString()}] Supabase error:`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        { status: 500 }
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        }
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: true },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
+    console.log(`[${new Date().toISOString()}] Response from DELETE /api/admin/subcategories:`, response);
+    return response;
   } catch (error: any) {
-    console.error('Error in DELETE /api/admin/subcategories:', error.message, error.stack);
+    console.error(`[${new Date().toISOString()}] Error in DELETE /api/admin/subcategories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
     );
   }
 }
