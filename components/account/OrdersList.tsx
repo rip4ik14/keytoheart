@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ interface OrdersListProps {
 
 export default function OrdersList({ orders }: OrdersListProps) {
   const router = useRouter();
-  const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   // Анимации для таблицы
   const containerVariants = {
@@ -94,9 +94,8 @@ export default function OrdersList({ orders }: OrdersListProps) {
             const isExpanded = expandedOrder === o.id;
 
             return (
-              <>
+              <React.Fragment key={o.id}>
                 <motion.tr
-                  key={o.id}
                   className="bg-white hover:shadow-md transition-all duration-200 border border-gray-200 rounded-lg"
                   variants={rowVariants}
                 >
@@ -163,38 +162,42 @@ export default function OrdersList({ orders }: OrdersListProps) {
                             <h4 className="text-sm font-semibold">Товары в заказе:</h4>
                             <div className="space-y-2">
                               {o.items.map((item, idx) => (
-                                <div key={`item-${idx}`} className="flex items-center gap-3">
-                                  <Image
-                                    src={item.products.cover_url || '/no-image.jpg'}
-                                    alt={item.products.title}
-                                    width={50}
-                                    height={50}
-                                    className="rounded-md object-cover"
-                                  />
-                                  <div>
-                                    <p className="text-sm">{item.products.title}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {item.quantity} × {item.price} ₽
-                                    </p>
+                                <React.Fragment key={`item-${idx}`}>
+                                  <div className="flex items-center gap-3">
+                                    <Image
+                                      src={item.products.cover_url || '/no-image.jpg'}
+                                      alt={item.products.title}
+                                      width={50}
+                                      height={50}
+                                      className="rounded-md object-cover"
+                                    />
+                                    <div>
+                                      <p className="text-sm">{item.products.title}</p>
+                                      <p className="text-xs text-gray-500">
+                                        {item.quantity} × {item.price} ₽
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
+                                </React.Fragment>
                               ))}
                               {o.upsell_details.map((upsell, idx) => (
-                                <div key={`upsell-${idx}`} className="flex items-center gap-3">
-                                  <Image
-                                    src="/no-image.jpg"
-                                    alt={upsell.title}
-                                    width={50}
-                                    height={50}
-                                    className="rounded-md object-cover"
-                                  />
-                                  <div>
-                                    <p className="text-sm">{upsell.title} ({upsell.category})</p>
-                                    <p className="text-xs text-gray-500">
-                                      {upsell.quantity} × {upsell.price} ₽
-                                    </p>
+                                <React.Fragment key={`upsell-${idx}`}>
+                                  <div className="flex items-center gap-3">
+                                    <Image
+                                      src="/no-image.jpg"
+                                      alt={upsell.title}
+                                      width={50}
+                                      height={50}
+                                      className="rounded-md object-cover"
+                                    />
+                                    <div>
+                                      <p className="text-sm">{upsell.title} ({upsell.category})</p>
+                                      <p className="text-xs text-gray-500">
+                                        {upsell.quantity} × {upsell.price} ₽
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
+                                </React.Fragment>
                               ))}
                             </div>
                           </div>
@@ -203,7 +206,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     </AnimatePresence>
                   </td>
                 </tr>
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>
@@ -219,5 +222,5 @@ export default function OrdersList({ orders }: OrdersListProps) {
         </a>
       </p>
     </motion.section>
-  )
+  );
 }

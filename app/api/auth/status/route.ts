@@ -2,53 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Парсинг cookies из заголовка
-function parseCookies(header: string | null): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  if (!header) return cookies;
-
-  const pairs = header.split(';');
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=').map(part => part.trim());
-    if (key && value) {
-      cookies[key] = value;
-    }
-  }
-  return cookies;
-}
-
-// Поиск пользователя REST-методом
-async function findUserByPhone(phone: string) {
-  const phoneWithPlus = phone.startsWith('+') ? phone : `+${phone}`;
-  const phoneWithoutPlus = phone.startsWith('+') ? phone.slice(1) : phone;
-
-  const res = await fetch(
-    `${process.env.SUPABASE_URL}/auth/v1/admin/users`,
-    {
-      headers: {
-        apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-      },
-    }
-  );
-  const json = await res.json();
-  console.log(`[${new Date().toISOString()}] findUserByPhone response for phone ${phone}:`, json);
-
-  const user = json.users?.find((u: any) => u.phone === phoneWithPlus || u.phone === phoneWithoutPlus);
-  return user ?? null;
-}
-
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const checkId = searchParams.get('checkId');
-  const phone = searchParams.get('phone');
-
-  console.log(`[${new Date().toISOString()}] Проверка статуса для checkId: ${checkId}, телефон: ${phone}`);
-  console.log(`[${new Date().toISOString()}] SUPABASE_URL: ${process.env.SUPABASE_URL}`);
-  console.log(`[${new Date().toISOString()}] SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY}`);
-  console.log(`[${new Date().toISOString()}] SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY}`);
-
   try {
+    const { searchParams } = new URL(req.url);
+    const checkId = searchParams.get('checkId');
+    const phone = searchParams.get('phone');
+
     if (!checkId || !phone) {
       console.error(`[${new Date().toISOString()}] Отсутствуют обязательные параметры: checkId=${checkId}, phone=${phone}`);
       return NextResponse.json(
@@ -57,17 +16,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // Проверяем переменные окружения во время выполнения
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error(`[${new Date().toISOString()}] Missing required Supabase environment variables`);
-      throw new Error('Missing required Supabase environment variables');
-    }
-
-    // Инициализация admin-клиента
     const supabaseAdmin = createClient<Database>(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { autoRefreshToken: true, persistSession: false } }
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
     // Проверяем статус в auth_logs
@@ -85,32 +37,9 @@ export async function GET(req: Request) {
 
     console.log(`[${new Date().toISOString()}] Статус из базы данных: ${authLog.status}`);
 
-    // Проверяем наличие токенов в cookies через заголовок Cookie
-    const cookieHeader = req.headers.get('cookie');
-    const cookies = parseCookies(cookieHeader);
-    const accessToken = cookies['sb-access-token'];
-    const refreshToken = cookies['sb-refresh-token'];
-
-    if (authLog.status === 'VERIFIED' && accessToken && refreshToken) {
-      console.log(`[${new Date().toISOString()}] Статус уже VERIFIED, токены найдены, возвращаем сразу`);
-      return NextResponse.json({
-        success: true,
-        status: 'VERIFIED',
-        message: 'Авторизация завершена',
-        phone,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-    }
-
-    if (authLog.status === 'EXPIRED') {
-      console.log(`[${new Date().toISOString()}] Статус EXPIRED, возвращаем сразу`);
-      return NextResponse.json({ success: true, status: 'EXPIRED', message: 'Срок действия истёк' });
-    }
-
     // Проверяем статус через SMS.ru API
     const start = Date.now();
-    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=${process.env.SMS_RU_API_ID}&check_id=${checkId}&json=1`);
+    console.log(`[${new Date().toISOString()}] Запрос к SMS.ru API: https://sms.ru/callcheck/status?api_id=...&check_id=${checkId}&json=1`);
     const smsRes = await fetch(
       `https://sms.ru/callcheck/status?api_id=${process.env.SMS_RU_API_ID}&check_id=${checkId}&json=1`,
       { cache: 'no-store' }
@@ -144,44 +73,33 @@ export async function GET(req: Request) {
 
     // Пользователь: найти или создать
     console.log(`[${new Date().toISOString()}] Проверка существования пользователя с телефоном: ${phone}`);
-    let user = await findUserByPhone(phone);
-    let userEmail = `${phone.replace(/\D/g, '')}-${Date.now()}@temp.example.com`;
-    const temporaryPassword = 'TempPassword123!'; // Временный пароль
+    const { data: users, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    if (userError) {
+      console.error(`[${new Date().toISOString()}] Ошибка получения пользователей:`, userError);
+      return NextResponse.json({ success: false, error: 'Failed to fetch users' }, { status: 500 });
+    }
+
+    const user = users.users.find((u) => u.phone === phone);
+    let userId = user?.id;
 
     if (!user) {
       console.log(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден, регистрируем нового`);
-      const { data: nu, error } = await supabaseAdmin.auth.admin.createUser({
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         phone,
         phone_confirm: true,
-        email: userEmail,
+        email: `${phone}-${Date.now()}@temp.example.com`,
         email_confirm: true,
-        password: temporaryPassword,
-        user_metadata: { phone },
       });
-      if (error) {
-        console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, error.message);
-        if (!error.message?.includes('already registered')) {
-          return NextResponse.json({ success: false, error: 'Ошибка создания пользователя' }, { status: 500 });
-        }
-        user = await findUserByPhone(phone); // Уже есть - нашли
-      } else {
-        user = nu.user;
+      if (createError || !newUser?.user) {
+        console.error(`[${new Date().toISOString()}] Ошибка создания пользователя:`, createError?.message);
+        return NextResponse.json({ success: false, error: 'Failed to create user' }, { status: 500 });
       }
-    } else {
-      userEmail = user.email;
-      // Обновляем пароль для существующего пользователя
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        password: temporaryPassword,
-      });
-      if (updateError) {
-        console.error(`[${new Date().toISOString()}] Ошибка обновления пароля пользователя:`, updateError.message);
-        return NextResponse.json({ success: false, error: 'Ошибка обновления пользователя' }, { status: 500 });
-      }
+      userId = newUser.user.id;
     }
 
-    console.log(`[${new Date().toISOString()}] Пользователь найден или создан: ${user.id}`);
+    console.log(`[${new Date().toISOString()}] Пользователь найден или создан: ${userId}`);
 
-    // Профиль client-таблицы
+    // Проверяем профиль
     console.log(`[${new Date().toISOString()}] Проверка наличия профиля в user_profiles`);
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
@@ -191,43 +109,37 @@ export async function GET(req: Request) {
 
     if (profileError && profileError.code !== 'PGRST116') {
       console.error(`[${new Date().toISOString()}] Ошибка проверки профиля:`, profileError);
-      return NextResponse.json({ success: false, error: 'Ошибка проверки профиля' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Error checking profile' }, { status: 500 });
     }
 
     if (!profile) {
       console.log(`[${new Date().toISOString()}] Профиль не найден, создаём новый`);
       const { error: insertError } = await supabaseAdmin
         .from('user_profiles')
-        .insert([{ phone, updated_at: new Date().toISOString() }]);
+        .insert([{ id: userId, phone }]);
       if (insertError) {
         console.error(`[${new Date().toISOString()}] Ошибка создания профиля:`, insertError);
-        return NextResponse.json({ success: false, error: 'Ошибка создания профиля' }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Error creating profile' }, { status: 500 });
       }
     }
 
-    // Создание сессии через signInWithPassword
-    console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${user.id}`);
-    const anonClient = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    );
-
-    const { data: sessionData, error: signInError } = await anonClient.auth.signInWithPassword({
-      email: userEmail,
-      password: temporaryPassword,
+    // Создаём сессию
+    console.log(`[${new Date().toISOString()}] Создание сессии для пользователя: ${userId}`);
+    const { data: session, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: `${phone}-${Date.now()}@temp.example.com`,
+      options: { redirectTo: `${new URL(req.url).origin}/cart` },
     });
 
-    if (signInError || !sessionData.session) {
-      console.error(`[${new Date().toISOString()}] Ошибка входа с паролем:`, signInError?.message);
-      return NextResponse.json({ success: false, error: 'Ошибка создания сессии: ' + (signInError?.message || 'Неизвестная ошибка') }, { status: 500 });
+    if (sessionError || !session?.properties?.action_link) {
+      console.error(`[${new Date().toISOString()}] Ошибка создания сессии:`, sessionError?.message);
+      return NextResponse.json({ success: false, error: 'Failed to generate session' }, { status: 500 });
     }
 
-    const access_token = sessionData.session.access_token;
-    const refresh_token = sessionData.session.refresh_token;
+    const access_token = session.properties.action_link.split('token=')[1].split('&')[0];
+    const refresh_token = session.properties.action_link.split('refresh_token=')[1].split('&')[0];
 
-    // Отправка событий аналитики
-    console.log(`[${new Date().toISOString()}] Sending analytics events: auth_success`);
-    const res = NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       status: 'VERIFIED',
       message: 'Авторизация завершена',
@@ -236,24 +148,16 @@ export async function GET(req: Request) {
       refresh_token,
     });
 
-    res.headers.set('X-GA-Event', JSON.stringify({ event: 'auth_success', phone }));
-    res.headers.set('X-YM-Event', JSON.stringify({ event: 'auth_success', phone }));
+    // Устанавливаем cookie
+    response.headers.set(
+      'Set-Cookie',
+      `sb-gwbeabfkknhewwoesqax-auth-token=${JSON.stringify({ access_token, refresh_token })}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`
+    );
 
-    // Установка токенов в cookies с правильными именами
-    const cfg = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      domain: process.env.NODE_ENV === 'production' ? '.keytoheart.ru' : undefined,
-    };
-    res.cookies.set('sb-access-token', access_token, { ...cfg, maxAge: 3 * 24 * 60 * 60 }); // 3 дня
-    res.cookies.set('sb-refresh-token', refresh_token, { ...cfg, maxAge: 30 * 24 * 60 * 60 }); // 30 дней
-    console.log(`[${new Date().toISOString()}] Cookies set: sb-access-token=${access_token.substring(0, 10)}..., sb-refresh-token=${refresh_token.substring(0, 10)}...`);
-
-    return res;
+    console.log(`[${new Date().toISOString()}] Cookies set: sb-gwbeabfkknhewwoesqax-auth-token`);
+    return response;
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Ошибка в статусе:`, error.message, error.stack);
-    return NextResponse.json({ success: false, error: 'Ошибка сервера: ' + error.message }, { status: 500 });
+    console.error(`[${new Date().toISOString()}] Ошибка в статусе:`, error.message);
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }
