@@ -154,6 +154,7 @@ function CategoriesContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify(newCategory),
       });
@@ -196,6 +197,7 @@ function CategoriesContent() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify(cat),
       });
@@ -235,6 +237,7 @@ function CategoriesContent() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ id }),
       });
@@ -275,6 +278,7 @@ function CategoriesContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ category_id, name, slug, is_visible }),
       });
@@ -314,6 +318,7 @@ function CategoriesContent() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ id }),
       });
@@ -354,6 +359,7 @@ function CategoriesContent() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ id: sub.id, name: sub.name, slug, is_visible: sub.is_visible }),
       });

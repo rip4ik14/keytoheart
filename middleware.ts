@@ -14,10 +14,14 @@ export async function middleware(req: NextRequest) {
 
   console.log(`[${new Date().toISOString()}] Middleware processing: ${pathname}`);
 
-  // Пропускаем API маршруты без CSP
+  // Пропускаем API маршруты с CORS заголовками
   if (pathname.startsWith('/api')) {
-    console.log(`[${new Date().toISOString()}] Skipping CSP for API route: ${pathname}`);
-    return NextResponse.next();
+    console.log(`[${new Date().toISOString()}] Skipping checks for API route: ${pathname}`);
+    const response = NextResponse.next();
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With');
+    return response;
   }
 
   // Устанавливаем CSP заголовок для не-API маршрутов
@@ -58,7 +62,7 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      const verifyRes = await fetch(new URL('/api/verify-session', req.url), {
+      const verifyRes = await fetch(new URL('/api/admin-session', req.url), {
         headers: {
           Cookie: `admin_session=${token}`,
         },

@@ -11,6 +11,23 @@ const supabase = createClient<Database>(
   }
 );
 
+// Общие CORS-заголовки
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Requested-With',
+};
+
+// OPTIONS: Обработка предварительных CORS-запросов
+export async function OPTIONS() {
+  console.log(`[${new Date().toISOString()}] Handling OPTIONS request to /api/admin/categories`);
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 // POST: Добавить категорию
 export async function POST(request: Request) {
   console.log(`[${new Date().toISOString()}] Incoming POST request to /api/admin/categories:`, {
@@ -25,15 +42,7 @@ export async function POST(request: Request) {
       console.warn(`[${new Date().toISOString()}] Missing required fields:`, { name, slug });
       return NextResponse.json(
         { error: 'Bad Request', message: 'Name and slug are required' },
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -45,29 +54,13 @@ export async function POST(request: Request) {
       console.error(`[${new Date().toISOString()}] Supabase error:`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 500, headers: corsHeaders }
       );
     }
 
     const response = NextResponse.json(
       { success: true },
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 200, headers: corsHeaders }
     );
     console.log(`[${new Date().toISOString()}] Response from POST /api/admin/categories:`, response);
     return response;
@@ -75,15 +68,7 @@ export async function POST(request: Request) {
     console.error(`[${new Date().toISOString()}] Error in POST /api/admin/categories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -102,15 +87,7 @@ export async function PATCH(request: Request) {
       console.warn(`[${new Date().toISOString()}] Missing required fields:`, { id, name, slug });
       return NextResponse.json(
         { error: 'Bad Request', message: 'ID, name, and slug are required' },
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -123,29 +100,13 @@ export async function PATCH(request: Request) {
       console.error(`[${new Date().toISOString()}] Supabase error:`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 500, headers: corsHeaders }
       );
     }
 
     const response = NextResponse.json(
       { success: true },
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 200, headers: corsHeaders }
     );
     console.log(`[${new Date().toISOString()}] Response from PATCH /api/admin/categories:`, response);
     return response;
@@ -153,15 +114,7 @@ export async function PATCH(request: Request) {
     console.error(`[${new Date().toISOString()}] Error in PATCH /api/admin/categories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -180,15 +133,7 @@ export async function DELETE(request: Request) {
       console.warn(`[${new Date().toISOString()}] Missing ID`);
       return NextResponse.json(
         { error: 'Bad Request', message: 'ID is required' },
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -203,15 +148,7 @@ export async function DELETE(request: Request) {
       console.error(`[${new Date().toISOString()}] Supabase error (products check):`, productsError.message);
       return NextResponse.json(
         { error: 'Database Error', message: productsError.message },
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -219,15 +156,7 @@ export async function DELETE(request: Request) {
       console.warn(`[${new Date().toISOString()}] Category has associated products:`, id);
       return NextResponse.json(
         { error: 'Bad Request', message: 'Cannot delete category with associated products' },
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -241,15 +170,7 @@ export async function DELETE(request: Request) {
       console.error(`[${new Date().toISOString()}] Supabase error (subcategories deletion):`, subError.message);
       return NextResponse.json(
         { error: 'Database Error', message: subError.message },
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -263,29 +184,13 @@ export async function DELETE(request: Request) {
       console.error(`[${new Date().toISOString()}] Supabase error (category deletion):`, error.message);
       return NextResponse.json(
         { error: 'Database Error', message: error.message },
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { status: 500, headers: corsHeaders }
       );
     }
 
     const response = NextResponse.json(
       { success: true },
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 200, headers: corsHeaders }
     );
     console.log(`[${new Date().toISOString()}] Response from DELETE /api/admin/categories:`, response);
     return response;
@@ -293,15 +198,7 @@ export async function DELETE(request: Request) {
     console.error(`[${new Date().toISOString()}] Error in DELETE /api/admin/categories:`, error.message, error.stack);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Unexpected error' },
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
