@@ -7,6 +7,20 @@ import { redirect } from 'next/navigation';
 
 export default async function AdminOrdersPage() {
   const cookieStore = await cookies();
+  
+  // Очистка некорректных cookies
+  const allCookies = cookieStore.getAll();
+  for (const cookie of allCookies) {
+    if (cookie.name.includes('sb-gwbeabfkknhewwoesqax-auth-token')) {
+      try {
+        JSON.parse(cookie.value);
+      } catch (e) {
+        console.error('Clearing invalid cookie:', cookie.name);
+        cookieStore.delete(cookie.name);
+      }
+    }
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
