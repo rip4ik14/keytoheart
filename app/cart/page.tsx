@@ -253,18 +253,18 @@ export default function CartPage() {
         setUserId(user.id);
         setFormData({ phone: normalizedPhone });
 
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
+        const { data: bonusData, error: bonusError } = await supabase
+          .from('bonuses')
           .select('bonus_balance')
           .eq('phone', normalizedPhone)
           .single();
 
-        if (profileError) {
-          console.error('Error fetching bonus balance:', profileError);
+        if (bonusError) {
+          console.error('Error fetching bonus balance from bonuses:', bonusError);
           setBonusBalance(0);
         } else {
-          const balance = profileData?.bonus_balance || 0;
-          console.log('Bonus balance fetched:', balance);
+          const balance = bonusData?.bonus_balance || 0;
+          console.log('Bonus balance fetched from bonuses:', balance);
           setBonusBalance(balance);
         }
 
@@ -304,19 +304,30 @@ export default function CartPage() {
 
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select('name, bonus_balance')
+        .select('name')
+        .eq('phone', normalizedPhone)
+        .single();
+
+      const { data: bonusData, error: bonusError } = await supabase
+        .from('bonuses')
+        .select('bonus_balance')
         .eq('phone', normalizedPhone)
         .single();
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
         setFormData({ phone: normalizedPhone, name: '', email: form.email, whatsapp: form.whatsapp });
-        setBonusBalance(0);
       } else {
         const name = profileData?.name || '';
-        const balance = profileData?.bonus_balance || 0;
-        console.log('Profile fetched - name:', name, 'bonus_balance:', balance);
         setFormData({ phone: normalizedPhone, name, email: form.email, whatsapp: form.whatsapp });
+      }
+
+      if (bonusError) {
+        console.error('Error fetching bonus balance from bonuses:', bonusError);
+        setBonusBalance(0);
+      } else {
+        const balance = bonusData?.bonus_balance || 0;
+        console.log('Bonus balance fetched from bonuses:', balance);
         setBonusBalance(balance);
       }
 
