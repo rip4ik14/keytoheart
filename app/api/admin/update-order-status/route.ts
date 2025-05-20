@@ -1,6 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+
+const supabase = createClient<Database>(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
+
+const supabaseAdmin = createClient<Database>(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +25,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем права админа
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser();
-    if (userError || !user) {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
+        { error: 'Unauthorized: Missing or invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      console.error('Error fetching user:', userError);
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid token' },
         { status: 401 }
       );
     }
@@ -29,6 +50,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (adminError || !admin || admin.role !== 'admin') {
+      console.error('Admin check failed:', adminError);
       return NextResponse.json(
         { error: 'Forbidden: Only admins can update order status' },
         { status: 403 }
@@ -51,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем, был ли заказ уже завершён
-    if (order.status === 'completed' && status === 'completed') {
+    if (order.status === 'Доставлен' && status === 'Доставлен') {
       return NextResponse.json(
         { error: 'Order already completed, bonuses already accrued' },
         { status: 400 }
@@ -72,8 +94,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Начисляем бонусы, если статус стал completed
-    if (status === 'completed' && order.bonus > 0) {
+    // Начисляем бонусы, если статус стал "Доставлен"
+    if (status === 'Доставлен' && order.bonus > 0) {
       if (!order.phone) {
         console.error('Order has no associated phone number');
         return NextResponse.json(

@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale/ru'; // Исправляем импорт локали
+import { ru } from 'date-fns/locale';
 import type { Database } from '@/lib/supabase/types_new';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { createBrowserClient } from '@supabase/ssr';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 
@@ -19,6 +21,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [error, setError] = useState<string | null>(loadError?.message ?? null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchPhone, setSearchPhone] = useState<string>('');
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = statusFilter ? order.status === statusFilter : true;
@@ -41,20 +48,34 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         throw new Error('Недопустимый статус');
       }
 
+      // Получаем текущую сессию для JWT-токена
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Не авторизован: Требуется вход');
+      }
+
       const res = await fetch('/api/admin/update-order-status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ id, status: newStatus }),
       });
+
+      const result = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err?.error ?? 'Ошибка при обновлении статуса');
+        throw new Error(result?.error ?? 'Ошибка при обновлении статуса');
       }
+
       setOrders((prev) =>
         prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
       );
-    } catch (err) {
-      setError((err as Error).message);
+      toast.success(`Статус заказа #${id} обновлён на "${newStatus}"`);
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      setError(err.message);
+      toast.error(err.message);
     }
   };
 
