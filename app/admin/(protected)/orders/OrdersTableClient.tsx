@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { Database } from '@/lib/supabase/types_new';
@@ -8,6 +8,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { createBrowserClient } from '@supabase/ssr';
+import { useRouter } from 'next/navigation';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 
@@ -21,11 +22,42 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [error, setError] = useState<string | null>(loadError?.message ?? null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchPhone, setSearchPhone] = useState<string>('');
+  const router = useRouter();
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  // Проверка сессии при загрузке
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          console.error('No session found:', error);
+          router.push('/admin/login');
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+        router.push('/admin/login');
+      }
+    };
+
+    checkSession();
+
+    // Слушатель изменений авторизации
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, !!session);
+      if (event === 'SIGNED_OUT' || !session) {
+        router.push('/admin/login');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = statusFilter ? order.status === statusFilter : true;
@@ -48,7 +80,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         throw new Error('Недопустимый статус');
       }
 
-      // Получаем текущую сессию для JWT-токена
+      // Получаем сессию для JWT-токена
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
         throw new Error('Не авторизован: Требуется вход');
@@ -76,6 +108,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       console.error('Error updating status:', err);
       setError(err.message);
       toast.error(err.message);
+      if (err.message.includes('Не авторизован')) {
+        router.push('/admin/login');
+      }
     }
   };
 

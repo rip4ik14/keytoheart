@@ -30,7 +30,8 @@ export default async function AdminOrdersPage() {
   // Проверяем права админа
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
-    redirect('/admin/login');
+    console.error('User check failed:', userError);
+    redirect('/admin/login?error=no-session');
   }
 
   const { data: admin, error: adminError } = await supabaseAdmin
@@ -40,13 +41,18 @@ export default async function AdminOrdersPage() {
     .single();
 
   if (adminError || !admin || admin.role !== 'admin') {
-    redirect('/admin/login');
+    console.error('Admin check failed:', adminError);
+    redirect('/admin/login?error=not-admin');
   }
 
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching orders:', error);
+  }
 
   return (
     <div className="p-10">

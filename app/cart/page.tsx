@@ -199,8 +199,10 @@ export default function CartPage() {
 
   // Очистка старых cookies при загрузке
   useEffect(() => {
-    document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-    console.log('Cleared old auth cookies on page load');
+    if (!window.location.pathname.startsWith('/admin')) {
+      document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      console.log('Cleared old auth cookies on page load');
+    }
   }, []);
 
   // Проверяем repeatDraft из localStorage при загрузке страницы
