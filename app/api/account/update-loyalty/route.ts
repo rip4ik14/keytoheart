@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       .from('orders')
       .select('total')
       .eq('phone', sanitizedPhone)
-      .eq('status', 'completed'); // Учитываем только завершённые заказы
+      .in('status', ['completed', 'delivered', 'paid']); // Расширяем список статусов
 
     if (ordersError) {
       console.error(`[${new Date().toISOString()}] Error fetching orders:`, ordersError);
@@ -30,7 +30,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const totalSpent = orders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+    console.log(`[${new Date().toISOString()}] Orders fetched for phone ${sanitizedPhone}:`, orders);
+
+    let totalSpent = orders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+
+    // Если заказы не найдены, пробуем взять total_spent из bonuses
+    if (totalSpent === 0) {
+      const { data: bonusData, error: bonusError } = await supabase
+        .from('bonuses')
+        .select('total_spent')
+        .eq('phone', sanitizedPhone)
+        .single();
+
+      if (bonusError) {
+        console.error(`[${new Date().toISOString()}] Error fetching total_spent from bonuses:`, bonusError);
+      } else {
+        totalSpent = bonusData?.total_spent || 0;
+        console.log(`[${new Date().toISOString()}] Fallback total_spent from bonuses for phone ${sanitizedPhone}: ${totalSpent}`);
+      }
+    }
+
     console.log(`[${new Date().toISOString()}] Total spent for phone ${sanitizedPhone}: ${totalSpent}`);
 
     // Определяем уровень
