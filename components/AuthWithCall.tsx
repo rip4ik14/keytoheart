@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '@/lib/supabase/types_new';
 import toast from 'react-hot-toast';
@@ -16,14 +16,12 @@ type Props = {
 
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [step, setStep] = useState<'phone' | 'call' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
   const [callPhonePretty, setCallPhonePretty] = useState<string | null>(null);
   const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [attempts, setAttempts] = useState(0);
   const [banTimer, setBanTimer] = useState(0);
   const [callTimer, setCallTimer] = useState(300); // 5 минут
   const [isLoading, setIsLoading] = useState(false);
@@ -32,15 +30,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
-
-  useEffect(() => {
-    const client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    setSupabase(client);
-  }, []);
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+      },
+    }
+  );
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -80,7 +79,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (t <= 1) {
           clearInterval(timerRef.current!);
           setStep('phone');
-          setAttempts(0);
           setError('');
           return 0;
         }
@@ -106,28 +104,24 @@ export default function AuthWithCall({ onSuccess }: Props) {
   };
 
   const checkCallStatus = async () => {
-    if (!checkId || !phone || !supabase) return;
+    if (!checkId || !phone) return;
 
     setIsCheckingStatus(true);
     try {
       const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
-      console.log(`[${new Date().toISOString()}] Checking call status for checkId: ${checkId}, phone: ${clearPhone}`);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
-      console.log(`[${new Date().toISOString()}] Check call status response:`, data);
 
       if (!res.ok) {
         throw new Error(data.error || 'Ошибка проверки статуса');
       }
 
       if (data.success && data.status === 'VERIFIED') {
-        console.log('Call status verified, proceeding to success step');
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
         });
         if (sessionError) {
-          console.error('Error setting session:', sessionError.message);
           throw new Error('Ошибка установки сессии');
         }
         setStep('success');
@@ -135,20 +129,14 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
         window.ym?.(96644553, 'reachGoal', 'auth_success', { phone: clearPhone });
-
-        const redirectTo = searchParams.get('from') || '/account';
-        router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
-        console.log('Call status expired, returning to phone input');
         setStep('phone');
         setError('Время для звонка истекло. Попробуйте снова.');
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       } else if (data.error) {
-        console.log('Error in call status:', data.error);
         setError(data.error);
       }
     } catch (err: any) {
-      console.error('Ошибка проверки статуса звонка:', err);
       setError('Ошибка проверки статуса: ' + err.message);
       toast.error(err.message);
     } finally {
@@ -168,7 +156,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
       };
     }
-  }, [step, checkId, phone, router]);
+  }, [step, checkId, phone]);
 
   useEffect(() => {
     return () => {
@@ -190,7 +178,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
         body: JSON.stringify({ phone: clearPhone }),
       });
       const data = await res.json();
-      console.log(`[${new Date().toISOString()}] Send call response:`, data);
       if (!data.success) {
         if (res.status === 429) {
           setStep('ban');

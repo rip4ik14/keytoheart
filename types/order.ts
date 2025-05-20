@@ -13,7 +13,7 @@ export type UpsellDetail = {
 };
 
 export type Order = {
-  id: number;
+  id: string;
   created_at: string;
   total: number;
   bonuses_used: number;
@@ -21,5 +21,5 @@ export type Order = {
   status: string;
   items: OrderItem[];
   upsell_details: UpsellDetail[];
-  recipient?: string; // Добавляем поле recipient
+  recipient?: string;
 };

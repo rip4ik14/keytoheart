@@ -15,33 +15,7 @@ import AuthWithCall from '@components/AuthWithCall';
 import { createBrowserClient } from '@supabase/ssr';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
-
-// Интерфейсы для типизации данных
-interface OrderItem {
-  products: { title: string; cover_url: string | null };
-  quantity: number;
-  price: number;
-  product_id: number;
-}
-
-interface UpsellDetail {
-  title: string;
-  price: number;
-  quantity: number;
-  category: string;
-}
-
-interface Order {
-  id: number;
-  created_at: string;
-  total: number;
-  bonuses_used: number;
-  payment_method: 'cash' | 'card';
-  status: string;
-  items: OrderItem[];
-  upsell_details: UpsellDetail[];
-  recipient?: string;
-}
+import type { Order, OrderItem, UpsellDetail } from '@/types/order';
 
 interface BonusHistoryItem {
   amount: number;
@@ -79,10 +53,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        global: {
-          headers: {
-            Accept: 'application/json',
-          },
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
         },
       }
     );
@@ -103,16 +76,14 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     const checkSession = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        console.log(`[${new Date().toISOString()}] Client user check:`, { user, error });
+        console.log('Checking session:', { userId: user?.id, error: error?.message });
         if (error) {
-          console.error('User check error:', error.message);
           throw error;
         }
         if (user) {
+          const normalizedPhone = normalizePhone(user.phone || '');
           setIsAuthenticated(true);
-          const formattedPhone = normalizePhone(user.phone || '');
-          console.log(`[${new Date().toISOString()}] Formatted phone: ${formattedPhone}`);
-          setPhone(formattedPhone);
+          setPhone(normalizedPhone);
           setOrders(initialOrders || []);
           setBonusData(initialBonusData);
         } else {
@@ -122,7 +93,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           setBonusData(null);
         }
       } catch (error) {
-        console.error('Error checking user:', error);
+        console.error('Error checking session:', error);
         setIsAuthenticated(false);
         setPhone('');
         setOrders([]);
@@ -130,16 +101,11 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
     };
 
-    checkSession().catch((error) => {
-      console.error('Unhandled error in checkSession:', error);
-    });
+    checkSession();
 
-    // Добавляем слушатель изменений авторизации
     const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      console.log(`[${new Date().toISOString()}] Auth state changed:`, { event, session });
-      checkSession().catch((error) => {
-        console.error('Unhandled error in auth state change:', error);
-      });
+      console.log('Auth state changed:', { event, hasSession: !!session });
+      checkSession();
     });
 
     return () => {
@@ -151,10 +117,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const fetchAccountData = useCallback(async () => {
     if (!phone || !supabase) return;
     const normalizedPhone = normalizePhone(phone);
-    console.log(`[${new Date().toISOString()}] Normalized phone for fetch: ${normalizedPhone}`);
     setIsLoading(true);
     try {
-      console.log(`[${new Date().toISOString()}] Fetching account data for phone: ${normalizedPhone}`);
+      console.log('Fetching account data for phone:', normalizedPhone);
 
       // Загружаем бонусы через API
       const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
@@ -165,31 +130,23 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         },
       });
       if (!bonusesRes.ok) {
-        const text = await bonusesRes.text();
-        console.error(`[${new Date().toISOString()}] Bonuses fetch failed:`, { status: bonusesRes.status, text });
-        throw new Error(`Bonuses fetch error: ${text || 'Неизвестная ошибка'}`);
+        throw new Error('Bonuses fetch error: ' + bonusesRes.statusText);
       }
       const bonusesResult = await bonusesRes.json();
-      console.log(`[${new Date().toISOString()}] Bonuses response:`, bonusesResult);
-
-      let bonuses: BonusesData;
+      console.log('Bonuses API response:', bonusesResult);
       if (!bonusesResult.success) {
-        console.error('Bonuses fetch error:', bonusesResult.error);
-        throw new Error(`Bonuses fetch error: ${bonusesResult.error || 'Неизвестная ошибка'}`);
+        throw new Error('Bonuses fetch error: ' + bonusesResult.error);
       }
-      bonuses = bonusesResult.data;
 
+      let bonuses: BonusesData = bonusesResult.data;
       if (bonuses.id) {
         const { data: historyData, error: historyError } = await supabase
           .from('bonus_history')
           .select('amount, reason, created_at')
           .eq('bonus_id', bonuses.id);
 
-        console.log(`[${new Date().toISOString()}] Bonus history response:`, { data: historyData, error: historyError });
-
         if (historyError) {
-          console.error('History fetch error:', historyError);
-          throw new Error(`History fetch error: ${historyError.message}`);
+          throw new Error('History fetch error: ' + historyError.message);
         }
         bonuses.history = historyData?.map((item: BonusHistoryItem) => ({
           amount: item.amount ?? 0,
@@ -207,19 +164,15 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         },
       });
       if (!ordersRes.ok) {
-        const text = await ordersRes.text();
-        console.error(`[${new Date().toISOString()}] Orders fetch failed:`, { status: ordersRes.status, text });
-        throw new Error(`Orders fetch error: ${text || 'Неизвестная ошибка'}`);
+        throw new Error('Orders fetch error: ' + ordersRes.statusText);
       }
       const ordersResult = await ordersRes.json();
-      console.log(`[${new Date().toISOString()}] Orders response:`, ordersResult);
-
+      console.log('Orders API response:', ordersResult);
       if (!ordersResult.success) {
-        console.error('Orders fetch error:', ordersResult.error);
-        throw new Error(`Orders fetch error: ${ordersResult.error || 'Неизвестная ошибка'}`);
+        throw new Error('Orders fetch error: ' + ordersResult.error);
       }
 
-      const transformedOrders: Order[] = (ordersResult.data || []).map((order: Order) => ({
+      const transformedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
         id: order.id,
         created_at: order.created_at ?? '',
         total: order.total ?? 0,
@@ -227,24 +180,22 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         payment_method: order.payment_method ?? 'cash',
         status: order.status ?? '',
         recipient: order.recipient || 'Не указан',
-        items: (order.items || []).map((item: OrderItem) => ({
+        items: (order.items || []).map((item: any) => ({
           quantity: item.quantity,
           price: item.price,
           product_id: item.product_id ?? 0,
           products: {
-            title: item.products.title || 'Неизвестный товар',
-            cover_url: item.products.cover_url || null,
+            title: item.title || 'Неизвестный товар',
+            cover_url: item.imageUrl || null,
           },
         })),
-        upsell_details: (order.upsell_details || []).map((upsell: UpsellDetail) => ({
+        upsell_details: (order.upsell_details || []).map((upsell: any) => ({
           title: upsell.title || 'Неизвестный товар',
           price: upsell.price || 0,
           quantity: upsell.quantity || 1,
           category: upsell.category || 'unknown',
         })),
       }));
-
-      console.log(`[${new Date().toISOString()}] Fetched orders:`, transformedOrders);
 
       // Обновляем уровень лояльности
       const loyaltyRes = await fetch('/api/account/update-loyalty', {
@@ -255,12 +206,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         body: JSON.stringify({ phone: normalizedPhone }),
       });
       const loyaltyResult = await loyaltyRes.json();
+      console.log('Loyalty API response:', loyaltyResult);
 
-      console.log(`[${new Date().toISOString()}] Loyalty update response:`, loyaltyResult);
-
-      if (!loyaltyRes.ok || !loyaltyResult.success) {
-        console.error('Loyalty update error:', loyaltyResult.error);
-      } else {
+      if (loyaltyRes.ok && loyaltyResult.success) {
         bonuses.level = loyaltyResult.level;
       }
 
@@ -270,7 +218,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       window.gtag?.('event', 'view_account', { event_category: 'account' });
       window.ym?.(96644553, 'reachGoal', 'view_account');
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Error in fetchAccountData:`, error.message);
+      console.error('Error in fetchAccountData:', error);
       toast.error('Ошибка загрузки данных');
       setOrders([]);
     } finally {
@@ -283,7 +231,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       fetchAccountData();
       const orderSuccess = localStorage.getItem('orderSuccess');
       if (orderSuccess) {
-        console.log('Order success detected, refreshing data');
         fetchAccountData();
         localStorage.removeItem('orderSuccess');
         toast.success('Заказ успешно оформлен!');
@@ -294,7 +241,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     const normalizedPhone = normalizePhone(phone);
-    console.log(`[${new Date().toISOString()}] Auth success phone: ${normalizedPhone}`);
+    console.log('Auth success phone:', normalizedPhone);
     setPhone(normalizedPhone);
     fetchAccountData();
   };

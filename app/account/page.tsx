@@ -2,32 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import AccountClient from './_components/AccountClient';
-
-interface OrderItem {
-  products: { title: string; cover_url: string | null };
-  quantity: number;
-  price: number;
-  product_id: number;
-}
-
-interface UpsellDetail {
-  title: string;
-  price: number;
-  quantity: number;
-  category: string;
-}
-
-interface Order {
-  id: number;
-  created_at: string;
-  total: number;
-  bonuses_used: number;
-  payment_method: 'cash' | 'card';
-  status: string;
-  items: OrderItem[];
-  upsell_details: UpsellDetail[];
-  recipient?: string;
-}
+import type { Order, OrderItem, UpsellDetail } from '@/types/order';
 
 interface BonusHistoryItem {
   amount: number;
@@ -69,7 +44,12 @@ export default async function AccountPage() {
   let initialBonusData: BonusesData | null = null;
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Session fetch error:', error.message);
+      throw error;
+    }
+
     if (session && session.user) {
       initialSession = {
         phone: session.user.phone || '',
@@ -79,23 +59,33 @@ export default async function AccountPage() {
       const phone = session.user.phone || '';
       if (phone) {
         // Загружаем бонусы
-        const bonusesRes = await supabase
+        const { data: bonusesData, error: bonusesError } = await supabase
           .from('bonuses')
           .select('id, bonus_balance, level')
           .eq('phone', phone)
           .single();
 
-        initialBonusData = bonusesRes.data
-          ? { ...bonusesRes.data, history: [] }
-          : { id: null, bonus_balance: 0, level: 'basic', history: [] };
+        if (bonusesError && bonusesError.code !== 'PGRST116') {
+          console.error('Bonuses fetch error:', bonusesError.message);
+          throw new Error('Bonuses fetch error: ' + bonusesError.message);
+        }
+
+        initialBonusData = bonusesData
+          ? { id: bonusesData.id, bonus_balance: bonusesData.bonus_balance, level: bonusesData.level, history: [] }
+          : { id: null, bonus_balance: 0, level: 'bronze', history: [] };
 
         if (initialBonusData.id) {
-          const historyRes = await supabase
+          const { data: historyData, error: historyError } = await supabase
             .from('bonus_history')
             .select('amount, reason, created_at')
             .eq('bonus_id', initialBonusData.id);
 
-          initialBonusData.history = historyRes.data?.map((item) => ({
+          if (historyError) {
+            console.error('Bonus history fetch error:', historyError.message);
+            throw new Error('Bonus history fetch error: ' + historyError.message);
+          }
+
+          initialBonusData.history = historyData?.map((item) => ({
             amount: item.amount ?? 0,
             reason: item.reason ?? '',
             created_at: item.created_at ?? '',
@@ -114,32 +104,35 @@ export default async function AccountPage() {
         );
         const ordersResult = await ordersRes.json();
 
-        if (ordersRes.ok && ordersResult.success) {
-          initialOrders = (ordersResult.data || []).map((order: any) => ({
-            id: parseInt(order.id, 10),
-            created_at: order.created_at ?? '',
-            total: order.total ?? 0,
-            bonuses_used: order.bonuses_used ?? 0,
-            payment_method: order.payment_method ?? 'cash',
-            status: order.status ?? '',
-            recipient: order.recipient || 'Не указан',
-            items: (order.items || []).map((item: any) => ({
-              quantity: item.quantity,
-              price: item.price,
-              product_id: item.product_id ?? 0,
-              products: {
-                title: item.title || 'Неизвестный товар',
-                cover_url: item.imageUrl || null,
-              },
-            })),
-            upsell_details: (order.upsell_details || []).map((upsell: any) => ({
-              title: upsell.title || 'Неизвестный товар',
-              price: upsell.price || 0,
-              quantity: upsell.quantity || 1,
-              category: upsell.category || 'unknown',
-            })),
-          }));
+        if (!ordersRes.ok || !ordersResult.success) {
+          console.error('Orders fetch error:', ordersResult.error || ordersRes.statusText);
+          throw new Error('Orders fetch error: ' + (ordersResult.error || ordersRes.statusText));
         }
+
+        initialOrders = (ordersResult.data || []).map((order: any) => ({
+          id: order.id,
+          created_at: order.created_at ?? '',
+          total: order.total ?? 0,
+          bonuses_used: order.bonuses_used ?? 0,
+          payment_method: order.payment_method ?? 'cash',
+          status: order.status ?? '',
+          recipient: order.recipient || 'Не указан',
+          items: (order.items || []).map((item: any) => ({
+            quantity: item.quantity,
+            price: item.price,
+            product_id: item.product_id ?? 0,
+            products: {
+              title: item.title || 'Неизвестный товар',
+              cover_url: item.imageUrl || null,
+            },
+          })),
+          upsell_details: (order.upsell_details || []).map((upsell: any) => ({
+            title: upsell.title || 'Неизвестный товар',
+            price: upsell.price || 0,
+            quantity: upsell.quantity || 1,
+            category: upsell.category || 'unknown',
+          })),
+        }));
       }
     }
   } catch (error) {
