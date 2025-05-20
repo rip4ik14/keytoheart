@@ -29,18 +29,32 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Проверка сессии при загрузке
+  // Очистка некорректных cookies и проверка сессии
   useEffect(() => {
+    // Проверяем и очищаем некорректные cookies
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'sb-gwbeabfkknhewwoesqax-auth-token' && value) {
+        try {
+          JSON.parse(value);
+        } catch (e) {
+          console.error('Clearing invalid cookie:', name);
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
+      }
+    }
+
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error || !session) {
           console.error('No session found:', error);
-          router.push('/admin/login');
+          router.push('/admin/login?error=no-session');
         }
       } catch (err) {
         console.error('Error checking session:', err);
-        router.push('/admin/login');
+        router.push('/admin/login?error=session-error');
       }
     };
 
@@ -50,7 +64,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, !!session);
       if (event === 'SIGNED_OUT' || !session) {
-        router.push('/admin/login');
+        router.push('/admin/login?error=session-expired');
       }
     });
 
@@ -109,7 +123,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       setError(err.message);
       toast.error(err.message);
       if (err.message.includes('Не авторизован')) {
-        router.push('/admin/login');
+        router.push('/admin/login?error=unauthorized');
       }
     }
   };
@@ -190,7 +204,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     : '-'}
                 </td>
                 <td className="p-3">{order.contact_name || '-'}</td>
-                <td className="p-3">{order.phone ? `+7 ${order.phone}` : '-'}</td>
+                <td className="p-3">{order.phone ? order.phone : '-'}</td>
                 <td className="p-3 font-medium">{order.total?.toLocaleString() ?? 0} ₽</td>
                 <td className="p-3">
                   {order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}

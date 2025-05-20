@@ -68,6 +68,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Проверяем допустимые статусы
+    const validStatuses = [
+      'Ожидает подтверждения',
+      'В сборке',
+      'Доставляется',
+      'Доставлен',
+      'Отменён',
+    ];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: 'Invalid status value' },
+        { status: 400 }
+      );
+    }
+
     // Обновляем статус заказа
     const { error: updateError } = await supabaseAdmin
       .from('orders')
@@ -75,9 +90,14 @@ export async function POST(req: NextRequest) {
       .eq('id', id);
 
     if (updateError) {
-      console.error('Error updating order status:', updateError);
+      console.error('Error updating order status:', {
+        error: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+        code: updateError.code,
+      });
       return NextResponse.json(
-        { error: 'Failed to update order status' },
+        { error: `Failed to update order status: ${updateError.message}` },
         { status: 500 }
       );
     }
