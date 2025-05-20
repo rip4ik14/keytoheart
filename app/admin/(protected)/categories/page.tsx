@@ -78,9 +78,8 @@ function CategoriesContent() {
   const [editingCategory, setEditingCategory] = useState<null | Category>(null);
   const [editingSub, setEditingSub] = useState<null | Subcategory>(null);
   const [newSubByCat, setNewSubByCat] = useState<Record<number, string>>({});
-  const [token, setToken] = useState<string | null>(null);
 
-  // Проверка авторизации и получение токена
+  // Проверка авторизации
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -91,7 +90,6 @@ function CategoriesContent() {
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Доступ запрещён');
         }
-        setToken(data.token); // Сохраняем токен
         setIsAuthenticated(true);
       } catch (err: any) {
         console.error('Auth check failed:', err.message);
@@ -138,7 +136,6 @@ function CategoriesContent() {
   // Мутация для добавления категории
   const addCategoryMutation = useMutation({
     mutationFn: async () => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!newCategory.name.trim() || !newCategory.slug.trim()) {
         throw new Error('Название и slug обязательны');
       }
@@ -146,7 +143,6 @@ function CategoriesContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newCategory),
       });
@@ -172,7 +168,6 @@ function CategoriesContent() {
   // Мутация для обновления категории
   const updateCategoryMutation = useMutation({
     mutationFn: async (cat: Category) => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!cat.name.trim() || !cat.slug.trim()) {
         throw new Error('Название и slug обязательны');
       }
@@ -180,7 +175,6 @@ function CategoriesContent() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(cat),
       });
@@ -206,12 +200,10 @@ function CategoriesContent() {
   // Мутация для удаления категории
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       const res = await fetch('/api/admin/categories', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id }),
       });
@@ -236,14 +228,12 @@ function CategoriesContent() {
   // Мутация для добавления подкатегории
   const addSubcategoryMutation = useMutation({
     mutationFn: async ({ category_id, name, is_visible }: { category_id: number; name: string; is_visible: boolean }) => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(name);
       const res = await fetch('/api/admin/subcategories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ category_id, name, slug, is_visible }),
       });
@@ -269,12 +259,10 @@ function CategoriesContent() {
   // Мутация для удаления подкатегории
   const deleteSubcategoryMutation = useMutation({
     mutationFn: async (id: number) => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       const res = await fetch('/api/admin/subcategories', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id }),
       });
@@ -299,14 +287,12 @@ function CategoriesContent() {
   // Мутация для обновления подкатегории
   const updateSubcategoryMutation = useMutation({
     mutationFn: async (sub: Subcategory) => {
-      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!sub.name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(sub.name);
       const res = await fetch('/api/admin/subcategories', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id: sub.id, name: sub.name, slug, is_visible: sub.is_visible }),
       });
@@ -403,7 +389,7 @@ function CategoriesContent() {
             </div>
             <button
               onClick={() => addCategoryMutation.mutate()}
-              disabled={addCategoryMutation.isPending || !token}
+              disabled={addCategoryMutation.isPending}
               className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-500"
               aria-label="Добавить категорию"
             >
@@ -485,7 +471,7 @@ function CategoriesContent() {
                             }
                           }}
                           className="text-green-600 hover:underline text-sm whitespace-nowrap"
-                          disabled={updateCategoryMutation.isPending || !token}
+                          disabled={updateCategoryMutation.isPending}
                           aria-label="Сохранить изменения категории"
                         >
                           💾 Сохранить
@@ -524,7 +510,7 @@ function CategoriesContent() {
                             }
                           }}
                           className="text-red-600 text-sm hover:underline"
-                          disabled={deleteCategoryMutation.isPending || !token}
+                          disabled={deleteCategoryMutation.isPending}
                           aria-label={`Удалить категорию ${cat.name}`}
                         >
                           🗑️ Удалить
@@ -582,7 +568,7 @@ function CategoriesContent() {
                                   }
                                 }}
                                 className="text-green-600 hover:underline text-sm whitespace-nowrap"
-                                disabled={updateSubcategoryMutation.isPending || !token}
+                                disabled={updateSubcategoryMutation.isPending}
                                 aria-label="Сохранить изменения подкатегории"
                               >
                                 💾 Сохранить
@@ -615,7 +601,7 @@ function CategoriesContent() {
                                     }
                                   }}
                                   className="text-red-600 hover:underline"
-                                  disabled={deleteSubcategoryMutation.isPending || !token}
+                                  disabled={deleteSubcategoryMutation.isPending}
                                   aria-label={`Удалить подкатегорию ${sub.name}`}
                                 >
                                   🗑️
@@ -658,7 +644,7 @@ function CategoriesContent() {
                         })
                       }
                       className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-500"
-                      disabled={addSubcategoryMutation.isPending || !token}
+                      disabled={addSubcategoryMutation.isPending}
                       aria-label="Добавить подкатегорию"
                     >
                       {addSubcategoryMutation.isPending ? 'Добавление...' : '+'}

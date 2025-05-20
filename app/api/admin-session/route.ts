@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, role: 'admin', token },
+      { success: true, role: 'admin' },
       { status: 200 }
     );
   } catch (err: any) {
