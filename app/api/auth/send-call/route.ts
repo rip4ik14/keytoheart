@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
     }
 
-    if (recentAttempts.length >= 5) {
+    if (recentAttempts.length >= 30) {
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
 
