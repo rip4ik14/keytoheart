@@ -14,14 +14,10 @@ export async function middleware(req: NextRequest) {
 
   console.log(`[${new Date().toISOString()}] Middleware processing: ${pathname}`);
 
-  // Пропускаем API маршруты с CORS заголовками
+  // Пропускаем API маршруты
   if (pathname.startsWith('/api')) {
     console.log(`[${new Date().toISOString()}] Skipping checks for API route: ${pathname}`);
-    const response = NextResponse.next();
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With');
-    return response;
+    return NextResponse.next();
   }
 
   // Устанавливаем CSP заголовок для не-API маршрутов
