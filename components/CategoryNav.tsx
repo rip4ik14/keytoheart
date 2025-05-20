@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { Category } from '@/types/category';
@@ -143,20 +142,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
     };
   }, [initialCategories]);
 
-  const scroll = (dir: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.offsetWidth * 0.8;
-    scrollRef.current.scrollBy({
-      left: dir === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
-    window.gtag?.('event', `category_nav_scroll_${dir}`, {
-      event_category: 'navigation',
-      type: 'scroll',
-    });
-    window.ym?.(12345678, 'reachGoal', `category_nav_scroll_${dir}`, { type: 'scroll' });
-  };
-
   return (
     <nav
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
@@ -196,7 +181,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                       href={href}
                       className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
                         active
-                          ? 'bg-gray-900 text-white shadow-sm scale-105'
+                          ? 'bg-black text-white shadow-sm scale-105'
                           : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
                       } focus:ring-2 focus:ring-gray-500`}
                       onClick={() => {
@@ -220,34 +205,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
             )}
           </ul>
         </div>
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-          aria-label="Прокрутить категории влево"
-        >
-          <Image
-            src="/icons/chevron-left.svg"
-            alt="Стрелка влево"
-            width={20}
-            height={20}
-            className="w-5 h-5"
-            loading="lazy"
-          />
-        </button>
-        <button
-          onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-          aria-label="Прокрутить категории вправо"
-        >
-          <Image
-            src="/icons/chevron-right.svg"
-            alt="Стрелка вправо"
-            width={20}
-            height={20}
-            className="w-5 h-5"
-            loading="lazy"
-          />
-        </button>
       </div>
 
       <ul className="hidden sm:flex gap-12 px-4 py-4 justify-center relative">
