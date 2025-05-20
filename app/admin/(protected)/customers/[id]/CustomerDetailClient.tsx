@@ -176,6 +176,10 @@ export default function CustomerDetailClient({ customer }: Props) {
       toast.error('Клиент не найден');
       return;
     }
+    if (!customer.id) {
+      toast.error('Идентификатор клиента не найден');
+      return;
+    }
     if (!bonusAmount || !bonusReason) {
       toast.error('Укажите сумму и причину');
       return;
@@ -208,7 +212,7 @@ export default function CustomerDetailClient({ customer }: Props) {
       const { error: historyError } = await supabase
         .from('bonus_history')
         .insert({
-          phone: customer.phone,
+          user_id: customer.id, // Используем user_id вместо phone
           amount: finalAmount,
           reason: bonusReason,
           created_at: new Date().toISOString(),
