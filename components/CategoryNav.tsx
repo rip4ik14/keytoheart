@@ -4,17 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { Category } from '@/types/category';
 
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  is_visible: boolean;
-  subcategories: { id: number; name: string; slug: string; is_visible: boolean }[];
-};
-
-// Локальный кэш для категорий
 let categoryCache: Category[] | null = null;
 
 const transliterate = (text: string) => {
@@ -74,17 +67,12 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         const subcategories = cat.subcategories
           ? cat.subcategories
               .filter((sub: any) => sub.is_visible !== false)
-              .map((sub: any) => {
-                const processedSub = {
-                  ...sub,
-                  slug: sub.slug || generateSlug(sub.name),
-                  is_visible: sub.is_visible ?? true,
-                };
-                console.log(`Processed subcategory for ${cat.name}:`, processedSub);
-                return processedSub;
-              })
+              .map((sub: any) => ({
+                ...sub,
+                slug: sub.slug || generateSlug(sub.name),
+                is_visible: sub.is_visible ?? true,
+              }))
           : [];
-        console.log(`Subcategories for ${cat.name} after filtering:`, subcategories);
         return {
           ...cat,
           is_visible: cat.is_visible ?? true,
@@ -111,16 +99,11 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           const subcategories = cat.subcategories
             ? cat.subcategories
                 .filter((sub) => sub.is_visible !== false)
-                .map((sub) => {
-                  const processedSub = {
-                    ...sub,
-                    slug: sub.slug || generateSlug(sub.name),
-                  };
-                  console.log(`Initial subcategory for ${cat.name}:`, processedSub);
-                  return processedSub;
-                })
+                .map((sub) => ({
+                  ...sub,
+                  slug: sub.slug || generateSlug(sub.name),
+                }))
             : [];
-          console.log(`Initial subcategories for ${cat.name} after filtering:`, subcategories);
           return {
             ...cat,
             slug: cat.slug || generateSlug(cat.name),
@@ -169,8 +152,9 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
     });
     window.gtag?.('event', `category_nav_scroll_${dir}`, {
       event_category: 'navigation',
+      type: 'scroll',
     });
-    window.ym?.(12345678, 'reachGoal', `category_nav_scroll_${dir}`);
+    window.ym?.(12345678, 'reachGoal', `category_nav_scroll_${dir}`, { type: 'scroll' });
   };
 
   return (
@@ -178,53 +162,92 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
       aria-label="Навигация по категориям"
     >
-      <div className="sm:hidden overflow-x-auto no-scrollbar">
-        <ul className="flex gap-2 px-4 py-4">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <li key={i} className="flex-shrink-0">
-                <div className="h-8 w-24 rounded-full bg-gray-200 animate-pulse" />
-              </li>
-            ))
-          ) : categories.length === 0 ? (
-            <li className="text-center text-gray-500 font-sans w-full">
-              Категории отсутствуют
-            </li>
-          ) : (
-            categories.map((cat) => {
-              const href = `/category/${cat.slug}`;
-              const isActiveCategory = pathname.startsWith(href);
-              const isActiveSubcategory = cat.subcategories.some((sub) =>
-                pathname.includes(`/category/${cat.slug}/${sub.slug}`)
-              );
-              const active = isActiveCategory || isActiveSubcategory;
-
-              return (
-                <li key={cat.id} className="flex-shrink-0">
-                  <Link
-                    href={href}
-                    className={`inline-block whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
-                      active
-                        ? 'bg-black text-white'
-                        : 'bg-white text-black hover:bg-gray-100'
-                    }`}
-                    onClick={() => {
-                      window.gtag?.('event', 'category_nav_click', {
-                        event_category: 'navigation',
-                        category: cat.name,
-                      });
-                      window.ym?.(12345678, 'reachGoal', 'category_nav_click', {
-                        category: cat.name,
-                      });
-                    }}
-                  >
-                    {cat.name}
-                  </Link>
+      <div className="sm:hidden relative">
+        <div className="overflow-x-auto no-scrollbar" ref={scrollRef}>
+          <ul className="flex gap-2 px-4 py-4">
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <li key={i} className="flex-shrink-0">
+                  <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" />
                 </li>
-              );
-            })
-          )}
-        </ul>
+              ))
+            ) : categories.length === 0 ? (
+              <li className="text-center text-gray-500 font-sans w-full">
+                Категории отсутствуют
+              </li>
+            ) : (
+              categories.map((cat) => {
+                const href = `/category/${cat.slug}`;
+                const isActiveCategory = pathname.startsWith(href);
+                const isActiveSubcategory = cat.subcategories.some((sub) =>
+                  pathname.includes(`/category/${cat.slug}/${sub.slug}`)
+                );
+                const active = isActiveCategory || isActiveSubcategory;
+
+                return (
+                  <motion.li
+                    key={cat.id}
+                    className="flex-shrink-0"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: cat.id * 0.05 }}
+                  >
+                    <Link
+                      href={href}
+                      className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
+                        active
+                          ? 'bg-gray-900 text-white shadow-sm scale-105'
+                          : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
+                      } focus:ring-2 focus:ring-gray-500`}
+                      onClick={() => {
+                        window.gtag?.('event', 'category_nav_click', {
+                          event_category: 'navigation',
+                          category: cat.name,
+                          type: 'category',
+                        });
+                        window.ym?.(12345678, 'reachGoal', 'category_nav_click', {
+                          category: cat.name,
+                          type: 'category',
+                        });
+                      }}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      {cat.name}
+                    </Link>
+                  </motion.li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+        <button
+          onClick={() => scroll('left')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label="Прокрутить категории влево"
+        >
+          <Image
+            src="/icons/chevron-left.svg"
+            alt="Стрелка влево"
+            width={20}
+            height={20}
+            className="w-5 h-5"
+            loading="lazy"
+          />
+        </button>
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label="Прокрутить категории вправо"
+        >
+          <Image
+            src="/icons/chevron-right.svg"
+            alt="Стрелка вправо"
+            width={20}
+            height={20}
+            className="w-5 h-5"
+            loading="lazy"
+          />
+        </button>
       </div>
 
       <ul className="hidden sm:flex gap-12 px-4 py-4 justify-center relative">
@@ -255,16 +278,19 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                       isActive
                         ? 'text-black underline'
                         : 'text-gray-500 hover:text-black hover:underline'
-                    }`}
+                    } focus:ring-2 focus:ring-gray-500`}
                     onClick={() => {
                       window.gtag?.('event', 'category_nav_click', {
                         event_category: 'navigation',
                         category: cat.name,
+                        type: 'category',
                       });
                       window.ym?.(12345678, 'reachGoal', 'category_nav_click', {
                         category: cat.name,
+                        type: 'category',
                       });
                     }}
+                    aria-current={isActive ? 'page' : undefined}
                   >
                     {cat.name}
                   </Link>
@@ -303,12 +329,13 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             window.gtag?.('event', 'subcategory_nav_click', {
                               event_category: 'navigation',
                               subcategory: sub.name,
+                              type: 'subcategory',
                             });
                             window.ym?.(
                               12345678,
                               'reachGoal',
                               'subcategory_nav_click',
-                              { subcategory: sub.name }
+                              { subcategory: sub.name, type: 'subcategory' }
                             );
                           }}
                           onKeyDown={(e) => {
