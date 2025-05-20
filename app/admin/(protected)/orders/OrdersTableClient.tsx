@@ -31,10 +31,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           method: 'GET',
           credentials: 'include',
         });
+        const data = await res.json();
+        console.log('Session check response:', data); // Отладка
         if (!res.ok) {
-          throw new Error('No admin session');
+          throw new Error(data.error || 'No admin session');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Session check failed:', err);
         router.push('/admin/login?error=no-session');
       }
@@ -66,6 +68,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       });
 
       const result = await res.json();
+      console.log('Update status response:', result); // Отладка
       if (!res.ok) {
         throw new Error(result?.error ?? 'Ошибка при обновлении статуса');
       }
