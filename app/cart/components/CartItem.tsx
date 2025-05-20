@@ -9,17 +9,24 @@ interface CartItemProps {
   item: CartItemType;
   removeItem: (id: string) => void;
   updateQuantity?: (id: string, quantity: number) => void;
+  /** Если true — скрывает + / − и кнопку удаления */
+  readOnly?: boolean;
 }
 
-export default function CartItem({ item, removeItem, updateQuantity }: CartItemProps) {
+export default function CartItem({
+  item,
+  removeItem,
+  updateQuantity,
+  readOnly = false,
+}: CartItemProps) {
   const handleMinus = () => {
-    if ('quantity' in item && item.quantity > 1 && updateQuantity) {
+    if (!readOnly && 'quantity' in item && item.quantity > 1 && updateQuantity) {
       updateQuantity(item.id, item.quantity - 1);
     }
   };
 
   const handlePlus = () => {
-    if ('quantity' in item && updateQuantity) {
+    if (!readOnly && 'quantity' in item && updateQuantity) {
       updateQuantity(item.id, item.quantity + 1);
     }
   };
@@ -36,7 +43,7 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
       <motion.div
         key={item.id}
         role="listitem"
-        aria-label={`Товар ${item.title} в корзине`}
+        aria-label={`Товар ${item.title}`}
         className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 bg-white rounded-3xl shadow-lg mb-6 hover:shadow-xl transition-shadow"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -45,12 +52,7 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
       >
         <div className="flex items-center gap-6 w-full">
           <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
-            <Image
-              src={imageSrc}
-              alt={item.title}
-              fill
-              className="object-cover rounded-2xl"
-            />
+            <Image src={imageSrc} alt={item.title} fill className="object-cover rounded-2xl" />
           </div>
           <div className="flex flex-col flex-grow gap-1">
             <span className="text-base sm:text-lg font-semibold text-gray-900">{item.title}</span>
@@ -61,12 +63,12 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
         </div>
 
         <div className="flex items-center gap-4">
-          {'quantity' in item && updateQuantity && (
+          {!readOnly && updateQuantity && (
             <div className="flex items-center gap-2 border rounded-lg bg-gray-50">
               <motion.button
                 onClick={handleMinus}
                 disabled={item.quantity <= 1}
-                aria-label={`Уменьшить количество ${item.title}`}
+                aria-label="Уменьшить"
                 className="p-2 hover:bg-gray-100 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -76,7 +78,7 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
               <span className="px-3 text-base font-medium">{item.quantity}</span>
               <motion.button
                 onClick={handlePlus}
-                aria-label={`Увеличить количество ${item.title}`}
+                aria-label="Увеличить"
                 className="p-2 hover:bg-gray-100 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -85,18 +87,22 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
               </motion.button>
             </div>
           )}
+
           <span className="text-lg font-bold text-gray-900">
             {item.price * ('quantity' in item ? item.quantity : 1)} ₽
           </span>
-          <motion.button
-            onClick={() => removeItem(item.id)}
-            aria-label={`Удалить ${item.title} из корзины`}
-            className="p-2 text-gray-400 hover:text-red-500 transition focus:outline-none"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Image src="/icons/trash.svg" alt="🗑" width={16} height={16} />
-          </motion.button>
+
+          {!readOnly && (
+            <motion.button
+              onClick={() => removeItem(item.id)}
+              aria-label="Удалить"
+              className="p-2 text-gray-400 hover:text-red-500 focus:outline-none"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Image src="/icons/trash.svg" alt="🗑" width={16} height={16} />
+            </motion.button>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>
