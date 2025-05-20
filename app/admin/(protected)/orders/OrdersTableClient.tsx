@@ -27,18 +27,19 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/check-admin-session', {
+        const res = await fetch('/api/admin-session', {
           method: 'GET',
           credentials: 'include',
         });
         const data = await res.json();
         console.log('Session check response:', data); // Отладка
-        if (!res.ok) {
+        if (!res.ok || !data.success) {
           throw new Error(data.error || 'No admin session');
         }
       } catch (err: any) {
         console.error('Session check failed:', err);
-        router.push('/admin/login?error=no-session');
+        toast.error('Доступ запрещён');
+        router.push(`/admin/login?from=${encodeURIComponent('/admin/orders')}`);
       }
     };
 
