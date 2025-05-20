@@ -198,7 +198,7 @@ export default function CartPage() {
   );
 
   // Очистка старых cookies при загрузке
-    useEffect(() => {
+  useEffect(() => {
     if (!window.location.pathname.startsWith('/admin')) {
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
@@ -263,7 +263,9 @@ export default function CartPage() {
           console.error('Error fetching bonus balance:', profileError);
           setBonusBalance(0);
         } else {
-          setBonusBalance(profileData?.bonus_balance || 0);
+          const balance = profileData?.bonus_balance || 0;
+          console.log('Bonus balance fetched:', balance);
+          setBonusBalance(balance);
         }
 
         setStep(1);
@@ -312,8 +314,10 @@ export default function CartPage() {
         setBonusBalance(0);
       } else {
         const name = profileData?.name || '';
+        const balance = profileData?.bonus_balance || 0;
+        console.log('Profile fetched - name:', name, 'bonus_balance:', balance);
         setFormData({ phone: normalizedPhone, name, email: form.email, whatsapp: form.whatsapp });
-        setBonusBalance(profileData?.bonus_balance || 0);
+        setBonusBalance(balance);
       }
 
       localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
@@ -347,7 +351,7 @@ export default function CartPage() {
   );
 
   const upsellTotal = useMemo(
-    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0), 0),
+    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
     [selectedUpsells]
   );
 
@@ -473,10 +477,6 @@ export default function CartPage() {
         setAddressSuggestions(response.map((item: any) => item.value));
         setShowSuggestions(true);
 
-        window.gtag?.('event', 'fetch_address_suggestions', {
-          event_category: 'cart',
-          event_label: query,
-        });
         window.ym?.(12345678, 'reachGoal', 'fetch_address_suggestions', { query });
       } catch (error) {
         console.error('Ошибка получения подсказок адреса:', error);
@@ -498,10 +498,6 @@ export default function CartPage() {
       setShowSuggestions(false);
       setAddressError('');
 
-      window.gtag?.('event', 'select_address_suggestion', {
-        event_category: 'cart',
-        event_label: address,
-      });
       window.ym?.(12345678, 'reachGoal', 'select_address_suggestion', {
         selected_address: address,
       });
@@ -537,17 +533,13 @@ export default function CartPage() {
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
-    window.gtag?.('event', 'remove_upsell', {
-      event_category: 'cart',
-      event_label: id,
-    });
     window.ym?.(12345678, 'reachGoal', 'remove_upsell', { upsell_id: id });
   }, []);
 
   useEffect(() => {
     const allItems: CartItemType[] = [...items, ...selectedUpsells];
     const idCounts = allItems.reduce((acc, item) => {
-      acc[item.id] = (acc[item.id] || 0) + (item.quantity);
+      acc[item.id] = (acc[item.id] || 0) + item.quantity;
       return acc;
     }, {} as Record<string, number>);
     const duplicates = Object.entries(idCounts)
@@ -607,10 +599,6 @@ export default function CartPage() {
       setPromoId(result.promoId);
       setPromoError(null);
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
-      window.gtag?.('event', 'apply_promo', {
-        event_category: 'cart',
-        event_label: promoCode,
-      });
       window.ym?.(12345678, 'reachGoal', 'apply_promo', { promo_code: promoCode });
     } catch (error: any) {
       setPromoError(error.message);
@@ -728,7 +716,7 @@ export default function CartPage() {
         items: payloadItems,
         total: finalTotal,
         bonuses_used: bonusesUsed,
-        bonus: bonusAccrual, // Сохраняем в заказе для начисления позже
+        bonus: bonusAccrual,
         promo_id: promoId,
         promo_discount: discountAmount,
         delivery_instructions: form.deliveryInstructions || null,
@@ -829,11 +817,6 @@ export default function CartPage() {
 
       localStorage.setItem('orderSuccess', 'true');
 
-      window.gtag?.('event', 'submit_order', {
-        event_category: 'cart',
-        event_label: json.order_id,
-        value: finalTotal,
-      });
       window.ym?.(12345678, 'reachGoal', 'submit_order', {
         order_id: json.order_id,
         total: finalTotal,
@@ -994,9 +977,6 @@ export default function CartPage() {
                         type="button"
                         onClick={() => {
                           setShowPostcard(true);
-                          window.gtag?.('event', 'open_postcard_modal', {
-                            event_category: 'cart',
-                          });
                           window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
                         }}
                         className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
@@ -1018,9 +998,6 @@ export default function CartPage() {
                         type="button"
                         onClick={() => {
                           setShowBalloons(true);
-                          window.gtag?.('event', 'open_balloons_modal', {
-                            event_category: 'cart',
-                          });
                           window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
                         }}
                         className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
@@ -1114,9 +1091,6 @@ export default function CartPage() {
             <motion.button
               onClick={() => {
                 setShowPromoField(!showPromoField);
-                window.gtag?.('event', showPromoField ? 'hide_promo_field' : 'show_promo_field', {
-                  event_category: 'cart',
-                });
                 window.ym?.(12345678, 'reachGoal', showPromoField ? 'hide_promo_field' : 'show_promo_field');
               }}
               className="w-full text-sm text-gray-500 underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-black"
@@ -1153,22 +1127,29 @@ export default function CartPage() {
                       className="border rounded-lg p-2 flex-1 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
                       aria-label="Введите промокод"
                     />
-                    <button
+                    <motion.button
                       onClick={handleApplyPromo}
                       className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                       aria-label="Применить промокод"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       Применить
-                    </button>
+                    </motion.button>
                   </div>
                   {promoError && (
                     <p className="text-red-500 text-xs mt-1">{promoError}</p>
                   )}
                   {promoDiscount !== null && (
-                    <p className="text-green-500 text-xs mt-1">
+                    <motion.p
+                      className="text-green-500 text-xs mt-1"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    >
                       Промокод применён! Скидка: {promoDiscount}
                       {promoType === 'percentage' ? '%' : ' ₽'}
-                    </p>
+                    </motion.p>
                   )}
                 </motion.div>
               )}
@@ -1190,42 +1171,6 @@ export default function CartPage() {
           />
         </div>
       </motion.div>
-
-      {(items.length > 0 || selectedUpsells.length > 0) && step >= 1 && (
-        <motion.div
-          className="fixed bottom-0 left-0 right-0 z-40 block md:hidden bg-white/90 backdrop-blur px-4 py-3 border-t shadow-md"
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <motion.button
-            onClick={() => setStep(1)}
-            disabled={isSubmittingOrder || !canPlaceOrder}
-            className={`w-full rounded-lg bg-black py-3 text-sm font-bold text-white transition-all hover:bg-gray-800 flex items-center justify-center gap-2 sm:text-base focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
-              isSubmittingOrder || !canPlaceOrder ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            aria-label={`Оформить заказ за ${finalTotal} ₽`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {isSubmittingOrder ? (
-              <>
-                <Image
-                  src="/icons/spinner.svg"
-                  alt="Иконка загрузки"
-                  width={20}
-                  height={20}
-                  loading="lazy"
-                  className="animate-spin"
-                />
-                <span>Оформление...</span>
-              </>
-            ) : (
-              `Оформить за ${finalTotal} ₽`
-            )}
-          </motion.button>
-        </motion.div>
-      )}
 
       {showPostcard && (
         <UpsellModal

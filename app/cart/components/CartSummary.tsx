@@ -14,7 +14,7 @@ interface CartSummaryProps {
   finalTotal: number;
   discountAmount: number;
   removeUpsell: (id: string) => void;
-  isAuthenticated: boolean; // Добавлено
+  isAuthenticated: boolean;
   useBonuses: boolean;
   setUseBonuses: Dispatch<SetStateAction<boolean>>;
   bonusesUsed: number;
@@ -37,6 +37,15 @@ export default function CartSummary({
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const upsellTotal = selectedUpsells.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
+
+  // Отладка пропсов
+  console.log('CartSummary props:', {
+    isAuthenticated,
+    bonusBalance,
+    useBonuses,
+    bonusesUsed,
+    totalBeforeDiscounts,
+  });
 
   return (
     <motion.aside
@@ -72,7 +81,7 @@ export default function CartSummary({
             </motion.div>
           )}
 
-          {isAuthenticated && bonusBalance > 0 && (
+          {isAuthenticated && (
             <motion.div
               className="pt-4"
               initial={{ opacity: 0 }}
@@ -81,16 +90,19 @@ export default function CartSummary({
             >
               <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-900">
-                  <input
+                  <motion.input
                     type="checkbox"
                     checked={useBonuses}
                     onChange={(e) => setUseBonuses(e.target.checked)}
                     className="h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
                     aria-label="Списать бонусы"
+                    disabled={bonusBalance <= 0 || totalBeforeDiscounts <= 0}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
                   />
                   Списать бонусы
                 </label>
-                {useBonuses && (
+                {useBonuses && bonusesUsed > 0 && (
                   <motion.span
                     className="text-lg font-semibold text-green-600"
                     initial={{ scale: 0.8 }}
@@ -101,11 +113,16 @@ export default function CartSummary({
                   </motion.span>
                 )}
               </div>
-              {!useBonuses && (
-                <p className="mt-2 text-xs text-gray-500">
-                  Доступно: {Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽
-                </p>
-              )}
+              <motion.p
+                className="mt-2 text-xs text-gray-500"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {bonusBalance <= 0
+                  ? 'Нет доступных бонусов'
+                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
+              </motion.p>
             </motion.div>
           )}
 
