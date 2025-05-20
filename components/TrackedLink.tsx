@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { trackEvent } from '@/lib/analytics';
 import { ReactNode, MouseEvent } from 'react';
 
-// Типизация пропсов
 interface TrackedLinkProps {
   href: string;
   children: ReactNode;
@@ -13,9 +13,9 @@ interface TrackedLinkProps {
   action: string;
   label: string;
   className?: string;
-  target?: string; // Добавляем target для открытия ссылки в новом окне
-  rel?: string; // Добавляем rel для указания отношений ссылки
-  onClick?: (e: MouseEvent<HTMLAnchorElement>) => void; // Добавляем onClick для пользовательских обработчиков
+  target?: string;
+  rel?: string;
+  onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
 }
 
 export default function TrackedLink({
@@ -31,27 +31,29 @@ export default function TrackedLink({
   onClick,
 }: TrackedLinkProps) {
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    // Отслеживаем событие
-    trackEvent({ category, action, label });
-
-    // Вызываем пользовательский onClick, если он передан
+    trackEvent({ category, action, label, type: 'link' });
     if (onClick) {
       onClick(e);
     }
   };
 
   return (
-    <span className="inline-block transform transition-transform hover:scale-105">
+    <motion.span
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="inline-block"
+    >
       <Link
         href={href}
         className={`${className} focus:outline-none focus:ring-2 focus:ring-black`}
         aria-label={ariaLabel}
-        target={target} // Передаём target в Link
-        rel={rel} // Передаём rel в Link
+        target={target}
+        rel={rel}
+        role="link"
         onClick={handleClick}
       >
         {children}
       </Link>
-    </span>
+    </motion.span>
   );
 }

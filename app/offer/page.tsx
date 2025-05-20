@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
+import type { WebPage } from 'schema-dts';
+import { motion } from 'framer-motion';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 import TrackedLink from '@components/TrackedLink';
 
@@ -31,16 +33,16 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru/offer' },
 };
 
+export const revalidate = 86400;
+
 export default function OfferPage() {
   return (
     <main
       className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 bg-white text-black min-h-screen"
       aria-label="Публичная оферта"
     >
-      {/* Schema.org для SEO */}
-      <JsonLd
+      <JsonLd<WebPage>
         item={{
-          '@context': 'https://schema.org',
           '@type': 'WebPage',
           name: 'Публичная оферта | KeyToHeart',
           url: 'https://keytoheart.ru/offer',
@@ -59,10 +61,8 @@ export default function OfferPage() {
         }}
       />
 
-      {/* Основной контент с анимацией */}
       <ClientAnimatedSection>
         <section className="max-w-4xl mx-auto space-y-8 text-gray-800">
-          {/* Заголовок с адаптивной типографикой */}
           <h1
             className="text-3xl sm:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-center"
             role="heading"
@@ -71,114 +71,88 @@ export default function OfferPage() {
             Публичная оферта на получение рекламной рассылки
           </h1>
 
-          <p className="text-base sm:text-lg leading-relaxed">
-            Настоящая Публичная оферта (далее – Оферта) регламентирует порядок получения
-            Пользователем рекламных сообщений от ИП Рашевская Регина Сергеевна (ИНН 234810526700,
-            ОГРНИП 324237500032680), далее – «Администрация».
-          </p>
+          <motion.p
+            className="text-base sm:text-lg leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            Настоящая Публичная оферта (далее – Оферта) разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных» и регламентирует порядок получения Пользователем рекламных сообщений от ИП Рашевская Регина Сергеевна (ИНН 234810526700, ОГРНИП 324237500032680), далее – «Администрация». Все данные хранятся на защищённых серверах в Российской Федерации.
+          </motion.p>
 
           <div className="space-y-6">
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               1. Общие положения
             </h2>
-            <ol
-              className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Общие положения"
-            >
-              <li>
-                Оферта распространяется на все без исключения отношения между Администрацией и
-                Пользователем, касающиеся получения рекламной рассылки.
+            <ol className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Общие положения">
+              <li role="listitem">
+                Оферта распространяется на все отношения между Администрацией и Пользователем, касающиеся получения рекламной рассылки, включая использование cookies для персонализации.
               </li>
-              <li>
-                Акцепт Оферты осуществляется путём явного согласия Пользователя на получение
-                рассылки (например, через отметку соответствующего пункта при оформлении заказа,
-                оплате заказа или отправке сообщения Администрации через сайт или мессенджеры).
+              <li role="listitem">
+                Акцепт Оферты осуществляется путём явного, свободного и однозначного согласия Пользователя на получение рассылки (например, через отметку в форме на сайте, при оформлении заказа или в мессенджерах). Согласие оформляется отдельно от иных согласий.
               </li>
-              <li>
-                Срок использования персональных данных – до момента отказа Пользователя от
-                рассылки, если иное не предусмотрено законодательством РФ. После отказа данные,
-                связанные с рассылкой, удаляются в течение 30 дней, за исключением случаев, когда
-                их хранение требуется для выполнения других обязательств (например, бухгалтерских).
+              <li role="listitem">
+                Персональные данные обрабатываются до момента отказа Пользователя от рассылки или отзыва согласия. После отказа данные удаляются в течение 30 дней, за исключением случаев, когда их хранение требуется для выполнения иных обязательств (например, бухгалтерских или налоговых).
+              </li>
+              <li role="listitem">
+                Администрация уведомляет Роскомнадзор об изменениях в обработке данных в установленные сроки в соответствии с 152-ФЗ.
               </li>
             </ol>
 
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               2. Термины и определения
             </h2>
-            <ol
-              className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Термины и определения"
-            >
-              <li>
-                <strong>Рекламная рассылка</strong> – информация о товарах, акциях и специальных
-                предложениях, направляемая Администрацией на контактные данные Пользователя.
+            <ol className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Термины и определения">
+              <li role="listitem">
+                <strong>Рекламная рассылка</strong> – информация о товарах, акциях и специальных предложениях, направляемая Администрацией на контактные данные Пользователя, включая персонализированный контент на основе cookies.
               </li>
-              <li>
-                <strong>Оператор</strong> – лицо, осуществляющее техническую отправку рекламных
-                сообщений по поручению Администрации.
+              <li role="listitem">
+                <strong>Оператор</strong> – юридическое или физическое лицо, осуществляющее техническую отправку сообщений по поручению Администрации с соблюдением конфиденциальности.
               </li>
-              <li>
-                <strong>Персональные данные</strong> – сведения, предоставленные Пользователем при
-                оформлении заказа или подписке (например, имя, номер телефона, email).
+              <li role="listitem">
+                <strong>Персональные данные</strong> – сведения, предоставленные Пользователем (например, имя, номер телефона, email, IP-адрес, данные cookies), обрабатываемые в соответствии с 152-ФЗ.
               </li>
             </ol>
 
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               3. Согласие на рассылку
             </h2>
-            <ol
-              className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Согласие на рассылку"
-            >
-              <li>
-                Пользователь даёт согласие на получение рекламных сообщений путём акцепта Оферты.
-                Пользователь может отозвать согласие в любой момент, следуя порядку, указанному в
-                разделе 4.
+            <ol className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Согласие на рассылку">
+              <li role="listitem">
+                Пользователь предоставляет согласие на получение рекламных сообщений путём акцепта Оферты. Согласие может быть отозвано в любой момент согласно разделу 4.
               </li>
-              <li>
-                Рассылка осуществляется по номеру телефона, email или через мессенджеры (WhatsApp,
-                Telegram) — по данным, указанным при оформлении заказа. Пользователь подтверждает,
-                что указанные контактные данные принадлежат ему и могут быть использованы для целей
-                рассылки.
+              <li role="listitem">
+                Рассылка осуществляется по номеру телефона, email или через мессенджеры (WhatsApp, Telegram), указанным Пользователем. Пользователь подтверждает, что контактные данные принадлежат ему и могут использоваться для рассылки.
+              </li>
+              <li role="listitem">
+                Администрация использует cookies для персонализации рассылки (например, подбора релевантных предложений). Подробности в{' '}
+                <TrackedLink
+                  href="/cookie-policy"
+                  ariaLabel="Перейти к политике использования cookies"
+                  category="Navigation"
+                  action="Click Cookie Policy Link"
+                  label="Offer Page"
+                  className="underline hover:text-gray-500 transition-colors"
+                >
+                  Политике использования cookies
+                </TrackedLink>
+                .
               </li>
             </ol>
 
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               4. Порядок отказа от рассылки
             </h2>
-            <ol
-              className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Порядок отказа от рассылки"
-            >
-              <li>
-                Пользователь может в любой момент отозвать согласие, отправив письмо на{' '}
+            <ol className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Порядок отказа от рассылки">
+              <li role="listitem">
+                Пользователь может отозвать согласие, отправив письмо на{' '}
                 <TrackedLink
                   href="mailto:info@keytoheart.ru"
                   ariaLabel="Отправить письмо на info@keytoheart.ru"
                   category="Contact"
                   action="Click Email Link"
                   label="Offer Page"
-                  className="underline hover:text-gray-900 transition-colors"
+                  className="underline hover:text-gray-500 transition-colors"
                 >
                   info@keytoheart.ru
                 </TrackedLink>{' '}
@@ -189,94 +163,121 @@ export default function OfferPage() {
                   category="Contact"
                   action="Click Phone Link"
                   label="Offer Page"
-                  className="underline hover:text-gray-900 transition-colors"
+                  className="underline hover:text-gray-500 transition-colors"
                 >
                   +7 988 603-38-21
                 </TrackedLink>
-                . Также пользователь может отписаться, используя ссылку "Отписаться" в каждом
-                сообщении рассылки.
+                . Также доступна ссылка «Отписаться» в каждом сообщении рассылки.
               </li>
-              <li>
-                Запрос об отказе обрабатывается в течение 3 рабочих дней. Отказ не влияет на уже
-                отправленные сообщения.
+              <li role="listitem">
+                Запрос об отказе обрабатывается в течение 3 рабочих дней. Отказ не влияет на ранее отправленные сообщения или обработку данных для иных целей (например, выполнения заказа).
+              </li>
+              <li role="listitem">
+                При отзыве согласия Администрация прекращает обработку данных для рассылки и удаляет их в течение 30 дней, если иное не предусмотрено законодательством.
               </li>
             </ol>
 
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               5. Обработка персональных данных
             </h2>
-            <p className="text-base sm:text-lg leading-relaxed">
-              Персональные данные обрабатываются в соответствии с{' '}
-              <TrackedLink
-                href="/policy"
-                ariaLabel="Перейти к политике конфиденциальности"
-                category="Navigation"
-                action="Click Policy Link"
-                label="Offer Page"
-                className="underline hover:text-gray-900 transition-colors"
-              >
-                Политикой конфиденциальности
-              </TrackedLink>
-              , опубликованной на странице /policy. Данные используются для целей рекламной
-              рассылки, уведомлений о статусе заказа и (в обезличенном виде) для аналитики и
-              улучшения услуг.
-            </p>
-
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
+            <motion.div
+              className="space-y-2 text-base sm:text-lg leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
             >
+              <p>
+                Персональные данные обрабатываются в соответствии с{' '}
+                <TrackedLink
+                  href="/policy"
+                  ariaLabel="Перейти к политике конфиденциальности"
+                  category="Navigation"
+                  action="Click Policy Link"
+                  label="Offer Page"
+                  className="underline hover:text-gray-500 transition-colors"
+                >
+                  Политикой конфиденциальности
+                </TrackedLink>
+                . Данные используются для:
+              </p>
+              <ul className="list-disc pl-5 space-y-1" role="list">
+                <li role="listitem">Отправки рекламной рассылки;</li>
+                <li role="listitem">Уведомлений о статусе заказа;</li>
+                <li role="listitem">Обезличенной аналитики и улучшения услуг;</li>
+                <li role="listitem">Передачи обезличенных данных по запросу Минцифры в соответствии с ФЗ № 233-ФЗ.</li>
+              </ul>
+              <p>
+                Администрация применяет меры безопасности: шифрование, ограничение доступа, хранение на защищённых серверах в Российской Федерации. Трансграничная передача данных не осуществляется.
+              </p>
+            </motion.div>
+
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               6. Ответственность сторон
             </h2>
-            <ul
-              className="list-disc pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Ответственность сторон"
-            >
-              <li>
-                Администрация несёт ответственность за соблюдение условий Оферты и законодательства
-                РФ о персональных данных.
+            <ul className="list-disc pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Ответственность сторон">
+              <li role="listitem">
+                Администрация обеспечивает соблюдение 152-ФЗ и условий Оферты, включая защиту данных и конфиденциальность.
               </li>
-              <li>
-                Администрация не несёт ответственности за сбои в работе рассылки, вызванные
-                техническими проблемами или действиями третьих лиц (например, провайдеров email).
+              <li role="listitem">
+                Администрация не несёт ответственности за сбои в работе рассылки, вызванные форс-мажорными обстоятельствами (например, отключением серверов, действиями третьих лиц, сбоями провайдеров) или недостоверностью предоставленных Пользователем данных.
               </li>
-              <li>
-                Пользователь несёт ответственность за достоверность предоставленных контактных
-                данных.
+              <li role="listitem">
+                Пользователь несёт ответственность за достоверность и актуальность предоставленных контактных данных.
               </li>
             </ul>
 
-            <h2
-              className="text-xl sm:text-2xl font-semibold"
-              role="heading"
-              aria-level={2}
-            >
+            <h2 className="text-xl sm:text-2xl font-semibold" role="heading" aria-level={2}>
               7. Дополнительные условия
             </h2>
-            <ol
-              className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed"
-              role="list"
-              aria-label="Дополнительные условия"
-            >
-              <li>
-                Изменения в текст Оферты вносятся Администрацией и публикуются на странице /offer.
-                О существенных изменениях пользователи уведомляются по email. Изменения не имеют
-                обратной силы.
+            <ol className="list-decimal pl-5 space-y-2 text-base sm:text-lg leading-relaxed" role="list" aria-label="Дополнительные условия">
+              <li role="listitem">
+                Администрация вправе вносить изменения в Оферту, публикуя новую версию на странице /offer. Пользователи уведомляются о существенных изменениях по email. Изменения не имеют обратной силы.
               </li>
-              <li>
-                С момента публикации новая редакция вступает в силу для всех пользователей.
+              <li role="listitem">
+                Новая редакция вступает в силу с момента публикации, если иное не указано.
+              </li>
+              <li role="listitem">
+                Споры разрешаются путём переговоров, а при недостижении согласия – в Арбитражном суде Краснодарского края.
+              </li>
+              <li role="listitem">
+                Контакты для обращений:
+                <br />
+                ИП Рашевская Регина Сергеевна (ИНН 234810526700, ОГРНИП 324237500032680)
+                <br />
+                Телефон:{' '}
+                <TrackedLink
+                  href="tel:+79886033821"
+                  ariaLabel="Позвонить по номеру +7 988 603-38-21"
+                  category="Contact"
+                  action="Click Phone Link"
+                  label="Offer Page"
+                  className="underline hover:text-gray-500 transition-colors"
+                >
+                  +7 988 603-38-21
+                </TrackedLink>
+                <br />
+                Email:{' '}
+                <TrackedLink
+                  href="mailto:info@keytoheart.ru"
+                  ariaLabel="Отправить письмо на info@keytoheart.ru"
+                  category="Contact"
+                  action="Click Email Link"
+                  label="Offer Page"
+                  className="underline hover:text-gray-500 transition-colors"
+                >
+                  info@keytoheart.ru
+                </TrackedLink>
               </li>
             </ol>
 
-            <p className="text-xs text-gray-500">
-              Обновлено: 2 мая 2025 г.
-            </p>
+            <motion.p
+              className="text-sm text-gray-500"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              Обновлено: 20 мая 2025 г.
+            </motion.p>
           </div>
         </section>
       </ClientAnimatedSection>

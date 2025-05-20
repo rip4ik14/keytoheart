@@ -1,19 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
-export default function PolicyLink({ page }: { page: string }) {
+interface PolicyLinkProps {
+  page: 'policy' | 'cookies' | 'cookie-policy';
+  onClick?: () => void;
+}
+
+export default function PolicyLink({ page, onClick }: PolicyLinkProps) {
+  const href = page === 'policy' ? '/policy' : '/cookie-policy';
+  const label =
+    page === 'policy'
+      ? 'Политике конфиденциальности'
+      : 'Политике использования cookies';
+
   return (
-    <Link
-      href="/policy"
-      className="underline hover:text-gray-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-black"
-      aria-label="Перейти к политике конфиденциальности"
-      onClick={() => {
-        window.gtag?.('event', 'policy_click', { event_category: `${page}_page` });
-        window.ym?.(12345678, 'reachGoal', 'policy_click', { page });
-      }}
+    <motion.span
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="inline-block"
     >
-      Политике конфиденциальности
-    </Link>
+      <Link
+        href={href}
+        className="underline hover:text-gray-500 transition-colors duration-300"
+        aria-label={`Перейти к ${label}`}
+        onClick={onClick}
+      >
+        {label}
+      </Link>
+    </motion.span>
   );
 }

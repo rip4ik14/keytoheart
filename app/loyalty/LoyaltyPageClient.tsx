@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import toast, { Toaster } from 'react-hot-toast';
@@ -25,114 +24,31 @@ interface FAQ {
   answer: string;
 }
 
-interface Event {
-  type: string;
-  date: string | null; // Обновляем тип
-  description: string | null; // Добавляем description
-}
-
 export default function LoyaltyPageClient() {
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formData, setFormData] = useState<Event[]>([{ type: 'День рождения', date: '', description: '' }]);
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number | null>(null);
   const [bonusHistory, setBonusHistory] = useState<BonusHistoryEntry[]>([]);
 
   useEffect(() => {
     // Аналитика: событие просмотра страницы лояльности
-    window.gtag?.('event', 'view_loyalty', { event_category: 'loyalty' });
-    window.ym?.(12345678, 'reachGoal', 'view_loyalty');
+    window.gtag?.('event', 'view_loyalty', { event_category: 'loyalty', type: 'page_view' });
+    window.ym?.(12345678, 'reachGoal', 'view_loyalty', { type: 'page_view' });
 
     const fetchUserData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const phone = user.user_metadata?.phone || user.phone;
-      if (!phone) {
-        toast.error('Телефон пользователя не указан');
-        return;
-      }
-      setUserPhone(phone);
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('bonus_balance')
-        .eq('phone', phone)
-        .single();
-      if (profile?.bonus_balance != null) {
-        setBonusBalance(profile.bonus_balance);
-      }
-
-      const { data: history } = await supabase
-        .from('bonus_history')
-        .select('amount, reason, created_at')
-        .eq('phone', phone)
-        .order('created_at', { ascending: false });
-      if (history) setBonusHistory(history);
+      // TODO: Заменить на российский сервис после миграции
+      // Пример: const { data: user } = await russianService.auth.getUser();
+      toast.error('Данные пользователя временно недоступны');
+      setUserPhone('mock-phone'); // Заглушка
+      setBonusBalance(500); // Заглушка
+      setBonusHistory([
+        { amount: 100, reason: 'Покупка', created_at: '2025-05-01T10:00:00Z' },
+        { amount: -50, reason: 'Оплата бонусами', created_at: '2025-05-10T12:00:00Z' },
+      ]); // Заглушка
     };
 
     fetchUserData();
   }, []);
-
-  const handleAddEvent = () => {
-    if (formData.length < 10) {
-      setFormData([...formData, { type: 'День рождения', date: '', description: '' }]);
-    } else {
-      toast.error('Максимум 10 событий');
-    }
-  };
-
-  const handleEventChange = (index: number, field: keyof Event, value: string) => {
-    const updatedEvents = [...formData];
-    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
-    setFormData(updatedEvents);
-  };
-
-  const handleSubmitDates = async () => {
-    if (!userPhone) {
-      toast.error('Телефон пользователя не указан');
-      return;
-    }
-    setLoading(true);
-
-    try {
-      // Фильтруем события, где заполнены обязательные поля
-      const validEvents = formData.filter((event) => event.type && event.date);
-
-      if (validEvents.length > 0) {
-        const { error } = await supabase.from('important_dates').insert(
-          validEvents.map((event) => ({
-            phone: userPhone,
-            type: event.type,
-            date: event.date || null,
-            description: event.description || null,
-          }))
-        );
-        if (error) throw error;
-      }
-
-      setSubmitted(true);
-      setLoading(false);
-
-      // Аналитика: событие отправки важных дат
-      window.gtag?.('event', 'submit_dates', { event_category: 'loyalty' });
-      window.ym?.(12345678, 'reachGoal', 'submit_dates');
-
-      setTimeout(() => {
-        setFormOpen(false);
-        setFormData([{ type: 'День рождения', date: '', description: '' }]);
-        setSubmitted(false);
-      }, 1500);
-    } catch (error: any) {
-      setLoading(false);
-      toast.error('Ошибка сохранения дат: ' + error.message);
-    }
-  };
 
   const faqs: FAQ[] = [
     {
@@ -172,6 +88,8 @@ export default function LoyaltyPageClient() {
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-16 bg-gray-50" aria-label="Программа лояльности">
+      <Toaster position="top-right" />
+      
       {/* Баланс */}
       {bonusBalance != null && (
         <motion.div
@@ -206,9 +124,9 @@ export default function LoyaltyPageClient() {
             >
               <thead className="bg-gray-100 text-left">
                 <tr>
-                  <th className="p-3 font-semibold">Дата</th>
-                  <th className="p-3 font-semibold">Причина</th>
-                  <th className="p-3 font-semibold">Сумма</th>
+                  <th className="p-3 font-semibold" scope="col">Дата</th>
+                  <th className="p-3 font-semibold" scope="col">Причина</th>
+                  <th className="p-3 font-semibold" scope="col">Сумма</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,14 +179,11 @@ export default function LoyaltyPageClient() {
           quality={75}
         />
         <div className="relative z-10 space-y-4">
-          <h1 className="text-4xl md
-
-:text-5xl font-bold uppercase">
+          <h1 className="text-4xl md:text-5xl font-bold uppercase">
             Вернём до 15% бонусами!
           </h1>
-          <p className="text-base md:text-lg flex items-center justify-center gap-2">
-            <Image src="/icons/gift.svg" alt="Gift" width={20} height={20} className="text-yellow-400" />
-            И дарим 300 бонусов за карту клиента и важные даты
+          <p className="text-base md:text-lg">
+            Получайте кешбэк за каждый заказ и оплачивайте до 15% покупок
           </p>
         </div>
       </motion.div>
@@ -318,7 +233,7 @@ export default function LoyaltyPageClient() {
               </div>
               <div className="relative z-10">
                 <h3 className="text-lg font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                  <Image src="/icons/star.svg" alt="Star" width={20} height={20} className="text-green-500" />
+                  <Image src="/icons/star.svg" alt="Иконка звезды" width={20} height={20} className="text-green-500" aria-hidden="true" />
                   {step.title}
                 </h3>
                 <p className="text-gray-600">{step.text}</p>
@@ -326,182 +241,6 @@ export default function LoyaltyPageClient() {
             </div>
           ))}
         </div>
-      </motion.section>
-
-      {/* Дополнительные бонусы */}
-      <motion.section
-        className="mb-16 text-center"
-        variants={sectionVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-      >
-        <h2 className="text-3xl font-bold mb-8 text-gray-800 uppercase">
-          Дополнительные бонусы
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {[
-            {
-              title: 'Карта клиента',
-              text: 'Установите карту и получите 300 бонусов. Доступно в Apple Wallet и Android.',
-              buttonText: 'Установить',
-              onClick: () => alert('Установка карты клиента...'),
-              img: '/images/loyalty-card.jpg',
-            },
-            {
-              title: 'Важные даты',
-              text: 'Укажите день рождения и юбилей — мы напомним и подарим скидку',
-              buttonText: 'Заполнить',
-              onClick: () => setFormOpen(true),
-              img: '/images/loyalty-dates.jpg',
-            },
-          ].map((bonus, idx) => (
-            <div
-              key={idx}
-              className="relative bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
-            >
-              <div className="absolute inset-0">
-                <Image
-                  src={bonus.img}
-                  alt={bonus.title}
-                  fill
-                  className="object-cover opacity-10 rounded-2xl"
-                  loading="lazy"
-                  quality={50}
-                />
-              </div>
-              <div className="relative z-10 p-6">
-                <h3 className="font-semibold text-xl mb-3 text-gray-800">
-                  {bonus.title}
-                </h3>
-                <p className="text-sm mb-4 text-gray-600">{bonus.text}</p>
-                <button
-                  onClick={bonus.onClick}
-                  className="bg-white text-gray-800 px-5 py-2 rounded-full text-sm font-medium border border-gray-200 shadow-sm hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  aria-label={bonus.buttonText}
-                >
-                  {bonus.buttonText}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Модалка для важных дат */}
-        {formOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-labelledby="important-dates-title"
-            aria-modal="true"
-          >
-            <motion.div
-              className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <h3
-                id="important-dates-title"
-                className="text-xl font-bold mb-6 text-gray-800"
-              >
-                Укажите важные даты
-              </h3>
-              {formData.map((event, index) => (
-                <div key={index} className="space-y-4 mb-4">
-                  <div>
-                    <label
-                      htmlFor={`type-${index}`}
-                      className="block mb-2 text-sm font-medium text-gray-700"
-                    >
-                      Тип события:
-                    </label>
-                    <select
-                      id={`type-${index}`}
-                      value={event.type}
-                      onChange={(e) => handleEventChange(index, 'type', e.target.value)}
-                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                      disabled={loading}
-                    >
-                      <option value="День рождения">День рождения</option>
-                      <option value="Годовщина">Годовщина</option>
-                      <option value="Особенный день">Особенный день</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`date-${index}`}
-                      className="block mb-2 text-sm font-medium text-gray-700"
-                    >
-                      Дата:
-                    </label>
-                    <input
-                      id={`date-${index}`}
-                      type="date"
-                      value={event.date || ''}
-                      onChange={(e) => handleEventChange(index, 'date', e.target.value)}
-                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                      aria-required="true"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`description-${index}`}
-                      className="block mb-2 text-sm font-medium text-gray-700"
-                    >
-                      Описание (опционально):
-                    </label>
-                    <input
-                      id={`description-${index}`}
-                      type="text"
-                      value={event.description || ''}
-                      onChange={(e) => handleEventChange(index, 'description', e.target.value)}
-                      className="w-full mb-4 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
-                      placeholder="Например, день рождения жены"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-              ))}
-              {formData.length < 10 && (
-                <button
-                  type="button"
-                  onClick={handleAddEvent}
-                  className="text-sm text-blue-600 hover:underline mb-4"
-                  disabled={loading}
-                >
-                  + Добавить событие
-                </button>
-              )}
-              {submitted ? (
-                <p className="text-green-600 text-sm mb-4">
-                  Спасибо! Мы сохранили даты.
-                </p>
-              ) : (
-                <button
-                  onClick={handleSubmitDates}
-                  disabled={loading}
-                  className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
-                  aria-label="Сохранить важные даты"
-                >
-                  {loading ? 'Сохраняем...' : 'Сохранить'}
-                </button>
-              )}
-              <button
-                onClick={() => setFormOpen(false)}
-                className="mt-4 text-sm underline text-gray-600 hover:text-gray-800 focus:outline-none focus:underline"
-                aria-label="Закрыть модальное окно"
-              >
-                Закрыть
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
       </motion.section>
 
       {/* Уровни кешбэка */}
@@ -519,17 +258,17 @@ export default function LoyaltyPageClient() {
           <table
             className="w-full text-sm text-gray-700"
             role="grid"
-            aria-label="Уровни кешбэка"
+            aria-label="Уровни кешбэка программы лояльности"
           >
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-3 text-left font-medium text-gray-600">
+                <th className="p-3 text-left font-medium text-gray-600" scope="col">
                   Название уровня
                 </th>
-                <th className="p-3 text-left font-medium text-gray-600">
+                <th className="p-3 text-left font-medium text-gray-600" scope="col">
                   Процент
                 </th>
-                <th className="p-3 text-left font-medium text-gray-600">
+                <th className="p-3 text-left font-medium text-gray-600" scope="col">
                   Сумма заказов
                 </th>
               </tr>

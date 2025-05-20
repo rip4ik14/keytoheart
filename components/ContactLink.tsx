@@ -1,25 +1,30 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 interface ContactLinkProps {
   href: string;
   label: string;
-  type: 'phone' | 'email';
+  type: 'email' | 'phone';
+  onClick?: () => void;
 }
 
-export default function ContactLink({ href, label, type }: ContactLinkProps) {
+export default function ContactLink({ href, label, type, onClick }: ContactLinkProps) {
   return (
-    <Link
-      href={href}
-      className="underline hover:text-gray-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-black"
-      aria-label={label}
-      onClick={() => {
-        window.gtag?.('event', `${type}_click`, { event_category: 'policy_page' });
-        window.ym?.(12345678, 'reachGoal', `${type}_click`, { page: 'policy' });
-      }}
+    <motion.span
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="inline-block"
     >
-      {href.replace('tel:', '').replace('mailto:', '')}
-    </Link>
+      <Link
+        href={href}
+        className="underline hover:text-gray-500 transition-colors duration-300"
+        aria-label={label}
+        onClick={onClick}
+      >
+        {type === 'email' ? href.replace('mailto:', '') : href.replace('tel:', '')}
+      </Link>
+    </motion.span>
   );
 }

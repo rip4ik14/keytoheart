@@ -1,9 +1,11 @@
-import { Metadata } from 'next';
-import Link from 'next/link'; // Добавляем импорт Link
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import { JsonLd } from 'react-schemaorg';
-import type { WebPage } from 'schema-dts'; // Добавляем импорт типа WebPage
+import type { FAQPage, WebPage } from 'schema-dts';
+import { motion } from 'framer-motion';
 import PolicyLink from '@components/PolicyLink';
 import ContactLink from '@components/ContactLink';
+import { trackEvent } from '@/lib/analytics';
 
 export const metadata: Metadata = {
   title: 'Политика конфиденциальности | KeyToHeart',
@@ -36,212 +38,298 @@ export const metadata: Metadata = {
 
 export const revalidate = 86400;
 
+const faqSchema: FAQPage = {
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Какие персональные данные собирает KeyToHeart?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Мы собираем фамилию, имя, отчество, контактный телефон, адрес электронной почты, адрес доставки, комментарии к заказу, IP-адрес, данные cookies и другие данные, добровольно предоставленные пользователем.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Как KeyToHeart защищает мои данные?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Мы используем шифрование, ограничение доступа, резервное копирование и безопасные протоколы передачи (HTTPS). Все данные хранятся на серверах в Российской Федерации, соответствующих требованиям законодательства РФ.',
+      },
+    },
+  ],
+};
+
 export default function PolicyPage() {
+  const handleLinkClick = (label: string, type: 'email' | 'phone' | 'policy') => {
+    trackEvent({
+      category: 'Navigation',
+      action: 'policy_page_link_click',
+      label,
+      type,
+    });
+  };
+
   return (
     <main className="bg-white text-black" aria-label="Политика конфиденциальности">
-      <JsonLd<WebPage> // Указываем тип схемы
+      <JsonLd<WebPage>
         item={{
-          '@type': 'WebPage', // Удаляем '@context', так как JsonLd добавляет его автоматически
+          '@type': 'WebPage',
           name: 'Политика конфиденциальности | KeyToHeart',
           url: 'https://keytoheart.ru/policy',
           description: 'Политика конфиденциальности интернет-магазина KeyToHeart в соответствии с 152-ФЗ.',
+          mainEntity: {
+            '@type': 'Organization',
+            name: 'KeyToHeart',
+            url: 'https://keytoheart.ru',
+            contactPoint: {
+              '@type': 'ContactPoint',
+              email: 'info@keytoheart.ru',
+              telephone: '+7-988-603-38-21',
+              contactType: 'customer service',
+            },
+          },
         }}
       />
-      <section className="container mx-auto px-4 py-10 max-w-4xl text-sm leading-relaxed text-black space-y-6">
-        <h1 className="text-2xl sm:text-3xl font-sans font-bold text-center">
+      <JsonLd<FAQPage> item={faqSchema} />
+
+      <section className="container mx-auto px-4 py-10 max-w-4xl text-base leading-relaxed text-black space-y-6">
+        <motion.h1
+          className="text-2xl sm:text-3xl font-sans font-bold text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           Политика конфиденциальности персональных данных
-        </h1>
-        <p>
-          Настоящая Политика конфиденциальности персональных данных (далее – Политика
-          конфиденциальности) действует в отношении всей информации, которую сайт
-          KeyToHeart, расположенный на доменном имени{' '}
-          <Link href="/" className="underline hover:text-gray-600 transition-colors duration-300">
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          Настоящая Политика конфиденциальности персональных данных (далее – Политика) разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных» и действует в отношении всей информации, которую интернет-магазин KeyToHeart, расположенный на доменном имени{' '}
+          <Link
+            href="/"
+            className="underline hover:text-gray-500 transition-colors duration-300"
+            aria-label="Перейти на главную страницу KeyToHeart"
+            onClick={() => handleLinkClick('Главная страница', 'policy')}
+          >
             keytoheart.ru
           </Link>{' '}
-          (а также его субдоменах), может получить о Пользователе во время использования
-          сайта, его программ и продуктов.
-        </p>
+          (и его субдоменах), может получить о Пользователе во время использования сайта, его программ и продуктов.
+        </motion.p>
 
-        <h2 className="text-lg font-semibold">1. Определение терминов</h2>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>
-            <strong>Администрация сайта</strong> – уполномоченные сотрудники,
-            действующие от имени ИП Рашевская Регина Сергеевна (ИНН 234810526700,
-            ОГРНИП 324237500032680), которые организуют и осуществляют обработку
-            персональных данных, определяют цели обработки, состав данных и операции
-            с ними.
-          </li>
-          <li>
-            <strong>Персональные данные</strong> – любая информация, относящаяся к
-            прямо или косвенно определяемому физическому лицу.
-          </li>
-          <li>
-            <strong>Обработка персональных данных</strong> – любое действие или
-            совокупность действий с использованием средств автоматизации или без таковых:
-            сбор, систематизация, хранение, уточнение, использование, распространение,
-            обезличивание, удаление и т. д.
-          </li>
-          <li>
-            <strong>Конфиденциальность персональных данных</strong> – обязательное
-            требование не допускать распространения данных без согласия субъекта или
-            иного законного основания.
-          </li>
-          <li>
-            <strong>Cookies</strong> – небольшой фрагмент данных, отправляемый сервером
-            и хранимый на устройстве Пользователя.
-          </li>
-          <li>
-            <strong>IP-адрес</strong> – уникальный сетевой адрес узла в компьютерной сети.
-          </li>
-          <li>
-            <strong>Сайт KeyToHeart</strong> – совокупность веб-страниц под доменом
-            keytoheart.ru и его субдоменами.
-          </li>
-          <li>
-            <strong>Пользователь</strong> – лицо, использующее сайт KeyToHeart через
-            Интернет.
-          </li>
-        </ol>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">1. Определение терминов</h2>
+          <ol className="list-decimal pl-5 space-y-1" role="list">
+            {[
+              {
+                term: 'Администрация сайта',
+                description:
+                  'Уполномоченные сотрудники, действующие от имени ИП Рашевская Регина Сергеевна (ИНН 234810526700, ОГРНИП 324237500032680), которые организуют и осуществляют обработку персональных данных, определяют цели обработки, состав данных и операции с ними.',
+              },
+              {
+                term: 'Персональные данные',
+                description: 'Любая информация, относящаяся к прямо или косвенно определяемому физическому лицу (субъекту персональных данных).',
+              },
+              {
+                term: 'Обработка персональных данных',
+                description:
+                  'Любое действие или совокупность действий с использованием средств автоматизации или без таковых: сбор, систематизация, хранение, уточнение, использование, распространение, обезличивание, удаление и т.д.',
+              },
+              {
+                term: 'Конфиденциальность персональных данных',
+                description: 'Обязательное требование не допускать распространения данных без согласия субъекта или иного законного основания.',
+              },
+              {
+                term: 'Cookies',
+                description: 'Небольшой фрагмент данных, отправляемый сервером и хранимый на устройстве Пользователя.',
+              },
+              {
+                term: 'IP-адрес',
+                description: 'Уникальный сетевой адрес узла в компьютерной сети.',
+              },
+              {
+                term: 'Сайт KeyToHeart',
+                description: 'Совокупность веб-страниц под доменом keytoheart.ru и его субдоменами.',
+              },
+              {
+                term: 'Пользователь',
+                description: 'Лицо, использующее сайт KeyToHeart через Интернет.',
+              },
+            ].map((item, index) => (
+              <li key={index} role="listitem">
+                <strong>{item.term}</strong> – {item.description}
+              </li>
+            ))}
+          </ol>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">2. Общие положения</h2>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>
-            Использование сайта означает полное и безоговорочное согласие Пользователя
-            с условиями этой Политики.
-          </li>
-          <li>
-            При несогласии с условиями Пользователь должен прекратить использование сайта.
-          </li>
-          <li>
-            Политика применяется ко всем субдоменам keytoheart.ru. Администрация не
-            контролирует сторонние ресурсы по внешним ссылкам.
-          </li>
-          <li>
-            Администрация не проверяет достоверность персональных данных,
-            предоставляемых Пользователем, но принимает меры для их защиты.
-          </li>
-        </ol>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">2. Общие положения</h2>
+          <ol className="list-decimal pl-5 space-y-1" role="list">
+            <li role="listitem">Использование сайта означает согласие Пользователя с условиями этой Политики.</li>
+            <li role="listitem">При несогласии с условиями Пользователь должен прекратить использование сайта.</li>
+            <li role="listitem">Политика применяется ко всем субдоменам keytoheart.ru. Администрация не контролирует сторонние ресурсы по внешним ссылкам.</li>
+            <li role="listitem">Администрация не проверяет достоверность предоставленных Пользователем данных, но принимает меры для их защиты.</li>
+            <li role="listitem">Все данные хранятся на серверах в Российской Федерации в соответствии с требованиями законодательства РФ.</li>
+          </ol>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">3. Предмет политики конфиденциальности</h2>
-        <p>
-          Настоящая Политика устанавливает обязательства Администрации по защите
-          конфиденциальности персональных данных, которые Пользователь предоставляет:
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>При регистрации на сайте;</li>
-          <li>При оформлении заказа;</li>
-          <li>При подписке на информационную e-mail рассылку;</li>
-          <li>При использовании форм обратной связи;</li>
-          <li>При участии в программе лояльности.</li>
-        </ul>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">3. Предмет политики конфиденциальности</h2>
+          <p>
+            Настоящая Политика устанавливает обязательства Администрации по защите конфиденциальности персональных данных, которые Пользователь предоставляет:
+          </p>
+          <ul className="list-disc pl-5 space-y-1" role="list">
+            <li role="listitem">При регистрации на сайте;</li>
+            <li role="listitem">При оформлении заказа;</li>
+            <li role="listitem">При подписке на информационную e-mail рассылку;</li>
+            <li role="listitem">При использовании форм обратной связи;</li>
+            <li role="listitem">При участии в программе лояльности.</li>
+          </ul>
+          <p>
+            Согласие на обработку персональных данных предоставляется Пользователем свободно, осознанно и однозначно в отдельной форме, в том числе через баннер cookies.
+          </p>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">4. Состав обрабатываемых персональных данных</h2>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Фамилия, имя, отчество Пользователя;</li>
-          <li>Контактный телефон;</li>
-          <li>Адрес электронной почты (e-mail);</li>
-          <li>Адрес доставки товара;</li>
-          <li>Комментарии к заказу (при необходимости);</li>
-          <li>IP-адрес, данные Cookies, информация о браузере;</li>
-          <li>Любые другие данные, которые Пользователь добровольно предоставил.</li>
-        </ul>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">4. Состав обрабатываемых персональных данных</h2>
+          <ul className="list-disc pl-5 space-y-1" role="list">
+            <li role="listitem">Фамилия, имя, отчество Пользователя;</li>
+            <li role="listitem">Контактный телефон;</li>
+            <li role="listitem">Адрес электронной почты (e-mail);</li>
+            <li role="listitem">Адрес доставки товара;</li>
+            <li role="listitem">Комментарии к заказу (при необходимости);</li>
+            <li role="listitem">IP-адрес, данные cookies, информация о браузере;</li>
+            <li role="listitem">Любые другие данные, добровольно предоставленные Пользователем.</li>
+          </ul>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">5. Цели обработки персональных данных</h2>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Идентификация Пользователя;</li>
-          <li>Оформление, доставка и оплата заказов;</li>
-          <li>Установление обратной связи, отправка уведомлений;</li>
-          <li>Предоставление персонализированного сервиса;</li>
-          <li>Начисление бонусов в рамках программы лояльности;</li>
-          <li>Проведение маркетинговых рассылок с согласия Пользователя;</li>
-          <li>Аналитика и улучшение качества услуг.</li>
-        </ul>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">5. Цели обработки персональных данных</h2>
+          <ul className="list-disc pl-5 space-y-1" role="list">
+            <li role="listitem">Идентификация Пользователя;</li>
+            <li role="listitem">Оформление, доставка и оплата заказов;</li>
+            <li role="listitem">Установление обратной связи, отправка уведомлений;</li>
+            <li role="listitem">Предоставление персонализированного сервиса;</li>
+            <li role="listitem">Начисление бонусов в рамках программы лояльности;</li>
+            <li role="listitem">Проведение маркетинговых рассылок с согласия Пользователя;</li>
+            <li role="listitem">Аналитика и улучшение качества услуг;</li>
+            <li role="listitem">Обезличивание данных для передачи по запросу государственных органов в соответствии с ФЗ № 233-ФЗ.</li>
+          </ul>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">6. Способы и сроки обработки данных</h2>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>
-            Обработка осуществляется автоматизированными и/или иными способами без
-            ограничения срока, если иное не предусмотрено законодательством.
-          </li>
-          <li>
-            Администрация вправе передавать данные третьим лицам (курьерским службам,
-            платежным провайдерам) исключительно для исполнения заказа.
-          </li>
-          <li>
-            Персональные данные могут передаваться уполномоченным органам власти
-            РФ по основаниям, установленным законодательством.
-          </li>
-        </ol>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">6. Способы и сроки обработки данных</h2>
+          <ol className="list-decimal pl-5 space-y-1" role="list">
+            <li role="listitem">
+              Обработка осуществляется автоматизированными и/или иными способами без ограничения срока, если иное не предусмотрено законодательством.
+            </li>
+            <li role="listitem">
+              Администрация вправе передавать данные третьим лицам (курьерским службам, платежным провайдерам) исключительно для исполнения заказа с соблюдением конфиденциальности.
+            </li>
+            <li role="listitem">
+              Персональные данные могут передаваться уполномоченным органам власти РФ по основаниям, установленным законодательством.
+            </li>
+            <li role="listitem">
+              Трансграничная передача данных осуществляется только с уведомлением Роскомнадзора и соблюдением требований 152-ФЗ.
+            </li>
+          </ol>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">7. Защита персональных данных</h2>
-        <p>
-          Для защиты данных Администрация применяет организационные и технические
-          меры: шифрование, бэкапы, ограничение доступа, использование безопасных
-          протоколов передачи (HTTPS). Все данные хранятся на серверах, соответствующих
-          требованиям законодательства РФ.
-        </p>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">7. Защита персональных данных</h2>
+          <p>
+            Администрация применяет организационные и технические меры для защиты данных, включая:
+          </p>
+          <ul className="list-disc pl-5 space-y-1" role="list">
+            <li role="listitem">Шифрование данных;</li>
+            <li role="listitem">Ограничение доступа к данным;</li>
+            <li role="listitem">Резервное копирование;</li>
+            <li role="listitem">Использование безопасных протоколов передачи (HTTPS);</li>
+            <li role="listitem">Хранение данных на серверах в Российской Федерации;</li>
+            <li role="listitem">Регулярные проверки безопасности и обучение сотрудников.</li>
+          </ul>
+          <p>
+            Все данные хранятся на защищённых серверах, соответствующих требованиям законодательства РФ.
+          </p>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">8. Права и обязанности сторон</h2>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>
-            Пользователь вправе получать информацию об обработке своих данных,
-            требовать уточнения, блокирования или удаления персональных данных;
-          </li>
-          <li>
-            Пользователь может отозвать согласие на обработку данных, направив запрос на{' '}
-            <ContactLink
-              href="mailto:info@keytoheart.ru"
-              label="Отправить письмо на info@keytoheart.ru"
-              type="email"
-            />;
-          </li>
-          <li>
-            Администрация обязана использовать данные строго в рамках Политики,
-            обеспечивать их конфиденциальность и не передавать третьим лицам без
-            оснований.
-          </li>
-        </ul>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">8. Права и обязанности сторон</h2>
+          <ul className="list-disc pl-5 space-y-1" role="list">
+            <li role="listitem">
+              Пользователь вправе получать информацию об обработке своих данных, требовать уточнения, блокирования или удаления персональных данных;
+            </li>
+            <li role="listitem">
+              Пользователь может отозвать согласие на обработку данных, направив запрос на{' '}
+              <ContactLink
+                href="mailto:info@keytoheart.ru"
+                label="Отправить письмо на info@keytoheart.ru"
+                type="email"
+                onClick={() => handleLinkClick('Запрос на отзыв согласия', 'email')}
+              />;
+            </li>
+            <li role="listitem">
+              Администрация обязана использовать данные строго в рамках Политики, обеспечивать их конфиденциальность и не передавать третьим лицам без законных оснований.
+            </li>
+          </ul>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">9. Использование Cookies</h2>
-        <p>
-          Сайт использует Cookies для улучшения пользовательского опыта, аналитики и
-          персонализации. Пользователь может отключить Cookies в настройках браузера,
-          но это может ограничить функциональность сайта. Подробнее о Cookies читайте
-          в нашей <PolicyLink page="policy" />.
-        </p>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">9. Использование Cookies</h2>
+          <p>
+            Сайт использует cookies для улучшения пользовательского опыта, аналитики и персонализации. Пользователь может управлять cookies через баннер или настройки браузера. Подробнее в нашей{' '}
+            <PolicyLink page="cookie-policy" onClick={() => handleLinkClick('Политика Cookies', 'policy')} />.
+          </p>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">10. Ответственность и разрешение споров</h2>
-        <p>
-          Администрация несёт ответственность за нарушение условий Политики в
-          соответствии с законодательством РФ. Все споры решаются путём переговоров,
-          а при недостижении согласия – в Арбитражном суде Краснодарского края.
-        </p>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">10. Ответственность и разрешение споров</h2>
+          <p>
+            Администрация несёт ответственность за нарушение условий Политики в соответствии с законодательством РФ. Все споры разрешаются путём переговоров, а при недостижении согласия – в Арбитражном суде Краснодарского края.
+          </p>
+        </motion.section>
 
-        <h2 className="text-lg font-semibold">11. Дополнительные условия</h2>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>
-            Администрация вправе вносить изменения в Политику без уведомления
-            Пользователя. Актуальная версия всегда доступна на этой странице.
-          </li>
-          <li>
-            По вопросам обработки персональных данных обращаться:
-            <br />
-            <ContactLink
-              href="tel:+79886033821"
-              label="Позвонить по номеру +7 (988) 603-38-21"
-              type="phone"
-            />
-            <br />
-            Email:{' '}
-            <ContactLink
-              href="mailto:info@keytoheart.ru"
-              label="Отправить письмо на info@keytoheart.ru"
-              type="email"
-            />
-          </li>
-        </ol>
+        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3, duration: 0.5 }}>
+          <h2 className="text-xl font-semibold">11. Дополнительные условия</h2>
+          <ol className="list-decimal pl-5 space-y-1" role="list">
+            <li role="listitem">
+              Администрация вправе вносить изменения в Политику без уведомления Пользователя. Актуальная версия доступна на этой странице.
+            </li>
+            <li role="listitem">
+              По вопросам обработки персональных данных обращаться:
+              <br />
+              ИП Рашевская Регина Сергеевна (ИНН 234810526700, ОГРНИП 324237500032680)
+              <br />
+              <ContactLink
+                href="tel:+79886033821"
+                label="Позвонить по номеру +7 (988) 603-38-21"
+                type="phone"
+                onClick={() => handleLinkClick('Контактный телефон', 'phone')}
+              />
+              <br />
+              Email:{' '}
+              <ContactLink
+                href="mailto:info@keytoheart.ru"
+                label="Отправить письмо на info@keytoheart.ru"
+                type="email"
+                onClick={() => handleLinkClick('Контактный email', 'email')}
+              />
+            </li>
+          </ol>
+        </motion.section>
 
-        <p className="text-xs text-gray-500">Обновлено: 24 апреля 2025 г.</p>
+        <motion.p
+          className="text-sm text-gray-500"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4, duration: 0.5 }}
+        >
+          Обновлено: 20 мая 2025 г.
+        </motion.p>
       </section>
     </main>
   );
