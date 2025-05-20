@@ -40,6 +40,8 @@ export default async function AdminOrdersPage() {
     redirect('/admin/login?error=no-user');
   }
 
+  console.log('Checking admin for user:', { id: user.id, phone: user.phone }); // Отладка
+
   const { data: admin, error: adminError } = await supabaseAdmin
     .from('admins')
     .select('id, role')
@@ -47,7 +49,7 @@ export default async function AdminOrdersPage() {
     .single();
 
   if (adminError || !admin || admin.role !== 'admin') {
-    console.error('Admin check failed:', adminError);
+    console.error('Admin check failed:', adminError, { userId: user.id, userPhone: user.phone });
     redirect('/admin/login?error=not-admin');
   }
 

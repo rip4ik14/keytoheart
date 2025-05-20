@@ -35,13 +35,15 @@ export async function POST(req: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
+    if (userError || !user || !user.id) {
       console.error('Error fetching user:', userError);
       return NextResponse.json(
         { error: 'Unauthorized: Invalid token' },
         { status: 401 }
       );
     }
+
+    console.log('Checking admin for user.id:', user.id); // Отладка
 
     const { data: admin, error: adminError } = await supabaseAdmin
       .from('admins')
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (adminError || !admin || admin.role !== 'admin') {
-      console.error('Admin check failed:', adminError);
+      console.error('Admin check failed:', adminError, { userId: user.id });
       return NextResponse.json(
         { error: 'Forbidden: Only admins can update order status' },
         { status: 403 }
