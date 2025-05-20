@@ -1,124 +1,46 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabasePublic as supabase } from "@/lib/supabase/public";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale/ru";
-import Link from "next/link";
-import Image from "next/image";
-import toast, { Toaster } from "react-hot-toast";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import Link from 'next/link';
+import Image from 'next/image';
+import toast, { Toaster } from 'react-hot-toast';
+import { supabasePublic as supabase } from '@/lib/supabase/public';
 
 interface Event {
   type: string;
-  date: string | null; // Обновляем тип
+  date: string | null;
   description: string | null;
 }
 
 interface Customer {
   id: string;
   phone: string;
-  email?: string;
-  created_at: string;
+  email: string | null;
+  created_at: string | null;
   important_dates: Event[];
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
 }
 
-interface CustomerDetailPageProps {
-  params: { id: string };
+interface Props {
+  customer: Customer | null;
 }
 
-export default function CustomerDetailPage({ params }: CustomerDetailPageProps) {
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function CustomerDetailPage({ customer }: Props) {
   const [editingDates, setEditingDates] = useState(false);
-  const [tempDates, setTempDates] = useState<Event[]>([]);
-  const [bonusAction, setBonusAction] = useState<"add" | "subtract" | null>(null);
-  const [bonusAmount, setBonusAmount] = useState("");
-  const [bonusReason, setBonusReason] = useState("");
+  const [tempDates, setTempDates] = useState<Event[]>(customer?.important_dates || []);
+  const [bonusAction, setBonusAction] = useState<'add' | 'subtract' | null>(null);
+  const [bonusAmount, setBonusAmount] = useState('');
+  const [bonusReason, setBonusReason] = useState('');
   const router = useRouter();
-
-  useEffect(() => {
-    const fetchCustomer = async () => {
-      setLoading(true);
-      try {
-        const { data: userResponse, error: userError } = await supabase.auth.admin.getUserById(
-          params.id
-        );
-        if (userError) throw userError;
-        if (!userResponse.user) throw new Error("Пользователь не найден");
-
-        const user = userResponse.user;
-        const phone = user.user_metadata?.phone || user.phone;
-        if (!phone) throw new Error("Телефон пользователя не указан");
-
-        const { data: dates } = await supabase
-          .from("important_dates")
-          .select("type, date, description")
-          .eq("phone", phone);
-
-        const { data: orders } = await supabase
-          .from("orders")
-          .select(
-            `
-            id,
-            created_at,
-            total,
-            bonuses_used,
-            payment_method,
-            status,
-            order_items(
-              quantity,
-              price,
-              product_id,
-              products(title, cover_url)
-            )
-          `
-          )
-          .eq("phone", phone)
-          .order("created_at", { ascending: false });
-
-        const { data: bonuses } = await supabase
-          .from("bonuses")
-          .select("bonus_balance, level")
-          .eq("phone", phone)
-          .single();
-
-        const { data: bonusHistory } = await supabase
-          .from("bonus_history")
-          .select("amount, reason, created_at")
-          .eq("phone", phone)
-          .order("created_at", { ascending: false });
-
-        const customerData: Customer = {
-          id: user.id,
-          phone: phone || "—",
-          email: user.email || "—",
-          created_at: user.created_at,
-          important_dates: dates || [],
-          orders: orders || [],
-          bonuses: bonuses || { bonus_balance: null, level: null },
-          bonus_history: bonusHistory || [],
-        };
-
-        setCustomer(customerData);
-        setTempDates(dates || []);
-      } catch (error: any) {
-        toast.error("Ошибка загрузки данных: " + error.message);
-        router.push("/admin/customers");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCustomer();
-  }, [params.id, router]);
 
   // Добавление нового события
   const handleAddEvent = () => {
-    setTempDates([...tempDates, { type: 'День рождения', date: '', description: '' }]);
+    setTempDates([...tempDates, { type: 'День рождения', date: null, description: null }]);
   };
 
   // Изменение события
@@ -130,13 +52,16 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
   // Сохранение важных дат
   const handleSaveDates = async () => {
-    if (!customer) return;
+    if (!customer) {
+      toast.error('Клиент не найден');
+      return;
+    }
     try {
       // Удаляем существующие записи
       const { error: deleteError } = await supabase
-        .from("important_dates")
+        .from('important_dates')
         .delete()
-        .eq("phone", customer.phone);
+        .eq('phone', customer.phone);
 
       if (deleteError) throw deleteError;
 
@@ -145,7 +70,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
       if (validEvents.length > 0) {
         const { error: insertError } = await supabase
-          .from("important_dates")
+          .from('important_dates')
           .insert(
             validEvents.map((event) => ({
               phone: customer.phone,
@@ -162,79 +87,84 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         prev ? { ...prev, important_dates: validEvents } : prev
       );
       setEditingDates(false);
-      toast.success("Даты успешно обновлены");
+      toast.success('Даты успешно обновлены');
     } catch (error: any) {
-      toast.error("Ошибка сохранения дат: " + error.message);
+      toast.error('Ошибка сохранения дат: ' + error.message);
     }
   };
 
   // Экспорт данных клиента в CSV
   const exportToCSV = () => {
-    if (!customer) return;
+    if (!customer) {
+      toast.error('Клиент не найден');
+      return;
+    }
 
     const headers = [
-      "Телефон",
-      "Email",
-      "Дата регистрации",
-      "Кол-во заказов",
-      "Сумма покупок",
-      "Баланс бонусов",
-      "Уровень бонусов",
+      'Телефон',
+      'Email',
+      'Дата регистрации',
+      'Кол-во заказов',
+      'Сумма покупок',
+      'Баланс бонусов',
+      'Уровень бонусов',
     ];
 
     const customerRow = [
       customer.phone,
-      customer.email,
-      format(new Date(customer.created_at), "dd.MM.yyyy", { locale: ru }),
+      customer.email || '—',
+      customer.created_at
+        ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
+        : '—',
       customer.orders.length,
       customer.orders.reduce((sum, order) => sum + (order.total || 0), 0),
       customer.bonuses.bonus_balance ?? 0,
-      customer.bonuses.level ?? "—",
+      customer.bonuses.level ?? '—',
     ];
 
-    const datesHeader = ["Тип события", "Дата", "Описание"];
+    const datesHeader = ['Тип события', 'Дата', 'Описание'];
     const datesRows = customer.important_dates.map((event) => [
       event.type,
-      event.date ? format(new Date(event.date), "dd.MM.yyyy", { locale: ru }) : "—",
-      event.description || "—",
+      event.date ? format(new Date(event.date), 'dd.MM.yyyy', { locale: ru }) : '—',
+      event.description || '—',
     ]);
 
-    const ordersHeader = ["Заказ ID", "Дата заказа", "Сумма", "Статус", "Способ оплаты"];
+    const ordersHeader = ['Заказ ID', 'Дата заказа', 'Сумма', 'Статус', 'Способ оплаты'];
     const ordersRows = customer.orders.map((order) => [
       order.id,
-      format(new Date(order.created_at), "dd.MM.yyyy", { locale: ru }),
+      format(new Date(order.created_at), 'dd.MM.yyyy', { locale: ru }),
       order.total,
       order.status,
-      order.payment_method || "—",
+      order.payment_method || '—',
     ]);
 
-    const bonusHistoryHeader = ["Дата", "Причина", "Сумма"];
+    const bonusHistoryHeader = ['Дата', 'Причина', 'Сумма'];
     const bonusHistoryRows = customer.bonus_history.map((entry) => [
-      format(new Date(entry.created_at), "dd.MM.yyyy", { locale: ru }),
+      format(new Date(entry.created_at), 'dd.MM.yyyy', { locale: ru }),
       entry.reason,
       entry.amount,
     ]);
 
     const csv = [
-      headers.join(","),
-      customerRow.join(","),
-      "",
-      "Важные даты",
-      datesHeader.join(","),
-      ...datesRows.map((row) => row.join(",")),
-      "",
-      "История заказов",
-      ordersHeader.join(","),
-      ...ordersRows.map((row) => row.join(",")),
-      "",
-      "История бонусов",
-      bonusHistoryHeader.join(","),
-      ...bonusHistoryRows.map((row) => row.join(",")),
-    ].join("\n");
+      headers.join(','),
+      customerRow.join(','),
+      '',
+      'Важные даты',
+      datesHeader.join(','),
+      ...datesRows.map((row) => row.join(',')),
+      '',
+      'История заказов',
+      ordersHeader.join(','),
+      ...ordersRows.map((row) => row.join(',')),
+      '',
+      'История бонусов',
+      bonusHistoryHeader.join(','),
+      ...bonusHistoryRows.map((row) => row.join(',')),
+    ].join('\n');
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = `customer_${customer.phone}.csv`;
     a.click();
@@ -242,37 +172,41 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
   // Управление бонусами
   const handleBonusAction = async () => {
-    if (!customer || !bonusAmount || !bonusReason) {
-      toast.error("Укажите сумму и причину");
+    if (!customer) {
+      toast.error('Клиент не найден');
+      return;
+    }
+    if (!bonusAmount || !bonusReason) {
+      toast.error('Укажите сумму и причину');
       return;
     }
 
     const amount = parseInt(bonusAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error("Сумма должна быть положительным числом");
+      toast.error('Сумма должна быть положительным числом');
       return;
     }
 
-    const finalAmount = bonusAction === "add" ? amount : -amount;
+    const finalAmount = bonusAction === 'add' ? amount : -amount;
     const currentBalance = customer.bonuses.bonus_balance ?? 0;
     const newBalance = currentBalance + finalAmount;
 
     if (newBalance < 0) {
-      toast.error("Баланс не может быть отрицательным");
+      toast.error('Баланс не может быть отрицательным');
       return;
     }
 
     try {
       // Обновляем баланс бонусов
       const { error: bonusError } = await supabase
-        .from("bonuses")
+        .from('bonuses')
         .update({ bonus_balance: newBalance })
-        .eq("phone", customer.phone);
+        .eq('phone', customer.phone);
       if (bonusError) throw bonusError;
 
       // Добавляем запись в историю бонусов
       const { error: historyError } = await supabase
-        .from("bonus_history")
+        .from('bonus_history')
         .insert({
           phone: customer.phone,
           amount: finalAmount,
@@ -300,31 +234,30 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       );
 
       setBonusAction(null);
-      setBonusAmount("");
-      setBonusReason("");
+      setBonusAmount('');
+      setBonusReason('');
       toast.success(
-        bonusAction === "add"
-          ? "Бонусы успешно начислены"
-          : "Бонусы успешно списаны"
+        bonusAction === 'add'
+          ? 'Бонусы успешно начислены'
+          : 'Бонусы успешно списаны'
       );
     } catch (error: any) {
-      toast.error("Ошибка управления бонусами: " + error.message);
+      toast.error('Ошибка управления бонусами: ' + error.message);
     }
   };
 
   // Отправка уведомления (заглушка)
   const handleSendNotification = () => {
-    // Здесь нужно интегрировать API для отправки SMS или email (например, Twilio, SendGrid)
-    toast("Функция отправки уведомлений в разработке", { icon: "ℹ️" });
+    toast('Функция отправки уведомлений в разработке', { icon: 'ℹ️' });
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-gray-500">Загрузка...</p>
-      </div>
-    );
-  }
+  // Обновление клиента в состоянии
+  const setCustomer = (callback: (prev: Customer | null) => Customer | null) => {
+    setCustomer((prev) => {
+      const newCustomer = callback(prev);
+      return newCustomer;
+    });
+  };
 
   if (!customer) {
     return (
@@ -366,11 +299,13 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
             <span className="font-medium">Телефон:</span> {customer.phone}
           </p>
           <p>
-            <span className="font-medium">Email:</span> {customer.email}
+            <span className="font-medium">Email:</span> {customer.email || '—'}
           </p>
           <p>
-            <span className="font-medium">Дата регистрации:</span>{" "}
-            {format(new Date(customer.created_at), "dd.MM.yyyy", { locale: ru })}
+            <span className="font-medium">Дата регистрации:</span>{' '}
+            {customer.created_at
+              ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
+              : '—'}
           </p>
         </div>
       </section>
@@ -417,8 +352,8 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   </p>
                   <p>
                     {event.date
-                      ? format(new Date(event.date), "dd.MM.yyyy", { locale: ru })
-                      : "Дата не указана"}
+                      ? format(new Date(event.date), 'dd.MM.yyyy', { locale: ru })
+                      : 'Дата не указана'}
                   </p>
                 </div>
               ))
@@ -481,11 +416,11 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         <h2 className="text-xl font-semibold mb-4">Бонусы</h2>
         <div className="space-y-2 text-sm">
           <p>
-            <span className="font-medium">Баланс бонусов:</span>{" "}
+            <span className="font-medium">Баланс бонусов:</span>{' '}
             {customer.bonuses.bonus_balance ?? 0} ₽
           </p>
           <p>
-            <span className="font-medium">Уровень:</span> {customer.bonuses.level ?? "—"}
+            <span className="font-medium">Уровень:</span> {customer.bonuses.level ?? '—'}
           </p>
         </div>
 
@@ -495,13 +430,13 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
           {!bonusAction ? (
             <div className="flex gap-3">
               <button
-                onClick={() => setBonusAction("add")}
+                onClick={() => setBonusAction('add')}
                 className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
               >
                 Начислить бонусы
               </button>
               <button
-                onClick={() => setBonusAction("subtract")}
+                onClick={() => setBonusAction('subtract')}
                 className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
               >
                 Списать бонусы
@@ -533,18 +468,18 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 <button
                   onClick={handleBonusAction}
                   className={`${
-                    bonusAction === "add" ? "bg-green-500" : "bg-red-500"
+                    bonusAction === 'add' ? 'bg-green-500' : 'bg-red-500'
                   } text-white px-4 py-2 rounded-lg hover:${
-                    bonusAction === "add" ? "bg-green-600" : "bg-red-600"
+                    bonusAction === 'add' ? 'bg-green-600' : 'bg-red-600'
                   }`}
                 >
-                  {bonusAction === "add" ? "Начислить" : "Списать"}
+                  {bonusAction === 'add' ? 'Начислить' : 'Списать'}
                 </button>
                 <button
                   onClick={() => {
                     setBonusAction(null);
-                    setBonusAmount("");
-                    setBonusReason("");
+                    setBonusAmount('');
+                    setBonusReason('');
                   }}
                   className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
                 >
@@ -574,14 +509,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                       className="border-t hover:bg-gray-50 transition-colors"
                     >
                       <td className="p-3">
-                        {format(new Date(entry.created_at), "dd.MM.yyyy", {
+                        {format(new Date(entry.created_at), 'dd.MM.yyyy', {
                           locale: ru,
                         })}
                       </td>
                       <td className="p-3">{entry.reason}</td>
                       <td
                         className={`p-3 font-medium ${
-                          entry.amount > 0 ? "text-green-600" : "text-red-600"
+                          entry.amount > 0 ? 'text-green-600' : 'text-red-600'
                         }`}
                       >
                         {entry.amount > 0 ? `+${entry.amount}` : entry.amount} ₽
@@ -615,36 +550,31 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         {customer.orders.length > 0 ? (
           <div className="space-y-6">
             {customer.orders.map((order) => (
-              <div
-                key={order.id}
-                className="border-b pb-4 last:border-b-0"
-              >
+              <div key={order.id} className="border-b pb-4 last:border-b-0">
                 <div className="flex justify-between items-center mb-2">
                   <p className="font-medium">
-                    Заказ #{order.id} от{" "}
-                    {format(new Date(order.created_at), "dd.MM.yyyy", { locale: ru })}
+                    Заказ #{order.id} от{' '}
+                    {format(new Date(order.created_at), 'dd.MM.yyyy', { locale: ru })}
                   </p>
                   <p
                     className={`text-sm ${
-                      order.status === "completed"
-                        ? "text-green-600"
-                        : "text-gray-500"
+                      order.status === 'Доставлен' ? 'text-green-600' : 'text-gray-500'
                     }`}
                   >
-                    {order.status === "completed" ? "Завершён" : order.status}
+                    {order.status}
                   </p>
                 </div>
                 <div className="space-y-2 text-sm">
                   {order.order_items.map((item: any, idx: number) => (
                     <div key={idx} className="flex justify-between">
                       <p>
-                        {item.products?.title || "Товар"} (x{item.quantity})
+                        {item.products?.title || 'Товар'} (x{item.quantity})
                       </p>
-                      <p>{(item.price * item.quantity).toLocaleString("ru-RU")} ₽</p>
+                      <p>{(item.price * item.quantity).toLocaleString('ru-RU')} ₽</p>
                     </div>
                   ))}
                   <p className="text-right font-medium">
-                    Итого: {order.total.toLocaleString("ru-RU")} ₽
+                    Итого: {order.total?.toLocaleString('ru-RU')} ₽
                   </p>
                   {order.bonuses_used > 0 && (
                     <p className="text-right text-gray-500">
@@ -652,7 +582,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                     </p>
                   )}
                   <p className="text-gray-500">
-                    Способ оплаты: {order.payment_method || "—"}
+                    Способ оплаты: {order.payment_method || '—'}
                   </p>
                 </div>
               </div>
@@ -664,4 +594,116 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       </section>
     </div>
   );
+}
+
+// Серверная часть для загрузки данных
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { supabaseAdmin } from '@/lib/supabase/server';
+import { verifyAdminJwt } from '@/lib/auth';
+
+export async function getServerSideProps({ params }: { params: { id: string } }) {
+  const cookieStore = await cookies();
+
+  // Очистка некорректных cookies
+  const allCookies = cookieStore.getAll();
+  for (const cookie of allCookies) {
+    if (cookie.name.includes('sb-')) {
+      console.error('Clearing Supabase cookie:', cookie.name);
+      cookieStore.delete(cookie.name);
+    }
+  }
+
+  // Проверяем admin_session токен
+  const token = cookieStore.get('admin_session')?.value;
+  console.log('Admin session token:', token); // Отладка
+  if (!token) {
+    console.error('No admin session token found');
+    redirect('/admin/login?error=no-session');
+  }
+
+  const isValidToken = await verifyAdminJwt(token);
+  console.log('Token verification result:', isValidToken); // Отладка
+  if (!isValidToken) {
+    console.error('Invalid admin session token');
+    redirect('/admin/login?error=invalid-session');
+  }
+
+  try {
+    // Получаем профиль пользователя
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, phone, email, created_at')
+      .eq('id', params.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Error fetching user profile:', profileError);
+      return { customer: null };
+    }
+
+    const phone = profile.phone;
+    if (!phone) {
+      console.error('User phone not found');
+      return { customer: null };
+    }
+
+    // Важные даты
+    const { data: dates } = await supabaseAdmin
+      .from('important_dates')
+      .select('type, date, description')
+      .eq('phone', phone);
+
+    // Заказы
+    const { data: orders } = await supabaseAdmin
+      .from('orders')
+      .select(
+        `
+        id,
+        created_at,
+        total,
+        bonuses_used,
+        payment_method,
+        status,
+        order_items(
+          quantity,
+          price,
+          product_id,
+          products(title, cover_url)
+        )
+      `
+      )
+      .eq('phone', phone)
+      .order('created_at', { ascending: false });
+
+    // Бонусы
+    const { data: bonuses } = await supabaseAdmin
+      .from('bonuses')
+      .select('bonus_balance, level')
+      .eq('phone', phone)
+      .single();
+
+    // История бонусов
+    const { data: bonusHistory } = await supabaseAdmin
+      .from('bonus_history')
+      .select('amount, reason, created_at')
+      .eq('phone', phone)
+      .order('created_at', { ascending: false });
+
+    const customerData: Customer = {
+      id: profile.id,
+      phone: phone || '—',
+      email: profile.email || null,
+      created_at: profile.created_at || null,
+      important_dates: dates || [],
+      orders: orders || [],
+      bonuses: bonuses || { bonus_balance: null, level: null },
+      bonus_history: bonusHistory || [],
+    };
+
+    return { customer: customerData };
+  } catch (error: any) {
+    console.error('Error fetching customer:', error);
+    return { customer: null };
+  }
 }
