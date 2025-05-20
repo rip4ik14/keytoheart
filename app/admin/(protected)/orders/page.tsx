@@ -11,30 +11,26 @@ export default async function AdminOrdersPage() {
   // Очистка некорректных cookies
   const allCookies = cookieStore.getAll();
   for (const cookie of allCookies) {
-    if (cookie.name.includes('sb-gwbeabfkknhewwoesqax-auth-token')) {
-      try {
-        JSON.parse(cookie.value);
-      } catch (e) {
-        console.error('Clearing invalid cookie:', cookie.name);
-        cookieStore.delete(cookie.name);
-      }
+    if (cookie.name.includes('sb-')) {
+      console.error('Clearing Supabase cookie:', cookie.name);
+      cookieStore.delete(cookie.name);
     }
   }
 
   // Проверяем admin_session токен
   const token = cookieStore.get('admin_session')?.value;
+  console.log('Admin session token:', token); // Отладка
   if (!token) {
     console.error('No admin session token found');
     redirect('/admin/login?error=no-session');
   }
 
   const isValidToken = await verifyAdminJwt(token);
+  console.log('Token verification result:', isValidToken); // Отладка
   if (!isValidToken) {
     console.error('Invalid admin session token');
     redirect('/admin/login?error=invalid-session');
   }
-
-  console.log('Accessing orders with admin_session token'); // Отладка
 
   // Получаем заказы
   const { data: orders, error } = await supabaseAdmin
