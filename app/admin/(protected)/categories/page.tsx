@@ -94,6 +94,7 @@ function CategoriesContent() {
         setToken(data.token); // Сохраняем токен
         setIsAuthenticated(true);
       } catch (err: any) {
+        console.error('Auth check failed:', err.message);
         toast.error('Войдите как администратор');
         setTimeout(() => {
           router.push(`/admin/login?from=${encodeURIComponent('/admin/categories')}`);
@@ -129,6 +130,7 @@ function CategoriesContent() {
   // Обработка ошибок загрузки
   useEffect(() => {
     if (isError && error) {
+      console.error('Categories load error:', error.message);
       toast.error('Ошибка загрузки категорий: ' + error.message);
     }
   }, [isError, error]);
@@ -136,6 +138,7 @@ function CategoriesContent() {
   // Мутация для добавления категории
   const addCategoryMutation = useMutation({
     mutationFn: async () => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!newCategory.name.trim() || !newCategory.slug.trim()) {
         throw new Error('Название и slug обязательны');
       }
@@ -149,8 +152,10 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка добавления категории');
+        console.error('Add category error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка добавления категории');
       }
+      return data;
     },
     onSuccess: () => {
       setNewCategory({ name: '', slug: '', is_visible: true });
@@ -158,12 +163,16 @@ function CategoriesContent() {
       toast.success('Категория успешно добавлена');
       sendAnalyticsEvent('add_category', { category_name: newCategory.name });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      console.error('Add category mutation error:', error.message);
+      toast.error(error.message);
+    },
   });
 
   // Мутация для обновления категории
   const updateCategoryMutation = useMutation({
     mutationFn: async (cat: Category) => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!cat.name.trim() || !cat.slug.trim()) {
         throw new Error('Название и slug обязательны');
       }
@@ -177,8 +186,10 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка обновления категории');
+        console.error('Update category error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка обновления категории');
       }
+      return data;
     },
     onSuccess: () => {
       setEditingCategory(null);
@@ -186,12 +197,16 @@ function CategoriesContent() {
       toast.success('Категория обновлена');
       sendAnalyticsEvent('update_category', { category_id: editingCategory?.id });
     },
-    onError: (error: Error) => toast.error('Ошибка обновления категории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Update category mutation error:', error.message);
+      toast.error('Ошибка обновления категории: ' + error.message);
+    },
   });
 
   // Мутация для удаления категории
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       const res = await fetch('/api/admin/categories', {
         method: 'DELETE',
         headers: {
@@ -202,20 +217,26 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка удаления категории');
+        console.error('Delete category error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка удаления категории');
       }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Категория удалена');
       sendAnalyticsEvent('delete_category', { category_id: editingCategory?.id });
     },
-    onError: (error: Error) => toast.error('Ошибка удаления категории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Delete category mutation error:', error.message);
+      toast.error('Ошибка удаления категории: ' + error.message);
+    },
   });
 
   // Мутация для добавления подкатегории
   const addSubcategoryMutation = useMutation({
     mutationFn: async ({ category_id, name, is_visible }: { category_id: number; name: string; is_visible: boolean }) => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(name);
       const res = await fetch('/api/admin/subcategories', {
@@ -228,8 +249,10 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка добавления подкатегории');
+        console.error('Add subcategory error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка добавления подкатегории');
       }
+      return data;
     },
     onSuccess: (_data, variables) => {
       setNewSubByCat((prev) => ({ ...prev, [variables.category_id]: '' }));
@@ -237,12 +260,16 @@ function CategoriesContent() {
       toast.success('Подкатегория добавлена');
       sendAnalyticsEvent('add_subcategory', { category_id: variables.category_id, subcategory_name: variables.name });
     },
-    onError: (error: Error) => toast.error('Ошибка добавления подкатегории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Add subcategory mutation error:', error.message);
+      toast.error('Ошибка добавления подкатегории: ' + error.message);
+    },
   });
 
   // Мутация для удаления подкатегории
   const deleteSubcategoryMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       const res = await fetch('/api/admin/subcategories', {
         method: 'DELETE',
         headers: {
@@ -253,20 +280,26 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка удаления подкатегории');
+        console.error('Delete subcategory error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка удаления подкатегории');
       }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Подкатегория удалена');
       sendAnalyticsEvent('delete_subcategory', { subcategory_id: editingSub?.id });
     },
-    onError: (error: Error) => toast.error('Ошибка удаления подкатегории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Delete subcategory mutation error:', error.message);
+      toast.error('Ошибка удаления подкатегории: ' + error.message);
+    },
   });
 
   // Мутация для обновления подкатегории
   const updateSubcategoryMutation = useMutation({
     mutationFn: async (sub: Subcategory) => {
+      if (!token) throw new Error('Токен отсутствует. Пожалуйста, войдите снова');
       if (!sub.name.trim()) throw new Error('Название подкатегории обязательно');
       const slug = generateSlug(sub.name);
       const res = await fetch('/api/admin/subcategories', {
@@ -279,8 +312,10 @@ function CategoriesContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Ошибка обновления подкатегории');
+        console.error('Update subcategory error:', data.error, 'Status:', res.status);
+        throw new Error(data.message || 'Ошибка обновления подкатегории');
       }
+      return data;
     },
     onSuccess: () => {
       setEditingSub(null);
@@ -288,7 +323,10 @@ function CategoriesContent() {
       toast.success('Подкатегория обновлена');
       sendAnalyticsEvent('update_subcategory', { subcategory_id: editingSub?.id });
     },
-    onError: (error: Error) => toast.error('Ошибка обновления подкатегории: ' + error.message),
+    onError: (error: Error) => {
+      console.error('Update subcategory mutation error:', error.message);
+      toast.error('Ошибка обновления подкатегории: ' + error.message);
+    },
   });
 
   // Рендеринг
@@ -320,7 +358,7 @@ function CategoriesContent() {
         <div className="mb-8 border border-gray-200 p-4 sm:p-6 rounded-lg bg-gray-50 shadow-sm">
           <h2 className="font-semibold mb-3 text-black text-lg">➕ Добавить категорию</h2>
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex- onfocus: bg-gray-100">
+            <div className="flex-1">
               <label htmlFor="category-name" className="sr-only">
                 Название категории
               </label>
@@ -365,7 +403,7 @@ function CategoriesContent() {
             </div>
             <button
               onClick={() => addCategoryMutation.mutate()}
-              disabled={addCategoryMutation.isPending}
+              disabled={addCategoryMutation.isPending || !token}
               className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-500"
               aria-label="Добавить категорию"
             >
@@ -447,7 +485,7 @@ function CategoriesContent() {
                             }
                           }}
                           className="text-green-600 hover:underline text-sm whitespace-nowrap"
-                          disabled={updateCategoryMutation.isPending}
+                          disabled={updateCategoryMutation.isPending || !token}
                           aria-label="Сохранить изменения категории"
                         >
                           💾 Сохранить
@@ -486,7 +524,7 @@ function CategoriesContent() {
                             }
                           }}
                           className="text-red-600 text-sm hover:underline"
-                          disabled={deleteCategoryMutation.isPending}
+                          disabled={deleteCategoryMutation.isPending || !token}
                           aria-label={`Удалить категорию ${cat.name}`}
                         >
                           🗑️ Удалить
@@ -544,7 +582,7 @@ function CategoriesContent() {
                                   }
                                 }}
                                 className="text-green-600 hover:underline text-sm whitespace-nowrap"
-                                disabled={updateSubcategoryMutation.isPending}
+                                disabled={updateSubcategoryMutation.isPending || !token}
                                 aria-label="Сохранить изменения подкатегории"
                               >
                                 💾 Сохранить
@@ -577,7 +615,7 @@ function CategoriesContent() {
                                     }
                                   }}
                                   className="text-red-600 hover:underline"
-                                  disabled={deleteSubcategoryMutation.isPending}
+                                  disabled={deleteSubcategoryMutation.isPending || !token}
                                   aria-label={`Удалить подкатегорию ${sub.name}`}
                                 >
                                   🗑️
@@ -599,7 +637,7 @@ function CategoriesContent() {
                       <input
                         id={`add-subcategory-${cat.id}`}
                         type="text"
-                        placeholder="Название подкатегории (например, Розы)"
+                        placeholder="Название подкатегории (например, Белый шоколад)"
                         value={newSubByCat[cat.id] || ''}
                         onChange={(e) =>
                           setNewSubByCat((prev) => ({ ...prev, [cat.id]: e.target.value }))
@@ -620,7 +658,7 @@ function CategoriesContent() {
                         })
                       }
                       className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-500"
-                      disabled={addSubcategoryMutation.isPending}
+                      disabled={addSubcategoryMutation.isPending || !token}
                       aria-label="Добавить подкатегорию"
                     >
                       {addSubcategoryMutation.isPending ? 'Добавление...' : '+'}

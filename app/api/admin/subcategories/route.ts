@@ -15,19 +15,27 @@ const supabase = createClient<Database>(
 async function checkAdminAuth(request: Request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.warn('No Authorization header or invalid format');
+    return new NextResponse(
+      JSON.stringify({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   const token = authHeader.replace('Bearer ', '');
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.warn('Invalid token:', token, 'Error:', error?.message);
+    return new NextResponse(
+      JSON.stringify({ error: 'Unauthorized', message: 'Invalid token' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   // Проверка роли администратора
@@ -38,10 +46,14 @@ async function checkAdminAuth(request: Request) {
     .single();
 
   if (adminError || !adminData) {
-    return new NextResponse(JSON.stringify({ error: 'Forbidden: Admin access required' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.warn('User is not an admin:', data.user.id, 'Error:', adminError?.message);
+    return new NextResponse(
+      JSON.stringify({ error: 'Forbidden', message: 'Admin access required' }),
+      {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   return null;
@@ -55,10 +67,14 @@ export async function POST(request: Request) {
   try {
     const { category_id, name, slug, is_visible } = await request.json();
     if (!category_id || !name || !slug) {
-      return new NextResponse(JSON.stringify({ error: 'Category ID, name, and slug are required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.warn('Missing required fields:', { category_id, name, slug });
+      return new NextResponse(
+        JSON.stringify({ error: 'Bad Request', message: 'Category ID, name, and slug are required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const { error } = await supabase
@@ -66,21 +82,32 @@ export async function POST(request: Request) {
       .insert({ category_id, name, slug, is_visible });
 
     if (error) {
-      return new NextResponse(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('Supabase error:', error.message);
+      return new NextResponse(
+        JSON.stringify({ error: 'Database Error', message: error.message }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    return new NextResponse(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new NextResponse(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error in POST /api/admin/subcategories:', error.message, error.stack);
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error', message: error.message || 'Unexpected error' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -92,10 +119,14 @@ export async function PATCH(request: Request) {
   try {
     const { id, name, slug, is_visible } = await request.json();
     if (!id || !name || !slug) {
-      return new NextResponse(JSON.stringify({ error: 'ID, name, and slug are required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.warn('Missing required fields:', { id, name, slug });
+      return new NextResponse(
+        JSON.stringify({ error: 'Bad Request', message: 'ID, name, and slug are required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const { error } = await supabase
@@ -104,21 +135,32 @@ export async function PATCH(request: Request) {
       .eq('id', id);
 
     if (error) {
-      return new NextResponse(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('Supabase error:', error.message);
+      return new NextResponse(
+        JSON.stringify({ error: 'Database Error', message: error.message }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    return new NextResponse(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new NextResponse(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error in PATCH /api/admin/subcategories:', error.message, error.stack);
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error', message: error.message || 'Unexpected error' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -130,10 +172,14 @@ export async function DELETE(request: Request) {
   try {
     const { id } = await request.json();
     if (!id) {
-      return new NextResponse(JSON.stringify({ error: 'ID is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.warn('Missing ID');
+      return new NextResponse(
+        JSON.stringify({ error: 'Bad Request', message: 'ID is required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const { error } = await supabase
@@ -142,20 +188,31 @@ export async function DELETE(request: Request) {
       .eq('id', id);
 
     if (error) {
-      return new NextResponse(JSON.stringify({ error: error.message }), {
-        status: 500,
+      console.error('Supabase error:', error.message);
+      return new NextResponse(
+        JSON.stringify({ error: 'Database Error', message: error.message }),
+        {
+          status: 500,
         headers: { 'Content-Type': 'application/json' },
-      });
-    }
+      }
+    );
+  }
 
-    return new NextResponse(JSON.stringify({ success: true }), {
+  return new NextResponse(
+    JSON.stringify({ success: true }),
+    {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new NextResponse(JSON.stringify({ error: ' Ponad server error' }), {
+    }
+  );
+} catch (error: any) {
+  console.error('Error in DELETE /api/admin/subcategories:', error.message, error.stack);
+  return new NextResponse(
+    JSON.stringify({ error: 'Internal Server Error', message: error.message || 'Unexpected error' }),
+    {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
-    });
-  }
+    }
+  );
+}
 }
