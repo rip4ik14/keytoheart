@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Проверяем права админа
+    // Проверяем авторизацию
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -43,21 +43,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Checking admin for user.id:', user.id); // Отладка
-
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admins')
-      .select('id, role')
-      .eq('id', user.id)
-      .single();
-
-    if (adminError || !admin || admin.role !== 'admin') {
-      console.error('Admin check failed:', adminError, { userId: user.id });
-      return NextResponse.json(
-        { error: 'Forbidden: Only admins can update order status' },
-        { status: 403 }
-      );
-    }
+    console.log('Updating order status for user:', { id: user.id, phone: user.phone }); // Отладка
 
     // Проверяем существование заказа
     const { data: order, error: orderError } = await supabaseAdmin

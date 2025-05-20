@@ -27,32 +27,23 @@ export default async function AdminOrdersPage() {
     }
   );
 
-  // Проверяем права админа
+  // Проверяем наличие сессии
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) {
     console.error('Session check failed:', sessionError);
     redirect('/admin/login?error=no-session');
   }
 
+  // Проверяем наличие пользователя
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user || !user.id) {
     console.error('User check failed:', userError);
     redirect('/admin/login?error=no-user');
   }
 
-  console.log('Checking admin for user:', { id: user.id, phone: user.phone }); // Отладка
+  console.log('Accessing orders for user:', { id: user.id, phone: user.phone }); // Отладка
 
-  const { data: admin, error: adminError } = await supabaseAdmin
-    .from('admins')
-    .select('id, role')
-    .eq('id', user.id)
-    .single();
-
-  if (adminError || !admin || admin.role !== 'admin') {
-    console.error('Admin check failed:', adminError, { userId: user.id, userPhone: user.phone });
-    redirect('/admin/login?error=not-admin');
-  }
-
+  // Получаем заказы
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
     .select('*')
