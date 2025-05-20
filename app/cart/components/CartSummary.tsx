@@ -1,17 +1,9 @@
-// ✅ Путь: components/CartSummary.tsx
 'use client';
 
-import React, { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { UpsellItem } from '../types';
-
-interface CartItemType {
-  id: string;
-  title: string;
-  price: number;
-  quantity: number;
-}
+import { CartItemType, UpsellItem } from '../types';
 
 interface CartSummaryProps {
   items: CartItemType[];
@@ -22,15 +14,13 @@ interface CartSummaryProps {
   finalTotal: number;
   discountAmount: number;
   removeUpsell: (id: string) => void;
-  isAuthenticated: boolean;
+  isAuthenticated: boolean; // Добавлено
   useBonuses: boolean;
   setUseBonuses: Dispatch<SetStateAction<boolean>>;
   bonusesUsed: number;
-  /** Если true — скрывает чекбокс бонусов */
-  hideBonusOption?: boolean;
 }
 
-export default React.memo(function CartSummary({
+export default function CartSummary({
   items,
   selectedUpsells,
   deliveryCost,
@@ -38,80 +28,99 @@ export default React.memo(function CartSummary({
   bonusAccrual,
   finalTotal,
   discountAmount,
+  removeUpsell,
   isAuthenticated,
   useBonuses,
   setUseBonuses,
   bonusesUsed,
-  hideBonusOption = false,
 }: CartSummaryProps) {
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const upsellTotal = selectedUpsells.reduce((sum, i) => sum + (i.price || 0), 0);
+  const upsellTotal = selectedUpsells.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
 
   return (
     <motion.aside
       aria-label="Сумма заказа"
-      className="w-full lg:w-80 p-6 bg-white rounded-3xl shadow-xl border border-gray-200 sticky top-6"
+      className="w-full p-6 bg-white rounded-3xl shadow-lg border border-gray-200"
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="mb-6 text-2xl font-semibold text-gray-900">Итого</h2>
+      <h2 className="mb-4 text-xl font-bold text-gray-900">Итого</h2>
 
       {items.length + selectedUpsells.length === 0 ? (
         <p className="text-center text-gray-500">Корзина пуста</p>
       ) : (
-        <div className="space-y-4 divide-y divide-gray-100 text-gray-700 text-sm">
+        <div className="flex flex-col space-y-4 text-sm text-gray-700">
           <div className="flex justify-between">
             <span>Товары</span>
             <span className="font-medium">{subtotal + upsellTotal} ₽</span>
           </div>
-
           <div className="flex justify-between">
             <span>Доставка</span>
             <span className="font-medium">{deliveryCost} ₽</span>
           </div>
-
           {discountAmount > 0 && (
-            <div className="flex justify-between text-green-600">
+            <motion.div
+              className="flex justify-between text-green-600"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               <span>Скидка</span>
               <span>-{discountAmount} ₽</span>
-            </div>
+            </motion.div>
           )}
 
-          {/* Блок бонусов */}
-          {!hideBonusOption && isAuthenticated && bonusBalance > 0 && (
-            <div className="pt-4">
+          {isAuthenticated && bonusBalance > 0 && (
+            <motion.div
+              className="pt-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                <label className="flex items-center gap-2 text-base text-gray-800">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-900">
                   <input
                     type="checkbox"
                     checked={useBonuses}
                     onChange={(e) => setUseBonuses(e.target.checked)}
-                    className="h-5 w-5 text-black focus:ring-black border-gray-300 rounded"
+                    className="h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
+                    aria-label="Списать бонусы"
                   />
                   Списать бонусы
                 </label>
                 {useBonuses && (
-                  <span className="text-lg font-semibold text-green-600">−{bonusesUsed} ₽</span>
+                  <motion.span
+                    className="text-lg font-semibold text-green-600"
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    −{bonusesUsed} ₽
+                  </motion.span>
                 )}
               </div>
               {!useBonuses && (
                 <p className="mt-2 text-xs text-gray-500">
-                  Доступно для списания: {Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽
+                  Доступно: {Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽
                 </p>
               )}
-            </div>
+            </motion.div>
           )}
 
           <div className="flex justify-between items-center pt-4 text-xs text-gray-400">
             <span>+ начислим {bonusAccrual} бонусов</span>
-            <motion.span title="2.5% от итоговой суммы">
-              <Image src="/icons/info-circle.svg" alt="ℹ" width={16} height={16} />
-            </motion.span>
+            <Image
+              src="/icons/info-circle.svg"
+              alt="Информация"
+              width={16}
+              height={16}
+              loading="lazy"
+            />
           </div>
 
-          <div className="mt-6 flex justify-between items-center text-2xl font-bold text-gray-900">
+          <div className="mt-6 flex justify-between items-center text-lg font-bold text-gray-900">
             <span>Итого</span>
             <span>{finalTotal} ₽</span>
           </div>
@@ -119,4 +128,4 @@ export default React.memo(function CartSummary({
       )}
     </motion.aside>
   );
-});
+}

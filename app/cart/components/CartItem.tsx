@@ -1,4 +1,3 @@
-// ✅ Путь: components/CartItem.tsx
 'use client';
 
 import Image from 'next/image';
@@ -18,39 +17,34 @@ export default function CartItem({
   updateQuantity,
 }: CartItemProps) {
   const handleMinus = () => {
-    if ('quantity' in item && item.quantity > 1 && updateQuantity) {
+    if (updateQuantity && item.quantity > 1) {
       updateQuantity(item.id, item.quantity - 1);
     }
   };
 
   const handlePlus = () => {
-    if ('quantity' in item && updateQuantity) {
+    if (updateQuantity) {
       updateQuantity(item.id, item.quantity + 1);
     }
   };
 
-  const imageSrc =
-    'imageUrl' in item && item.imageUrl
-      ? item.imageUrl
-      : 'image_url' in item && item.image_url
-      ? item.image_url
-      : '/placeholder.jpg';
+  // Обрабатываем imageUrl (CartItem) или image_url (UpsellItem)
+  const imageSrc = (item as any).imageUrl || (item as any).image_url || '/placeholder.jpg';
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={item.id}
         role="listitem"
-        aria-label={`Товар ${item.title} в корзине`}
-        className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 bg-white rounded-3xl shadow-lg mb-6 hover:shadow-xl transition-shadow"
+        className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: 50 }}
         transition={{ duration: 0.3 }}
       >
         {/* Изображение и название */}
-        <div className="flex items-center gap-6 w-full">
-          <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="relative w-24 h-24 sm:w-32 sm:h-32">
             <Image
               src={imageSrc}
               alt={item.title}
@@ -58,22 +52,15 @@ export default function CartItem({
               className="object-cover rounded-2xl"
             />
           </div>
-          <div className="flex flex-col flex-grow gap-1">
-            <span className="text-base sm:text-lg font-semibold text-gray-900">
-              {item.title}
-            </span>
-            {'production_time' in item && (
-              <span className="text-sm text-gray-500">
-                Изготовление: {item.production_time} ч.
-              </span>
-            )}
-          </div>
+          <span className="text-base sm:text-lg font-medium text-gray-900">
+            {item.title}
+          </span>
         </div>
 
-        {/* Контролы количества и цена */}
-        <div className="flex items-center gap-4">
+        {/* Контролы, цена и корзина */}
+        <div className="flex items-center gap-4 flex-wrap sm:flex-no-wrap">
           {updateQuantity && (
-            <div className="flex items-center gap-2 border rounded-lg bg-gray-50">
+            <div className="flex items-center border rounded-lg bg-gray-50 flex-shrink-0">
               <motion.button
                 onClick={handleMinus}
                 disabled={item.quantity <= 1}
@@ -97,14 +84,14 @@ export default function CartItem({
             </div>
           )}
 
-          <span className="text-lg font-bold text-gray-900">
-            {item.price * ('quantity' in item ? item.quantity : 1)} ₽
+          <span className="text-lg font-bold text-gray-900 flex-shrink-0">
+            {item.price * item.quantity} ₽
           </span>
 
           <motion.button
             onClick={() => removeItem(item.id)}
             aria-label="Удалить товар"
-            className="p-2 text-gray-400 hover:text-red-500 focus:outline-none"
+            className="p-2 text-gray-400 hover:text-red-500 focus:outline-none flex-shrink-0"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >

@@ -1,4 +1,3 @@
-// ✅ Путь: components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -50,7 +49,7 @@ export default function Step1ContactDetails({
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
+            <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} loading="lazy" />
           </div>
           <input
             id="phone"
@@ -58,7 +57,7 @@ export default function Step1ContactDetails({
             value={form.phone}
             onChange={e => handlePhoneChange(e.target.value)}
             placeholder="+7 (___) ___-__-__"
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
               phoneError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             disabled
@@ -81,7 +80,7 @@ export default function Step1ContactDetails({
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Image src="/icons/user.svg" alt="Имя" width={16} height={16} />
+            <Image src="/icons/user.svg" alt="Имя" width={16} height={16} loading="lazy" />
           </div>
           <input
             id="name"
@@ -89,7 +88,7 @@ export default function Step1ContactDetails({
             value={form.name}
             onChange={onFormChange}
             placeholder="Введите ваше имя"
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
               nameError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             aria-label="Ваше имя"
@@ -111,11 +110,11 @@ export default function Step1ContactDetails({
           name="whatsapp"
           checked={form.whatsapp}
           onChange={onFormChange}
-          className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+          className="h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
           aria-label="Связаться через WhatsApp"
         />
-        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
-        <span className="text-sm text-gray-700">Не звонить, а написать в WhatsApp</span>
+        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={20} height={20} loading="lazy" />
+        <span className="text-sm text-gray-700">Написать в WhatsApp вместо звонка</span>
       </motion.div>
 
       <motion.div
@@ -130,7 +129,7 @@ export default function Step1ContactDetails({
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Image src="/icons/envelope.svg" alt="Email" width={16} height={16} />
+            <Image src="/icons/envelope.svg" alt="Email" width={16} height={16} loading="lazy" />
           </div>
           <input
             id="email"
@@ -138,7 +137,7 @@ export default function Step1ContactDetails({
             value={form.email}
             onChange={onFormChange}
             placeholder="Введите ваш email"
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
               emailError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             aria-label="Ваш email"

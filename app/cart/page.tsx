@@ -25,7 +25,7 @@ import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Явно указываем типы для ErrorModal
+// Типизация для ErrorModal
 interface ErrorModalProps {
   message: string;
   onRetry: () => Promise<void>;
@@ -198,7 +198,7 @@ export default function CartPage() {
   );
 
   // Очистка старых cookies при загрузке
-    useEffect(() => {
+  useEffect(() => {
     if (!window.location.pathname.startsWith('/admin')) {
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
@@ -347,7 +347,7 @@ export default function CartPage() {
   );
 
   const upsellTotal = useMemo(
-    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0), 0),
+    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
     [selectedUpsells]
   );
 
@@ -473,10 +473,6 @@ export default function CartPage() {
         setAddressSuggestions(response.map((item: any) => item.value));
         setShowSuggestions(true);
 
-        window.gtag?.('event', 'fetch_address_suggestions', {
-          event_category: 'cart',
-          event_label: query,
-        });
         window.ym?.(12345678, 'reachGoal', 'fetch_address_suggestions', { query });
       } catch (error) {
         console.error('Ошибка получения подсказок адреса:', error);
@@ -498,10 +494,6 @@ export default function CartPage() {
       setShowSuggestions(false);
       setAddressError('');
 
-      window.gtag?.('event', 'select_address_suggestion', {
-        event_category: 'cart',
-        event_label: address,
-      });
       window.ym?.(12345678, 'reachGoal', 'select_address_suggestion', {
         selected_address: address,
       });
@@ -537,17 +529,13 @@ export default function CartPage() {
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
-    window.gtag?.('event', 'remove_upsell', {
-      event_category: 'cart',
-      event_label: id,
-    });
     window.ym?.(12345678, 'reachGoal', 'remove_upsell', { upsell_id: id });
   }, []);
 
   useEffect(() => {
     const allItems: CartItemType[] = [...items, ...selectedUpsells];
     const idCounts = allItems.reduce((acc, item) => {
-      acc[item.id] = (acc[item.id] || 0) + (item.quantity);
+      acc[item.id] = (acc[item.id] || 0) + item.quantity;
       return acc;
     }, {} as Record<string, number>);
     const duplicates = Object.entries(idCounts)
@@ -607,10 +595,6 @@ export default function CartPage() {
       setPromoId(result.promoId);
       setPromoError(null);
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
-      window.gtag?.('event', 'apply_promo', {
-        event_category: 'cart',
-        event_label: promoCode,
-      });
       window.ym?.(12345678, 'reachGoal', 'apply_promo', { promo_code: promoCode });
     } catch (error: any) {
       setPromoError(error.message);
@@ -693,7 +677,7 @@ export default function CartPage() {
         title: item.title,
         price: item.price,
         quantity: item.quantity,
-        isUpsell: false,
+        isUpsell: item.isUpsell,
       }));
 
       const upsellItems = selectedUpsells.map((u: UpsellItem) => ({
@@ -702,7 +686,7 @@ export default function CartPage() {
         price: u.price,
         quantity: u.quantity,
         category: u.category,
-        isUpsell: true,
+        isUpsell: u.isUpsell,
       }));
 
       const payloadItems = [...cartItems, ...upsellItems];
@@ -728,7 +712,7 @@ export default function CartPage() {
         items: payloadItems,
         total: finalTotal,
         bonuses_used: bonusesUsed,
-        bonus: bonusAccrual, // Сохраняем в заказе для начисления позже
+        bonus: bonusAccrual,
         promo_id: promoId,
         promo_discount: discountAmount,
         delivery_instructions: form.deliveryInstructions || null,
@@ -829,11 +813,6 @@ export default function CartPage() {
 
       localStorage.setItem('orderSuccess', 'true');
 
-      window.gtag?.('event', 'submit_order', {
-        event_category: 'cart',
-        event_label: json.order_id,
-        value: finalTotal,
-      });
       window.ym?.(12345678, 'reachGoal', 'submit_order', {
         order_id: json.order_id,
         total: finalTotal,
@@ -994,12 +973,9 @@ export default function CartPage() {
                         type="button"
                         onClick={() => {
                           setShowPostcard(true);
-                          window.gtag?.('event', 'open_postcard_modal', {
-                            event_category: 'cart',
-                          });
                           window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
                         }}
-                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-6 sm:py-4 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                         aria-label="Добавить открытку"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -1007,8 +983,8 @@ export default function CartPage() {
                         <Image
                           src="/icons/gift.svg"
                           alt="Иконка подарка"
-                          width={16}
-                          height={16}
+                          width={20}
+                          height={20}
                           loading="lazy"
                           className="text-gray-600"
                         />
@@ -1018,12 +994,9 @@ export default function CartPage() {
                         type="button"
                         onClick={() => {
                           setShowBalloons(true);
-                          window.gtag?.('event', 'open_balloons_modal', {
-                            event_category: 'cart',
-                          });
                           window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
                         }}
-                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-6 sm:py-4 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                         aria-label="Добавить шары"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -1031,8 +1004,8 @@ export default function CartPage() {
                         <Image
                           src="/icons/gift.svg"
                           alt="Иконка подарка"
-                          width={16}
-                          height={16}
+                          width={20}
+                          height={20}
                           loading="lazy"
                           className="text-gray-600"
                         />
@@ -1094,29 +1067,18 @@ export default function CartPage() {
         </AnimatePresence>
 
         <div className="space-y-6">
-          {[...items, ...selectedUpsells]
-            .filter(
-              (item, index, self) =>
-                index === self.findIndex((t) => t.id === item.id)
-            )
-            .map((item, idx) => {
-              const isUpsell = 'isUpsell' in item && item.isUpsell;
-              return (
-                <CartItem
-                  key={`${isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
-                  item={item}
-                  removeItem={isUpsell ? removeUpsell : removeItem}
-                  updateQuantity={isUpsell ? undefined : updateQuantity}
-                />
-              );
-            })}
+          {[...items, ...selectedUpsells].map((item, idx) => (
+            <CartItem
+              key={`${item.isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
+              item={item}
+              removeItem={item.isUpsell ? removeUpsell : removeItem}
+              updateQuantity={item.isUpsell ? undefined : updateQuantity}
+            />
+          ))}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 sm:p-6">
             <motion.button
               onClick={() => {
                 setShowPromoField(!showPromoField);
-                window.gtag?.('event', showPromoField ? 'hide_promo_field' : 'show_promo_field', {
-                  event_category: 'cart',
-                });
                 window.ym?.(12345678, 'reachGoal', showPromoField ? 'hide_promo_field' : 'show_promo_field');
               }}
               className="w-full text-sm text-gray-500 underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-black"
@@ -1153,22 +1115,29 @@ export default function CartPage() {
                       className="border rounded-lg p-2 flex-1 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
                       aria-label="Введите промокод"
                     />
-                    <button
+                    <motion.button
                       onClick={handleApplyPromo}
                       className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                       aria-label="Применить промокод"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       Применить
-                    </button>
+                    </motion.button>
                   </div>
                   {promoError && (
                     <p className="text-red-500 text-xs mt-1">{promoError}</p>
                   )}
                   {promoDiscount !== null && (
-                    <p className="text-green-500 text-xs mt-1">
+                    <motion.p
+                      className="text-green-500 text-xs mt-1"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    >
                       Промокод применён! Скидка: {promoDiscount}
                       {promoType === 'percentage' ? '%' : ' ₽'}
-                    </p>
+                    </motion.p>
                   )}
                 </motion.div>
               )}
@@ -1199,9 +1168,9 @@ export default function CartPage() {
           transition={{ duration: 0.3 }}
         >
           <motion.button
-            onClick={() => setStep(1)}
+            onClick={() => setStep(5)}
             disabled={isSubmittingOrder || !canPlaceOrder}
-            className={`w-full rounded-lg bg-black py-3 text-sm font-bold text-white transition-all hover:bg-gray-800 flex items-center justify-center gap-2 sm:text-base focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+            className={`w-full rounded-lg bg-black py-4 text-sm font-bold text-white transition-all hover:bg-gray-800 flex items-center justify-center gap-2 sm:text-base focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
               isSubmittingOrder || !canPlaceOrder ? 'opacity-50 cursor-not-allowed' : ''
             }`}
             aria-label={`Оформить заказ за ${finalTotal} ₽`}
