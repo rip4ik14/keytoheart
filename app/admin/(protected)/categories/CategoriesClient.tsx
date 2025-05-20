@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import Image from 'next/image';
+import {
+  addCategory,
+  updateCategory,
+  deleteCategory,
+  addSubcategory,
+  updateSubcategory,
+  deleteSubcategory,
+} from './actions';
 
 interface Subcategory {
   id: number;
@@ -25,186 +32,6 @@ interface Category {
 interface Props {
   categories: Category[];
 }
-
-// Серверные действия
-const addCategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const name = formData.get('name') as string;
-  const slug = formData.get('slug') as string;
-  const is_visible = formData.get('is_visible') === 'true';
-
-  if (!name.trim() || !slug.trim()) {
-    throw new Error('Название и slug обязательны');
-  }
-
-  const { error } = await supabase.from('categories').insert({ name, slug, is_visible });
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
-
-const updateCategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const id = Number(formData.get('id'));
-  const name = formData.get('name') as string;
-  const slug = formData.get('slug') as string;
-  const is_visible = formData.get('is_visible') === 'true';
-
-  if (!id || !name.trim() || !slug.trim()) {
-    throw new Error('ID, название и slug обязательны');
-  }
-
-  const { error } = await supabase
-    .from('categories')
-    .update({ name, slug, is_visible })
-    .eq('id', id);
-
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
-
-const deleteCategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const id = Number(formData.get('id'));
-
-  if (!id) {
-    throw new Error('ID обязателен');
-  }
-
-  // Проверка наличия товаров
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id')
-    .eq('category_id', id)
-    .limit(1);
-
-  if (productsError) throw new Error(productsError.message);
-  if (products?.length) {
-    throw new Error('Нельзя удалить категорию с товарами');
-  }
-
-  // Удаление подкатегорий
-  const { error: subError } = await supabase
-    .from('subcategories')
-    .delete()
-    .eq('category_id', id);
-
-  if (subError) throw new Error(subError.message);
-
-  // Удаление категории
-  const { error } = await supabase.from('categories').delete().eq('id', id);
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
-
-const addSubcategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const category_id = Number(formData.get('category_id'));
-  const name = formData.get('name') as string;
-  const is_visible = formData.get('is_visible') === 'true';
-
-  if (!category_id || !name.trim()) {
-    throw new Error('Категория и название обязательны');
-  }
-
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .replace(/-+/g, '-');
-
-  const { error } = await supabase
-    .from('subcategories')
-    .insert({ category_id, name, slug, is_visible });
-
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
-
-const updateSubcategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const id = Number(formData.get('id'));
-  const name = formData.get('name') as string;
-  const is_visible = formData.get('is_visible') === 'true';
-
-  if (!id || !name.trim()) {
-    throw new Error('ID и название обязательны');
-  }
-
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .replace(/-+/g, '-');
-
-  const { error } = await supabase
-    .from('subcategories')
-    .update({ name, slug, is_visible })
-    .eq('id', id);
-
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
-
-const deleteSubcategory = async (formData: FormData) => {
-  'use server';
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const id = Number(formData.get('id'));
-
-  if (!id) {
-    throw new Error('ID обязателен');
-  }
-
-  const { error } = await supabase.from('subcategories').delete().eq('id', id);
-  if (error) throw new Error(error.message);
-
-  return { success: true };
-};
 
 export default function CategoriesClient({ categories: initialCategories }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
@@ -229,6 +56,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       toast.success('Категория добавлена');
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Add category error:`, error.message);
       toast.error(error.message);
     }
   };
@@ -240,6 +68,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       setEditingCategory(null);
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Update category error:`, error.message);
       toast.error(error.message);
     }
   };
@@ -250,6 +79,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       toast.success('Категория удалена');
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Delete category error:`, error.message);
       toast.error(error.message);
     }
   };
@@ -260,6 +90,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       toast.success('Подкатегория добавлена');
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Add subcategory error:`, error.message);
       toast.error(error.message);
     }
   };
@@ -271,6 +102,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       setEditingSub(null);
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Update subcategory error:`, error.message);
       toast.error(error.message);
     }
   };
@@ -281,6 +113,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       toast.success('Подкатегория удалена');
       router.refresh();
     } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Delete subcategory error:`, error.message);
       toast.error(error.message);
     }
   };
