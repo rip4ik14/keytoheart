@@ -3,6 +3,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { UpsellItem } from '../../types';  // поправил путь импорта
 
 interface Props {
   form: {
@@ -15,7 +16,7 @@ interface Props {
   recipientError: string;
   recipientPhoneError: string;
   postcardText: string;
-  selectedUpsells: { category: string }[];
+  selectedUpsells: UpsellItem[];  // теперь полное определение типа
   onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   setPostcardText: (text: string) => void;
 }
@@ -52,7 +53,7 @@ export default function Step2RecipientDetails({
   const handlePhone = (val: string) => {
     onFormChange({
       target: { name: 'recipientPhone', value: val },
-    } as any);
+    } as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
