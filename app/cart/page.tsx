@@ -198,10 +198,21 @@ export default function CartPage() {
   );
 
   // Очистка старых cookies при загрузке
-  useEffect(() => {
+    useEffect(() => {
     if (!window.location.pathname.startsWith('/admin')) {
-      document.cookie = `sb-gwbeabfkknhewwoesqax-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-      console.log('Cleared old auth cookies on page load');
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'sb-gwbeabfkknhewwoesqax-auth-token' && value) {
+          try {
+            JSON.parse(value);
+          } catch (e) {
+            console.error('Clearing invalid cookie:', name);
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+          }
+        }
+      }
+      console.log('Cleared invalid auth cookies on page load');
     }
   }, []);
 

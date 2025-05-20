@@ -28,10 +28,16 @@ export default async function AdminOrdersPage() {
   );
 
   // Проверяем права админа
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error('User check failed:', userError);
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session) {
+    console.error('Session check failed:', sessionError);
     redirect('/admin/login?error=no-session');
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user || !user.id) {
+    console.error('User check failed:', userError);
+    redirect('/admin/login?error=no-user');
   }
 
   const { data: admin, error: adminError } = await supabaseAdmin
