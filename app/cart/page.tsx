@@ -715,7 +715,7 @@ export default function CartPage() {
         items: payloadItems,
         total: finalTotal,
         bonuses_used: bonusesUsed,
-        bonus: bonusAccrual,
+        bonus: bonusAccrual, // Сохраняем в заказе для начисления позже
         promo_id: promoId,
         promo_discount: discountAmount,
         delivery_instructions: form.deliveryInstructions || null,
@@ -785,34 +785,6 @@ export default function CartPage() {
 
           if (historyError) {
             console.error('Error logging bonus history:', historyError);
-          }
-        }
-      }
-
-      if (bonusAccrual > 0) {
-        const newBalance = (bonusBalance - bonusesUsed) + bonusAccrual;
-        const { error: updateError } = await supabase
-          .from('bonuses')
-          .update({ bonus_balance: newBalance })
-          .eq('phone', normalizedPhone);
-
-        if (updateError) {
-          console.error('Error updating bonus balance for accrual:', updateError);
-          toast.error('Ошибка начисления бонусов за заказ');
-        } else {
-          setBonusBalance(newBalance);
-
-          const { error: historyError } = await supabase
-            .from('bonus_history')
-            .insert({
-              bonus_id: bonusId,
-              amount: bonusAccrual,
-              reason: 'Начисление бонусов за заказ #' + json.order_id,
-              created_at: new Date().toISOString(),
-            });
-
-          if (historyError) {
-            console.error('Error logging bonus history for accrual:', historyError);
           }
         }
       }
