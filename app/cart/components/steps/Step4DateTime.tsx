@@ -1,22 +1,16 @@
+// ✅ Путь: components/steps/Step4DateTime.tsx
 'use client';
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import toast from 'react-hot-toast'; // Добавляем импорт toast
+import toast from 'react-hot-toast';
 
-interface DaySchedule {
-  start: string;
-  end: string;
-}
-
+interface DaySchedule { start: string; end: string; }
 interface Props {
-  form: {
-    date: string;
-    time: string;
-  };
+  form: { date: string; time: string };
   dateError: string;
   timeError: string;
-  onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   getMinDate: () => string;
   storeHours: Record<string, DaySchedule>;
   maxProductionTime: number | null;
@@ -24,7 +18,11 @@ interface Props {
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
+  visible: (i = 1) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.4 },
+  }),
 };
 
 export default function Step4DateTime({
@@ -36,140 +34,111 @@ export default function Step4DateTime({
   storeHours,
   maxProductionTime,
 }: Props) {
-  // Получаем расписание для выбранной даты
-  const selectedDate = form.date ? new Date(form.date) : new Date();
-  const dayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-  const schedule = storeHours[dayKey] || { start: '09:00', end: '18:00' };
+  const todayKey = new Date(form.date || Date.now())
+    .toLocaleString('en-US', { weekday: 'long' })
+    .toLowerCase();
+  const schedule = storeHours[todayKey] || { start: '09:00', end: '18:00' };
 
-  // Вычисляем минимальную дату и время с учётом maxProductionTime
-  const getMinTime = () => {
+  const computeMin = () => {
     const now = new Date();
-    let minTime = now;
-
     if (maxProductionTime != null) {
-      minTime = new Date(now.getTime() + maxProductionTime * 60 * 60 * 1000);
+      now.setHours(now.getHours() + maxProductionTime);
     }
-
-    const [startHour, startMinute] = schedule.start.split(':').map(Number);
-    const scheduleStart = new Date(minTime);
-    scheduleStart.setHours(startHour, startMinute, 0, 0);
-
-    return minTime > scheduleStart ? minTime : scheduleStart;
+    const [h, m] = schedule.start.split(':').map(Number);
+    const earliest = new Date(now);
+    earliest.setHours(h, m, 0, 0);
+    return now > earliest ? now : earliest;
   };
 
-  const minTime = getMinTime();
-  const minTimeString = `${minTime.getHours().toString().padStart(2, '0')}:${minTime
-    .getMinutes()
-    .toString()
-    .padStart(2, '0')}`;
+  const minDate = getMinDate();
+  const minTimeDate = computeMin();
+  const minTime = `${String(minTimeDate.getHours()).padStart(2, '0')}:${String(
+    minTimeDate.getMinutes()
+  ).padStart(2, '0')}`;
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedTime = e.target.value;
-    const [selectedHour, selectedMinute] = selectedTime.split(':').map(Number);
-    const selectedDateTime = new Date(selectedDate);
-    selectedDateTime.setHours(selectedHour, selectedMinute, 0, 0);
-
-    const minDateTime = getMinTime();
-    if (selectedDateTime < minDateTime) {
-      const newTime = `${minTime.getHours().toString().padStart(2, '0')}:${minTime
-        .getMinutes()
-        .toString()
-        .padStart(2, '0')}`;
-      onFormChange({
-        target: { name: 'time', value: newTime },
-      } as React.ChangeEvent<HTMLInputElement>);
-      toast.error(`Время доставки не может быть раньше, чем через ${maxProductionTime} часов от текущего времени.`);
+  const onDate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (new Date(val) < new Date(minDate)) {
+      onFormChange({ target: { name: 'date', value: minDate } } as any);
+      toast.error(`Дата не раньше ${minDate}`);
     } else {
       onFormChange(e);
     }
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDateValue = new Date(e.target.value);
-    const minDate = new Date(getMinDate());
-    const now = new Date();
-
-    if (maxProductionTime != null) {
-      minDate.setTime(now.getTime() + maxProductionTime * 60 * 60 * 1000);
-    }
-
-    if (selectedDateValue < minDate) {
-      const newDate = minDate.toISOString().split('T')[0];
-      onFormChange({
-        target: { name: 'date', value: newDate },
-      } as React.ChangeEvent<HTMLInputElement>);
-      toast.error(`Дата доставки не может быть раньше, чем через ${maxProductionTime} часов от текущего времени.`);
+  const onTime = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value < minTime) {
+      onFormChange({ target: { name: 'time', value: minTime } } as any);
+      toast.error(`Время не раньше ${minTime}`);
     } else {
       onFormChange(e);
     }
-
-    const newTime = `${minTime.getHours().toString().padStart(2, '0')}:${minTime
-      .getMinutes()
-      .toString()
-      .padStart(2, '0')}`;
-    onFormChange({
-      target: { name: 'time', value: newTime },
-    } as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
-    <div className="space-y-4">
-      <motion.div className="relative mb-2" variants={containerVariants}>
-        <label htmlFor="date" className="text-sm font-medium mb-1 block text-gray-700">
+    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={0}
+        variants={containerVariants}
+      >
+        <label htmlFor="date" className="block text-sm font-medium text-gray-900">
           Дата
         </label>
-        <motion.div
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 mt-4"
-          whileHover={{ scale: 1.1 }}
-        >
-          <Image src="/icons/calendar-alt.svg" alt="Дата" width={16} height={16} />
-        </motion.div>
-        <input
-          id="date"
-          type="date"
-          name="date"
-          value={form.date}
-          onChange={handleDateChange}
-          min={getMinDate()}
-          className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
-            dateError ? 'border-red-500' : 'border-gray-300'
-          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-          aria-label="Выберите дату доставки"
-          aria-invalid={dateError ? 'true' : 'false'}
-        />
-        {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <Image src="/icons/calendar-alt.svg" alt="Дата" width={16} height={16} />
+          </div>
+          <input
+            id="date"
+            name="date"
+            type="date"
+            value={form.date}
+            onChange={onDate}
+            min={minDate}
+            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+              dateError ? 'border-red-500' : 'border-gray-300'
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            aria-invalid={!!dateError}
+          />
+        </div>
+        {dateError && <p className="text-red-500 text-xs">{dateError}</p>}
       </motion.div>
-      <motion.div className="relative" variants={containerVariants}>
-        <label htmlFor="time" className="text-sm font-medium mb-1 block text-gray-700">
+
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={1}
+        variants={containerVariants}
+      >
+        <label htmlFor="time" className="block text-sm font-medium text-gray-900">
           Время
         </label>
-        <motion.div
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 mt-4"
-          whileHover={{ scale: 1.1 }}
-        >
-          <Image src="/icons/clock.svg" alt="Время" width={16} height={16} />
-        </motion.div>
-        <input
-          id="time"
-          type="time"
-          name="time"
-          value={form.time}
-          onChange={handleTimeChange}
-          min={minTimeString}
-          max={schedule.end}
-          className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
-            timeError ? 'border-red-500' : 'border-gray-300'
-          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-          aria-label="Выберите время доставки"
-          aria-invalid={timeError ? 'true' : 'false'}
-        />
-        <p className="text-sm text-gray-500 mt-1">
-          Доставка доступна с {schedule.start} до {schedule.end}.
-          {maxProductionTime != null && (
-            <> Минимальное время доставки: через {maxProductionTime} {maxProductionTime === 1 ? 'час' : 'часов'}.</>
-          )}
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <Image src="/icons/clock.svg" alt="Время" width={16} height={16} />
+          </div>
+          <input
+            id="time"
+            name="time"
+            type="time"
+            value={form.time}
+            onChange={onTime}
+            min={minTime}
+            max={schedule.end}
+            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+              timeError ? 'border-red-500' : 'border-gray-300'
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            aria-invalid={!!timeError}
+          />
+        </div>
+        <p className="text-xs text-gray-500">
+          Доставка с {schedule.start} до {schedule.end}
         </p>
-        {timeError && <p className="text-red-500 text-xs mt-1">{timeError}</p>}
+        {timeError && <p className="text-red-500 text-xs">{timeError}</p>}
       </motion.div>
     </div>
   );

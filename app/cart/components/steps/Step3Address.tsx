@@ -1,3 +1,4 @@
+// ✅ Путь: components/steps/Step3Address.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -37,31 +38,30 @@ export default function Step3Address({
   handleAddressChange,
   handleSelectAddress,
 }: Props) {
-  const handleDeliveryInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const sanitizedText = sanitizeHtml(e.target.value, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
-    onFormChange({
-      target: { name: 'deliveryInstructions', value: sanitizedText },
-    } as React.ChangeEvent<HTMLTextAreaElement>);
+  const handleInstr = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const clean = sanitizeHtml(e.target.value, { allowedTags: [], allowedAttributes: {} });
+    onFormChange({ target: { name: 'deliveryInstructions', value: clean } } as any);
   };
 
   return (
-    <div className="space-y-4">
-      <motion.div className="mb-4" variants={containerVariants}>
-        <label className="flex items-center gap-2 mb-2">
+    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+      <motion.div
+        className="flex gap-6"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        <label className="flex items-center gap-2">
           <input
             type="radio"
             name="deliveryMethod"
             value="pickup"
             checked={form.deliveryMethod === 'pickup'}
             onChange={onFormChange}
-            className="form-radio h-4 w-4 text-black focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            aria-label="Самовывоз"
+            className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           />
-          <Image src="/icons/store.svg" alt="Самовывоз" width={16} height={16} className="text-gray-600" />
-          Самовывоз
+          <Image src="/icons/store.svg" alt="Самовывоз" width={16} height={16} />
+          <span className="text-sm text-gray-700">Самовывоз</span>
         </label>
         <label className="flex items-center gap-2">
           <input
@@ -70,144 +70,104 @@ export default function Step3Address({
             value="delivery"
             checked={form.deliveryMethod === 'delivery'}
             onChange={onFormChange}
-            className="form-radio h-4 w-4 text-black focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            aria-label="Доставка"
+            className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           />
-          <Image src="/icons/truck.svg" alt="Доставка" width={16} height={16} className="text-gray-600" />
-          Доставка
+          <Image src="/icons/truck.svg" alt="Доставка" width={16} height={16} />
+          <span className="text-sm text-gray-700">Доставка</span>
         </label>
       </motion.div>
+
       {form.deliveryMethod === 'delivery' ? (
-        <motion.div className="space-y-4" variants={containerVariants}>
+        <motion.div
+          className="space-y-4"
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+        >
           <div className="relative">
-            <label htmlFor="street" className="text-sm font-medium mb-1 block text-gray-700">
+            <label htmlFor="street" className="block text-sm font-medium text-gray-900 mb-1">
               Улица
             </label>
-            <motion.div
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 mt-4"
-              whileHover={{ scale: 1.1 }}
-            >
-              <Image src="/icons/map-marker-alt.svg" alt="Адрес" width={16} height={16} />
-            </motion.div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
+            </div>
             <input
               id="street"
               name="street"
               value={form.street}
               onChange={handleAddressChange}
-              placeholder="Улица"
-              className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
+              placeholder="Введите улицу"
+              className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
                 addressError ? 'border-red-500' : 'border-gray-300'
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-              aria-label="Введите улицу"
-              aria-invalid={addressError ? 'true' : 'false'}
-              aria-describedby={addressError ? 'street-error' : undefined}
+              aria-invalid={!!addressError}
               aria-autocomplete="list"
-              aria-controls="address-suggestions"
-              aria-expanded={showSuggestions}
             />
-            {addressError && (
-              <p id="street-error" className="text-red-500 text-xs mt-1">
-                {addressError}
-              </p>
-            )}
+            {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
             {showSuggestions && (
-              <ul
-                id="address-suggestions"
-                className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg"
-                role="listbox"
-                aria-label="Предложения адресов"
-              >
+              <ul className="absolute z-10 w-full bg-white border rounded-lg mt-1 shadow-lg max-h-48 overflow-auto">
                 {isLoadingSuggestions ? (
-                  <li className="p-2 text-sm text-gray-500 flex items-center gap-2">
-                    <Image src="/icons/spinner.svg" alt="Загрузка" width={16} height={16} className="animate-spin" />
+                  <li className="p-2 text-gray-500 flex items-center gap-2">
+                    <Image src="/icons/spinner.svg" alt="..." width={16} height={16} className="animate-spin" />
                     Загрузка...
                   </li>
                 ) : addressSuggestions.length > 0 ? (
-                  addressSuggestions.map((suggestion, index) => (
+                  addressSuggestions.map((s, i) => (
                     <li
-                      key={index}
-                      onClick={() => handleSelectAddress(suggestion)}
-                      className="p-2 text-sm text-gray-800 hover:bg-gray-100 cursor-pointer"
-                      role="option"
-                      aria-selected={false}
+                      key={i}
+                      onClick={() => handleSelectAddress(s)}
+                      className="p-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
                     >
-                      {suggestion}
+                      {s}
                     </li>
                   ))
                 ) : (
-                  <li className="p-2 text-sm text-gray-500">Адреса не найдены</li>
+                  <li className="p-2 text-gray-500">Ничего не найдено</li>
                 )}
               </ul>
             )}
           </div>
+
           <div className="flex gap-4">
-            <div className="relative flex-1">
-              <label htmlFor="house" className="text-sm font-medium mb-1 block text-gray-700">
-                Дом
-              </label>
-              <input
-                id="house"
-                name="house"
-                value={form.house}
-                onChange={onFormChange}
-                placeholder="Дом"
-                className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                aria-label="Введите номер дома"
-              />
-            </div>
-            <div className="relative flex-1">
-              <label htmlFor="apartment" className="text-sm font-medium mb-1 block text-gray-700">
-                Квартира
-              </label>
-              <input
-                id="apartment"
-                name="apartment"
-                value={form.apartment}
-                onChange={onFormChange}
-                placeholder="Квартира"
-                className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                aria-label="Введите номер квартиры"
-              />
-            </div>
+            {['house', 'apartment', 'entrance'].map((field, i) => (
+              <div key={field} className="flex-1">
+                <label htmlFor={field} className="block text-sm font-medium text-gray-900 mb-1">
+                  {field === 'house' ? 'Дом' : field === 'apartment' ? 'Квартира' : 'Подъезд'}
+                </label>
+                <input
+                  id={field}
+                  name={field}
+                  value={(form as any)[field]}
+                  onChange={onFormChange}
+                  placeholder={field === 'house' ? 'Дом' : field === 'apartment' ? 'Кв.' : 'Подъезд'}
+                  className="w-full pl-3 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                />
+              </div>
+            ))}
           </div>
-          <div className="relative">
-            <label htmlFor="entrance" className="text-sm font-medium mb-1 block text-gray-700">
-              Подъезд
-            </label>
-            <input
-              id="entrance"
-              name="entrance"
-              value={form.entrance}
-              onChange={onFormChange}
-              placeholder="Подъезд"
-              className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-              aria-label="Введите номер подъезда"
-            />
-          </div>
-          <div className="relative">
-            <label
-              htmlFor="deliveryInstructions"
-              className="text-sm font-medium mb-1 block text-gray-700"
-            >
+
+          <div>
+            <label htmlFor="deliveryInstructions" className="block text-sm font-medium text-gray-900 mb-1">
               Инструкции для доставки
             </label>
             <textarea
               id="deliveryInstructions"
               name="deliveryInstructions"
               value={form.deliveryInstructions}
-              onChange={handleDeliveryInstructionsChange}
-              placeholder="Например: позвонить за 30 минут до доставки"
-              className="w-full rounded-lg border border-gray-300 p-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-              aria-label="Введите инструкции для доставки"
+              onChange={handleInstr}
+              placeholder="Например: позвонить за 30 минут"
+              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black min-h-[80px]"
             />
           </div>
-          <p className="text-xs text-gray-500">
-            Заявки принимаются до 15:00, доставка возможна через 41TEM
-          </p>
         </motion.div>
       ) : (
-        <motion.p className="text-sm text-gray-600" variants={containerVariants}>
-          Адрес самовывоза: г. Краснодар, ул. Героев Разведчиков, 17/1 (с 10:00 до 20:00)
+        <motion.p
+          className="text-sm text-gray-700"
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+        >
+          Самовывоз: г. Краснодар, ул. Героев Разведчиков, 17/1
         </motion.p>
       )}
     </div>

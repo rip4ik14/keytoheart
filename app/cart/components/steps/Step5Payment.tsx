@@ -1,3 +1,4 @@
+// ✅ Путь: components/steps/Step5Payment.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -6,41 +7,56 @@ import TrackedLink from '@components/TrackedLink';
 
 interface Props {
   agreed: boolean;
-  setAgreed: (agreed: boolean) => void;
+  setAgreed: (a: boolean) => void;
 }
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
+  visible: (i = 1) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.4 },
+  }),
 };
 
 export default function Step5Payment({ agreed, setAgreed }: Props) {
   return (
-    <div className="space-y-4">
-      <motion.div className="mb-4" variants={containerVariants}>
-        <div className="flex items-center gap-2 mb-2">
-          <Image src="/icons/credit-card.svg" alt="Оплата" width={16} height={16} className="text-gray-600" />
-          <span className="text-sm text-gray-600">Оплата после подтверждения заказа</span>
-        </div>
+    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+      <motion.div
+        className="flex items-center gap-2"
+        initial="hidden"
+        animate="visible"
+        custom={0}
+        variants={containerVariants}
+      >
+        <Image src="/icons/credit-card.svg" alt="Оплата" width={16} height={16} />
+        <span className="text-sm text-gray-700">Оплата после подтверждения заказа</span>
       </motion.div>
-      <motion.label className="flex items-start gap-2 text-sm text-gray-600" variants={containerVariants}>
+
+      <motion.label
+        className="flex items-start gap-2"
+        initial="hidden"
+        animate="visible"
+        custom={1}
+        variants={containerVariants}
+      >
         <input
           type="checkbox"
           checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-1 form-checkbox h-4 w-4 text-black focus:ring-2 focus:ring-offset-2 focus:ring-black"
+          onChange={e => setAgreed(e.target.checked)}
+          className="mt-1 h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           required
-          aria-label="Согласен с политикой конфиденциальности"
+          aria-label="Согласен с политикой"
         />
-        <span>
-          Я согласен на обработку персональных данных в соответствии с{' '}
+        <span className="text-sm text-gray-700">
+          Я согласен с{' '}
           <TrackedLink
             href="/policy"
-            ariaLabel="Перейти к политике конфиденциальности"
-            category="Navigation"
-            action="Click Policy Link"
-            label="Cart Step 5"
-            className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+            ariaLabel="Политика конфиденциальности"
+            category="Cart"
+            action="Open Privacy"
+            label="Step5 Privacy"
+            className="underline text-black hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
           >
             политикой конфиденциальности
           </TrackedLink>

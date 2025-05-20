@@ -1,3 +1,4 @@
+// ✅ Путь: components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -14,13 +15,17 @@ interface Props {
   phoneError: string;
   emailError: string;
   nameError: string;
-  onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handlePhoneChange: (value: string) => void;
 }
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
+  visible: (i = 1) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.4 },
+  }),
 };
 
 export default function Step1ContactDetails({
@@ -32,109 +37,131 @@ export default function Step1ContactDetails({
   handlePhoneChange,
 }: Props) {
   return (
-    <div className="space-y-4">
-      <motion.div className="mb-2" variants={containerVariants}>
-        <label htmlFor="phone" className="text-sm font-medium mb-1 block text-gray-700">
+    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={0}
+        variants={containerVariants}
+      >
+        <label htmlFor="phone" className="block text-sm font-medium text-gray-900">
           Телефон
         </label>
         <div className="relative">
-          <motion.div
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            whileHover={{ scale: 1.1 }}
-          >
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} />
-          </motion.div>
+          </div>
           <input
             id="phone"
             name="phone"
             value={form.phone}
-            onChange={(e) => handlePhoneChange(e.target.value)}
-            placeholder="+7xxxxxxxxxx"
-            className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
+            onChange={e => handlePhoneChange(e.target.value)}
+            placeholder="+7 (___) ___-__-__"
+            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
               phoneError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             disabled
             aria-label="Номер телефона"
-            aria-invalid={phoneError ? 'true' : 'false'}
+            aria-invalid={!!phoneError}
           />
         </div>
-        {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
+        {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
       </motion.div>
-      <motion.div className="mb-2" variants={containerVariants}>
-        <label htmlFor="name" className="text-sm font-medium mb-1 block text-gray-700">
+
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={1}
+        variants={containerVariants}
+      >
+        <label htmlFor="name" className="block text-sm font-medium text-gray-900">
           Ваше имя
         </label>
         <div className="relative">
-          <motion.div
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            whileHover={{ scale: 1.1 }}
-          >
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             <Image src="/icons/user.svg" alt="Имя" width={16} height={16} />
-          </motion.div>
+          </div>
           <input
             id="name"
             name="name"
             value={form.name}
             onChange={onFormChange}
             placeholder="Введите ваше имя"
-            className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
               nameError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-            aria-label="Введите ваше имя"
-            aria-invalid={nameError ? 'true' : 'false'}
+            aria-label="Ваше имя"
+            aria-invalid={!!nameError}
           />
         </div>
-        {nameError && <p className="text-red-500 text-xs mt-1">{nameError}</p>}
+        {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
       </motion.div>
-      <motion.label className="flex items-center gap-2 text-sm text-gray-600" variants={containerVariants}>
+
+      <motion.div
+        className="flex items-center gap-2"
+        initial="hidden"
+        animate="visible"
+        custom={2}
+        variants={containerVariants}
+      >
         <input
           type="checkbox"
           name="whatsapp"
           checked={form.whatsapp}
           onChange={onFormChange}
-          className="form-checkbox h-4 w-4 text-black focus:ring-2 focus:ring-offset-2 focus:ring-black"
+          className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           aria-label="Связаться через WhatsApp"
         />
         <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
-        Не звонить, а написать в WhatsApp
-      </motion.label>
-      <motion.div className="mb-2" variants={containerVariants}>
-        <label htmlFor="email" className="text-sm font-medium mb-1 block text-gray-700">
+        <span className="text-sm text-gray-700">Не звонить, а написать в WhatsApp</span>
+      </motion.div>
+
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={3}
+        variants={containerVariants}
+      >
+        <label htmlFor="email" className="block text-sm font-medium text-gray-900">
           E-mail (необязательно)
         </label>
         <div className="relative">
-          <motion.div
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            whileHover={{ scale: 1.1 }}
-          >
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             <Image src="/icons/envelope.svg" alt="Email" width={16} height={16} />
-          </motion.div>
+          </div>
           <input
             id="email"
             name="email"
             value={form.email}
             onChange={onFormChange}
             placeholder="Введите ваш email"
-            className={`w-full rounded-lg border border-gray-300 p-2 pl-10 ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
               emailError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-            aria-label="Введите ваш email"
-            aria-invalid={emailError ? 'true' : 'false'}
+            aria-label="Ваш email"
+            aria-invalid={!!emailError}
           />
         </div>
-        {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
+        {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
       </motion.div>
+
       <motion.p
-        className="text-xs text-gray-500 text-center mt-2"
+        className="text-xs text-gray-500 text-center"
+        initial="hidden"
+        animate="visible"
+        custom={4}
         variants={containerVariants}
       >
         Нажимая «Продолжить», вы подтверждаете согласие с{' '}
         <TrackedLink
           href="/policy"
-          ariaLabel="Перейти к политике конфиденциальности"
-          category="Navigation"
-          action="Click Policy Link"
-          label="Cart Step 1"
+          ariaLabel="Политика конфиденциальности"
+          category="Cart"
+          action="Open Policy"
+          label="Step1 Policy"
           className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
         >
           политикой обработки персональных данных
@@ -142,10 +169,10 @@ export default function Step1ContactDetails({
         и{' '}
         <TrackedLink
           href="/terms"
-          ariaLabel="Перейти к пользовательскому соглашению"
-          category="Navigation"
-          action="Click Terms Link"
-          label="Cart Step 1"
+          ariaLabel="Пользовательское соглашение"
+          category="Cart"
+          action="Open Terms"
+          label="Step1 Terms"
           className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
         >
           пользовательским соглашением
