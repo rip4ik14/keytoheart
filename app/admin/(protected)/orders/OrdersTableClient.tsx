@@ -29,7 +29,8 @@ const STATUS_OPTIONS = [
 const PAYMENT_METHOD_LABELS = {
   cash: 'Наличные',
   online: 'Онлайн',
-  card: 'Картой'
+  card: 'Картой',
+  card_on_delivery: 'Картой при доставке'
 } as const;
 
 export default function OrdersTableClient({ initialOrders, loadError }: Props) {
