@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@context/CartContext';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { Share2, Heart, Star, Truck } from 'lucide-react';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/free-mode';
@@ -49,6 +49,8 @@ export default function ProductPageClient({
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [bonusPercent, setBonusPercent] = useState<number>(0.025);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('medium');
 
   console.log('ProductPageClient received props:', { product, combos });
 
@@ -73,9 +75,16 @@ export default function ProductPageClient({
     }
   }, [product.id, product.title, product.price]);
 
+  const sizeOptions = [
+    { value: 'small', label: 'Маленький', priceMultiplier: 0.8 },
+    { value: 'medium', label: 'Средний', priceMultiplier: 1 },
+    { value: 'large', label: 'Большой', priceMultiplier: 1.3 },
+  ];
+
   const discountPercent = product.discount_percent ?? 0;
-  const discountedPrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
-  const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
+  const basePrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+  const adjustedPrice = Math.round(basePrice * (sizeOptions.find(opt => opt.value === selectedSize)?.priceMultiplier || 1));
+  const bonus = (adjustedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
   const handleAdd = (id: number, title: string, price: number, img: string | null, productionTime: number | null) => {
     addItem({ id: `${id}`, title, price, quantity: 1, imageUrl: img || '', production_time: productionTime });
@@ -90,6 +99,20 @@ export default function ProductPageClient({
       window.ym?.(12345678, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch (error) {
       console.error('Add to cart analytics error:', error);
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: product.title,
+        text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
+        url: window.location.href,
+      }).catch((error) => console.error('Share error:', error));
+    } else {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        alert('Ссылка скопирована в буфер обмена!');
+      });
     }
   };
 
@@ -181,16 +204,16 @@ export default function ProductPageClient({
             <h1 className="text-2xl sm:text-3xl font-sans font-bold tracking-tight">
               {product.title}
             </h1>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               {discountPercent > 0 && (
-                <span className="text-lg font-bold text-black">
+                <span className="text-lg font-bold text-green-600">
                   {discountPercent}% скидка
                 </span>
               )}
               {discountPercent > 0 ? (
                 <div className="flex items-center gap-4">
                   <span className="text-4xl font-bold text-black">
-                    {discountedPrice} ₽
+                    {adjustedPrice} ₽
                   </span>
                   <span className="text-2xl text-gray-500 line-through">
                     {product.price} ₽
@@ -198,36 +221,92 @@ export default function ProductPageClient({
                 </div>
               ) : (
                 <span className="text-4xl font-bold text-black">
-                  {product.price} ₽
+                  {adjustedPrice} ₽
                 </span>
               )}
-              {bonus > '0.00' && (
+              <div className="flex items-center gap-2">
+                <Image src="/icons/bonus.svg" alt="Бонус" width={20} height={20} />
                 <span className="text-base text-black font-medium">
                   +{bonus} ₽ бонус
                 </span>
-              )}
+              </div>
               {product.production_time != null && (
-                <span className="text-base text-black font-medium">
-                  Время изготовления: {product.production_time} {product.production_time === 1 ? 'час' : 'часов'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Image src="/icons/clock.svg" alt="Время" width={20} height={20} />
+                  <span className="text-base text-black font-medium">
+                    Время изготовления: {product.production_time} {product.production_time === 1 ? 'час' : 'часов'}
+                  </span>
+                </div>
               )}
+              <div className="flex items-center gap-2">
+                <Truck size={20} className="text-black" />
+                <span className="text-base text-black font-medium">
+                  Бесплатная доставка по Краснодару при заказе от 2000 ₽
+                </span>
+              </div>
             </div>
-            <motion.button
-              onClick={() =>
-                handleAdd(product.id, product.title, discountedPrice, product.images?.[0] || null, product.production_time ?? null) // Преобразуем undefined в null
-              }
-              className="w-full py-3 bg-black text-white rounded-lg text-base font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
-              variants={buttonVariants}
-              initial="rest"
-              whileHover="hover"
-              whileTap="tap"
-              aria-label="Добавить в корзину"
-            >
-              Добавить в корзину
-            </motion.button>
-            <p className="text-xs text-gray-500">
-              Состав букета может быть незначительно изменён. При этом стилистика и цветовая гамма останутся неизменными.
-            </p>
+
+            {/* Выбор размера букета */}
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-black">Размер букета:</h2>
+              <div className="flex gap-2">
+                {sizeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSelectedSize(option.value as 'small' | 'medium' | 'large')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedSize === option.value
+                        ? 'bg-black text-white'
+                        : 'bg-gray-100 text-black hover:bg-gray-200'
+                    } focus:outline-none focus:ring-2 focus:ring-black`}
+                    aria-label={`Выбрать размер ${option.label}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <motion.button
+                onClick={() =>
+                  handleAdd(product.id, product.title, adjustedPrice, product.images?.[0] || null, product.production_time ?? null)
+                }
+                className="flex-1 py-3 bg-green-600 text-white rounded-lg text-base font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Добавить в корзину"
+              >
+                Добавить в корзину
+              </motion.button>
+              <motion.button
+                onClick={() => setIsFavorited(!isFavorited)}
+                className={`p-3 rounded-lg border transition-colors ${
+                  isFavorited ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-black hover:bg-gray-200'
+                } focus:outline-none focus:ring-2 focus:ring-black`}
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label={isFavorited ? 'Удалить из избранного' : 'Добавить в избранное'}
+              >
+                <Heart size={20} fill={isFavorited ? 'currentColor' : 'none'} />
+              </motion.button>
+              <motion.button
+                onClick={handleShare}
+                className="p-3 rounded-lg border bg-gray-100 text-black hover:bg-gray-200 transition focus:outline-none focus:ring-2 focus:ring-black"
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Поделиться"
+              >
+                <Share2 size={20} />
+              </motion.button>
+            </div>
+
             <div className="space-y-6">
               {product.description && (
                 <div>
@@ -244,11 +323,51 @@ export default function ProductPageClient({
                   <h2 className="font-bold text-xl text-black mb-3">
                     Состав:
                   </h2>
-                  <p className="text-lg text-black leading-loose whitespace-pre-line">
-                    {product.composition}
-                  </p>
+                  <ul className="list-disc pl-5 space-y-2 text-lg text-black leading-loose">
+                    {product.composition.split('\n').map((item, index) => (
+                      <li key={index}>{item.trim()}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
+              <div>
+                <h2 className="font-bold text-xl text-black mb-3">
+                  Уход за букетом:
+                </h2>
+                <ul className="list-disc pl-5 space-y-2 text-lg text-black leading-loose">
+                  <li>Храните букет в прохладном месте, вдали от прямых солнечных лучей.</li>
+                  <li>Ежедневно меняйте воду в вазе и подрезайте стебли на 1-2 см.</li>
+                  <li>Избегайте попадания воды на ягоды, чтобы сохранить их свежесть.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Секция отзывов */}
+            <div className="space-y-4">
+              <h2 className="font-bold text-xl text-black mb-3">
+                Отзывы клиентов:
+              </h2>
+              <div className="space-y-4">
+                {[
+                  { name: 'Анна', rating: 5, text: 'Очень красивый букет! Клубника свежая, доставка вовремя.' },
+                  { name: 'Мария', rating: 4, text: 'Букет понравился, но хотелось бы больше вариантов размеров.' },
+                ].map((review, index) => (
+                  <div key={index} className="border-t border-gray-200 pt-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-black">{review.name}</span>
+                      <div className="flex">
+                        {Array(review.rating).fill(0).map((_, i) => (
+                          <Star key={i} size={16} className="text-yellow-500 fill-current" />
+                        ))}
+                        {Array(5 - review.rating).fill(0).map((_, i) => (
+                          <Star key={i + review.rating} size={16} className="text-gray-300" />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-base text-gray-700 mt-1">{review.text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         </div>
@@ -301,7 +420,7 @@ export default function ProductPageClient({
                           onClick={() =>
                             handleAdd(combo.id, combo.title, combo.price, combo.image, null)
                           }
-                          className="w-full mt-2 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
+                          className="w-full mt-2 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
                           variants={buttonVariants}
                           initial="rest"
                           whileHover="hover"
@@ -345,7 +464,7 @@ export default function ProductPageClient({
                       onClick={() =>
                         handleAdd(combo.id, combo.title, combo.price, combo.image, null)
                       }
-                      className="w-full mt-2 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="w-full mt-2 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
                       variants={buttonVariants}
                       initial="rest"
                       whileHover="hover"

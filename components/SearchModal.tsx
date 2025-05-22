@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { supabasePublic } from '@/lib/supabase/public';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -87,8 +88,17 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       aria-modal="true"
       aria-label="Поиск по сайту"
     >
+      {/* Кнопка закрытия (перемещена в верхний правый угол модального окна) */}
+      <button
+        onClick={onClose}
+        className="absolute top-2 right-2 p-2 text-black hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-black"
+        aria-label="Закрыть поиск"
+      >
+        <X size={20} />
+      </button>
+
       {/* Инпут поиска */}
-      <div className="relative flex items-center gap-2 py-3 px-4">
+      <div className="flex items-center gap-2 py-3 px-4">
         <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="text-black" />
         <input
           ref={inputRef}
@@ -99,23 +109,6 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
           className="w-full bg-transparent outline-none text-black placeholder-gray-400 text-sm"
           aria-label="Введите запрос для поиска"
         />
-        {/* Кнопка закрытия */}
-        <button
-          onClick={onClose}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 p-2 text-black hover:text-red-500 focus:outline-none"
-          aria-label="Закрыть поиск"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-            className="w-5 h-5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
       {/* Результаты */}
