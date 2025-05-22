@@ -96,14 +96,19 @@ function ProductsContent() {
   const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<Product[], Error>({
     queryKey: ['products', selectedPage],
     queryFn: async () => {
-      // Сначала получаем все связи из product_categories
+      console.log('Начинаем загрузку товаров для админ-панели...');
+
+      // Получаем все связи из product_categories
       const { data: productCategoryData, error: productCategoryError } = await supabase
         .from('product_categories')
         .select('product_id, category_id');
 
       if (productCategoryError) {
+        console.error('Ошибка загрузки связей категорий:', productCategoryError);
         throw new Error(productCategoryError.message || 'Ошибка загрузки связей категорий');
       }
+
+      console.log('Связи товаров с категориями:', productCategoryData);
 
       // Группируем category_ids по product_id
       const productCategoriesMap = new Map<number, number[]>();
@@ -112,9 +117,7 @@ function ProductsContent() {
         productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
       });
 
-      const productIds = Array.from(productCategoriesMap.keys());
-
-      // Загружаем товары
+      // Загружаем ВСЕ товары (не только с категориями)
       let query = supabase
         .from('products')
         .select(`
@@ -137,10 +140,10 @@ function ProductsContent() {
           slug,
           production_time
         `)
-        .in('id', productIds.length > 0 ? productIds : [0]) // Если нет товаров, передаём [0], чтобы избежать ошибки
         .order('order_index', { ascending: true })
         .order('id', { ascending: false });
 
+      // Фильтрация по выбранной странице (категории)
       if (selectedPage) {
         const parts = selectedPage.split('/').filter(Boolean);
         if (parts[0] === 'category' && parts.length === 2) {
@@ -160,14 +163,19 @@ function ProductsContent() {
             .filter(item => item.category_id === categoryId)
             .map(item => item.product_id);
 
-          if (filteredProductIds.length === 0) return []; // Если нет товаров в категории, возвращаем пустой массив
+          if (filteredProductIds.length === 0) return []; // Если нет товаров в категории
 
           query = query.in('id', filteredProductIds);
         }
       }
 
       const { data, error } = await query;
-      if (error) throw new Error(error.message || 'Неизвестная ошибка при загрузке товаров');
+      if (error) {
+        console.error('Ошибка загрузки товаров:', error);
+        throw new Error(error.message || 'Неизвестная ошибка при загрузке товаров');
+      }
+
+      console.log(`Загружено товаров: ${data?.length || 0}`);
 
       // Загрузка категорий для фильтра
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -179,14 +187,14 @@ function ProductsContent() {
       setCategories(categoriesData || []);
 
       // Приводим данные к типу Product
-      return data.map((product) => ({
+      const products = (data || []).map((product) => ({
         ...product,
-        category_ids: productCategoriesMap.get(product.id) || [],
+        category_ids: productCategoriesMap.get(product.id) || [], // Может быть пустым массивом
         in_stock: product.in_stock ?? false,
         is_visible: product.is_visible ?? false,
         is_popular: product.is_popular ?? false,
         order_index: product.order_index ?? 0,
-        images: product.images || [],
+        images: Array.isArray(product.images) ? product.images : [], // Нормализуем images
         bonus: product.bonus ?? null,
         composition: product.composition ?? null,
         created_at: product.created_at ?? null,
@@ -197,9 +205,14 @@ function ProductsContent() {
         slug: product.slug ?? null,
         production_time: product.production_time ?? null,
       }));
+
+      console.log('Обработанные товары:', products);
+      return products;
     },
     enabled: isAuthenticated === true,
     initialData: [],
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // 30 секунд
   });
 
   useEffect(() => {
@@ -260,6 +273,8 @@ function ProductsContent() {
           product.id === id ? { ...product, in_stock: !product.in_stock } : product
         )
       );
+      // Обновляем основной список тоже
+      refetch();
     },
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
   });
@@ -274,7 +289,10 @@ function ProductsContent() {
         const { error: storageError } = await supabase.storage
           .from('product-image')
           .remove(filePaths);
-        if (storageError) throw new Error(storageError.message);
+        if (storageError) {
+          console.error('Ошибка удаления изображений:', storageError);
+          // Не прерываем процесс, просто логируем
+        }
       }
 
       const { error } = await supabase.from('products').delete().eq('id', id);
@@ -284,6 +302,7 @@ function ProductsContent() {
       setProducts((old) => old.filter((p) => p.id !== productToDelete));
       toast.success('Товар удалён');
       closeModal();
+      refetch();
     },
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
   });
@@ -309,7 +328,17 @@ function ProductsContent() {
   if (!isAuthenticated) return null;
 
   if (isError) {
-    return <p className="text-center text-red-500">Ошибка: {error?.message}</p>;
+    return (
+      <div className="text-center text-red-500 p-6">
+        <p>Ошибка: {error?.message}</p>
+        <button 
+          onClick={() => refetch()} 
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Попробовать снова
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -320,7 +349,9 @@ function ProductsContent() {
       className="max-w-7xl mx-auto p-6 space-y-6 font-sans"
     >
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight text-black">Товары</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-black">
+          Товары ({fetchedProducts.length})
+        </h1>
         <div className="flex items-center gap-4 flex-wrap">
           <SitePagesDropdown selected={selectedPage} onSelect={setSelectedPage} />
           <div className="flex gap-2">
@@ -357,6 +388,14 @@ function ProductsContent() {
           >
             Добавить товар
           </motion.a>
+          <motion.button
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+            whileHover={{ scale: 1.05 }}
+            aria-label="Обновить список товаров"
+          >
+            Обновить
+          </motion.button>
         </div>
       </div>
 
@@ -442,11 +481,24 @@ function ProductsContent() {
       </div>
 
       {isLoading ? (
-        <p className="text-center text-gray-500">Загрузка...</p>
+        <div className="text-center text-gray-500 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          Загрузка товаров...
+        </div>
       ) : products.length === 0 ? (
-        <p className="text-center text-gray-500">
+        <div className="text-center text-gray-500 py-8">
           {selectedPage ? 'Товары для этой страницы отсутствуют' : 'Товары отсутствуют'}
-        </p>
+          {!selectedPage && (
+            <div className="mt-4">
+              <a 
+                href="/admin/new" 
+                className="inline-block px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
+              >
+                Добавить первый товар
+              </a>
+            </div>
+          )}
+        </div>
       ) : (
         <ProductTable
           products={products}
