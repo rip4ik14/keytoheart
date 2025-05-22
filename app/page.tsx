@@ -79,7 +79,7 @@ export default async function Home() {
 
     const productIds = Array.from(productCategoriesMap.keys());
 
-    // Получаем товары - УБИРАЕМ ФИЛЬТР ПО ИЗОБРАЖЕНИЯМ
+    // Получаем товары
     const { data, error } = await supabase
       .from('products')
       .select(`
@@ -88,12 +88,11 @@ export default async function Home() {
         price,
         discount_percent,
         in_stock,
-        is_visible,
         images
       `)
       .in('id', productIds.length > 0 ? productIds : [0]) // Избегаем пустого IN
       .eq('in_stock', true)
-      .eq('is_visible', true) // Добавляем фильтр по видимости
+      .not('images', 'is', null)
       .order('id', { ascending: false });
 
     if (error) throw new Error(`Ошибка загрузки товаров: ${error.message}`);
@@ -105,12 +104,10 @@ export default async function Home() {
           price: item.price,
           discount_percent: item.discount_percent ?? null,
           in_stock: item.in_stock ?? false,
-          images: Array.isArray(item.images) ? item.images : [], // Правильная обработка images
+          images: item.images ?? [],
           category_ids: productCategoriesMap.get(item.id) || [],
         }))
       : [];
-
-    console.log(`Загружено товаров: ${products.length}`);
   } catch (err) {
     console.error('Ошибка загрузки товаров:', err);
   }

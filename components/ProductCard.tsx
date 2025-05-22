@@ -16,18 +16,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const [isMobile, setIsMobile] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Правильная обработка изображений - с fallback на image_url и placeholder
-  const getImageUrl = () => {
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      return product.images[0];
-    }
-    if (product.image_url) {
-      return product.image_url;
-    }
-    return '/placeholder.jpg';
-  };
-
-  const imageUrl = getImageUrl();
+  const imageUrl = product.images?.[0] || '/placeholder.jpg';
   const bonus = Math.floor(product.price * 0.025);
 
   const discountPercent = product.discount_percent ?? 0;
@@ -103,7 +92,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
         {/* Изображение */}
         <Link href={`/product/${product.id}`}>
-          <div className="relative w-full h-64 bg-gray-100">
+          <div className="relative w-full h-64 bg-white">
             <Image
               src={imageUrl}
               alt={product.title}
@@ -111,11 +100,6 @@ export default function ProductCard({ product }: { product: Product }) {
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, 25vw"
               loading="lazy"
-              onError={(e) => {
-                // Fallback на placeholder при ошибке загрузки
-                const target = e.target as HTMLImageElement;
-                target.src = '/placeholder.jpg';
-              }}
             />
           </div>
         </Link>
