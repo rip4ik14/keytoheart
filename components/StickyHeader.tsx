@@ -150,8 +150,8 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         className="sticky top-0 z-50 bg-white border-b shadow-sm"
         aria-label="Основная навигация"
       >
-        <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px]">
-          {/* Left Section: Burger Menu, Contact Info (Desktop), and Logo */}
+        <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
+          {/* Left Section: Burger Menu and Contact Info */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
             {/* Desktop: Contact Info */}
@@ -204,13 +204,16 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                 </a>
               </div>
             </div>
-            {/* Logo */}
+          </div>
+
+          {/* Centered Logo */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
             <Link
               href="/"
-              className="text-xl md:text-2xl font-bold md:mx-auto"
+              className="text-xl md:text-2xl font-bold text-center"
               aria-label="Перейти на главную страницу"
             >
-              KeytoHeart
+              Key to Heart
             </Link>
           </div>
 
