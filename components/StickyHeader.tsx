@@ -150,10 +150,18 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         className="sticky top-0 z-50 bg-white border-b shadow-sm"
         aria-label="Основная навигация"
       >
-        <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-          {/* Left Section: Burger Menu and Contact Info */}
+        <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
+          {/* Left Section: Burger Menu and Logo (Mobile), Contact Info (Desktop) */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
+            {/* Logo: Left on Mobile, Centered on Desktop */}
+            <Link
+              href="/"
+              className="text-xl md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2"
+              aria-label="Перейти на главную страницу"
+            >
+              Key to Heart
+            </Link>
             {/* Desktop: Contact Info */}
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>
@@ -204,17 +212,6 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                 </a>
               </div>
             </div>
-          </div>
-
-          {/* Centered Logo */}
-          <div className="absolute left-1/2 transform -translate-x-1/2">
-            <Link
-              href="/"
-              className="text-xl md:text-2xl font-bold text-center"
-              aria-label="Перейти на главную страницу"
-            >
-              Key to Heart
-            </Link>
           </div>
 
           {/* Right Section: Search, Profile, Cart */}
