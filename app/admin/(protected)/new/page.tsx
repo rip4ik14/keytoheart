@@ -369,8 +369,18 @@ export default function NewProductPage() {
         }),
       });
 
-      const json = await res.json();
-      console.log('Response from /api/products:', json);
+      console.log('Response status:', res.status, res.statusText);
+      const responseText = await res.text();
+      console.log('Response body:', responseText);
+
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch (err) {
+        throw new Error('Failed to parse JSON response: ' + responseText);
+      }
+
+      console.log('Parsed JSON response:', json);
       if (!res.ok) throw new Error(json.error || 'Ошибка создания товара');
 
       toast.success('Товар успешно добавлен', { id: toastId });
