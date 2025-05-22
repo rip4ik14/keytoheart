@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import AdminLayout from '../../layout';
 import { supabasePublic } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,11 +63,13 @@ export default function EditProductPage() {
       try {
         const res = await fetch('/api/admin-session', { credentials: 'include' });
         const data = await res.json();
+        console.log('[EditProductPage] Admin session response:', data);
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Доступ запрещён');
         }
         setIsAuthenticated(true);
       } catch (err: any) {
+        console.error('[EditProductPage] Auth error:', err.message);
         toast.error('Войдите как администратор');
         router.push(`/admin/login?from=${encodeURIComponent(`/admin/edit-product/${id}`)}`);
       }
@@ -324,6 +325,8 @@ export default function EditProductPage() {
         }),
       });
 
+      console.log('[EditProductPage] PATCH /api/products response:', res.status, await res.text());
+
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Ошибка обновления товара');
@@ -332,6 +335,7 @@ export default function EditProductPage() {
       toast.success('Товар успешно обновлён');
       router.push('/admin/products');
     } catch (err: any) {
+      console.error('[EditProductPage] Submit error:', err.message);
       toast.error('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
@@ -430,496 +434,494 @@ export default function EditProductPage() {
   }
 
   return (
-    <AdminLayout>
-      <CSRFToken>
-        {(csrfToken) => (
-          <motion.div
-            className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+    <CSRFToken>
+      {(csrfToken) => (
+        <motion.div
+          className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
+            <motion.button
+              type="button"
+              onClick={() => router.push('/admin/products')}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
+              whileHover={{ scale: 1.05 }}
+              aria-label="Вернуться к списку товаров"
+            >
+              Назад
+            </motion.button>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(csrfToken);
+            }}
+            className="space-y-6"
           >
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
+            {/* Основная информация */}
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('main')}
+                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Основная информация
+                {accordionOpen.main ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              <AnimatePresence>
+                {accordionOpen.main && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="p-4 space-y-4"
+                  >
+                    <div>
+                      <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-600">
+                        Название
+                      </label>
+                      <motion.input
+                        id="title"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.title ? 'border-red-500' : ''
+                        }`}
+                        placeholder="Введите название товара (мин. 3 символа)"
+                        required
+                        aria-describedby="title-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
+                      <p id="title-desc" className="text-xs text-gray-500 mt-1">
+                        Название товара, отображаемое на сайте.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-600">
+                        Категории
+                      </label>
+                      {isCategoriesLoading ? (
+                        <p className="text-gray-500 text-sm">Загрузка категорий...</p>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {categories.map((cat) => (
+                            <label key={cat.id} className="flex items-center text-sm">
+                              <input
+                                type="checkbox"
+                                checked={categoryIds.includes(cat.id)}
+                                onChange={(e) => handleCategoryChange(cat.id, e.target.checked)}
+                                className="mr-2"
+                              />
+                              {cat.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {errors.categoryIds && <p className="text-red-500 text-xs mt-1">{errors.categoryIds}</p>}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Выберите категории для товара.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-600">
+                        Подкатегории
+                      </label>
+                      {filteredSubcategories.length === 0 ? (
+                        <p className="text-gray-500 text-sm">
+                          Выберите категории, чтобы увидеть доступные подкатегории.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {filteredSubcategories.map((sub) => (
+                            <label key={sub.id} className="flex items-center text-sm">
+                              <input
+                                type="checkbox"
+                                checked={subcategoryIds.includes(sub.id)}
+                                onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)}
+                                className="mr-2"
+                              />
+                              {sub.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Выберите подкатегории для товара (опционально).
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+            {/* Цены и скидки */}
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('pricing')}
+                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Цены и скидки
+                {accordionOpen.pricing ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              <AnimatePresence>
+                {accordionOpen.pricing && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="p-4 space-y-4"
+                  >
+                    <div>
+                      <label htmlFor="price" className="block mb-1 text-sm font-medium text-gray-600">
+                        Цена (₽)
+                      </label>
+                      <motion.input
+                        id="price"
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.price ? 'border-red-500' : ''
+                        }`}
+                        placeholder="Введите цену"
+                        required
+                        min="0.01"
+                        step="0.01"
+                        aria-describedby="price-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                      <p id="price-desc" className="text-xs text-gray-500 mt-1">
+                        Текущая цена товара в рублях.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="originalPrice" className="block mb-1 text-sm font-medium text-gray-600">
+                        Старая цена (₽)
+                      </label>
+                      <motion.input
+                        id="originalPrice"
+                        type="number"
+                        value={originalPrice}
+                        onChange={(e) => setOriginalPrice(e.target.value)}
+                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.originalPrice ? 'border-red-500' : ''
+                        }`}
+                        placeholder="Введите старую цену"
+                        required
+                        min="0.01"
+                        step="0.01"
+                        aria-describedby="originalPrice-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      {errors.originalPrice && <p className="text-red-500 text-xs mt-1">{errors.originalPrice}</p>}
+                      <p id="originalPrice-desc" className="text-xs text-gray-500 mt-1">
+                        Цена до скидки (для отображения скидки).
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="discountPercent" className="block mb-1 text-sm font-medium text-gray-600">
+                        Скидка (%)
+                      </label>
+                      <motion.input
+                        id="discountPercent"
+                        type="number"
+                        value={discountPercent}
+                        onChange={(e) => setDiscountPercent(e.target.value)}
+                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.discountPercent ? 'border-red-500' : ''
+                        }`}
+                        placeholder="Введите скидку (0-100)"
+                        min="0"
+                        max="100"
+                        step="1"
+                        aria-describedby="discountPercent-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      {errors.discountPercent && (
+                        <p className="text-red-500 text-xs mt-1">{errors.discountPercent}</p>
+                      )}
+                      <p id="discountPercent-desc" className="text-xs text-gray-500 mt-1">
+                        Процент скидки (если применимо).
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+            {/* Описание */}
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('description')}
+                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Описание
+                {accordionOpen.description ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              <AnimatePresence>
+                {accordionOpen.description && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="p-4 space-y-4"
+                  >
+                    <div>
+                      <label htmlFor="shortDesc" className="block mb-1 text-sm font-medium text-gray-600">
+                        Краткое описание
+                      </label>
+                      <motion.textarea
+                        id="shortDesc"
+                        value={shortDesc}
+                        onChange={(e) => setShortDesc(e.target.value)}
+                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Введите краткое описание"
+                        rows={3}
+                        aria-describedby="shortDesc-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      <p id="shortDesc-desc" className="text-xs text-gray-500 mt-1">
+                        Краткое описание для карточки товара.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-600">
+                        Полное описание
+                      </label>
+                      <motion.textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Введите полное описание"
+                        rows={5}
+                        aria-describedby="description-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      <p id="description-desc" className="text-xs text-gray-500 mt-1">
+                        Подробное описание товара.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="composition" className="block mb-1 text-sm font-medium text-gray-600">
+                        Состав
+                      </label>
+                      <motion.textarea
+                        id="composition"
+                        value={composition}
+                        onChange={(e) => setComposition(e.target.value)}
+                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Введите состав"
+                        rows={3}
+                        aria-describedby="composition-desc"
+                        whileFocus={{ scale: 1.02 }}
+                      />
+                      <p id="composition-desc" className="text-xs text-gray-500 mt-1">
+                        Состав товара (например, ингредиенты).
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+            {/* Изображения и настройки */}
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('images')}
+                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Изображения и настройки
+                {accordionOpen.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              <AnimatePresence>
+                {accordionOpen.images && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="p-4 space-y-4"
+                  >
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-600">
+                        Существующие изображения
+                      </label>
+                      {existingImages.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                          {existingImages.map((url, index) => (
+                            <motion.div
+                              key={index}
+                              className="relative"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <img
+                                src={url}
+                                alt={`Изображение ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-md"
+                                loading="lazy"
+                              />
+                              <motion.button
+                                type="button"
+                                onClick={() => handleRemoveImage(url)}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                whileHover={{ scale: 1.1 }}
+                                aria-label={`Удалить изображение ${index + 1}`}
+                              >
+                                <X size={16} />
+                              </motion.button>
+                            </motion.div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">Изображения отсутствуют</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="images" className="block mb-1 text-sm font-medium text-gray-600">
+                        Добавить новые изображения
+                      </label>
+                      <div className="flex items-center justify-center w-full">
+                        <label
+                          htmlFor="images"
+                          className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50"
+                        >
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <ImageIcon size={24} className="text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-500">
+                              Перетащите изображения или кликните для выбора (макс. 5)
+                            </p>
+                          </div>
+                          <input
+                            id="images"
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                            aria-describedby="images-desc"
+                          />
+                        </label>
+                      </div>
+                      <p id="images-desc" className="text-xs text-gray-500 mt-1">
+                        Поддерживаются JPEG, PNG, WebP. Максимум 5MB на файл.
+                      </p>
+                      {imagePreviews.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+                          {imagePreviews.map((url, index) => (
+                            <motion.div
+                              key={index}
+                              className="relative"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <img
+                                src={url}
+                                alt={`Новое изображение ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-md"
+                                loading="lazy"
+                              />
+                              <motion.button
+                                type="button"
+                                onClick={() => {
+                                  setImages((prev) => prev.filter((_, i) => i !== index));
+                                  setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+                                }}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                                whileHover={{ scale: 1.1 }}
+                                aria-label={`Удалить новое изображение ${index + 1}`}
+                              >
+                                <X size={16} />
+                              </motion.button>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <label htmlFor="inStock" className="flex items-center text-sm">
+                        <input
+                          id="inStock"
+                          type="checkbox"
+                          checked={inStock}
+                          onChange={(e) => setInStock(e.target.checked)}
+                          className="mr-2"
+                          aria-describedby="inStock-desc"
+                        />
+                        В наличии
+                      </label>
+                      <label htmlFor="isVisible" className="flex items-center text-sm">
+                        <input
+                          id="isVisible"
+                          type="checkbox"
+                          checked={isVisible}
+                          onChange={(e) => setIsVisible(e.target.checked)}
+                          className="mr-2"
+                          aria-describedby="isVisible-desc"
+                        />
+                        Показать товар
+                      </label>
+                      <label htmlFor="isPopular" className="flex items-center text-sm">
+                        <input
+                          id="isPopular"
+                          type="checkbox"
+                          checked={isPopular}
+                          onChange={(e) => setIsPopular(e.target.checked)}
+                          className="mr-2"
+                          aria-describedby="isPopular-desc"
+                        />
+                        Популярный товар
+                      </label>
+                    </div>
+                    <p id="inStock-desc" className="text-xs text-gray-500 mt-1">
+                      Настройки отображения и доступности товара.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+            {/* Кнопки */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <motion.button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2 bg-black text-white rounded-md hover:opacity-90 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed text-sm"
+                whileHover={{ scale: loading ? 1 : 1.05 }}
+                whileTap={{ scale: loading ? 1 : 0.95 }}
+                aria-label="Сохранить изменения"
+              >
+                {loading ? 'Сохранение...' : 'Сохранить изменения'}
+              </motion.button>
               <motion.button
                 type="button"
                 onClick={() => router.push('/admin/products')}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
+                className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
                 whileHover={{ scale: 1.05 }}
-                aria-label="Вернуться к списку товаров"
+                whileTap={{ scale: 0.95 }}
+                aria-label="Отмена"
               >
-                Назад
+                Отмена
               </motion.button>
             </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit(csrfToken);
-              }}
-              className="space-y-6"
-            >
-              {/* Основная информация */}
-              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('main')}
-                  className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-                >
-                  Основная информация
-                  {accordionOpen.main ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-                <AnimatePresence>
-                  {accordionOpen.main && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 space-y-4"
-                    >
-                      <div>
-                        <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-600">
-                          Название
-                        </label>
-                        <motion.input
-                          id="title"
-                          type="text"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.title ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Введите название товара (мин. 3 символа)"
-                          required
-                          aria-describedby="title-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
-                        <p id="title-desc" className="text-xs text-gray-500 mt-1">
-                          Название товара, отображаемое на сайте.
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-600">
-                          Категории
-                        </label>
-                        {isCategoriesLoading ? (
-                          <p className="text-gray-500 text-sm">Загрузка категорий...</p>
-                        ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {categories.map((cat) => (
-                              <label key={cat.id} className="flex items-center text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={categoryIds.includes(cat.id)}
-                                  onChange={(e) => handleCategoryChange(cat.id, e.target.checked)}
-                                  className="mr-2"
-                                />
-                                {cat.name}
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                        {errors.categoryIds && <p className="text-red-500 text-xs mt-1">{errors.categoryIds}</p>}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Выберите категории для товара.
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-600">
-                          Подкатегории
-                        </label>
-                        {filteredSubcategories.length === 0 ? (
-                          <p className="text-gray-500 text-sm">
-                            Выберите категории, чтобы увидеть доступные подкатегории.
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {filteredSubcategories.map((sub) => (
-                              <label key={sub.id} className="flex items-center text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={subcategoryIds.includes(sub.id)}
-                                  onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)}
-                                  className="mr-2"
-                                />
-                                {sub.name}
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Выберите подкатегории для товара (опционально).
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </section>
-
-              {/* Цены и скидки */}
-              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('pricing')}
-                  className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-                >
-                  Цены и скидки
-                  {accordionOpen.pricing ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-                <AnimatePresence>
-                  {accordionOpen.pricing && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 space-y-4"
-                    >
-                      <div>
-                        <label htmlFor="price" className="block mb-1 text-sm font-medium text-gray-600">
-                          Цена (₽)
-                        </label>
-                        <motion.input
-                          id="price"
-                          type="number"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.price ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Введите цену"
-                          required
-                          min="0.01"
-                          step="0.01"
-                          aria-describedby="price-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
-                        <p id="price-desc" className="text-xs text-gray-500 mt-1">
-                          Текущая цена товара в рублях.
-                        </p>
-                      </div>
-                      <div>
-                        <label htmlFor="originalPrice" className="block mb-1 text-sm font-medium text-gray-600">
-                          Старая цена (₽)
-                        </label>
-                        <motion.input
-                          id="originalPrice"
-                          type="number"
-                          value={originalPrice}
-                          onChange={(e) => setOriginalPrice(e.target.value)}
-                          className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.originalPrice ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Введите старую цену"
-                          required
-                          min="0.01"
-                          step="0.01"
-                          aria-describedby="originalPrice-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        {errors.originalPrice && <p className="text-red-500 text-xs mt-1">{errors.originalPrice}</p>}
-                        <p id="originalPrice-desc" className="text-xs text-gray-500 mt-1">
-                          Цена до скидки (для отображения скидки).
-                        </p>
-                      </div>
-                      <div>
-                        <label htmlFor="discountPercent" className="block mb-1 text-sm font-medium text-gray-600">
-                          Скидка (%)
-                        </label>
-                        <motion.input
-                          id="discountPercent"
-                          type="number"
-                          value={discountPercent}
-                          onChange={(e) => setDiscountPercent(e.target.value)}
-                          className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.discountPercent ? 'border-red-500' : ''
-                          }`}
-                          placeholder="Введите скидку (0-100)"
-                          min="0"
-                          max="100"
-                          step="1"
-                          aria-describedby="discountPercent-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        {errors.discountPercent && (
-                          <p className="text-red-500 text-xs mt-1">{errors.discountPercent}</p>
-                        )}
-                        <p id="discountPercent-desc" className="text-xs text-gray-500 mt-1">
-                          Процент скидки (если применимо).
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </section>
-
-              {/* Описание */}
-              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('description')}
-                  className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-                >
-                  Описание
-                  {accordionOpen.description ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-                <AnimatePresence>
-                  {accordionOpen.description && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 space-y-4"
-                    >
-                      <div>
-                        <label htmlFor="shortDesc" className="block mb-1 text-sm font-medium text-gray-600">
-                          Краткое описание
-                        </label>
-                        <motion.textarea
-                          id="shortDesc"
-                          value={shortDesc}
-                          onChange={(e) => setShortDesc(e.target.value)}
-                          className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Введите краткое описание"
-                          rows={3}
-                          aria-describedby="shortDesc-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        <p id="shortDesc-desc" className="text-xs text-gray-500 mt-1">
-                          Краткое описание для карточки товара.
-                        </p>
-                      </div>
-                      <div>
-                        <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-600">
-                          Полное описание
-                        </label>
-                        <motion.textarea
-                          id="description"
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Введите полное описание"
-                          rows={5}
-                          aria-describedby="description-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        <p id="description-desc" className="text-xs text-gray-500 mt-1">
-                          Подробное описание товара.
-                        </p>
-                      </div>
-                      <div>
-                        <label htmlFor="composition" className="block mb-1 text-sm font-medium text-gray-600">
-                          Состав
-                        </label>
-                        <motion.textarea
-                          id="composition"
-                          value={composition}
-                          onChange={(e) => setComposition(e.target.value)}
-                          className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Введите состав"
-                          rows={3}
-                          aria-describedby="composition-desc"
-                          whileFocus={{ scale: 1.02 }}
-                        />
-                        <p id="composition-desc" className="text-xs text-gray-500 mt-1">
-                          Состав товара (например, ингредиенты).
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </section>
-
-              {/* Изображения и настройки */}
-              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('images')}
-                  className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-                >
-                  Изображения и настройки
-                  {accordionOpen.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-                <AnimatePresence>
-                  {accordionOpen.images && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="p-4 space-y-4"
-                    >
-                      <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-600">
-                          Существующие изображения
-                        </label>
-                        {existingImages.length > 0 ? (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                            {existingImages.map((url, index) => (
-                              <motion.div
-                                key={index}
-                                className="relative"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                <img
-                                  src={url}
-                                  alt={`Изображение ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded-md"
-                                  loading="lazy"
-                                />
-                                <motion.button
-                                  type="button"
-                                  onClick={() => handleRemoveImage(url)}
-                                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                  whileHover={{ scale: 1.1 }}
-                                  aria-label={`Удалить изображение ${index + 1}`}
-                                >
-                                  <X size={16} />
-                                </motion.button>
-                              </motion.div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">Изображения отсутствуют</p>
-                        )}
-                      </div>
-                      <div>
-                        <label htmlFor="images" className="block mb-1 text-sm font-medium text-gray-600">
-                          Добавить новые изображения
-                        </label>
-                        <div className="flex items-center justify-center w-full">
-                          <label
-                            htmlFor="images"
-                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50"
-                          >
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <ImageIcon size={24} className="text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-500">
-                                Перетащите изображения или кликните для выбора (макс. 5)
-                              </p>
-                            </div>
-                            <input
-                              id="images"
-                              type="file"
-                              multiple
-                              accept="image/*"
-                              onChange={handleImageChange}
-                              className="hidden"
-                              aria-describedby="images-desc"
-                            />
-                          </label>
-                        </div>
-                        <p id="images-desc" className="text-xs text-gray-500 mt-1">
-                          Поддерживаются JPEG, PNG, WebP. Максимум 5MB на файл.
-                        </p>
-                        {imagePreviews.length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
-                            {imagePreviews.map((url, index) => (
-                              <motion.div
-                                key={index}
-                                className="relative"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                <img
-                                  src={url}
-                                  alt={`Новое изображение ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded-md"
-                                  loading="lazy"
-                                />
-                                <motion.button
-                                  type="button"
-                                  onClick={() => {
-                                    setImages((prev) => prev.filter((_, i) => i !== index));
-                                    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-                                  }}
-                                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                  whileHover={{ scale: 1.1 }}
-                                  aria-label={`Удалить новое изображение ${index + 1}`}
-                                >
-                                  <X size={16} />
-                                </motion.button>
-                              </motion.div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <label htmlFor="inStock" className="flex items-center text-sm">
-                          <input
-                            id="inStock"
-                            type="checkbox"
-                            checked={inStock}
-                            onChange={(e) => setInStock(e.target.checked)}
-                            className="mr-2"
-                            aria-describedby="inStock-desc"
-                          />
-                          В наличии
-                        </label>
-                        <label htmlFor="isVisible" className="flex items-center text-sm">
-                          <input
-                            id="isVisible"
-                            type="checkbox"
-                            checked={isVisible}
-                            onChange={(e) => setIsVisible(e.target.checked)}
-                            className="mr-2"
-                            aria-describedby="isVisible-desc"
-                          />
-                          Показать товар
-                        </label>
-                        <label htmlFor="isPopular" className="flex items-center text-sm">
-                          <input
-                            id="isPopular"
-                            type="checkbox"
-                            checked={isPopular}
-                            onChange={(e) => setIsPopular(e.target.checked)}
-                            className="mr-2"
-                            aria-describedby="isPopular-desc"
-                          />
-                          Популярный товар
-                        </label>
-                      </div>
-                      <p id="inStock-desc" className="text-xs text-gray-500 mt-1">
-                        Настройки отображения и доступности товара.
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </section>
-
-              {/* Кнопки */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2 bg-black text-white rounded-md hover:opacity-90 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed text-sm"
-                  whileHover={{ scale: loading ? 1 : 1.05 }}
-                  whileTap={{ scale: loading ? 1 : 0.95 }}
-                  aria-label="Сохранить изменения"
-                >
-                  {loading ? 'Сохранение...' : 'Сохранить изменения'}
-                </motion.button>
-                <motion.button
-                  type="button"
-                  onClick={() => router.push('/admin/products')}
-                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  aria-label="Отмена"
-                >
-                  Отмена
-                </motion.button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </CSRFToken>
-    </AdminLayout>
+          </form>
+        </motion.div>
+      )}
+    </CSRFToken>
   );
 }
