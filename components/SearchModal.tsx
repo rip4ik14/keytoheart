@@ -51,6 +51,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         .eq('in_stock', true)
         .limit(10)
         .abortSignal(controller.signal);
+
       setResults(
         data
           ? data.map((item) => ({
@@ -81,35 +82,44 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
 
   return (
     <div
-      className="relative w-full max-w-2xl rounded-2xl bg-white shadow-lg"
+      className="relative w-full max-w-2xl bg-white rounded-2xl shadow-lg"
       role="dialog"
-      aria-label="Поиск по сайту"
       aria-modal="true"
+      aria-label="Поиск по сайту"
     >
-      {/* Кнопка закрытия вне input */}
-      <button
-        onClick={onClose}
-        className="absolute top-2 right-2 z-10 p-1 rounded-full hover:bg-gray-100 transition"
-        aria-label="Закрыть поиск"
-      >
-        <Image src="/icons/close.svg" alt="Закрыть" width={20} height={20} />
-      </button>
-
-      {/* Поле ввода */}
-      <div className="flex items-center gap-2 py-3 px-4">
-        <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} />
+      {/* Инпут поиска */}
+      <div className="relative flex items-center gap-2 py-3 px-4">
+        <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="text-black" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Поиск по сайту"
-          className="w-full bg-transparent focus:outline-none text-black placeholder-gray-400 text-sm"
+          className="w-full bg-transparent outline-none text-black placeholder-gray-400 text-sm"
+          aria-label="Введите запрос для поиска"
         />
+        {/* Кнопка закрытия */}
+        <button
+          onClick={onClose}
+          className="absolute -right-4 top-1/2 -translate-y-1/2 p-2 text-black hover:text-red-500 focus:outline-none"
+          aria-label="Закрыть поиск"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+            className="w-5 h-5"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      {/* Результаты поиска */}
-      <div className="max-h-80 overflow-y-auto">
+      {/* Результаты */}
+      <div className="max-h-80 overflow-y-auto" role="list" aria-label="Результаты поиска">
         <AnimatePresence>
           {loading && (
             <motion.p
@@ -117,6 +127,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               role="status"
             >
               <Image
@@ -136,6 +147,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               role="status"
             >
               Ничего не найдено
@@ -153,13 +165,24 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
             >
               <Link
                 href={`/product/${p.id}`}
-                onClick={onClose}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors"
+                onClick={() => {
+                  onClose();
+                  window.gtag?.('event', 'search_result_click', {
+                    event_category: 'search',
+                    product_id: p.id,
+                  });
+                  window.ym?.(12345678, 'reachGoal', 'search_result_click', {
+                    product_id: p.id,
+                  });
+                }}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                aria-label={`Перейти к товару ${p.title}`}
               >
                 <img
                   src={p.images?.[0] || '/no-image.png'}
                   alt={p.title}
                   className="w-10 h-10 object-cover rounded"
+                  loading="lazy"
                 />
                 <div className="flex-1">
                   <span className="text-sm text-black">{p.title}</span>
