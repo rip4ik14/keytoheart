@@ -21,7 +21,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Edit, Trash2 } from 'lucide-react';
+import { GripVertical, Edit, Trash2, CheckCircle, XCircle, Eye, EyeOff, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -36,6 +36,7 @@ interface Product {
   is_popular: boolean;
   order_index: number;
   category_ids: number[];
+  isSelected?: boolean;
 }
 
 interface Category {
@@ -51,6 +52,7 @@ interface ProductTableProps {
   deleteProduct: (id: number) => void;
   viewMode: ViewMode;
   onReorder: (newProducts: Product[]) => void;
+  onSelect: (id: number) => void;
 }
 
 interface SortableProductProps {
@@ -58,6 +60,7 @@ interface SortableProductProps {
   toggleInStock: (id: number, current: boolean | null) => void;
   deleteProduct: (id: number) => void;
   categoriesMap: Map<number, string>;
+  onSelect: (id: number) => void;
 }
 
 interface ProductActionsProps {
@@ -73,26 +76,27 @@ const ProductActions = ({
   onDelete,
   isTableView = false,
 }: ProductActionsProps) => (
-  <div className={`flex gap-2 ${isTableView ? 'justify-start' : 'flex-col sm:flex-row'}`}>
+  <div className={`flex gap-2 ${isTableView ? 'justify-start' : 'justify-center sm:justify-start'}`}>
     <Link
       href={`/admin/edit-product/${product.id}`}
       onClick={() => onEdit(product.id)}
-      className={`p-2 text-blue-500 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
         isTableView ? 'text-sm' : ''
       }`}
       aria-label={`Редактировать товар ${product.title}`}
     >
-      {isTableView ? <span>Редактировать</span> : <Edit size={16} />}
+      <Edit size={isTableView ? 14 : 18} />
     </Link>
     <motion.button
       onClick={() => onDelete(product.id)}
-      className={`p-2 text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+      className={`p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${
         isTableView ? 'text-sm' : ''
       }`}
-      whileHover={{ scale: 1.05 }}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
       aria-label={`Удалить товар ${product.title}`}
     >
-      {isTableView ? <span>Удалить</span> : <Trash2 size={16} />}
+      <Trash2 size={isTableView ? 14 : 18} />
     </motion.button>
   </div>
 );
@@ -102,14 +106,18 @@ const SortableProduct = ({
   toggleInStock,
   deleteProduct,
   categoriesMap,
+  onSelect,
 }: SortableProductProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: product.id,
+    disabled: !product.is_popular,
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : 0,
   };
 
   const categoryNames = product.category_ids
@@ -120,14 +128,22 @@ const SortableProduct = ({
     <motion.div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+      className="flex items-center gap-4 p-4 bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      role="listitem"
     >
+      <input
+        type="checkbox"
+        checked={product.isSelected || false}
+        onChange={() => onSelect(product.id)}
+        className="mr-2"
+        aria-label={`Выбрать товар ${product.title}`}
+      />
       {product.is_popular && (
-        <div {...attributes} {...listeners} className="cursor-grab">
-          <GripVertical size={20} className="text-gray-500" />
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+          <GripVertical size={20} className="text-gray-400 hover:text-gray-600" />
         </div>
       )}
       <div className="flex-shrink-0">
@@ -135,32 +151,34 @@ const SortableProduct = ({
           <Image
             src={product.images[0]}
             alt={product.title}
-            width={80}
-            height={80}
-            className="object-cover rounded"
+            width={120}
+            height={120}
+            className="object-cover rounded-md"
             loading="lazy"
           />
         ) : (
-          <div className="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
-            <span className="text-gray-500 text-sm">Нет фото</span>
+          <div className="w-[120px] h-[120px] bg-gray-100 rounded-md flex items-center justify-center">
+            <span className="text-gray-400 text-sm">Нет фото</span>
           </div>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="text-lg font-semibold text-gray-800 truncate">{product.title}</h3>
-        <p className="text-gray-600">
+      <div className="flex-1 min-w-0 space-y-1">
+        <h3 className="text-lg font-semibold text-gray-800 truncate" title={product.title}>
+          {product.title}
+        </h3>
+        <p className="text-gray-600 font-medium">
           {product.discount_percent != null && product.discount_percent > 0
-            ? `${(product.price * (1 - product.discount_percent / 100)).toFixed(0)} ₽`
+            ? `${Math.round(product.price * (1 - product.discount_percent / 100))} ₽`
             : `${product.price} ₽`}
         </p>
-        <div className="flex flex-wrap gap-2 mt-1">
+        <div className="flex flex-wrap gap-2">
           <motion.button
             onClick={() => toggleInStock(product.id, product.in_stock ?? false)}
-            className={`text-xs px-3 py-1 rounded-full transition-colors ${
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${
               product.in_stock
-                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-green-500`}
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-red-100 text-red-700 hover:bg-red-200'
+            } focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500`}
             whileHover={{ scale: 1.05 }}
             aria-label={
               product.in_stock
@@ -168,24 +186,29 @@ const SortableProduct = ({
                 : `Добавить товар ${product.title} в наличие`
             }
           >
+            {product.in_stock ? <CheckCircle size={12} /> : <XCircle size={12} />}
             {product.in_stock ? 'В наличии' : 'Нет в наличии'}
           </motion.button>
           <span
-            className={`text-xs px-3 py-1 rounded-full ${
-              product.is_visible ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+              product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
             }`}
           >
-            {product.is_visible ? 'Показан' : 'Скрыт'}
+            {product.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
+            {product.is_visible ? 'Видимый' : 'Скрыт'}
           </span>
           <span
-            className={`text-xs px-3 py-1 rounded-full ${
-              product.is_popular ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-500'
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+              product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
             }`}
           >
+            {product.is_popular ? <Star size={12} /> : <Star size={12} className="opacity-50" />}
             {product.is_popular ? 'Популярный' : 'Обычный'}
           </span>
         </div>
-        <p className="text-sm text-gray-500 mt-1 truncate">{categoryNames}</p>
+        <p className="text-sm text-gray-500 truncate" title={categoryNames}>
+          Категории: {categoryNames}
+        </p>
       </div>
       <ProductActions product={product} onEdit={() => {}} onDelete={deleteProduct} />
     </motion.div>
@@ -198,6 +221,7 @@ export default function ProductTable({
   deleteProduct,
   viewMode,
   onReorder,
+  onSelect,
 }: ProductTableProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -207,8 +231,8 @@ export default function ProductTable({
   );
 
   const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Product; direction: 'asc' | 'desc' } | null>(null);
 
-  // загрузка категорий
   useEffect(() => {
     const fetchCategories = async () => {
       const allCategoryIds = Array.from(
@@ -235,7 +259,6 @@ export default function ProductTable({
     fetchCategories();
   }, [products]);
 
-  // подписка на изменения в products
   useEffect(() => {
     const channel = supabase
       .channel('products-changes')
@@ -298,35 +321,187 @@ export default function ProductTable({
     }
   };
 
+  const handleSort = (key: keyof Product) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+
+    const sortedProducts = [...products].sort((a, b) => {
+      if (a[key] == null || b[key] == null) return 0;
+      if (typeof a[key] === 'string') {
+        return direction === 'asc'
+          ? (a[key] as string).localeCompare(b[key] as string)
+          : (b[key] as string).localeCompare(a[key] as string);
+      }
+      return direction === 'asc'
+        ? (a[key] as number) - (b[key] as number)
+        : (b[key] as number) - (a[key] as number);
+    });
+    onReorder(sortedProducts);
+  };
+
+  const sortedProducts = sortConfig
+    ? [...products].sort((a, b) => {
+        if (a[sortConfig.key] == null || b[sortConfig.key] == null) return 0;
+        if (typeof a[sortConfig.key] === 'string') {
+          return sortConfig.direction === 'asc'
+            ? (a[sortConfig.key] as string).localeCompare(b[sortConfig.key] as string)
+            : (b[sortConfig.key] as string).localeCompare(a[sortConfig.key] as string);
+        }
+        return sortConfig.direction === 'asc'
+          ? (a[sortConfig.key] as number) - (b[sortConfig.key] as number)
+          : (b[sortConfig.key] as number) - (a[sortConfig.key] as number);
+      })
+    : products;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {viewMode === 'table' && (
-        <div className="hidden md:block overflow-x-auto">
-          {/* ... таблица (оставляем без изменений) ... */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm text-gray-700">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="p-3 text-left font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={products.length > 0 && products.every((p) => p.isSelected)}
+                    onChange={() => {
+                      if (products.every((p) => p.isSelected)) {
+                        onSelect(0); // Деселект всех
+                      } else {
+                        products.forEach((p) => !p.isSelected && onSelect(p.id));
+                      }
+                    }}
+                    aria-label="Выделить все товары"
+                  />
+                </th>
+                <th className="p-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('id')}>
+                  ID {sortConfig?.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="p-3 text-left font-semibold">Фото</th>
+                <th className="p-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('title')}>
+                  Название {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="p-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('price')}>
+                  Цена {sortConfig?.key === 'price' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="p-3 text-left font-semibold">Статус</th>
+                <th className="p-3 text-left font-semibold">Категории</th>
+                <th className="p-3 text-left font-semibold">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedProducts.map((product) => (
+                <tr key={product.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={product.isSelected || false}
+                      onChange={() => onSelect(product.id)}
+                      aria-label={`Выбрать товар ${product.title}`}
+                    />
+                  </td>
+                  <td className="p-3">{product.id}</td>
+                  <td className="p-3">
+                    {product.images && product.images.length > 0 ? (
+                      <Image
+                        src={product.images[0]}
+                        alt={product.title}
+                        width={40}
+                        height={40}
+                        className="object-cover rounded"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                        <span className="text-xs text-gray-400">—</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3 truncate max-w-xs" title={product.title}>
+                    {product.title}
+                  </td>
+                  <td className="p-3">
+                    {product.discount_percent != null && product.discount_percent > 0
+                      ? `${Math.round(product.price * (1 - product.discount_percent / 100))} ₽`
+                      : `${product.price} ₽`}
+                  </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <motion.button
+                        onClick={() => toggleInStock(product.id, product.in_stock ?? false)}
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                          product.in_stock
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                        whileHover={{ scale: 1.05 }}
+                        aria-label={
+                          product.in_stock
+                            ? `Убрать товар ${product.title} из наличия`
+                            : `Добавить товар ${product.title} в наличие`
+                        }
+                      >
+                        {product.in_stock ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                      </motion.button>
+                      <span
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                          product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {product.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                      </span>
+                      <span
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                          product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {product.is_popular ? <Star size={12} /> : <Star size={12} className="opacity-50" />}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-3 truncate max-w-xs" title={product.category_ids
+                    .map((id) => categoriesMap.get(id) || '—')
+                    .join(', ')}>
+                    {product.category_ids
+                      .map((id) => categoriesMap.get(id) || '—')
+                      .join(', ')}
+                  </td>
+                  <td className="p-3">
+                    <ProductActions
+                      product={product}
+                      onEdit={() => {}}
+                      onDelete={deleteProduct}
+                      isTableView
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={products.map((p) => p.id)}>
-          <div
-            className={
-              viewMode === 'cards'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
-                : 'md:hidden space-y-4'
-            }
-          >
-            {products.map((product) => (
-              <SortableProduct
-                key={product.id}
-                product={product}
-                toggleInStock={toggleInStock}
-                deleteProduct={deleteProduct}
-                categoriesMap={categoriesMap}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {viewMode === 'cards' && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={products.map((p) => p.id)}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sortedProducts.map((product) => (
+                <SortableProduct
+                  key={product.id}
+                  product={product}
+                  toggleInStock={toggleInStock}
+                  deleteProduct={deleteProduct}
+                  categoriesMap={categoriesMap}
+                  onSelect={onSelect}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 }
