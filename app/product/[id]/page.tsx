@@ -1,19 +1,26 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { JsonLd } from 'react-schemaorg';
 import type { Product as SchemaProduct } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
-import { Product } from '@/types/product';
 
-const supabaseAnon = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Обновлённый тип Product
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  original_price?: number | null;
+  discount_percent: number | null;
+  images: string[];
+  description: string;
+  composition: string;
+  production_time: number | null;
+  category_ids: number[];
+}
 
 type ComboItem = {
   id: number;
@@ -21,6 +28,11 @@ type ComboItem = {
   price: number;
   image: string;
 };
+
+const supabaseAnon = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export const revalidate = 3600;
 
@@ -76,7 +88,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const startProduct = Date.now();
   const { data: productData, error: productError } = await supabaseAnon
     .from('products')
-    .select('id, title, price, original_price, discount_percent, images, description, composition, category, production_time')
+    .select(`
+      id,
+      title,
+      price,
+      original_price,
+      discount_percent,
+      images,
+      description,
+      composition,
+      production_time
+    `)
     .eq('id', numericId)
     .single();
   console.log('Supabase query duration for product in ProductPage:', Date.now() - startProduct, 'ms');
@@ -92,6 +114,18 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     notFound();
   }
 
+  // Получаем category_ids через product_categories
+  const { data: productCategoryData, error: productCategoryError } = await supabaseAnon
+    .from('product_categories')
+    .select('category_id')
+    .eq('product_id', numericId);
+
+  if (productCategoryError) {
+    console.error('Error fetching category_ids:', productCategoryError);
+  }
+
+  const categoryIds = productCategoryData?.map(item => item.category_id) || [];
+
   const validatedProduct: Product = {
     id: productData.id,
     title: productData.title || 'Без названия',
@@ -101,31 +135,29 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     images: productData.images ?? [],
     description: productData.description ?? '',
     composition: productData.composition ?? '',
-    category: productData.category,
     production_time: productData.production_time ?? null,
+    category_ids: categoryIds,
   };
 
   let combos: ComboItem[] = [];
-  if (validatedProduct.category) {
-    const startUpsells = Date.now();
-    const { data: upsellItems, error: upsellsError } = await supabaseAnon
-      .from('upsell_items')
-      .select('id, title, price, image_url')
-      .eq('category', validatedProduct.category);
-    console.log('Supabase query duration for upsells in ProductPage:', Date.now() - startUpsells, 'ms');
+  const startUpsells = Date.now();
+  const { data: upsellItems, error: upsellsError } = await supabaseAnon
+    .from('upsell_items')
+    .select('id, title, price, image_url');
 
-    console.log('Upsells fetch result:', {
-      upsellsData: upsellItems,
-      upsellsError,
-    });
+  console.log('Supabase query duration for upsells in ProductPage:', Date.now() - startUpsells, 'ms');
 
-    if (upsellsError) {
-      console.error('Upsells fetch error:', upsellsError);
-    }
+  console.log('Upsells fetch result:', {
+    upsellsData: upsellItems,
+    upsellsError,
+  });
 
+  if (upsellsError) {
+    console.error('Upsells fetch error:', upsellsError);
+  } else {
     combos = upsellItems
       ? upsellItems.map((u) => ({
-          id: parseInt(u.id, 10),
+          id: parseInt(String(u.id), 10),
           title: u.title,
           price: u.price,
           image: u.image_url || '',

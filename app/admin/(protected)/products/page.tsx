@@ -10,25 +10,28 @@ import SitePagesDropdown from '../components/SitePagesDropdown';
 import ProductTable from './ProductTable';
 import type { Database } from '@/lib/supabase/types_new';
 
-interface FetchedProduct {
+// Обновлённый интерфейс Product, соответствующий ProductTable
+interface Product {
   id: number;
   title: string;
   price: number;
+  original_price?: number | null;
   discount_percent: number | null;
-  category: string;
-  images: string[] | null;
-  in_stock: boolean | null;
-  is_visible: boolean | null;
-  is_popular: boolean | null;
-  category_id: number | null;
-  category_slug: string | null;
+  images: string[];
+  in_stock: boolean;
+  is_visible: boolean;
+  is_popular: boolean;
   order_index: number;
-  original_price: number | null; // Добавляем поле
+  category_ids: number[];
+  bonus?: number | null;
+  composition?: string | null;
+  created_at?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  short_desc?: string | null;
+  slug?: string | null;
+  production_time?: number | null;
 }
-
-export type Product = Database['public']['Tables']['products']['Row'] & {
-  category_slug?: string | null;
-};
 
 export type ViewMode = 'table' | 'cards';
 
@@ -90,19 +93,76 @@ function ProductsContent() {
     checkAuth();
   }, [router]);
 
-  const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<FetchedProduct[], Error>({
+  const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<Product[], Error>({
     queryKey: ['products', selectedPage],
     queryFn: async () => {
+      // Сначала получаем все связи из product_categories
+      const { data: productCategoryData, error: productCategoryError } = await supabase
+        .from('product_categories')
+        .select('product_id, category_id');
+
+      if (productCategoryError) {
+        throw new Error(productCategoryError.message || 'Ошибка загрузки связей категорий');
+      }
+
+      // Группируем category_ids по product_id
+      const productCategoriesMap = new Map<number, number[]>();
+      productCategoryData.forEach(item => {
+        const existing = productCategoriesMap.get(item.product_id) || [];
+        productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+      });
+
+      const productIds = Array.from(productCategoriesMap.keys());
+
+      // Загружаем товары
       let query = supabase
         .from('products')
-        .select('id, title, price, original_price, discount_percent, category, images, in_stock, is_visible, is_popular, category_id, order_index')
+        .select(`
+          id,
+          title,
+          price,
+          original_price,
+          discount_percent,
+          images,
+          in_stock,
+          is_visible,
+          is_popular,
+          order_index,
+          bonus,
+          composition,
+          created_at,
+          description,
+          image_url,
+          short_desc,
+          slug,
+          production_time
+        `)
+        .in('id', productIds.length > 0 ? productIds : [0]) // Если нет товаров, передаём [0], чтобы избежать ошибки
         .order('order_index', { ascending: true })
         .order('id', { ascending: false });
 
       if (selectedPage) {
         const parts = selectedPage.split('/').filter(Boolean);
         if (parts[0] === 'category' && parts.length === 2) {
-          query = query.eq('category', parts[1]);
+          const categoryName = parts[1];
+          const { data: categoryData, error: categoryError } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('slug', categoryName)
+            .single();
+
+          if (categoryError || !categoryData) {
+            throw new Error(categoryError?.message || 'Категория не найдена');
+          }
+
+          const categoryId = categoryData.id;
+          const filteredProductIds = productCategoryData
+            .filter(item => item.category_id === categoryId)
+            .map(item => item.product_id);
+
+          if (filteredProductIds.length === 0) return []; // Если нет товаров в категории, возвращаем пустой массив
+
+          query = query.in('id', filteredProductIds);
         }
       }
 
@@ -118,43 +178,40 @@ function ProductsContent() {
       if (categoriesError) throw new Error(categoriesError.message);
       setCategories(categoriesData || []);
 
+      // Приводим данные к типу Product
       return data.map((product) => ({
         ...product,
-        category: product.category || 'Без категории',
-        category_slug: product.category || null,
+        category_ids: productCategoriesMap.get(product.id) || [],
+        in_stock: product.in_stock ?? false,
+        is_visible: product.is_visible ?? false,
         is_popular: product.is_popular ?? false,
         order_index: product.order_index ?? 0,
+        images: product.images || [],
+        bonus: product.bonus ?? null,
+        composition: product.composition ?? null,
+        created_at: product.created_at ?? null,
+        description: product.description ?? null,
+        image_url: product.image_url ?? null,
         original_price: product.original_price ?? null,
+        short_desc: product.short_desc ?? null,
+        slug: product.slug ?? null,
+        production_time: product.production_time ?? null,
       }));
     },
     enabled: isAuthenticated === true,
     initialData: [],
   });
 
-  const productsData: Product[] = fetchedProducts.map((product) => ({
-    ...product,
-    bonus: null,
-    subcategory_id: null,
-    composition: null,
-    created_at: null,
-    description: null,
-    image_url: null,
-    original_price: product.original_price ?? null,
-    short_desc: null,
-    slug: null,
-    production_time: null,
-  }));
-
   useEffect(() => {
-    setProducts(productsData);
+    setProducts(fetchedProducts);
   }, [fetchedProducts]);
 
   useEffect(() => {
-    let filtered = productsData;
+    let filtered = fetchedProducts;
 
-    // Фильтр по категории
+    // Фильтр по категории (по category_ids)
     if (categoryFilter) {
-      filtered = filtered.filter(product => product.category_id === Number(categoryFilter));
+      filtered = filtered.filter(product => product.category_ids.includes(Number(categoryFilter)));
     }
 
     // Фильтр по наличию
@@ -180,7 +237,7 @@ function ProductsContent() {
     }
 
     setProducts(filtered);
-  }, [categoryFilter, stockFilter, visibilityFilter, popularityFilter, searchQuery, productsData]);
+  }, [categoryFilter, stockFilter, visibilityFilter, popularityFilter, searchQuery, fetchedProducts]);
 
   useEffect(() => {
     if (isError && error) {

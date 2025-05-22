@@ -41,7 +41,7 @@ export default function CategoryPageClient({
       const subcategoryId = subcategories.find((sub) => sub.slug === subcategory)?.id;
       if (subcategoryId) {
         sortedProducts = sortedProducts.filter(
-          (p) => p.subcategory_id === subcategoryId
+          (p) => p.subcategory_ids.includes(subcategoryId)
         );
       } else {
         sortedProducts = [];
@@ -90,7 +90,7 @@ export default function CategoryPageClient({
           {subcategories.map((sub) => (
             <Link
               key={sub.id}
-              href={`/category/${slug}/${sub.slug}?sort=${sort}`}
+              href={`/category/${slug}?sort=${sort}&subcategory=${sub.slug}`}
               className={`px-3 py-1 rounded-full text-sm font-medium transition ${
                 subcategory === sub.slug
                   ? 'bg-black text-white'
