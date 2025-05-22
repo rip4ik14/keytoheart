@@ -519,3 +519,129 @@ export async function DELETE(req: NextRequest) {
     }, { status: 500 });
   }
 }
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const category = searchParams.get('category');
+    const visible = searchParams.get('visible');
+    const popular = searchParams.get('popular');
+    const inStock = searchParams.get('in_stock');
+    const limit = searchParams.get('limit');
+
+    // Получаем связи товаров с категориями
+    const { data: productCategoryData, error: productCategoryError } = await supabaseAdmin
+      .from('product_categories')
+      .select('product_id, category_id');
+
+    if (productCategoryError) {
+      console.error('Error fetching product categories:', productCategoryError);
+      return NextResponse.json({ error: 'Ошибка загрузки связей категорий' }, { status: 500 });
+    }
+
+    // Группируем category_ids по product_id
+    const productCategoriesMap = new Map<number, number[]>();
+    productCategoryData.forEach(item => {
+      const existing = productCategoriesMap.get(item.product_id) || [];
+      productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+    });
+
+    const productIds = Array.from(productCategoriesMap.keys());
+
+    // Строим запрос товаров
+    let query = supabaseAdmin
+      .from('products')
+      .select(`
+        id,
+        title,
+        price,
+        original_price,
+        discount_percent,
+        images,
+        image_url,
+        created_at,
+        slug,
+        bonus,
+        short_desc,
+        description,
+        composition,
+        is_popular,
+        is_visible,
+        in_stock,
+        production_time,
+        order_index
+      `)
+      .in('id', productIds.length > 0 ? productIds : [0]) // Показываем только товары с категориями
+      .order('order_index', { ascending: true })
+      .order('id', { ascending: false });
+
+    // Применяем фильтры
+    if (visible === 'true') {
+      query = query.eq('is_visible', true);
+    } else if (visible === 'false') {
+      query = query.eq('is_visible', false);
+    }
+
+    if (popular === 'true') {
+      query = query.eq('is_popular', true);
+    } else if (popular === 'false') {
+      query = query.eq('is_popular', false);
+    }
+
+    if (inStock === 'true') {
+      query = query.eq('in_stock', true);
+    } else if (inStock === 'false') {
+      query = query.eq('in_stock', false);
+    }
+
+    if (limit) {
+      const limitNum = parseInt(limit);
+      if (!isNaN(limitNum) && limitNum > 0) {
+        query = query.limit(limitNum);
+      }
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching products:', error);
+      return NextResponse.json({ error: 'Ошибка загрузки товаров: ' + error.message }, { status: 500 });
+    }
+
+    // Фильтруем по категории, если указана
+    let filteredProducts = data || [];
+    if (category) {
+      // Находим ID категории по slug или названию
+      const { data: categoryData, error: categoryError } = await supabaseAdmin
+        .from('categories')
+        .select('id')
+        .or(`slug.eq.${category},name.ilike.%${category}%`)
+        .single();
+
+      if (!categoryError && categoryData) {
+        filteredProducts = filteredProducts.filter(product =>
+          productCategoriesMap.get(product.id)?.includes(categoryData.id)
+        );
+      }
+    }
+
+    // Добавляем category_ids к каждому товару
+    const productsWithCategories = filteredProducts.map(product => ({
+      ...product,
+      category_ids: productCategoriesMap.get(product.id) || [],
+      images: Array.isArray(product.images) ? product.images : [], // Нормализуем images
+    }));
+
+    console.log(`GET /api/products: возвращено ${productsWithCategories.length} товаров`);
+
+    return NextResponse.json({
+      products: productsWithCategories,
+      total: productsWithCategories.length
+    });
+
+  } catch (error: any) {
+    console.error('Unexpected error in GET /api/products:', error);
+    return NextResponse.json({ 
+      error: 'Внутренняя ошибка сервера: ' + error.message 
+    }, { status: 500 });
+  }
+}

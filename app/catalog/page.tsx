@@ -135,7 +135,7 @@ export default async function CatalogPage() {
       const subcategoryNamesMap = new Map<number, string>();
       subcategoryNamesData.forEach(sub => subcategoryNamesMap.set(sub.id, sub.name));
 
-      // Получаем все товары
+      // Получаем все товары - УБИРАЕМ ОГРАНИЧЕНИЯ И ДОБАВЛЯЕМ ЛОГИ
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -156,6 +156,7 @@ export default async function CatalogPage() {
           is_visible,
           in_stock
         `)
+        .eq('is_visible', true) // Показываем только видимые товары
         .order('id', { ascending: true });
 
       console.log('Supabase query duration for products:', Date.now() - start, 'ms');
@@ -170,7 +171,14 @@ export default async function CatalogPage() {
         return [];
       }
 
-      return data.map(product => {
+      // Фильтруем товары, у которых есть связи с категориями
+      const productsWithCategories = data.filter(product => 
+        productCategoriesMap.has(product.id)
+      );
+
+      console.log(`Всего товаров в БД: ${data.length}, с категориями: ${productsWithCategories.length}`);
+
+      return productsWithCategories.map(product => {
         const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
         const subcategoryNames = subcategoryIds.map(id => subcategoryNamesMap.get(id) || '').filter(name => name);
 
@@ -180,7 +188,7 @@ export default async function CatalogPage() {
           price: product.price || 0,
           original_price: product.original_price ?? product.price,
           discount_percent: product.discount_percent ?? 0,
-          images: Array.isArray(product.images) ? product.images : [],
+          images: Array.isArray(product.images) ? product.images : [], // Правильная обработка images
           image_url: product.image_url ?? null,
           created_at: product.created_at ?? null,
           slug: product.slug ?? null,
@@ -214,6 +222,8 @@ export default async function CatalogPage() {
     fetchSubcategories(),
     fetchCategories(),
   ]);
+
+  console.log(`Итого товаров передано в CatalogClient: ${products.length}`);
 
   return (
     <CatalogClient
