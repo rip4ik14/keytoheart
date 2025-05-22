@@ -22,11 +22,6 @@ interface Subcategory {
   category_id: number | null;
 }
 
-export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const { data } = await supabasePublic.from('products').select('id');
-  return data?.map((p) => ({ id: String(p.id) })) ?? [];
-}
-
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
