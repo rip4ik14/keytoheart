@@ -3,8 +3,6 @@
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale/ru';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface BonusHistoryEntry {
@@ -89,7 +87,7 @@ export default function LoyaltyPageClient() {
   return (
     <section className="max-w-6xl mx-auto px-4 py-16 bg-gray-50" aria-label="Программа лояльности">
       <Toaster position="top-right" />
-      
+
       {/* Баланс */}
       {bonusBalance != null && (
         <motion.div
@@ -102,64 +100,6 @@ export default function LoyaltyPageClient() {
           Ваш бонусный баланс:{' '}
           <span className="font-semibold">{bonusBalance} ₽</span>
         </motion.div>
-      )}
-
-      {/* История бонусов */}
-      {bonusHistory.length > 0 && (
-        <motion.section
-          className="mb-12 bg-white rounded-2xl shadow-lg p-6"
-          variants={sectionVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">
-            История начислений
-          </h2>
-          <div className="overflow-x-auto rounded-xl">
-            <table
-              className="w-full text-sm text-gray-700"
-              role="grid"
-              aria-label="История бонусных начислений"
-            >
-              <thead className="bg-gray-100 text-left">
-                <tr>
-                  <th className="p-3 font-semibold" scope="col">Дата</th>
-                  <th className="p-3 font-semibold" scope="col">Причина</th>
-                  <th className="p-3 font-semibold" scope="col">Сумма</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bonusHistory.map((entry, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-t hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="p-3">
-                      {entry.created_at ? (
-                        format(new Date(entry.created_at), 'dd.MM.yyyy', {
-                          locale: ru,
-                        })
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="p-3">{entry.reason ?? '—'}</td>
-                    <td
-                      className={`p-3 font-medium ${
-                        entry.amount && entry.amount > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
-                      {entry.amount != null
-                        ? (entry.amount > 0 ? `+${entry.amount}` : entry.amount) + ' ₽'
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.section>
       )}
 
       {/* Баннер */}

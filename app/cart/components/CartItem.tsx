@@ -36,15 +36,15 @@ export default function CartItem({
       <motion.div
         key={item.id}
         role="listitem"
-        className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow overflow-hidden max-w-full"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: 50 }}
         transition={{ duration: 0.3 }}
       >
         {/* Изображение и название */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="relative w-24 h-24 sm:w-32 sm:h-32">
+        <div className="flex items-start gap-4 flex-shrink-0 w-full sm:w-auto">
+          <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
             <Image
               src={imageSrc}
               alt={item.title}
@@ -52,13 +52,13 @@ export default function CartItem({
               className="object-cover rounded-2xl"
             />
           </div>
-          <span className="text-base sm:text-lg font-medium text-gray-900">
+          <span className="text-base sm:text-lg font-medium text-gray-900 max-w-xs sm:max-w-md break-words">
             {item.title}
           </span>
         </div>
 
         {/* Контролы, цена и корзина */}
-        <div className="flex items-center gap-4 flex-wrap sm:flex-no-wrap">
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto justify-between sm:justify-end">
           {updateQuantity && (
             <div className="flex items-center border rounded-lg bg-gray-50 flex-shrink-0">
               <motion.button
