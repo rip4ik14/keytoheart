@@ -1,15 +1,14 @@
-// ✅ Путь: lib/auth.ts
+// lib/auth.ts
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; // Убедитесь, что это значение задано в .env
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Функция для генерации JWT-токена
 export async function signAdminJwt(): Promise<string> {
   try {
     const payload = {
       role: 'admin',
-      iat: Math.floor(Date.now() / 1000), // Время выпуска
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 8, // Срок действия: 8 часов
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24 hours
     };
 
     return new Promise((resolve, reject) => {
@@ -26,7 +25,6 @@ export async function signAdminJwt(): Promise<string> {
   }
 }
 
-// Функция для верификации JWT-токена
 export function verifyAdminJwt(token: string): boolean {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });

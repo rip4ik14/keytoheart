@@ -325,10 +325,11 @@ export default function EditProductPage() {
         }),
       });
 
-      console.log('[EditProductPage] PATCH /api/products response:', res.status, await res.text());
+      console.log('[EditProductPage] PATCH /api/products status:', res.status);
 
       const data = await res.json();
       if (!res.ok) {
+        console.error('[EditProductPage] PATCH /api/products error response:', data);
         throw new Error(data.error || 'Ошибка обновления товара');
       }
 
