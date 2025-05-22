@@ -72,7 +72,6 @@ const SortableImage = ({ image, onRemove }: { image: ImageFile; onRemove: (id: s
 
 export default function NewProductPage() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
@@ -135,27 +134,6 @@ export default function NewProductPage() {
 
     fetchCategoriesAndSubcategories();
   }, []);
-
-  // Проверка авторизации
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/admin-session', { credentials: 'include' });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'Доступ запрещён');
-        }
-        setIsAuthenticated(true);
-      } catch (err: any) {
-        toast.error('Доступ запрещён', { duration: 3000 });
-        // Задержка для отображения сообщения перед перенаправлением
-        setTimeout(() => {
-          router.push(`/admin/login?from=${encodeURIComponent('/admin/new')}`);
-        }, 3000);
-      }
-    };
-    checkAuth();
-  }, [router]);
 
   // Фильтрация подкатегорий при выборе категорий
   useEffect(() => {
@@ -281,8 +259,11 @@ export default function NewProductPage() {
       if (title.trim().length < 3) throw new Error('Название должно быть ≥ 3 символов');
       const priceNum = parseFloat(price);
       if (isNaN(priceNum) || priceNum <= 0) throw new Error('Цена должна быть > 0');
-      const originalPriceNum = parseFloat(originalPrice);
-      if (isNaN(originalPriceNum) || originalPriceNum <= 0) throw new Error('Старая цена должна быть > 0');
+      // Старая цена теперь необязательна, используем priceNum, если не заполнена
+      const originalPriceNum = originalPrice ? parseFloat(originalPrice) : priceNum;
+      if (originalPrice && (isNaN(originalPriceNum) || originalPriceNum <= 0)) {
+        throw new Error('Старая цена должна быть > 0, если указана');
+      }
       if (categoryIds.length === 0) throw new Error('Необходимо выбрать хотя бы одну категорию');
       const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
       if (discountNum < 0 || discountNum > 100) throw new Error('Скидка должна быть от 0 до 100%');
@@ -401,12 +382,6 @@ export default function NewProductPage() {
       setLoading(false);
     }
   };
-
-  if (isAuthenticated === null) {
-    return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
-  }
-
-  if (!isAuthenticated) return null;
 
   return (
     <CSRFToken>
@@ -540,15 +515,14 @@ export default function NewProductPage() {
                   value={originalPrice}
                   onChange={(e) => setOriginalPrice(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  placeholder="Введите старую цену"
-                  required
+                  placeholder="Введите старую цену (необязательно)"
                   min="0.01"
                   step="0.01"
                   aria-describedby="originalPrice-desc"
                   whileFocus={{ scale: 1.01 }}
                 />
                 <p id="originalPrice-desc" className="text-sm text-gray-500 mt-1">
-                  Цена до скидки (для отображения скидки).
+                  Цена до скидки (для отображения скидки, необязательно).
                 </p>
               </div>
               <div>
