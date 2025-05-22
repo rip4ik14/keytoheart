@@ -35,31 +35,24 @@ export default function CartItem({
       <motion.div
         key={item.id}
         role="listitem"
-        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow overflow-hidden w-full"
+        className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow overflow-hidden w-full"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: 50 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Изображение + текст */}
-        <div className="flex items-start gap-4 w-full sm:w-auto">
-          <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
-            <Image
-              src={imageSrc}
-              alt={item.title}
-              fill
-              className="object-cover rounded-2xl"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-base sm:text-lg font-medium text-gray-900 break-words whitespace-pre-wrap">
-              {item.title}
-            </p>
-          </div>
+        {/* Картинка */}
+        <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
+          <Image
+            src={imageSrc}
+            alt="Фото товара"
+            fill
+            className="object-cover rounded-2xl"
+          />
         </div>
 
-        {/* Кол-во, цена, удалить */}
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap sm:flex-nowrap">
+        {/* Кол-во + Цена + Удалить */}
+        <div className="flex items-center gap-3 w-full justify-between sm:justify-end flex-wrap sm:flex-nowrap">
           {updateQuantity && (
             <div className="flex items-center border rounded-lg bg-gray-50 flex-shrink-0">
               <motion.button

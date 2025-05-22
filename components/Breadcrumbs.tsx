@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -57,7 +56,6 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
   const searchParams = useSearchParams();
   const subcategorySlug = searchParams.get('subcategory') || 'all';
   const [categories, setCategories] = useState<Category[]>([]);
-  const [hasRendered, setHasRendered] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const fetchCategories = async () => {
@@ -148,10 +146,8 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
   let currentPath = '';
   const segments = pathname.split('/').filter(Boolean);
 
-  const shouldRender = !(
-    pathname === '/' ||
-    (hasRendered && productTitle)
-  );
+  // Хлебные крошки отображаются всегда, кроме главной страницы
+  const shouldRender = pathname !== '/';
 
   if (shouldRender) {
     segments.forEach((seg, idx) => {
@@ -224,16 +220,6 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
       }
     });
   }
-
-  useEffect(() => {
-    if (!hasRendered && crumbs.length > 0) {
-      setHasRendered(true);
-    }
-  }, [crumbs]);
-
-  useEffect(() => {
-    setHasRendered(false);
-  }, [pathname]);
 
   if (!shouldRender) {
     return null;
