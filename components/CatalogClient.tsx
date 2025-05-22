@@ -7,7 +7,7 @@ import FilterSection from '@components/FilterSection';
 import SortDropdown from '@components/SortDropdown';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Определяем интерфейс Product на основе типа products из Supabase
+// Обновлённый интерфейс Product
 export interface Product {
   id: number;
   title: string;
@@ -16,9 +16,6 @@ export interface Product {
   original_price?: number | null | undefined;
   in_stock?: boolean | null;
   images: string[];
-  category?: string | null;
-  subcategory_id?: number | null;
-  // Дополнительные поля, если нужны
   image_url?: string | null;
   created_at?: string | null;
   slug?: string | null;
@@ -28,8 +25,9 @@ export interface Product {
   composition?: string | null;
   is_popular?: boolean | null;
   is_visible?: boolean | null;
-  category_id?: number | null;
-  subcategory_name?: string; // Добавляем поле subcategory_name
+  category_ids: number[]; // Массив ID категорий
+  subcategory_ids: number[]; // Массив ID подкатегорий
+  subcategory_names: string[]; // Массив названий подкатегорий
 }
 
 // Тип ProductRow для использования при запросах к Supabase
@@ -44,12 +42,14 @@ export type SubcategoryFromDB = {
   id: number;
   name: string;
   slug: string;
+  is_visible: boolean;
 };
 
 export type CategoryFromDB = {
   id: number;
   name: string;
   slug: string;
+  is_visible: boolean;
 };
 
 type Category = {
@@ -141,19 +141,19 @@ export default function CatalogClient({
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // Фильтр по категории (по category_id)
+    // Фильтр по категории (по category_ids)
     if (selectedCategory) {
       const selectedCategoryId = categorySlugToIdMap.get(selectedCategory);
       if (selectedCategoryId) {
-        filtered = filtered.filter(product => product.category_id === selectedCategoryId);
+        filtered = filtered.filter(product => product.category_ids.includes(selectedCategoryId));
       } else {
         filtered = []; // Если category_id не найден, показываем пустой список
       }
     }
 
-    // Фильтр по подкатегории (по id)
+    // Фильтр по подкатегории (по subcategory_ids)
     if (selectedSubcategory) {
-      filtered = filtered.filter(product => product.subcategory_id === Number(selectedSubcategory));
+      filtered = filtered.filter(product => product.subcategory_ids.includes(Number(selectedSubcategory)));
     }
 
     // Сортировка по цене

@@ -3,9 +3,36 @@ import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import CategoryPageClient from './CategoryPageClient';
-import type { Product } from '@components/CatalogClient';
-import type { Subcategory } from './CategoryPageClient';
 import { redirect } from 'next/navigation';
+
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  discount_percent: number | null;
+  original_price?: number | null;
+  in_stock: boolean;
+  images: string[];
+  image_url: string | null;
+  created_at: string | null;
+  slug: string | null;
+  bonus: number | null;
+  short_desc: string | null;
+  description: string | null;
+  composition: string | null;
+  is_popular: boolean;
+  is_visible: boolean;
+  category_ids: number[];
+  subcategory_ids: number[];
+  subcategory_names: string[];
+}
+
+interface Subcategory {
+  id: number;
+  name: string;
+  slug: string;
+  is_visible: boolean;
+}
 
 const nameMap: Record<string, string> = {
   'klubnichnye-bukety': 'Клубничные букеты',
@@ -130,6 +157,40 @@ export default async function CategoryPage({
     }
   }
 
+  // Получаем ID товаров, связанных с категорией через product_categories
+  const { data: productCategoryData, error: productCategoryError } = await supabaseAdmin
+    .from('product_categories')
+    .select('product_id')
+    .eq('category_id', categoryId);
+
+  if (productCategoryError || !productCategoryData) {
+    console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
+    redirect('/404');
+  }
+
+  const productIds = productCategoryData.map(item => item.product_id);
+
+  if (productIds.length === 0) {
+    // Если нет товаров в категории, можно вернуть пустой список
+    return (
+      <main aria-label={`Категория ${apiName}`}>
+        <JsonLd<ItemList>
+          item={{
+            '@type': 'ItemList',
+            itemListElement: [],
+          }}
+        />
+        <CategoryPageClient
+          products={[]}
+          apiName={apiName}
+          slug={category}
+          subcategories={subcategories}
+        />
+      </main>
+    );
+  }
+
+  // Получаем товары по найденным ID
   const { data: productsData, error: productsError } = await supabaseAdmin
     .from('products')
     .select(`
@@ -139,8 +200,6 @@ export default async function CategoryPage({
       discount_percent,
       in_stock,
       images,
-      category,
-      subcategory_id,
       image_url,
       created_at,
       slug,
@@ -149,11 +208,9 @@ export default async function CategoryPage({
       description,
       composition,
       is_popular,
-      is_visible,
-      category_id,
-      subcategories!products_subcategory_id_fkey(id, name)
+      is_visible
     `)
-    .eq('category_id', categoryId)
+    .in('id', productIds)
     .eq('in_stock', true)
     .eq('is_visible', true)
     .order('id', { ascending: false });
@@ -163,28 +220,63 @@ export default async function CategoryPage({
     redirect('/404');
   }
 
-  const products: Product[] = productsData?.map((product) => ({
-    id: product.id,
-    title: product.title,
-    price: product.price,
-    discount_percent: product.discount_percent ?? null,
-    original_price: undefined,
-    in_stock: product.in_stock ?? null,
-    images: product.images ?? [],
-    category: product.category ?? null,
-    subcategory_id: product.subcategory_id ?? null,
-    image_url: product.image_url ?? null,
-    created_at: product.created_at ?? null,
-    slug: product.slug ?? null,
-    bonus: product.bonus ?? null,
-    short_desc: product.short_desc ?? null,
-    description: product.description ?? null,
-    composition: product.composition ?? null,
-    is_popular: product.is_popular ?? null,
-    is_visible: product.is_visible ?? null,
-    category_id: product.category_id ?? null,
-    subcategory_name: product.subcategories?.name ?? undefined,
-  })) ?? [];
+  // Получаем связи с подкатегориями через product_subcategories
+  const { data: productSubcategoryData, error: productSubcategoryError } = await supabaseAdmin
+    .from('product_subcategories')
+    .select('product_id, subcategory_id')
+    .in('product_id', productIds);
+
+  if (productSubcategoryError) {
+    console.error('Error fetching product subcategories:', productSubcategoryError.message);
+  }
+
+  // Группируем подкатегории по товару
+  const productSubcategoriesMap = new Map<number, number[]>();
+  productSubcategoryData?.forEach(item => {
+    const existing = productSubcategoriesMap.get(item.product_id) || [];
+    productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
+  });
+
+  // Получаем названия подкатегорий
+  const allSubcategoryIds = Array.from(new Set(productSubcategoryData?.map(item => item.subcategory_id) || []));
+  const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabaseAdmin
+    .from('subcategories')
+    .select('id, name')
+    .in('id', allSubcategoryIds);
+
+  if (subcategoryNamesError) {
+    console.error('Error fetching subcategory names:', subcategoryNamesError.message);
+  }
+
+  const subcategoryNamesMap = new Map<number, string>();
+  subcategoryNamesData?.forEach(sub => subcategoryNamesMap.set(sub.id, sub.name));
+
+  const products: Product[] = productsData?.map((product) => {
+    const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
+    const subcategoryNames = subcategoryIds.map(id => subcategoryNamesMap.get(id) || '').filter(name => name);
+
+    return {
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      discount_percent: product.discount_percent ?? null,
+      original_price: undefined,
+      in_stock: product.in_stock ?? true,
+      images: product.images ?? [],
+      image_url: product.image_url ?? null,
+      created_at: product.created_at ?? null,
+      slug: product.slug ?? null,
+      bonus: product.bonus ?? null,
+      short_desc: product.short_desc ?? null,
+      description: product.description ?? null,
+      composition: product.composition ?? null,
+      is_popular: product.is_popular ?? false,
+      is_visible: product.is_visible ?? true,
+      category_ids: [categoryId], // Мы уже знаем, что товар принадлежит этой категории
+      subcategory_ids: subcategoryIds,
+      subcategory_names: subcategoryNames,
+    };
+  }) ?? [];
 
   return (
     <main aria-label={`Категория ${apiName}`}>

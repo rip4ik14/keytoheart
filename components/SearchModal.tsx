@@ -12,12 +12,18 @@ interface Product {
   title: string;
   price: number;
   images: string[];
-  category: string;
+  category_ids: number[];
+}
+
+interface Category {
+  id: number;
+  name: string;
 }
 
 export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
+  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,24 +51,78 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         return;
       }
       setLoading(true);
-      const { data } = await supabasePublic
+
+      const { data: productsData, error: productsError } = await supabasePublic
         .from('products')
-        .select('id, title, price, images, category')
+        .select('id, title, price, images')
         .or(`title.ilike.%${query}%,short_desc.ilike.%${query}%`)
         .eq('in_stock', true)
         .limit(10)
         .abortSignal(controller.signal);
 
-      setResults(
-        data
-          ? data.map((item) => ({
-              ...item,
-              images: item.images || [],
-              category: item.category || '',
-            }))
-          : []
-      );
+      if (productsError) {
+        console.error('Error fetching products:', productsError);
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!productsData || productsData.length === 0) {
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch category IDs for all products
+      const productIds = productsData.map(p => p.id);
+      const { data: categoryData, error: categoryError } = await supabasePublic
+        .from('product_categories')
+        .select('product_id, category_id')
+        .in('product_id', productIds);
+
+      if (categoryError) {
+        console.error('Error fetching product categories:', categoryError);
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      // Group category IDs by product ID
+      const productCategoriesMap = new Map<number, number[]>();
+      categoryData.forEach(item => {
+        const existing = productCategoriesMap.get(item.product_id) || [];
+        productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+      });
+
+      // Fetch category names
+      const allCategoryIds = Array.from(new Set(categoryData.map(item => item.category_id)));
+      const { data: categoriesData, error: categoriesError } = await supabasePublic
+        .from('categories')
+        .select('id, name')
+        .in('id', allCategoryIds);
+
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError);
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      const map = new Map<number, string>();
+      categoriesData.forEach(cat => map.set(cat.id, cat.name));
+      setCategoriesMap(map);
+
+      const productsWithCategories = productsData.map(item => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        images: item.images || [],
+        category_ids: productCategoriesMap.get(item.id) || [],
+      }));
+
+      setResults(productsWithCategories);
       setLoading(false);
+
       window.gtag?.('event', 'search_query', { event_category: 'search', query });
       window.ym?.(12345678, 'reachGoal', 'search_query', { query });
     };
@@ -88,7 +148,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       aria-modal="true"
       aria-label="Поиск по сайту"
     >
-      {/* Кнопка закрытия (перемещена в верхний правый угол модального окна) */}
+      {/* Кнопка закрытия */}
       <button
         onClick={onClose}
         className="absolute top-2 right-2 p-2 text-black hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-black"
@@ -147,43 +207,50 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
             </motion.p>
           )}
 
-          {results.map((p) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
-              transition={{ duration: 0.2 }}
-              role="listitem"
-            >
-              <Link
-                href={`/product/${p.id}`}
-                onClick={() => {
-                  onClose();
-                  window.gtag?.('event', 'search_result_click', {
-                    event_category: 'search',
-                    product_id: p.id,
-                  });
-                  window.ym?.(12345678, 'reachGoal', 'search_result_click', {
-                    product_id: p.id,
-                  });
-                }}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
-                aria-label={`Перейти к товару ${p.title}`}
+          {results.map((p) => {
+            const categoryNames = p.category_ids
+              .map(id => categoriesMap.get(id) || '—')
+              .join(', ');
+
+            return (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                transition={{ duration: 0.2 }}
+                role="listitem"
               >
-                <img
-                  src={p.images?.[0] || '/no-image.png'}
-                  alt={p.title}
-                  className="w-10 h-10 object-cover rounded"
-                  loading="lazy"
-                />
-                <div className="flex-1">
-                  <span className="text-sm text-black">{p.title}</span>
-                  <span className="block text-xs text-gray-600">{p.price} ₽</span>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
+                <Link
+                  href={`/product/${p.id}`}
+                  onClick={() => {
+                    onClose();
+                    window.gtag?.('event', 'search_result_click', {
+                      event_category: 'search',
+                      product_id: p.id,
+                    });
+                    window.ym?.(12345678, 'reachGoal', 'search_result_click', {
+                      product_id: p.id,
+                    });
+                  }}
+                  className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  aria-label={`Перейти к товару ${p.title}`}
+                >
+                  <img
+                    src={p.images?.[0] || '/no-image.png'}
+                    alt={p.title}
+                    className="w-10 h-10 object-cover rounded"
+                    loading="lazy"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm text-black">{p.title}</span>
+                    <span className="block text-xs text-gray-600">{p.price} ₽</span>
+                    <span className="block text-xs text-gray-500">{categoryNames}</span>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
     </div>

@@ -15,7 +15,28 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import type { Database } from '@/lib/supabase/types_new';
 
-type Product = Database['public']['Tables']['products']['Row'];
+type Product = {
+  id: number;
+  title: string;
+  price: number;
+  original_price?: number | null;
+  discount_percent: number | null;
+  production_time: number | null;
+  short_desc: string;
+  description: string;
+  composition: string;
+  bonus: number;
+  images: string[];
+  in_stock: boolean;
+  is_visible: boolean;
+  is_popular: boolean;
+  order_index: number;
+  created_at: string | null;
+  image_url: string | null;
+  slug: string | null;
+  category_ids: number[];
+  subcategory_ids: number[];
+};
 
 interface Category {
   id: number;
@@ -102,8 +123,8 @@ export default function EditProductPage() {
   const [price, setPrice] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
   const [discountPercent, setDiscountPercent] = useState('');
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [subcategoryId, setSubcategoryId] = useState<number | null>(null);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
+  const [subcategoryIds, setSubcategoryIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [filteredSubcategories, setFilteredSubcategories] = useState<Subcategory[]>([]);
@@ -193,100 +214,111 @@ export default function EditProductPage() {
         return;
       }
 
-      const { data, error } = await supabase
+      // Загружаем данные товара
+      const { data: productData, error: productError } = await supabase
         .from('products')
-        .select('id, title, price, original_price, discount_percent, category, category_id, subcategory_id, production_time, short_desc, description, composition, bonus, images, in_stock, is_visible, is_popular, order_index, created_at, image_url, slug')
+        .select('id, title, price, original_price, discount_percent, production_time, short_desc, description, composition, bonus, images, in_stock, is_visible, is_popular, order_index, created_at, image_url, slug')
         .eq('id', productId)
         .single();
 
-      if (error) {
-        console.error('Ошибка загрузки товара:', error);
-        toast.error('Ошибка загрузки товара: ' + error.message);
+      if (productError) {
+        console.error('Ошибка загрузки товара:', productError);
+        toast.error('Ошибка загрузки товара: ' + productError.message);
         router.push('/admin/products');
         return;
       }
 
-      if (!data) {
+      if (!productData) {
         toast.error('Товар не найден');
         router.push('/admin/products');
         return;
       }
 
-      const normalizedData: Product = {
-        bonus: data.bonus ?? 0,
-        category: data.category ?? '',
-        category_id: data.category_id ?? null,
-        composition: data.composition ?? '',
-        created_at: data.created_at ?? null,
-        description: data.description ?? '',
-        discount_percent: data.discount_percent ?? null,
-        id: data.id,
-        image_url: data.image_url ?? null,
-        images: data.images ?? [],
-        in_stock: data.in_stock ?? true,
-        is_popular: data.is_popular ?? false,
-        is_visible: data.is_visible ?? true,
-        original_price: data.original_price ?? null,
-        price: data.price,
-        production_time: data.production_time ?? null,
-        short_desc: data.short_desc ?? '',
-        slug: data.slug ?? null,
-        subcategory_id: data.subcategory_id ?? null,
-        title: data.title,
-        order_index: data.order_index ?? 0,
-      };
+      // Загружаем категории товара
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('product_categories')
+        .select('category_id')
+        .eq('product_id', productId);
 
-      if (normalizedData.category_id === null) {
-        toast.error('Категория товара не указана');
+      if (categoryError) {
+        console.error('Ошибка загрузки категорий:', categoryError);
+        toast.error('Ошибка загрузки категорий: ' + categoryError.message);
         router.push('/admin/products');
         return;
       }
 
-      // Явное преобразование значений для устранения ошибок TypeScript
-      const shortDescValue: string = normalizedData.short_desc ?? '';
-      const descriptionValue: string = normalizedData.description ?? '';
-      const compositionValue: string = normalizedData.composition ?? '';
-      const imagesValue: string[] = normalizedData.images ?? [];
-      const inStockValue: boolean = normalizedData.in_stock ?? true;
-      const isVisibleValue: boolean = normalizedData.is_visible ?? true;
-      const isPopularValue: boolean = normalizedData.is_popular ?? false;
+      const categoryIds = categoryData.map(item => item.category_id);
+
+      // Загружаем подкатегории товара
+      const { data: subcategoryData, error: subcategoryError } = await supabase
+        .from('product_subcategories')
+        .select('subcategory_id')
+        .eq('product_id', productId);
+
+      if (subcategoryError) {
+        console.error('Ошибка загрузки подкатегорий:', subcategoryError);
+        toast.error('Ошибка загрузки подкатегорий: ' + subcategoryError.message);
+        router.push('/admin/products');
+        return;
+      }
+
+      const subcategoryIds = subcategoryData.map(item => item.subcategory_id);
+
+      const normalizedData: Product = {
+        id: productData.id,
+        title: productData.title,
+        price: productData.price,
+        original_price: productData.original_price ?? null,
+        discount_percent: productData.discount_percent ?? null,
+        production_time: productData.production_time ?? null,
+        short_desc: productData.short_desc ?? '',
+        description: productData.description ?? '',
+        composition: productData.composition ?? '',
+        bonus: productData.bonus ?? 0,
+        images: productData.images ?? [],
+        in_stock: productData.in_stock ?? true,
+        is_popular: productData.is_popular ?? false,
+        is_visible: productData.is_visible ?? true,
+        order_index: productData.order_index ?? 0,
+        created_at: productData.created_at ?? null,
+        image_url: productData.image_url ?? null,
+        slug: productData.slug ?? null,
+        category_ids: categoryIds,
+        subcategory_ids: subcategoryIds,
+      };
 
       setProduct(normalizedData);
       setTitle(normalizedData.title);
       setPrice(normalizedData.price.toString());
       setOriginalPrice(normalizedData.original_price?.toString() ?? normalizedData.price.toString());
       setDiscountPercent(normalizedData.discount_percent?.toString() ?? '0');
-      setCategoryId(normalizedData.category_id);
-      setSubcategoryId(normalizedData.subcategory_id);
+      setCategoryIds(normalizedData.category_ids);
+      setSubcategoryIds(normalizedData.subcategory_ids);
       setProductionTime(normalizedData.production_time?.toString() ?? '');
-      setShortDesc(shortDescValue);
-      setDescription(descriptionValue);
-      setComposition(compositionValue);
-      setBonus(normalizedData.bonus?.toString() ?? '0');
-      setExistingImages(imagesValue);
-      setInStock(inStockValue);
-      setIsVisible(isVisibleValue);
-      setIsPopular(isPopularValue);
+      setShortDesc(normalizedData.short_desc);
+      setDescription(normalizedData.description);
+      setComposition(normalizedData.composition);
+      setBonus(normalizedData.bonus.toString());
+      setExistingImages(normalizedData.images);
+      setInStock(normalizedData.in_stock);
+      setIsVisible(normalizedData.is_visible);
+      setIsPopular(normalizedData.is_popular);
     };
 
     loadProduct();
   }, [isAuthenticated, id, router]);
 
-  // Фильтрация подкатегорий при выборе категории
+  // Фильтрация подкатегорий при выборе категорий
   useEffect(() => {
-    if (categoryId) {
-      const filtered = subcategories.filter((sub) => sub.category_id === categoryId);
+    if (categoryIds.length > 0) {
+      const filtered = subcategories.filter((sub) => sub.category_id && categoryIds.includes(sub.category_id));
       setFilteredSubcategories(filtered);
-      if (product) {
-        setSubcategoryId(product.subcategory_id);
-      } else {
-        setSubcategoryId(null);
-      }
+      setSubcategoryIds(prev => prev.filter(id => filtered.some(sub => sub.id === id)));
     } else {
       setFilteredSubcategories([]);
-      setSubcategoryId(null);
+      setSubcategoryIds([]);
     }
-  }, [categoryId, subcategories, product]);
+  }, [categoryIds, subcategories]);
 
   // Обработка изменения списка изображений
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -360,7 +392,6 @@ export default function EditProductPage() {
         } else {
           const img = images.find((img: ImageFile) => img.id === item.id);
           if (img) newImages.push(img);
-          else return; // Пропускаем, если img не найден
         }
       });
 
@@ -415,8 +446,8 @@ export default function EditProductPage() {
       if (isNaN(originalPriceNum) || originalPriceNum <= 0) {
         throw new Error('Старая цена должна быть > 0');
       }
-      if (!categoryId) {
-        throw new Error('Категория обязательна');
+      if (categoryIds.length === 0) {
+        throw new Error('Необходимо выбрать хотя бы одну категорию');
       }
       const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
       if (discountNum < 0 || discountNum > 100) {
@@ -431,10 +462,22 @@ export default function EditProductPage() {
         throw new Error('Бонус должен быть ≥ 0');
       }
 
-      const sanitizedTitle = title.trim();
-      const sanitizedShortDesc = shortDesc.trim();
-      const sanitizedDescription = description.trim();
-      const sanitizedComposition = composition.trim();
+      // Получаем названия категорий
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('name, slug')
+        .in('id', categoryIds);
+
+      if (categoriesError || !categoriesData) {
+        throw new Error('Ошибка получения категорий: ' + categoriesError.message);
+      }
+
+      const categoryNames = categoriesData.map(cat => cat.name).join(', ');
+      const categorySlugs = categoriesData.map(cat => cat.slug);
+
+      if (isPopular && categorySlugs.some(slug => ['balloon', 'postcard'].includes(slug))) {
+        throw new Error('Шарики и открытки нельзя сделать популярными товарами');
+      }
 
       let imageUrls = [...existingImages];
       if (images.length > 0) {
@@ -464,35 +507,15 @@ export default function EditProductPage() {
         }
       }
 
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('categories')
-        .select('name, slug')
-        .eq('id', categoryId)
-        .single();
-
-      if (categoryError || !categoryData) {
-        throw new Error('Категория не найдена');
-      }
-
-      const categoryName = categoryData.name;
-      const categorySlug = categoryData.slug;
-
-      if (isPopular && ['balloon', 'postcard'].includes(categorySlug)) {
-        throw new Error('Шарики и открытки нельзя сделать популярными товарами');
-      }
-
       const updatedProduct: Partial<Product> = {
-        title: sanitizedTitle,
+        title: title.trim(),
         price: priceNum,
         original_price: originalPriceNum,
         discount_percent: discountNum,
-        category: categoryName,
-        category_id: categoryId,
-        subcategory_id: subcategoryId,
         production_time: productionTimeNum,
-        short_desc: sanitizedShortDesc,
-        description: sanitizedDescription,
-        composition: sanitizedComposition,
+        short_desc: shortDesc.trim(),
+        description: description.trim(),
+        composition: composition.trim(),
         bonus: bonusNum,
         images: imageUrls,
         in_stock: inStock,
@@ -512,6 +535,9 @@ export default function EditProductPage() {
         body: JSON.stringify({
           id: productId,
           ...updatedProduct,
+          category: categoryNames,
+          category_ids: categoryIds,
+          subcategory_ids: subcategoryIds,
         }),
       });
 
@@ -573,55 +599,65 @@ export default function EditProductPage() {
                 </p>
               </div>
               <div>
-                <label htmlFor="category" className="block mb-1 font-medium text-gray-600">
-                  Категория:
+                <label className="block mb-1 font-medium text-gray-600">
+                  Категории:
                 </label>
                 {isCategoriesLoading ? (
                   <p className="text-gray-500">Загрузка категорий...</p>
                 ) : (
-                  <motion.select
-                    id="category"
-                    value={categoryId || ''}
-                    onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    required
-                    aria-describedby="category-desc"
-                    whileFocus={{ scale: 1.01 }}
-                  >
-                    <option value="">Выберите категорию</option>
+                  <div className="space-y-2">
                     {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
+                      <label key={cat.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={categoryIds.includes(cat.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCategoryIds(prev => [...prev, cat.id]);
+                            } else {
+                              setCategoryIds(prev => prev.filter(id => id !== cat.id));
+                            }
+                          }}
+                          className="mr-2"
+                        />
                         {cat.name}
-                      </option>
+                      </label>
                     ))}
-                  </motion.select>
+                  </div>
                 )}
-                <p id="category-desc" className="text-sm text-gray-500 mt-1">
-                  Категория товара.
+                <p className="text-sm text-gray-500 mt-1">
+                  Выберите категории для товара.
                 </p>
               </div>
               <div>
-                <label htmlFor="subcategory" className="block mb-1 font-medium text-gray-600">
-                  Подкатегория:
+                <label className="block mb-1 font-medium text-gray-600">
+                  Подкатегории:
                 </label>
-                <motion.select
-                  id="subcategory"
-                  value={subcategoryId ?? ''}
-                  onChange={(e) => setSubcategoryId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  disabled={!categoryId || filteredSubcategories.length === 0}
-                  aria-describedby="subcategory-desc"
-                  whileFocus={{ scale: 1.01 }}
-                >
-                  <option value="">Выберите подкатегорию</option>
-                  {filteredSubcategories.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </option>
-                  ))}
-                </motion.select>
-                <p id="subcategory-desc" className="text-sm text-gray-500 mt-1">
-                  Подкатегория товара (опционально).
+                {filteredSubcategories.length === 0 ? (
+                  <p className="text-gray-500">Выберите категории, чтобы увидеть доступные подкатегории.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredSubcategories.map((sub) => (
+                      <label key={sub.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={subcategoryIds.includes(sub.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSubcategoryIds(prev => [...prev, sub.id]);
+                            } else {
+                              setSubcategoryIds(prev => prev.filter(id => id !== sub.id));
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        {sub.name} (Категория: {categories.find(cat => cat.id === sub.category_id)?.name})
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="text-sm text-gray-500 mt-1">
+                  Выберите подкатегории для товара (опционально).
                 </p>
               </div>
             </section>
