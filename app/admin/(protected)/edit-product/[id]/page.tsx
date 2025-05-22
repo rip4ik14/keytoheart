@@ -62,12 +62,14 @@ export default function EditProductPage() {
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/admin-session', { credentials: 'include' });
+        console.log('[EditProductPage] Admin session response:', res.status, await res.text());
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Доступ запрещён');
         }
         setIsAuthenticated(true);
       } catch (err: any) {
+        console.error('[EditProductPage] Auth error:', err.message);
         toast.error('Войдите как администратор');
         router.push(`/admin/login?from=${encodeURIComponent(`/admin/edit-product/${id}`)}`);
       }
@@ -84,7 +86,7 @@ export default function EditProductPage() {
           .from('categories')
           .select('id, name')
           .order('name', { ascending: true })
-          .neq('id', 38); // Исключаем "Без категории"
+          .neq('id', 38);
 
         if (categoriesError) throw new Error(categoriesError.message);
         setCategories(categoriesData || []);
@@ -97,6 +99,7 @@ export default function EditProductPage() {
         if (subcategoriesError) throw new Error(subcategoriesError.message);
         setSubcategories(subcategoriesData || []);
       } catch (err: any) {
+        console.error('[EditProductPage] Categories error:', err.message);
         toast.error('Ошибка загрузки категорий: ' + err.message);
       } finally {
         setIsCategoriesLoading(false);
@@ -175,7 +178,7 @@ export default function EditProductPage() {
           original_price: data.original_price ?? null,
           category_ids: productCategoryIds,
           subcategory_ids: productSubcategoryIds,
-          subcategory_names: [], // Заполняется в ProductsPage
+          subcategory_names: [],
           short_desc: data.short_desc || '',
           description: data.description || '',
           composition: data.composition || '',
@@ -207,6 +210,7 @@ export default function EditProductPage() {
         setIsVisible(normalizedData.is_visible ?? false);
         setIsPopular(normalizedData.is_popular ?? false);
       } catch (err: any) {
+        console.error('[EditProductPage] Product fetch error:', err.message);
         toast.error(err.message);
         router.push('/admin/products');
       }
@@ -300,7 +304,11 @@ export default function EditProductPage() {
 
       const res = await fetch('/api/products', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include', // Обеспечиваем отправку cookies
         body: JSON.stringify({
           id: parseInt(id),
           title: title.trim(),
@@ -319,14 +327,24 @@ export default function EditProductPage() {
         }),
       });
 
-      const json = await res.json();
+      console.log('[EditProductPage] PATCH /api/products response:', res.status, await res.text());
+
       if (!res.ok) {
-        throw new Error(json.error || 'Ошибка обновления товара');
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.error || 'Ошибка обновления товара');
+        } catch (parseError) {
+          console.error('[EditProductPage] JSON parse error:', parseError, 'Response text:', text);
+          throw new Error('Сервер вернул некорректный ответ');
+        }
       }
 
+      const json = await res.json();
       toast.success('Товар успешно обновлён');
       router.push('/admin/products');
     } catch (err: any) {
+      console.error('[EditProductPage] Submit error:', err.message);
       toast.error('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
@@ -348,6 +366,7 @@ export default function EditProductPage() {
       setExistingImages((prev) => prev.filter((url) => url !== imageUrl));
       toast.success('Изображение удалено');
     } catch (err: any) {
+      console.error('[EditProductPage] Image remove error:', err.message);
       toast.error('Ошибка: ' + err.message);
     }
   };

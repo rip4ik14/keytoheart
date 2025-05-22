@@ -1,5 +1,3 @@
-// ✅ Путь: app/api/products/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 
@@ -8,9 +6,9 @@ interface ProductData {
   title: string;
   price: number;
   original_price?: number;
-  category_names?: string; // Название категории (для отображения)
-  category_ids: number[]; // Список ID категорий
-  subcategory_ids: number[]; // Список ID подкатегорий
+  category_names?: string;
+  category_ids: number[];
+  subcategory_ids: number[];
   short_desc?: string;
   description?: string;
   composition?: string;
@@ -35,16 +33,16 @@ interface ProductResponse {
   is_visible?: boolean;
 }
 
-// Серверная санитизация (замена DOMPurify)
+// Серверная санитизация
 const sanitize = (input: string | undefined): string => {
   if (!input) return '';
   return input
     .trim()
-    .replace(/<script[^>]*>.*?<\/script>/gi, '') // Удаляем script теги
-    .replace(/<[^>]*>/g, '') // Удаляем HTML теги
-    .replace(/javascript:/gi, '') // Удаляем javascript: протокол
-    .replace(/on\w+\s*=/gi, '') // Удаляем event handlers
-    .substring(0, 5000); // Ограничиваем длину
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .substring(0, 5000);
 };
 
 // Генерация уникального slug
@@ -73,18 +71,17 @@ const generateUniqueSlug = async (title: string, excludeId?: number): Promise<st
       .select('id')
       .eq('slug', uniqueSlug);
     
-    // Исключаем текущий товар при обновлении
     if (excludeId) {
       query = query.neq('id', excludeId);
     }
 
     const { data, error } = await query.single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 — "запись не найдена"
+    if (error && error.code !== 'PGRST116') {
       throw new Error('Ошибка проверки уникальности slug: ' + error.message);
     }
 
-    if (!data) break; // slug уникален
+    if (!data) break;
     uniqueSlug = `${slug}-${counter++}`;
   }
 
@@ -94,29 +91,32 @@ const generateUniqueSlug = async (title: string, excludeId?: number): Promise<st
 // Проверка admin сессии
 async function checkAdminSession(req: NextRequest) {
   try {
+    console.log('[checkAdminSession] Cookies:', req.cookies.getAll());
     const sessionRes = await fetch(new URL('/api/admin-session', req.url), {
-      headers: { cookie: req.headers.get('cookie') || '' },
+      headers: { 
+        cookie: req.headers.get('cookie') || '',
+      },
+      credentials: 'include',
     });
+    console.log('[checkAdminSession] Admin session response:', sessionRes.status, await sessionRes.text());
     const sessionData = await sessionRes.json();
     return sessionRes.ok && sessionData.success;
   } catch (error) {
-    console.error('Admin session check failed:', error);
+    console.error('[checkAdminSession] Error:', error);
     return false;
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Проверка админ сессии
     const isAdmin = await checkAdminSession(req);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Доступ запрещён: требуется роль администратора' }, { status: 403 });
     }
 
     const body: ProductData = await req.json();
-    console.log('Received payload for POST:', body);
+    console.log('[POST /api/products] Received payload:', body);
 
-    // Валидация входных данных
     if (!body.title || body.title.trim().length < 3) {
       return NextResponse.json({ error: 'Название должно быть ≥ 3 символов' }, { status: 400 });
     }
@@ -133,18 +133,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Скидка должна быть от 0 до 100%' }, { status: 400 });
     }
 
-    // Проверяем, что все category_ids существуют
     const { data: categoriesData, error: categoriesError } = await supabaseAdmin
       .from('categories')
       .select('id, name')
       .in('id', body.category_ids);
 
     if (categoriesError || !categoriesData || categoriesData.length !== body.category_ids.length) {
-      console.error('Categories validation failed:', categoriesError);
+      console.error('[POST /api/products] Categories validation failed:', categoriesError);
       return NextResponse.json({ error: 'Одна или несколько категорий не найдены' }, { status: 400 });
     }
 
-    // Проверяем, что все subcategory_ids существуют и соответствуют выбранным категориям
     let finalSubcategoryIds: number[] = [];
     if (body.subcategory_ids && body.subcategory_ids.length > 0) {
       const { data: subcategoriesData, error: subcategoriesError } = await supabaseAdmin
@@ -153,11 +151,10 @@ export async function POST(req: NextRequest) {
         .in('id', body.subcategory_ids);
 
       if (subcategoriesError || !subcategoriesData) {
-        console.error('Subcategories validation failed:', subcategoriesError);
+        console.error('[POST /api/products] Subcategories validation failed:', subcategoriesError);
         return NextResponse.json({ error: 'Ошибка проверки подкатегорий' }, { status: 400 });
       }
 
-      // Проверяем, что каждая подкатегория принадлежит одной из выбранных категорий
       for (const subcategory of subcategoriesData) {
         if (!subcategory.category_id || !body.category_ids.includes(subcategory.category_id)) {
           return NextResponse.json(
@@ -170,16 +167,13 @@ export async function POST(req: NextRequest) {
       finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
     }
 
-    // Санитизация текстовых полей
     const sanitizedTitle = sanitize(body.title);
     const sanitizedShortDesc = sanitize(body.short_desc);
     const sanitizedDescription = sanitize(body.description);
     const sanitizedComposition = sanitize(body.composition);
 
-    // Генерация уникального slug
     const uniqueSlug = await generateUniqueSlug(sanitizedTitle);
 
-    // Создание товара
     const { data: productData, error: productError } = await supabaseAdmin
       .from('products')
       .insert({
@@ -203,13 +197,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (productError) {
-      console.error('Product creation error:', productError);
+      console.error('[POST /api/products] Product creation error:', productError);
       return NextResponse.json({ error: 'Ошибка создания товара: ' + productError.message }, { status: 500 });
     }
 
     const productId = productData.id;
 
-    // Связываем товар с категориями
     const categoryEntries = body.category_ids.map(categoryId => ({
       product_id: productId,
       category_id: categoryId,
@@ -220,11 +213,10 @@ export async function POST(req: NextRequest) {
       .insert(categoryEntries);
 
     if (categoryLinkError) {
-      console.error('Error linking categories:', categoryLinkError);
+      console.error('[POST /api/products] Error linking categories:', categoryLinkError);
       return NextResponse.json({ error: 'Ошибка привязки категорий: ' + categoryLinkError.message }, { status: 500 });
     }
 
-    // Связываем товар с подкатегориями
     if (finalSubcategoryIds.length > 0) {
       const subcategoryEntries = finalSubcategoryIds.map(subcategoryId => ({
         product_id: productId,
@@ -236,7 +228,7 @@ export async function POST(req: NextRequest) {
         .insert(subcategoryEntries);
 
       if (subcategoryLinkError) {
-        console.error('Error linking subcategories:', subcategoryLinkError);
+        console.error('[POST /api/products] Error linking subcategories:', subcategoryLinkError);
         return NextResponse.json({ error: 'Ошибка привязки подкатегорий: ' + subcategoryLinkError.message }, { status: 500 });
       }
     }
@@ -252,16 +244,15 @@ export async function POST(req: NextRequest) {
       is_visible: body.is_visible,
     };
 
-    console.log('Product created successfully:', response);
+    console.log('[POST /api/products] Product created successfully:', response);
     
-    // Инвалидируем кеш
     await invalidate('products');
     await invalidate('/api/popular');
     
     return NextResponse.json(response, { status: 201 });
 
   } catch (error: any) {
-    console.error('Unexpected error in POST /api/products:', error);
+    console.error('[POST /api/products] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Внутренняя ошибка сервера: ' + error.message 
     }, { status: 500 });
@@ -270,16 +261,15 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    // Проверка админ сессии
     const isAdmin = await checkAdminSession(req);
     if (!isAdmin) {
+      console.warn('[PATCH /api/products] Admin session check failed');
       return NextResponse.json({ error: 'Доступ запрещён: требуется роль администратора' }, { status: 403 });
     }
 
     const body: ProductData = await req.json();
-    console.log('Received payload for PATCH:', body);
+    console.log('[PATCH /api/products] Received payload:', body);
 
-    // Валидация входных данных
     if (!body.id) {
       return NextResponse.json({ error: 'ID обязателен' }, { status: 400 });
     }
@@ -296,7 +286,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Необходимо указать хотя бы одну категорию' }, { status: 400 });
     }
 
-    // Проверяем существование товара
     const { data: existingProduct, error: checkError } = await supabaseAdmin
       .from('products')
       .select('id')
@@ -304,21 +293,20 @@ export async function PATCH(req: NextRequest) {
       .single();
 
     if (checkError || !existingProduct) {
+      console.error('[PATCH /api/products] Product not found:', checkError);
       return NextResponse.json({ error: 'Товар не найден' }, { status: 404 });
     }
 
-    // Проверяем категории
     const { data: categoriesData, error: categoriesError } = await supabaseAdmin
       .from('categories')
       .select('id, name')
       .in('id', body.category_ids);
 
     if (categoriesError || !categoriesData || categoriesData.length !== body.category_ids.length) {
-      console.error('Categories validation failed:', categoriesError);
+      console.error('[PATCH /api/products] Categories validation failed:', categoriesError);
       return NextResponse.json({ error: 'Одна или несколько категорий не найдены' }, { status: 400 });
     }
 
-    // Проверяем подкатегории
     let finalSubcategoryIds: number[] = [];
     if (body.subcategory_ids && body.subcategory_ids.length > 0) {
       const { data: subcategoriesData, error: subcategoriesError } = await supabaseAdmin
@@ -327,7 +315,7 @@ export async function PATCH(req: NextRequest) {
         .in('id', body.subcategory_ids);
 
       if (subcategoriesError || !subcategoriesData) {
-        console.error('Subcategories validation failed:', subcategoriesError);
+        console.error('[PATCH /api/products] Subcategories validation failed:', subcategoriesError);
         return NextResponse.json({ error: 'Ошибка проверки подкатегорий' }, { status: 400 });
       }
 
@@ -343,16 +331,13 @@ export async function PATCH(req: NextRequest) {
       finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
     }
 
-    // Санитизация текстовых полей
     const sanitizedTitle = sanitize(body.title);
     const sanitizedShortDesc = sanitize(body.short_desc);
     const sanitizedDescription = sanitize(body.description);
     const sanitizedComposition = sanitize(body.composition);
 
-    // Генерация уникального slug (исключая текущий товар)
     const uniqueSlug = await generateUniqueSlug(sanitizedTitle, body.id);
 
-    // Обновление товара
     const { data: productData, error: productError } = await supabaseAdmin
       .from('products')
       .update({
@@ -376,17 +361,15 @@ export async function PATCH(req: NextRequest) {
       .single();
 
     if (productError) {
-      console.error('Product update error:', productError);
+      console.error('[PATCH /api/products] Product update error:', productError);
       return NextResponse.json({ error: 'Ошибка обновления товара: ' + productError.message }, { status: 500 });
     }
 
     const productId = productData.id;
 
-    // Удаляем старые связи
     await supabaseAdmin.from('product_categories').delete().eq('product_id', productId);
     await supabaseAdmin.from('product_subcategories').delete().eq('product_id', productId);
 
-    // Создаём новые связи с категориями
     const categoryEntries = body.category_ids.map(categoryId => ({
       product_id: productId,
       category_id: categoryId,
@@ -397,11 +380,10 @@ export async function PATCH(req: NextRequest) {
       .insert(categoryEntries);
 
     if (categoryLinkError) {
-      console.error('Error linking categories:', categoryLinkError);
+      console.error('[PATCH /api/products] Error linking categories:', categoryLinkError);
       return NextResponse.json({ error: 'Ошибка привязки категорий: ' + categoryLinkError.message }, { status: 500 });
     }
 
-    // Создаём новые связи с подкатегориями
     if (finalSubcategoryIds.length > 0) {
       const subcategoryEntries = finalSubcategoryIds.map(subcategoryId => ({
         product_id: productId,
@@ -413,7 +395,7 @@ export async function PATCH(req: NextRequest) {
         .insert(subcategoryEntries);
 
       if (subcategoryLinkError) {
-        console.error('Error linking subcategories:', subcategoryLinkError);
+        console.error('[PATCH /api/products] Error linking subcategories:', subcategoryLinkError);
         return NextResponse.json({ error: 'Ошибка привязки подкатегорий: ' + subcategoryLinkError.message }, { status: 500 });
       }
     }
@@ -429,16 +411,15 @@ export async function PATCH(req: NextRequest) {
       is_visible: body.is_visible,
     };
 
-    console.log('Product updated successfully:', response);
+    console.log('[PATCH /api/products] Product updated successfully:', response);
     
-    // Инвалидируем кеш
     await invalidate('products');
     await invalidate('/api/popular');
     
     return NextResponse.json(response, { status: 200 });
 
   } catch (error: any) {
-    console.error('Unexpected error in PATCH /api/products:', error);
+    console.error('[PATCH /api/products] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Внутренняя ошибка сервера: ' + error.message 
     }, { status: 500 });
@@ -447,9 +428,9 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    // Проверка админ сессии
     const isAdmin = await checkAdminSession(req);
     if (!isAdmin) {
+      console.warn('[DELETE /api/products] Admin session check failed');
       return NextResponse.json({ error: 'Доступ запрещён: требуется роль администратора' }, { status: 403 });
     }
 
@@ -458,7 +439,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID обязателен' }, { status: 400 });
     }
 
-    // Получаем данные о товаре для удаления связанных изображений
     const { data: productData, error: fetchError } = await supabaseAdmin
       .from('products')
       .select('images')
@@ -466,11 +446,10 @@ export async function DELETE(req: NextRequest) {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching product for deletion:', fetchError);
+      console.error('[DELETE /api/products] Error fetching product:', fetchError);
       return NextResponse.json({ error: 'Товар не найден' }, { status: 404 });
     }
 
-    // Удаляем связанные изображения из хранилища
     if (productData?.images && Array.isArray(productData.images) && productData.images.length > 0) {
       try {
         const fileNames = productData.images.map((url: string) => {
@@ -483,15 +462,13 @@ export async function DELETE(req: NextRequest) {
           .remove(fileNames);
 
         if (storageError) {
-          console.error('Error deleting images from storage:', storageError);
-          // Не прерываем удаление товара из-за ошибки удаления изображений
+          console.error('[DELETE /api/products] Error deleting images:', storageError);
         }
       } catch (imageError) {
-        console.error('Error processing images for deletion:', imageError);
+        console.error('[DELETE /api/products] Error processing images:', imageError);
       }
     }
 
-    // Удаляем товар (связи удалятся автоматически через CASCADE)
     const { data, error } = await supabaseAdmin
       .from('products')
       .delete()
@@ -500,20 +477,19 @@ export async function DELETE(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Product deletion error:', error);
+      console.error('[DELETE /api/products] Product deletion error:', error);
       return NextResponse.json({ error: 'Ошибка удаления товара: ' + error.message }, { status: 500 });
     }
 
-    console.log('Product deleted successfully:', data);
+    console.log('[DELETE /api/products] Product deleted successfully:', data);
     
-    // Инвалидируем кеш
     await invalidate('products');
     await invalidate('/api/popular');
     
     return NextResponse.json({ success: true, id: data.id });
 
   } catch (error: any) {
-    console.error('Unexpected error in DELETE /api/products:', error);
+    console.error('[DELETE /api/products] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Внутренняя ошибка сервера: ' + error.message 
     }, { status: 500 });

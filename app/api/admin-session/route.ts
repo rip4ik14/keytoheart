@@ -18,9 +18,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    console.log(`[${new Date().toISOString()}] Verifying token:`, token);
     const isValid = verifyAdminJwt(token);
     if (!isValid) {
-      console.warn(`[${new Date().toISOString()}] Invalid admin_session token:`, token);
+      console.warn(`[${new Date().toISOString()}] Invalid admin_session token`);
       return NextResponse.json(
         { error: 'NEAUTH', message: 'Невалидная сессия' },
         { status: 401 }
