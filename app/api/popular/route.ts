@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export async function GET() {
-  // Проверка переменных окружения
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('Missing Supabase environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
     return NextResponse.json(
@@ -11,7 +10,6 @@ export async function GET() {
     );
   }
 
-  // Инициализация Supabase клиента
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -21,11 +19,12 @@ export async function GET() {
     const start = Date.now();
     const { data, error } = await supabase
       .from('products')
-      .select('id, title, price, original_price, discount_percent, in_stock, images, category')
+      .select('id, title, price, original_price, discount_percent, in_stock, images, category, order_index')
       .eq('in_stock', true)
       .eq('is_popular', true)
+      .eq('is_visible', true) // Добавляем фильтр по видимости
       .not('category', 'in', '(balloon,postcard)')
-      .order('id', { ascending: false })
+      .order('order_index', { ascending: true }) // Сортировка по order_index
       .limit(10);
     console.log('Supabase query duration in /api/popular:', Date.now() - start, 'ms');
 
@@ -37,25 +36,23 @@ export async function GET() {
       );
     }
 
-    console.log('Raw data from Supabase:', data); // Логируем сырые данные
+    console.log('Raw data from Supabase:', data);
 
-    // Проверяем, что данные корректны
     if (!data || data.length === 0) {
-      console.log('No popular products found. Conditions: in_stock=true, is_popular=true, not in [balloon, postcard]');
+      console.log('No popular products found. Conditions: in_stock=true, is_popular=true, is_visible=true, not in [balloon, postcard]');
     } else {
       console.log('Popular products fetched:', data);
     }
 
-    // Форматируем данные: берём первое изображение из массива images
     const formattedData = data.map(product => ({
       ...product,
       images: Array.isArray(product.images) && product.images.length > 0 ? [product.images[0]] : [],
     }));
 
-    console.log('Formatted data for response:', formattedData); // Логируем отформатированные данные
+    console.log('Formatted data for response:', formattedData);
 
     return NextResponse.json(formattedData || [], {
-      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' }, // Уменьшаем кэширование
     });
   } catch (err: any) {
     console.error('Unexpected error in /api/popular:', err);
@@ -66,4 +63,4 @@ export async function GET() {
   }
 }
 
-export const revalidate = 3600; // Кэшируем на 1 час
+export const revalidate = 60; // Уменьшаем кэширование до 1 минуты

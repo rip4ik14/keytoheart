@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import ProductCard from '@components/ProductCard';
+import { supabasePublic } from '@/lib/supabase/public'; // Добавляем импорт
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'; // Импортируем тип для payload
 
 interface Product {
   id: number;
@@ -30,7 +32,9 @@ export default function PopularProducts() {
       setErrorDetails(null);
 
       const start = Date.now();
-      const res = await fetch('/api/popular');
+      const res = await fetch('/api/popular', {
+        next: { revalidate: 60 },
+      });
       console.log('Fetch duration for /api/popular in PopularProducts:', Date.now() - start, 'ms');
 
       if (!res.ok) {
@@ -55,6 +59,22 @@ export default function PopularProducts() {
 
   useEffect(() => {
     fetchPopularProducts();
+
+    const channel = supabasePublic
+      .channel('products-popular-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products', filter: 'is_popular=true' },
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          console.log('Products change detected in PopularProducts:', payload);
+          fetchPopularProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabasePublic.removeChannel(channel);
+    };
   }, []);
 
   const scroll = (dir: 'left' | 'right') => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 import TrackedLink from '@components/TrackedLink';
 
@@ -12,7 +13,7 @@ export default function DostavkaPageClient() {
 
   return (
     <ClientAnimatedSection>
-      <section className="max-w-3xl mx-auto space-y-8 text-gray-800">
+      <section className="max-w-6xl mx-auto space-y-12 text-gray-800">
         <motion.h1
           className="text-3xl sm:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-center"
           role="heading"
@@ -22,65 +23,56 @@ export default function DostavkaPageClient() {
           whileInView="visible"
           viewport={{ once: true }}
         >
-          Доставка клубничных букетов в Краснодаре
+          Доставка и оплата
         </motion.h1>
 
-        <motion.p
-          className="text-base sm:text-lg leading-relaxed text-center text-gray-600"
-          variants={sectionVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          KeyToHeart доставляет клубничные букеты и цветочные композиции по Краснодару и пригороду с заботой о свежести и вашем комфорте. Узнайте, как мы делаем ваши подарки незабываемыми!
-        </motion.p>
-
+        {/* Секция 1: Доставка по Краснодару и пригороду (текст справа, изображение слева) */}
         <motion.div
-          className="space-y-6"
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
           variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
-            Как мы обеспечиваем свежесть букетов
-          </h2>
-          <p className="text-base sm:text-lg leading-relaxed">
-            В KeyToHeart мы понимаем, что свежесть – ключ к идеальному клубничному букету. Поэтому:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-base sm:text-lg" role="list" aria-label="Меры для сохранения свежести">
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              Используем только свежие ягоды, закупленные в день сборки.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              Собираем букеты непосредственно перед доставкой.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              Доставляем в специальной упаковке, сохраняющей свежесть до 24 часов.
-            </motion.li>
-          </ul>
-          <p className="text-base sm:text-lg leading-relaxed">
-            Наши курьеры работают с 08:00 до 22:00, чтобы ваш букет прибыл в идеальном состоянии в кратчайшие сроки.
-          </p>
+          <div className="order-2 md:order-1">
+            <div className="relative w-full h-64 md:h-80">
+              <Image
+                src="/delivery-image-1.jpg"
+                alt="Доставка клубничных букетов по Краснодару"
+                fill
+                className="object-cover rounded-lg"
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+            </div>
+          </div>
+          <div className="order-1 md:order-2 space-y-4">
+            <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
+              Доставка по Краснодару и пригороду
+            </h2>
+            <p className="text-base sm:text-lg leading-relaxed">
+              Доставка осуществляется по Краснодару и ближайшему пригороду ежедневно с 08:00 до 22:00. При заказе до 18:00 возможна доставка в день заказа.
+            </p>
+            <p className="text-base sm:text-lg leading-relaxed">
+              Стоимость доставки рассчитывается по тарифам Яндекс.Доставки — окончательную стоимость уточнит менеджер. Также вы можете самостоятельно заказать доставку через Яндекс.Доставку.
+            </p>
+          </div>
+        </motion.div>
 
-          <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
-            Зоны и сроки доставки
-          </h2>
-          <p className="text-base sm:text-lg leading-relaxed">
-            Мы доставляем клубничные букеты и цветы по <strong>Краснодару</strong> и ближайшим пригородам. Основные условия:
-          </p>
-          <ul className="list-disc pl-5 space-y-4 text-base sm:text-lg" role="list" aria-label="Условия доставки">
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Время доставки</strong>: 1–2 часа с момента подтверждения заказа. Доставка в день заказа доступна при оформлении до 18:00.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Стоимость</strong>: Бесплатно по Краснодару при заказе от 2000 ₽, иначе – 300 ₽.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Зоны доставки</strong>: Краснодар и пригород (например, пос. Яблоновский, х. Ленина). Для отдалённых районов уточняйте стоимость у менеджера.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Самовывоз</strong>: Возможен из нашей мастерской в Краснодаре. Адрес и время уточняйте по телефону{' '}
+        {/* Секция 2: Самовывоз (текст слева, изображение справа) */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+          variants={sectionVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          <div className="space-y-4">
+            <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
+              Самовывоз
+            </h2>
+            <p className="text-base sm:text-lg leading-relaxed">
+              Вы можете забрать заказ самостоятельно в нашей мастерской в Краснодаре. Адрес и время работы уточняйте у менеджера по телефону{' '}
               <TrackedLink
                 href="tel:+79886033821"
                 ariaLabel="Позвонить по номеру +7 (988) 603-38-21"
@@ -92,49 +84,54 @@ export default function DostavkaPageClient() {
                 +7 (988) 603-38-21
               </TrackedLink>
               .
-            </motion.li>
-          </ul>
+            </p>
+          </div>
+          <div>
+            <div className="relative w-full h-64 md:h-80">
+              <Image
+                src="/delivery-image-2.jpg"
+                alt="Самовывоз клубничных букетов в Краснодаре"
+                fill
+                className="object-cover rounded-lg"
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+            </div>
+          </div>
+        </motion.div>
 
+        {/* Секция 3: Оплата */}
+        <motion.div
+          className="space-y-4 max-w-3xl mx-auto"
+          variants={sectionVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
           <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
-            Почему выбирают доставку KeyToHeart
+            Оплата
           </h2>
           <p className="text-base sm:text-lg leading-relaxed">
-            Мы делаем всё, чтобы ваш подарок стал особенным:
+            Мы принимаем оплату банковскими картами на сайте и наличными курьеру при получении заказа. Также возможна оплата по счёту для юридических лиц.
           </p>
-          <ul className="list-disc pl-5 space-y-2 text-base sm:text-lg" role="list" aria-label="Преимущества доставки">
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Гибкость</strong>: Выберите удобное время доставки или самовывоз.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Надёжность</strong>: Наши курьеры доставляют заказы бережно и вовремя.
-            </motion.li>
-            <motion.li role="listitem" whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-              <strong>Прозрачность</strong>: Никаких скрытых платежей – стоимость доставки ясна с самого начала.
-            </motion.li>
-          </ul>
-          <p className="text-base sm:text-lg leading-relaxed">
-            Закажите клубничный букет в KeyToHeart и подарите близким эмоции, которые запомнятся!{' '}
-            <TrackedLink
-              href="/catalog"
-              ariaLabel="Перейти в каталог букетов"
-              category="Navigation"
-              action="Click Catalog Link"
-              label="Dostavka Page"
-              className="underline hover:text-gray-500 transition-colors"
-            >
-              Перейти в каталог
-            </TrackedLink>
-            .
-          </p>
+        </motion.div>
 
+        {/* Секция 4: Часто задаваемые вопросы */}
+        <motion.div
+          className="space-y-4 max-w-3xl mx-auto"
+          variants={sectionVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
           <h2 className="text-2xl sm:text-3xl font-semibold" role="heading" aria-level={2}>
             Часто задаваемые вопросы
           </h2>
           <div className="space-y-4">
             {[
               {
-                question: 'Сколько стоит доставка клубничных букетов в Краснодаре?',
-                answer: 'Доставка по Краснодару бесплатна при заказе от 2000 ₽. Для заказов менее 2000 ₽ стоимость доставки составляет 300 ₽.',
+                question: 'Как рассчитывается стоимость доставки в Краснодаре?',
+                answer: 'Стоимость доставки рассчитывается по тарифам Яндекс.Доставки. Окончательную стоимость уточнит наш менеджер, либо вы можете самостоятельно заказать доставку через Яндекс.Доставку.',
               },
               {
                 question: 'Как быстро доставляют букеты KeyToHeart?',
