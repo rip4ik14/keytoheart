@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@context/CartContext';
-import { Share2, Heart, Star, Truck } from 'lucide-react';
+import { Share2, Star } from 'lucide-react';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/free-mode';
@@ -48,19 +48,9 @@ export default function ProductPageClient({
   const { addItem } = useCart();
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [showNotification, setShowNotification] = useState(false);
-  const [bonusPercent, setBonusPercent] = useState<number>(0.025);
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [bonusPercent] = useState<number>(0.025);
 
   console.log('ProductPageClient received props:', { product, combos });
-
-  const levels = [
-    { name: 'Бронзовый', percent: 0.025, threshold: 0 },
-    { name: 'Серебряный', percent: 0.05, threshold: 10000 },
-    { name: 'Золотой', percent: 0.075, threshold: 20000 },
-    { name: 'Платиновый', percent: 0.1, threshold: 30000 },
-    { name: 'Премиум', percent: 0.15, threshold: 50000 },
-  ];
 
   useEffect(() => {
     try {
@@ -75,16 +65,9 @@ export default function ProductPageClient({
     }
   }, [product.id, product.title, product.price]);
 
-  const sizeOptions = [
-    { value: 'small', label: 'Маленький', priceMultiplier: 0.8 },
-    { value: 'medium', label: 'Средний', priceMultiplier: 1 },
-    { value: 'large', label: 'Большой', priceMultiplier: 1.3 },
-  ];
-
   const discountPercent = product.discount_percent ?? 0;
-  const basePrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
-  const adjustedPrice = Math.round(basePrice * (sizeOptions.find(opt => opt.value === selectedSize)?.priceMultiplier || 1));
-  const bonus = (adjustedPrice * bonusPercent).toFixed(2).replace('.', ',');
+  const discountedPrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+  const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
   const handleAdd = (id: number, title: string, price: number, img: string | null, productionTime: number | null) => {
     addItem({ id: `${id}`, title, price, quantity: 1, imageUrl: img || '', production_time: productionTime });
@@ -206,14 +189,14 @@ export default function ProductPageClient({
             </h1>
             <div className="flex flex-col gap-2">
               {discountPercent > 0 && (
-                <span className="text-lg font-bold text-green-600">
+                <span className="text-lg font-bold text-black">
                   {discountPercent}% скидка
                 </span>
               )}
               {discountPercent > 0 ? (
                 <div className="flex items-center gap-4">
                   <span className="text-4xl font-bold text-black">
-                    {adjustedPrice} ₽
+                    {discountedPrice} ₽
                   </span>
                   <span className="text-2xl text-gray-500 line-through">
                     {product.price} ₽
@@ -221,7 +204,7 @@ export default function ProductPageClient({
                 </div>
               ) : (
                 <span className="text-4xl font-bold text-black">
-                  {adjustedPrice} ₽
+                  {product.price} ₽
                 </span>
               )}
               <div className="flex items-center gap-2">
@@ -238,41 +221,14 @@ export default function ProductPageClient({
                   </span>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Truck size={20} className="text-black" />
-                <span className="text-base text-black font-medium">
-                  Бесплатная доставка по Краснодару при заказе от 2000 ₽
-                </span>
-              </div>
-            </div>
-
-            {/* Выбор размера букета */}
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-black">Размер букета:</h2>
-              <div className="flex gap-2">
-                {sizeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setSelectedSize(option.value as 'small' | 'medium' | 'large')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedSize === option.value
-                        ? 'bg-black text-white'
-                        : 'bg-gray-100 text-black hover:bg-gray-200'
-                    } focus:outline-none focus:ring-2 focus:ring-black`}
-                    aria-label={`Выбрать размер ${option.label}`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="flex gap-3">
               <motion.button
                 onClick={() =>
-                  handleAdd(product.id, product.title, adjustedPrice, product.images?.[0] || null, product.production_time ?? null)
+                  handleAdd(product.id, product.title, discountedPrice, product.images?.[0] || null, product.production_time ?? null)
                 }
-                className="flex-1 py-3 bg-green-600 text-white rounded-lg text-base font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex-1 py-3 bg-black text-white rounded-lg text-base font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
                 variants={buttonVariants}
                 initial="rest"
                 whileHover="hover"
@@ -280,19 +236,6 @@ export default function ProductPageClient({
                 aria-label="Добавить в корзину"
               >
                 Добавить в корзину
-              </motion.button>
-              <motion.button
-                onClick={() => setIsFavorited(!isFavorited)}
-                className={`p-3 rounded-lg border transition-colors ${
-                  isFavorited ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-black hover:bg-gray-200'
-                } focus:outline-none focus:ring-2 focus:ring-black`}
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label={isFavorited ? 'Удалить из избранного' : 'Добавить в избранное'}
-              >
-                <Heart size={20} fill={isFavorited ? 'currentColor' : 'none'} />
               </motion.button>
               <motion.button
                 onClick={handleShare}
@@ -330,16 +273,6 @@ export default function ProductPageClient({
                   </ul>
                 </div>
               )}
-              <div>
-                <h2 className="font-bold text-xl text-black mb-3">
-                  Уход за букетом:
-                </h2>
-                <ul className="list-disc pl-5 space-y-2 text-lg text-black leading-loose">
-                  <li>Храните букет в прохладном месте, вдали от прямых солнечных лучей.</li>
-                  <li>Ежедневно меняйте воду в вазе и подрезайте стебли на 1-2 см.</li>
-                  <li>Избегайте попадания воды на ягоды, чтобы сохранить их свежесть.</li>
-                </ul>
-              </div>
             </div>
 
             {/* Секция отзывов */}
@@ -349,8 +282,9 @@ export default function ProductPageClient({
               </h2>
               <div className="space-y-4">
                 {[
-                  { name: 'Анна', rating: 5, text: 'Очень красивый букет! Клубника свежая, доставка вовремя.' },
-                  { name: 'Мария', rating: 4, text: 'Букет понравился, но хотелось бы больше вариантов размеров.' },
+                  { name: 'Алексей', rating: 5, text: 'Очень вкусная клубника, шоколад тает во рту. У девушки остались только положительные эмоции и красиво и вкусно. Буду заказывать ещё, рекомендую.' },
+                  { name: 'Екатерина', rating: 5, text: 'Очень необычно для меня и приятно))))) и девочка очень приветливая привезла, благодарю 🙏' },
+                  { name: 'Ольга', rating: 5, text: 'Очень вежливое общение и просто сделано все на 10/10. Однозначно буду иметь в виду этот магазин до дальнейших покупок и буду рекомендовать своим знакомым. Огромное спасибо за ваш труд 🤌🏼💗' },
                 ].map((review, index) => (
                   <div key={index} className="border-t border-gray-200 pt-4">
                     <div className="flex items-center gap-2">
@@ -358,9 +292,6 @@ export default function ProductPageClient({
                       <div className="flex">
                         {Array(review.rating).fill(0).map((_, i) => (
                           <Star key={i} size={16} className="text-yellow-500 fill-current" />
-                        ))}
-                        {Array(5 - review.rating).fill(0).map((_, i) => (
-                          <Star key={i + review.rating} size={16} className="text-gray-300" />
                         ))}
                       </div>
                     </div>
@@ -420,7 +351,7 @@ export default function ProductPageClient({
                           onClick={() =>
                             handleAdd(combo.id, combo.title, combo.price, combo.image, null)
                           }
-                          className="w-full mt-2 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full mt-2 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
                           variants={buttonVariants}
                           initial="rest"
                           whileHover="hover"
@@ -464,7 +395,7 @@ export default function ProductPageClient({
                       onClick={() =>
                         handleAdd(combo.id, combo.title, combo.price, combo.image, null)
                       }
-                      className="w-full mt-2 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full mt-2 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
                       variants={buttonVariants}
                       initial="rest"
                       whileHover="hover"
