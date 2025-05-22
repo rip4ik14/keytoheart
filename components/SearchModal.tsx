@@ -28,9 +28,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
     if (isOpen) {
       document.addEventListener('keydown', handleEsc);
@@ -57,16 +55,13 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         data
           ? data.map((item) => ({
               ...item,
-              images: item.images || [], // Заменяем null на пустой массив
-              category: item.category || '', // Заменяем null на пустую строку
+              images: item.images || [],
+              category: item.category || '',
             }))
           : []
       );
       setLoading(false);
-      window.gtag?.('event', 'search_query', {
-        event_category: 'search',
-        query,
-      });
+      window.gtag?.('event', 'search_query', { event_category: 'search', query });
       window.ym?.(12345678, 'reachGoal', 'search_query', { query });
     };
 
@@ -91,26 +86,30 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       aria-label="Поиск по сайту"
       aria-modal="true"
     >
-      <div className="flex items-center gap-2 border-b border-gray-200 py-3 px-4">
-        <motion.div whileHover={{ scale: 1.1 }}>
-          <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="text-black" />
-        </motion.div>
+      {/* Кнопка закрытия вне input */}
+      <button
+        onClick={onClose}
+        className="absolute top-2 right-2 z-10 p-1 rounded-full hover:bg-gray-100 transition"
+        aria-label="Закрыть поиск"
+      >
+        <Image src="/icons/close.svg" alt="Закрыть" width={20} height={20} />
+      </button>
+
+      {/* Поле ввода */}
+      <div className="flex items-center gap-2 py-3 px-4">
+        <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Поиск по сайту"
-          className="w-full bg-transparent focus:outline-none text-black placeholder-gray-400 text-sm focus:ring-2 focus:ring-black rounded"
-          aria-label="Введите запрос для поиска"
+          className="w-full bg-transparent focus:outline-none text-black placeholder-gray-400 text-sm"
         />
       </div>
 
-      <div
-        className="max-h-80 overflow-y-auto"
-        role="list"
-        aria-label="Результаты поиска"
-      >
+      {/* Результаты поиска */}
+      <div className="max-h-80 overflow-y-auto">
         <AnimatePresence>
           {loading && (
             <motion.p
@@ -118,7 +117,6 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
               role="status"
             >
               <Image
@@ -138,7 +136,6 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
               role="status"
             >
               Ничего не найдено
@@ -156,24 +153,13 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
             >
               <Link
                 href={`/product/${p.id}`}
-                onClick={() => {
-                  onClose();
-                  window.gtag?.('event', 'search_result_click', {
-                    event_category: 'search',
-                    product_id: p.id,
-                  });
-                  window.ym?.(12345678, 'reachGoal', 'search_result_click', {
-                    product_id: p.id,
-                  });
-                }}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
-                aria-label={`Перейти к товару ${p.title}`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors"
               >
                 <img
                   src={p.images?.[0] || '/no-image.png'}
                   alt={p.title}
                   className="w-10 h-10 object-cover rounded"
-                  loading="lazy"
                 />
                 <div className="flex-1">
                   <span className="text-sm text-black">{p.title}</span>

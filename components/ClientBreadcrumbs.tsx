@@ -3,9 +3,9 @@
 import Breadcrumbs from '@components/Breadcrumbs';
 import { usePathname } from 'next/navigation';
 
-export default function ClientBreadcrumbs({ productTitle }: { productTitle?: string }) {
+export default function ClientBreadcrumbs() {
   const pathname = usePathname();
+  const isProductPage = pathname.startsWith('/product/');
 
-  // Хлебные крошки отображаются на всех страницах
-  return <Breadcrumbs productTitle={productTitle} />;
+  return !isProductPage ? <Breadcrumbs /> : null;
 }
