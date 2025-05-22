@@ -1,22 +1,13 @@
+// ✅ Путь: components/PopularProducts.tsx
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import ProductCard from '@components/ProductCard';
-import { supabasePublic } from '@/lib/supabase/public'; // Добавляем импорт
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'; // Импортируем тип для payload
-
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  original_price?: number;
-  discount_percent?: number;
-  in_stock: boolean;
-  images: string[];
-  category: string;
-}
+import { supabasePublic } from '@/lib/supabase/public';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { Product } from '@/types/product'; // Исправленный импорт
 
 export default function PopularProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -87,7 +78,14 @@ export default function PopularProducts() {
     window.gtag?.('event', `popular_products_scroll_${dir}`, {
       event_category: 'popular_products',
     });
-    window.ym?.(12345678, 'reachGoal', `popular_products_scroll_${dir}`);
+    if (
+      typeof window !== 'undefined' &&
+      window.ym &&
+      process.env.NEXT_PUBLIC_YM_ID &&
+      !isNaN(parseInt(process.env.NEXT_PUBLIC_YM_ID, 10))
+    ) {
+      window.ym(parseInt(process.env.NEXT_PUBLIC_YM_ID, 10), 'reachGoal', `popular_products_scroll_${dir}`);
+    }
   };
 
   return (

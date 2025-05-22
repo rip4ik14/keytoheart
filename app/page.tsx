@@ -1,3 +1,4 @@
+// ✅ Путь: app/page.tsx
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
@@ -9,17 +10,7 @@ import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
-
-// Обновлённый тип Product
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  discount_percent: number | null;
-  in_stock: boolean;
-  images: string[];
-  category_ids: number[];
-}
+import { Product } from '@/types/product'; // Исправленный импорт
 
 export const revalidate = 60;
 export const dynamic = 'force-static';
@@ -64,7 +55,8 @@ export default async function Home() {
     // Получаем связи товаров с категориями
     const { data: productCategoryData, error: productCategoryError } = await supabase
       .from('product_categories')
-      .select('product_id, category_id');
+      .select('product_id, category_id')
+      .neq('category_id', 38); // Исключаем "Без категории"
 
     if (productCategoryError) {
       throw new Error(`Ошибка загрузки связей категорий: ${productCategoryError.message}`);
@@ -72,10 +64,40 @@ export default async function Home() {
 
     // Группируем category_ids по product_id
     const productCategoriesMap = new Map<number, number[]>();
-    productCategoryData.forEach(item => {
+    productCategoryData.forEach((item) => {
       const existing = productCategoriesMap.get(item.product_id) || [];
       productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
     });
+
+    // Получаем связи товаров с подкатегориями
+    const { data: productSubcategoryData, error: productSubcategoryError } = await supabase
+      .from('product_subcategories')
+      .select('product_id, subcategory_id');
+
+    if (productSubcategoryError) {
+      throw new Error(`Ошибка загрузки подкатегорий: ${productSubcategoryError.message}`);
+    }
+
+    // Группируем subcategory_ids по product_id
+    const productSubcategoriesMap = new Map<number, number[]>();
+    productSubcategoryData.forEach((item) => {
+      const existing = productSubcategoriesMap.get(item.product_id) || [];
+      productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
+    });
+
+    // Получаем названия подкатегорий
+    const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map((item) => item.subcategory_id)));
+    const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabase
+      .from('subcategories')
+      .select('id, name')
+      .in('id', allSubcategoryIds.length > 0 ? allSubcategoryIds : [0]);
+
+    if (subcategoryNamesError) {
+      throw new Error(`Ошибка загрузки названий подкатегорий: ${subcategoryNamesError.message}`);
+    }
+
+    const subcategoryNamesMap = new Map<number, string>();
+    subcategoryNamesData.forEach((sub) => subcategoryNamesMap.set(sub.id, sub.name));
 
     const productIds = Array.from(productCategoriesMap.keys());
 
@@ -90,7 +112,7 @@ export default async function Home() {
         in_stock,
         images
       `)
-      .in('id', productIds.length > 0 ? productIds : [0]) // Избегаем пустого IN
+      .in('id', productIds.length > 0 ? productIds : [0])
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
@@ -106,6 +128,8 @@ export default async function Home() {
           in_stock: item.in_stock ?? false,
           images: item.images ?? [],
           category_ids: productCategoriesMap.get(item.id) || [],
+          subcategory_ids: productSubcategoriesMap.get(item.id) || [],
+          subcategory_names: (productSubcategoriesMap.get(item.id) || []).map((id) => subcategoryNamesMap.get(id) || '').filter(Boolean),
         }))
       : [];
   } catch (err) {
@@ -113,18 +137,19 @@ export default async function Home() {
   }
 
   // Получаем названия категорий
-  const categoryIds = Array.from(new Set(products.flatMap(p => p.category_ids)));
+  const categoryIds = Array.from(new Set(products.flatMap((p) => p.category_ids)));
   const { data: categoriesData, error: categoriesError } = await supabase
     .from('categories')
     .select('id, name, slug')
-    .in('id', categoryIds.length > 0 ? categoryIds : [0]); // Избегаем пустого IN
+    .in('id', categoryIds.length > 0 ? categoryIds : [0])
+    .neq('id', 38); // Исключаем "Без категории"
 
   if (categoriesError) {
     console.error('Ошибка загрузки категорий:', categoriesError);
   }
 
   const categoryMap = new Map<number, { name: string; slug: string }>();
-  categoriesData?.forEach(category => {
+  categoriesData?.forEach((category) => {
     categoryMap.set(category.id, { name: category.name, slug: category.slug });
   });
 
@@ -139,15 +164,17 @@ export default async function Home() {
     Подарки: 'podarki',
   };
 
-  // Фильтруем категории, исключая "Подарки"
+  // Фильтруем категории, исключая "Подарки", "Шары" и "Открытки"
   const categories = Array.from(
     new Set(
       products
-        .filter((p) => !p.category_ids.some(id => {
-          const category = categoryMap.get(id);
-          return category?.slug === 'balloon' || category?.slug === 'postcard';
-        }))
-        .flatMap((p) => p.category_ids.map(id => categoryMap.get(id)?.name))
+        .filter((p) =>
+          !p.category_ids.some((id) => {
+            const category = categoryMap.get(id);
+            return category?.slug === 'balloons' || category?.slug === 'cards';
+          })
+        )
+        .flatMap((p) => p.category_ids.map((id) => categoryMap.get(id)?.name))
     )
   )
     .filter(Boolean)
@@ -155,7 +182,6 @@ export default async function Home() {
 
   return (
     <main aria-label="Главная страница">
-      {/* Schema.org для товаров */}
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
@@ -201,7 +227,7 @@ export default async function Home() {
           categories.map((category) => {
             const slug = slugMap[category] || '';
             const items = products
-              .filter((p) => p.category_ids.some(id => categoryMap.get(id)?.name === category))
+              .filter((p) => p.category_ids.some((id) => categoryMap.get(id)?.name === category))
               .slice(0, 8);
 
             return (

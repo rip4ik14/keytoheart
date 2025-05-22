@@ -6,30 +6,7 @@ import type { ItemList } from 'schema-dts';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
 import { Tables } from '@/lib/supabase/types_new';
-
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  discount_percent: number | null;
-  original_price: number | null;
-  in_stock: boolean;
-  images: string[];
-  image_url: string | null;
-  created_at: string | null;
-  slug: string | null;
-  bonus: number | null;
-  short_desc: string | null;
-  description: string | null;
-  composition: string | null;
-  is_popular: boolean;
-  is_visible: boolean;
-  order_index: number | null;
-  production_time: number | null;
-  category_ids: number[];
-  subcategory_ids: number[];
-  subcategory_names: string[];
-}
+import { Product } from '@/types/product';
 
 interface Subcategory {
   id: number;
@@ -162,7 +139,8 @@ export default async function CategoryPage({
   const { data: productCategoryData, error: productCategoryError } = await supabaseAdmin
     .from('product_categories')
     .select('product_id')
-    .eq('category_id', categoryId);
+    .eq('category_id', categoryId)
+    .neq('category_id', 38); // Исключаем категорию "Без категории"
 
   if (productCategoryError || !productCategoryData) {
     console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
@@ -265,28 +243,28 @@ export default async function CategoryPage({
       id: product.id,
       title: product.title,
       price: product.price,
-      discount_percent: product.discount_percent ?? null,
+      discount_percent: product.discount_percent,
       original_price:
         typeof product.original_price === 'string'
           ? parseFloat(product.original_price) || null
-          : product.original_price ?? null,
-      in_stock: product.in_stock ?? true,
+          : product.original_price,
+      in_stock: product.in_stock,
       images,
       image_url: product.image_url
         ? product.image_url.includes('example.com')
           ? 'https://via.placeholder.com/300x300?text=Product+Image'
           : product.image_url
         : null,
-      created_at: product.created_at ?? null,
-      slug: product.slug ?? null,
-      bonus: product.bonus ?? null,
-      short_desc: product.short_desc ?? null,
-      description: product.description ?? null,
-      composition: product.composition ?? null,
-      is_popular: product.is_popular ?? false,
-      is_visible: product.is_visible ?? true,
-      order_index: product.order_index ?? null,
-      production_time: product.production_time ?? null,
+      created_at: product.created_at,
+      slug: product.slug,
+      bonus: product.bonus,
+      short_desc: product.short_desc,
+      description: product.description,
+      composition: product.composition,
+      is_popular: product.is_popular,
+      is_visible: product.is_visible,
+      order_index: product.order_index,
+      production_time: product.production_time,
       category_ids: [categoryId],
       subcategory_ids: subcategoryIds,
       subcategory_names: subcategoryNames,

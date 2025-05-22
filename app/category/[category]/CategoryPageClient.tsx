@@ -6,7 +6,7 @@ import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Product } from '@components/CatalogClient';
+import { Product } from '@/types/product'; // Исправленный импорт
 
 export interface Subcategory {
   id: number;

@@ -19,11 +19,12 @@ export async function GET() {
 
   try {
     const start = Date.now();
-    // Получаем ID категорий для исключения (balloon, postcard)
+
+    // Получаем ID категорий для исключения (balloons, cards)
     const { data: excludedCategories, error: categoryError } = await supabase
       .from('categories')
       .select('id')
-      .in('slug', ['balloon', 'postcard']);
+      .in('slug', ['balloons', 'cards']);
 
     if (categoryError) {
       console.error('Supabase error fetching excluded categories:', categoryError);
@@ -35,11 +36,12 @@ export async function GET() {
 
     const excludedCategoryIds = excludedCategories.map((cat) => cat.id);
 
-    // Получаем product_id, исключая запрещённые категории
+    // Получаем product_id, исключая запрещённые категории и "Без категории"
     const { data: productCategoryData, error: productCategoryError } = await supabase
       .from('product_categories')
       .select('product_id')
-      .not('category_id', 'in', `(${excludedCategoryIds.join(',')})`);
+      .not('category_id', 'in', `(${excludedCategoryIds.join(',')})`)
+      .neq('category_id', 38); // Исключаем категорию "Без категории"
 
     if (productCategoryError) {
       console.error('Supabase error fetching product categories:', productCategoryError);
@@ -54,7 +56,18 @@ export async function GET() {
     // Запрашиваем популярные товары
     const { data, error } = await supabase
       .from('products')
-      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index')
+      .select(`
+        id,
+        title,
+        price,
+        original_price,
+        discount_percent,
+        in_stock,
+        images,
+        is_popular,
+        is_visible,
+        order_index
+      `)
       .in('id', productIds)
       .eq('in_stock', true)
       .eq('is_popular', true)
