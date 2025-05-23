@@ -1,3 +1,5 @@
+// ✅ Путь: app/api/admin-login/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { signAdminJwt } from '@/lib/auth';
 
@@ -19,18 +21,18 @@ export async function POST(req: NextRequest) {
       throw new Error('Не удалось сгенерировать токен');
     }
 
-    console.log('Generated admin_session token:', token); // Отладка
+    console.log('Generated admin_session token:', token.substring(0, 30) + '...'); // Отладка
 
     const res = NextResponse.json({ success: true });
     res.cookies.set('admin_session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Упрощаем для локальной разработки
+      sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 8, // 8 часов
+      maxAge: 60 * 60 * 24, // 24 часа как в токене
     });
 
-    console.log('Set admin_session cookie'); // Отладка
+    console.log('Set admin_session cookie successfully');
 
     return res;
   } catch (err: any) {

@@ -90,8 +90,11 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    console.log(`[${new Date().toISOString()}] Found admin token: ${token.substring(0, 30)}...`);
+
     // Проверяем токен локально (синхронно)
     const isValidToken = verifyAdminToken(token);
+    console.log(`[${new Date().toISOString()}] Token validation result: ${isValidToken}`);
     
     if (!isValidToken) {
       console.log(`[${new Date().toISOString()}] Invalid admin token for: ${pathname}`);
