@@ -12,7 +12,15 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
-  // Устанавливаем CSP заголовок для всех маршрутов
+  console.log(`[${new Date().toISOString()}] Middleware processing: ${pathname}`);
+
+  // Пропускаем API маршруты
+  if (pathname.startsWith('/api')) {
+    console.log(`[${new Date().toISOString()}] Skipping checks for API route: ${pathname}`);
+    return NextResponse.next();
+  }
+
+  // Устанавливаем CSP заголовок для не-API маршрутов
   const response = NextResponse.next();
   const csp = [
     "default-src 'self'",
@@ -32,11 +40,7 @@ export async function middleware(req: NextRequest) {
 
   // Пропускаем /admin/login и /account
   if (pathname === '/admin/login' || pathname === '/account') {
-    return response;
-  }
-
-  // Пропускаем API маршруты
-  if (pathname.startsWith('/api')) {
+    console.log(`[${new Date().toISOString()}] Allowing direct access to: ${pathname}`);
     return response;
   }
 
@@ -54,7 +58,7 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      const verifyRes = await fetch(new URL('/api/verify-session', req.url), {
+      const verifyRes = await fetch(new URL('/api/admin-session', req.url), {
         headers: {
           Cookie: `admin_session=${token}`,
         },
@@ -71,6 +75,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(login);
       }
 
+      console.log(`[${new Date().toISOString()}] Admin session verified for: ${pathname}`);
       return response;
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Admin middleware auth error:`, error);
@@ -117,6 +122,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  console.log(`[${new Date().toISOString()}] Allowing access to: ${pathname}`);
   return response;
 }
 
