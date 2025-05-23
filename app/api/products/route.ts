@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { verifyAdminJwt } from '@/lib/auth';
 import { Database } from '@/lib/supabase/types_new';
 
 export async function POST(req: NextRequest) {
   try {
+    // Проверка авторизации
+    const token = req.cookies.get('admin_session')?.value;
+    if (!token || !verifyAdminJwt(token)) {
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+    }
+
+    // Проверка CSRF-токена
+    const csrfToken = req.headers.get('X-CSRF-Token');
+    if (!csrfToken) {
+      return NextResponse.json({ error: 'CSRF-токен отсутствует' }, { status: 403 });
+    }
+
     const body = await req.json();
     const {
       title, price, original_price, discount_percent, category_names, category_ids,
@@ -55,7 +68,6 @@ export async function POST(req: NextRequest) {
     }));
     const { error: categoryError } = await supabaseAdmin.from('product_categories').insert(categoryInserts);
     if (categoryError) {
-      // Откат создания товара при ошибке
       await supabaseAdmin.from('products').delete().eq('id', product.id);
       return NextResponse.json({ error: categoryError.message }, { status: 500 });
     }
@@ -68,7 +80,6 @@ export async function POST(req: NextRequest) {
       }));
       const { error: subcategoryError } = await supabaseAdmin.from('product_subcategories').insert(subcategoryInserts);
       if (subcategoryError) {
-        // Откат
         await supabaseAdmin.from('product_categories').delete().eq('product_id', product.id);
         await supabaseAdmin.from('products').delete().eq('id', product.id);
         return NextResponse.json({ error: subcategoryError.message }, { status: 500 });
@@ -77,12 +88,25 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, product_id: product.id }, { status: 201 });
   } catch (err: any) {
+    console.error('POST /api/products error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
+    // Проверка авторизации
+    const token = req.cookies.get('admin_session')?.value;
+    if (!token || !verifyAdminJwt(token)) {
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+    }
+
+    // Проверка CSRF-токена
+    const csrfToken = req.headers.get('X-CSRF-Token');
+    if (!csrfToken) {
+      return NextResponse.json({ error: 'CSRF-токен отсутствует' }, { status: 403 });
+    }
+
     const body = await req.json();
     const {
       id, title, price, original_price, discount_percent, category_names, category_ids,
@@ -165,6 +189,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err: any) {
+    console.error('PATCH /api/products error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }

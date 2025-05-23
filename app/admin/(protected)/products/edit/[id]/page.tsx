@@ -118,7 +118,10 @@ export default function EditProductPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/admin-session', { credentials: 'include' });
+        const res = await fetch('/api/admin-session', {
+          credentials: 'include',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+        });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.message || 'Доступ запрещён');
         setIsAuthenticated(true);
@@ -422,6 +425,7 @@ export default function EditProductPage() {
       const res = await fetch('/api/products', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        credentials: 'include', // Включаем куки для admin_session
         body: JSON.stringify({
           id: productId,
           ...updatedProduct,
@@ -431,12 +435,21 @@ export default function EditProductPage() {
         }),
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Ошибка обновления товара');
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.error || `HTTP ${res.status}: ${res.statusText}`);
+        } catch {
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+      }
 
+      const json = await res.json();
       toast.success('Товар успешно обновлён', { id: toastId });
       router.push('/admin/products');
     } catch (err: any) {
+      console.error('Submit error:', err);
       toast.error('Ошибка: ' + err.message, { id: toastId });
     } finally {
       setLoading(false);

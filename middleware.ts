@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+import { verifyAdminJwt } from '@/lib/auth';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,18 +15,12 @@ export async function middleware(req: NextRequest) {
 
   console.log(`[${new Date().toISOString()}] Middleware processing: ${pathname}`);
 
-  // Пропускаем API маршруты
-  if (pathname.startsWith('/api')) {
-    console.log(`[${new Date().toISOString()}] Skipping checks for API route: ${pathname}`);
-    return NextResponse.next();
-  }
-
-  // Устанавливаем CSP заголовок для не-API маршрутов
+  // Устанавливаем CSP заголовок
   const response = NextResponse.next();
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru",
-    "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co wss://gwbeabfkknhewwoesqax.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru",
+    "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com https://mc.yandex.ru",
     "font-src 'self' data:",
@@ -44,7 +39,7 @@ export async function middleware(req: NextRequest) {
     return response;
   }
 
-  // Проверяем токен для /admin
+  // Проверка админских маршрутов
   if (pathname.startsWith('/admin')) {
     const token = req.cookies.get('admin_session')?.value;
 
@@ -59,13 +54,10 @@ export async function middleware(req: NextRequest) {
 
     try {
       const verifyRes = await fetch(new URL('/api/admin-session', req.url), {
-        headers: {
-          Cookie: `admin_session=${token}`,
-        },
+        headers: { Cookie: `admin_session=${token}` },
       });
 
       const verifyData = await verifyRes.json();
-
       if (!verifyRes.ok || !verifyData.success) {
         console.log(`[${new Date().toISOString()}] Invalid admin_session token:`, verifyData);
         const login = url.clone();
@@ -87,7 +79,22 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Проверяем токен для /account и /checkout
+  // Проверка API маршрутов
+  if (pathname.startsWith('/api/products')) {
+    const token = req.cookies.get('admin_session')?.value;
+    if (!token || !verifyAdminJwt(token)) {
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+    }
+
+    const csrfToken = req.headers.get('X-CSRF-Token');
+    if (!csrfToken) {
+      return NextResponse.json({ error: 'CSRF-токен отсутствует' }, { status: 403 });
+    }
+
+    return response;
+  }
+
+  // Проверка пользовательских маршрутов
   if (pathname.startsWith('/account') || pathname.startsWith('/checkout')) {
     const token = req.cookies.get('access_token')?.value;
 
