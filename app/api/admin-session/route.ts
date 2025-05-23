@@ -7,11 +7,7 @@ export async function GET(req: NextRequest) {
   const timestamp = new Date().toISOString();
   
   try {
-    // Логирование входящего запроса
-    console.log(`[${timestamp}] GET /api/admin-session - Headers:`, {
-      cookie: req.headers.get('cookie'),
-      userAgent: req.headers.get('user-agent'),
-    });
+    console.log(`[${timestamp}] GET /api/admin-session`);
 
     // Получаем токен из cookies
     const token = req.cookies.get('admin_session')?.value;
@@ -28,24 +24,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.log(`[${timestamp}] Verifying admin token: ${token.substring(0, 20)}...`);
+    console.log(`[${timestamp}] Verifying admin token`);
 
-    // Проверяем валидность токена
-    let isValid = false;
-    try {
-      isValid = await verifyAdminJwt(token);
-    } catch (verifyError) {
-      console.error(`[${timestamp}] Token verification error:`, verifyError);
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'INVALID_TOKEN', 
-          message: 'Ошибка проверки токена' 
-        },
-        { status: 401 }
-      );
-    }
-
+    // Используем существующую функцию verifyAdminJwt
+    const isValid = verifyAdminJwt(token);
+    
     if (!isValid) {
       console.warn(`[${timestamp}] Invalid admin_session token`);
       return NextResponse.json(
@@ -70,7 +53,7 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
 
-    // Устанавливаем правильные заголовки для CORS
+    // Устанавливаем правильные заголовки
     response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
@@ -78,10 +61,7 @@ export async function GET(req: NextRequest) {
     return response;
 
   } catch (error: any) {
-    console.error(`[${timestamp}] Unexpected error in /api/admin-session:`, {
-      message: error.message,
-      stack: error.stack,
-    });
+    console.error(`[${timestamp}] Unexpected error in /api/admin-session:`, error);
 
     return NextResponse.json(
       { 

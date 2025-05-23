@@ -3,16 +3,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-// Функция проверки админ токена
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Функция проверки админ токена (синхронная)
 function verifyAdminToken(token: string): boolean {
   try {
-    if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET not configured');
-      return false;
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
-    return !!(decoded && typeof decoded === 'object' && decoded.role === 'admin');
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
+    return decoded.role === 'admin';
   } catch (error) {
     console.error('Token verification failed:', error);
     return false;
@@ -93,7 +90,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Проверяем токен локально, БЕЗ fetch запроса
+    // Проверяем токен локально (синхронно)
     const isValidToken = verifyAdminToken(token);
     
     if (!isValidToken) {
