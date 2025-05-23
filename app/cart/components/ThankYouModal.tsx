@@ -8,56 +8,85 @@ import toast from 'react-hot-toast';
 
 interface Props {
   onClose: () => void;
-  orderNumber: number; // Только число!
+  orderNumber: number; // <-- теперь number
   trackingUrl?: string;
 }
 
 export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Props) {
-  const [timer, setTimer] = useState(15);
+  const [timer, setTimer] = useState(15); // 15 секунд для авто-закрытия
 
-  // Анимации — не меняем
+  // Варианты анимации для контейнера
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.5 } },
     exit: { opacity: 0, transition: { duration: 0.3 } },
   };
+
+  // Варианты анимации для модального окна
   const modalVariants = {
     hidden: { scale: 0.8, opacity: 0, rotate: -5 },
     visible: {
       scale: 1,
       opacity: 1,
       rotate: 0,
-      transition: { type: 'spring', stiffness: 200, damping: 15, mass: 0.5 },
+      transition: {
+        type: 'spring',
+        stiffness: 200,
+        damping: 15,
+        mass: 0.5,
+      },
     },
-    exit: { scale: 0.8, opacity: 0, rotate: 5, transition: { duration: 0.3 } },
+    exit: {
+      scale: 0.8,
+      opacity: 0,
+      rotate: 5,
+      transition: { duration: 0.3 },
+    },
   };
+
+  // Варианты анимации для иконки
   const iconVariants = {
     hidden: { scale: 0, opacity: 0, rotate: -180 },
     visible: {
       scale: 1,
       opacity: 1,
       rotate: 0,
-      transition: { type: 'spring', stiffness: 150, damping: 10, delay: 0.2 },
+      transition: {
+        type: 'spring',
+        stiffness: 150,
+        damping: 10,
+        delay: 0.2,
+      },
     },
   };
+
+  // Варианты анимации для текста
   const textVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: { duration: 0.5, delay: 0.4 },
+      transition: {
+        duration: 0.5,
+        delay: 0.4,
+      },
     },
   };
+
+  // Варианты анимации для кнопок
   const buttonVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: { duration: 0.5, delay: 0.6 },
+      transition: {
+        duration: 0.5,
+        delay: 0.6,
+      },
     },
   };
 
-  // Таймер для автозакрытия
+  // Эффект для авто-закрытия через 15 секунд
   useEffect(() => {
     const timerInterval = setInterval(() => {
       setTimer((prev) => {
@@ -68,6 +97,7 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(timerInterval);
   }, [onClose]);
 
@@ -113,8 +143,20 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
           </motion.button>
 
           {/* Иконка */}
-          <motion.div className="flex justify-center mb-4" variants={iconVariants} initial="hidden" animate="visible">
-            <Image src="/thank-you.svg" alt="Спасибо за заказ" width={96} height={96} loading="lazy" className="drop-shadow-md" />
+          <motion.div
+            className="flex justify-center mb-4"
+            variants={iconVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <Image
+              src="/thank-you.svg"
+              alt="Спасибо за заказ"
+              width={96}
+              height={96}
+              loading="lazy"
+              className="drop-shadow-md"
+            />
           </motion.div>
 
           {/* Заголовок */}
@@ -128,7 +170,7 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
             Спасибо за заказ! 🎉
           </motion.h2>
 
-          {/* Показываем только orderNumber */}
+          {/* Сообщение об успешном заказе */}
           <motion.p
             className="mb-3 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
             variants={textVariants}
@@ -152,7 +194,7 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
                 ariaLabel="Отследить заказ"
                 category="Cart"
                 action="Track Order"
-                label={`Order #${orderNumber}`}
+                label={`Order №${orderNumber}`}
                 className="text-indigo-600 underline hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -166,18 +208,34 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <Image src="/icons/copy.svg" alt="Копировать" width={16} height={16} loading="lazy" />
+                <Image
+                  src="/icons/copy.svg"
+                  alt="Копировать"
+                  width={16}
+                  height={16}
+                  loading="lazy"
+                />
               </motion.button>
             </motion.div>
           )}
 
-          <motion.p className="mb-6 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
-            variants={textVariants} initial="hidden" animate="visible">
+          {/* Сообщение о подтверждении */}
+          <motion.p
+            className="mb-6 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
+            variants={textVariants}
+            initial="hidden"
+            animate="visible"
+          >
             Мы свяжемся с вами для подтверждения в ближайшее время.
           </motion.p>
 
-          <motion.div className="flex justify-center"
-            variants={buttonVariants} initial="hidden" animate="visible">
+          {/* Кнопка "На главную" */}
+          <motion.div
+            className="flex justify-center"
+            variants={buttonVariants}
+            initial="hidden"
+            animate="visible"
+          >
             <TrackedLink
               href="/"
               onClick={onClose}
@@ -191,9 +249,13 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
             </TrackedLink>
           </motion.div>
 
-          {/* Таймер автозакрытия */}
-          <motion.div className="mt-4 text-center text-xs text-gray-400"
-            variants={textVariants} initial="hidden" animate="visible">
+          {/* Таймер авто-закрытия */}
+          <motion.div
+            className="mt-4 text-center text-xs text-gray-400"
+            variants={textVariants}
+            initial="hidden"
+            animate="visible"
+          >
             Окно закроется через {timer} секунд...
           </motion.div>
         </motion.div>
