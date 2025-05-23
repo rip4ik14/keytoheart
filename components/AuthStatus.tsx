@@ -1,46 +1,49 @@
-// ✅ Путь: components/AuthStatus.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '@/lib/supabase/types_new';
-import Link from 'next/link';
+       import { useEffect, useState } from 'react';
+       import { createBrowserClient } from '@supabase/ssr';
+       import type { Database } from '@/lib/supabase/types_new';
+       import Link from 'next/link';
 
-export default function AuthStatus() {
-  const [session, setSession] = useState<any>(null);
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+       export default function AuthStatus() {
+         const [session, setSession] = useState<any>(null);
+         const supabase = createBrowserClient<Database>(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+         );
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-    };
+         useEffect(() => {
+           const fetchSession = async () => {
+             const { data: { session }, error } = await supabase.auth.getSession();
+             if (error) {
+               console.error('AuthStatus: getSession error:', error.message);
+             }
+             setSession(session);
+           };
 
-    fetchSession();
+           fetchSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+           const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+             console.log('AuthStatus: Auth state changed, session:', session);
+             setSession(session);
+           });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [supabase]);
+           return () => {
+             subscription?.unsubscribe();
+           };
+         }, [supabase]);
 
-  return (
-    <div>
-      {session ? (
-        <Link href="/account" className="text-black hover:text-gray-800">
-          Личный кабинет
-        </Link>
-      ) : (
-        <Link href="/account" className="text-black hover:text-gray-800">
-          Войти
-        </Link>
-      )}
-    </div>
-  );
-}
+         return (
+           <div>
+             {session ? (
+               <Link href="/account" className="text-black hover:text-gray-800">
+                 Личный кабинет
+               </Link>
+             ) : (
+               <Link href="/account" className="text-black hover:text-gray-800">
+                 Войти
+               </Link>
+             )}
+           </div>
+         );
+       }

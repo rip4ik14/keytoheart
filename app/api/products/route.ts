@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 import DOMPurify from 'dompurify';
+import type { Tables } from '@/lib/supabase/types_new';
 
 interface ProductData {
   id?: number;
@@ -33,10 +34,9 @@ interface ProductResponse {
   is_visible?: boolean;
 }
 
-interface Subcategory {
+interface SubcategorySelect {
   id: number;
-  name: string;
-  category_id: number; // Ensure this is non-nullable
+  category_id: number | null;
 }
 
 // Санитизация текстовых полей
@@ -46,7 +46,7 @@ const sanitize = (input: string | undefined): string => {
 
 // Генерация уникального slug
 const generateUniqueSlug = async (title: string): Promise<string> => {
-  let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  let slug = title.toLowerCase().replace(/[^a-z0-9а-я]+/g, '-').replace(/(^-|-$)/g, '');
   let uniqueSlug = slug;
   let counter = 1;
 
@@ -57,11 +57,11 @@ const generateUniqueSlug = async (title: string): Promise<string> => {
       .eq('slug', uniqueSlug)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 — "запись не найдена"
+    if (error && error.code !== 'PGRST116') {
       throw new Error('Ошибка проверки уникальности slug: ' + error.message);
     }
 
-    if (!data) break; // slug уникален
+    if (!data) break;
     uniqueSlug = `${slug}-${counter++}`;
   }
 
@@ -121,9 +121,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ошибка проверки подкатегорий' }, { status: 400 });
     }
 
-    // Проверяем, что каждая подкатегория принадлежит хотя бы одной из выбранных категорий
     for (const subcategory of subcategoriesData) {
-      // Runtime check to ensure category_id is not null (though it shouldn't be per schema)
       if (subcategory.category_id === null) {
         return NextResponse.json(
           { error: `Подкатегория ${subcategory.id} не имеет связанной категории` },
@@ -138,7 +136,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
+    finalSubcategoryIds = subcategoriesData.map((sub: SubcategorySelect) => sub.id);
   }
 
   // Санитизация текстовых полей
@@ -284,7 +282,6 @@ export async function PATCH(req: NextRequest) {
     }
 
     for (const subcategory of subcategoriesData) {
-      // Runtime check to ensure category_id is not null
       if (subcategory.category_id === null) {
         return NextResponse.json(
           { error: `Подкатегория ${subcategory.id} не имеет связанной категории` },
@@ -299,7 +296,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
+    finalSubcategoryIds = subcategoriesData.map((sub: SubcategorySelect) => sub.id);
   }
 
   // Санитизация текстовых полей
@@ -439,7 +436,7 @@ export async function DELETE(req: NextRequest) {
   if (productData?.images && productData.images.length > 0) {
     const fileNames = productData.images.map((url: string) => decodeURIComponent(url.split('/').pop()!));
     const { error: storageError } = await supabaseAdmin.storage
-      .from('product-image')
+      .from('products')
       .remove(fileNames);
 
     if (storageError) {

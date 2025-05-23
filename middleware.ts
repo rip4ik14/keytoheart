@@ -1,3 +1,4 @@
+// middleware.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/lib/supabase/types_new';
@@ -22,18 +23,25 @@ export async function middleware(request: Request) {
       }
     );
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Middleware: Supabase getSession error:', error);
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    const { data: admin } = await supabase
+    if (!session) {
+      console.log('Middleware: No session found for', url.pathname);
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+
+    const { data: admin, error: adminError } = await supabase
       .from('admins')
       .select('role')
       .eq('id', session.user.id)
       .single();
 
-    if (!admin || admin.role !== 'admin') {
+    if (adminError || !admin || admin.role !== 'admin') {
+      console.error('Middleware: Admin check failed:', adminError || 'No admin role');
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }
