@@ -1,48 +1,19 @@
-// ✅ Путь: middleware.ts
-
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types_new';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-// Функция проверки админ токена (синхронная)
-function verifyAdminToken(token: string): boolean {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
-    return decoded.role === 'admin';
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return false;
-  }
-}
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const pathname = url.pathname;
-  const method = req.method;
 
-  console.log(`[${new Date().toISOString()}] Middleware: ${method} ${pathname}`);
-
-  // ВСЕГДА пропускаем API маршруты - никаких проверок!
-  if (pathname.startsWith('/api')) {
-    console.log(`[${new Date().toISOString()}] Skipping all checks for API route: ${method} ${pathname}`);
-    return NextResponse.next();
-  }
-
-  // Пропускаем статические файлы и Next.js служебные файлы
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.includes('.') ||
-    pathname === '/favicon.ico'
-  ) {
-    return NextResponse.next();
-  }
-
-  // Создаем базовый response
+  // Устанавливаем CSP заголовок для всех маршрутов
   const response = NextResponse.next();
-  
-  // Устанавливаем CSP заголовки только для HTML страниц
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru",
@@ -57,86 +28,98 @@ export async function middleware(req: NextRequest) {
     "base-uri 'self'",
     "worker-src 'self'",
   ].join('; ');
-  
   response.headers.set('Content-Security-Policy', csp);
 
-  // Пропускаем публичные страницы без проверок
-  const publicPaths = [
-    '/',
-    '/catalog',
-    '/about',
-    '/contacts',
-    '/cart',
-    '/policy',
-    '/terms',
-    '/admin/login',
-    '/account'
-  ];
-
-  if (publicPaths.includes(pathname)) {
-    console.log(`[${new Date().toISOString()}] Allowing public access to: ${pathname}`);
+  // Пропускаем /admin/login и /account
+  if (pathname === '/admin/login' || pathname === '/account') {
     return response;
   }
 
-  // Проверяем админские маршруты
+  // Пропускаем API маршруты
+  if (pathname.startsWith('/api')) {
+    return response;
+  }
+
+  // Проверяем токен для /admin
   if (pathname.startsWith('/admin')) {
     const token = req.cookies.get('admin_session')?.value;
 
     if (!token) {
-      console.log(`[${new Date().toISOString()}] No admin token for: ${pathname}`);
-      const loginUrl = new URL('/admin/login', req.url);
-      loginUrl.searchParams.set('from', pathname);
-      loginUrl.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(loginUrl);
+      console.log(`[${new Date().toISOString()}] No admin_session token found for /admin route`);
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
     }
 
-    console.log(`[${new Date().toISOString()}] Found admin token: ${token.substring(0, 30)}...`);
+    try {
+      const verifyRes = await fetch(new URL('/api/verify-session', req.url), {
+        headers: {
+          Cookie: `admin_session=${token}`,
+        },
+      });
 
-    // Проверяем токен локально (синхронно)
-    const isValidToken = verifyAdminToken(token);
-    console.log(`[${new Date().toISOString()}] Token validation result: ${isValidToken}`);
-    
-    if (!isValidToken) {
-      console.log(`[${new Date().toISOString()}] Invalid admin token for: ${pathname}`);
-      const loginUrl = new URL('/admin/login', req.url);
-      loginUrl.searchParams.set('from', pathname);
-      loginUrl.searchParams.set('error', 'invalid-session');
-      return NextResponse.redirect(loginUrl);
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.success) {
+        console.log(`[${new Date().toISOString()}] Invalid admin_session token:`, verifyData);
+        const login = url.clone();
+        login.pathname = '/admin/login';
+        login.searchParams.set('from', pathname);
+        login.searchParams.set('error', 'invalid-session');
+        return NextResponse.redirect(login);
+      }
+
+      return response;
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Admin middleware auth error:`, error);
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
     }
-
-    console.log(`[${new Date().toISOString()}] Admin access granted for: ${pathname}`);
-    return response;
   }
 
-  // Проверяем пользовательские защищенные маршруты
-  if (pathname.startsWith('/checkout')) {
+  // Проверяем токен для /account и /checkout
+  if (pathname.startsWith('/account') || pathname.startsWith('/checkout')) {
     const token = req.cookies.get('access_token')?.value;
 
     if (!token) {
-      console.log(`[${new Date().toISOString()}] No user token for: ${pathname}`);
-      const loginUrl = new URL('/account', req.url);
-      loginUrl.searchParams.set('from', pathname);
-      loginUrl.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(loginUrl);
+      console.log(`[${new Date().toISOString()}] No access_token found for ${pathname}`);
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
     }
 
-    console.log(`[${new Date().toISOString()}] User access granted for: ${pathname}`);
-    return response;
+    try {
+      console.log(`[${new Date().toISOString()}] Verifying access_token: ${token}`);
+      const { data: userData, error } = await supabase.auth.getUser(token);
+      if (error || !userData.user) {
+        console.error(`[${new Date().toISOString()}] Invalid access_token for ${pathname}:`, error?.message || 'No user data');
+        const login = url.clone();
+        login.pathname = '/account';
+        login.searchParams.set('from', pathname);
+        login.searchParams.set('error', 'invalid-session');
+        return NextResponse.redirect(login);
+      }
+      console.log(`[${new Date().toISOString()}] Successfully verified access_token for ${pathname}, user: ${userData.user.id}`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] User middleware auth error for ${pathname}:`, error);
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
+    }
   }
 
-  console.log(`[${new Date().toISOString()}] Allowing access to: ${pathname}`);
   return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/:path*'],
 };
