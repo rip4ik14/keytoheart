@@ -103,7 +103,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
     // Нормализация и валидация телефона получателя
     const sanitizedRecipientPhone = normalizePhone(sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }));
     if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
@@ -148,7 +147,6 @@ export async function POST(req: Request) {
     const productIds = regularItems
       .map((item) => parseInt(item.id, 10))
       .filter((id: number) => !isNaN(id));
-
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
@@ -161,11 +159,9 @@ export async function POST(req: Request) {
         .from('products')
         .select('id')
         .in('id', productIds);
-
       if (productsError) {
         return NextResponse.json({ error: 'Ошибка проверки товаров' }, { status: 500 });
       }
-
       const existingProductIds = new Set(products.map((p: any) => p.id));
       const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
       if (invalidItems.length > 0) {
@@ -227,79 +223,86 @@ export async function POST(req: Request) {
     if (orderItems.length > 0) {
       const { error: itemError } = await supabase.from('order_items').insert(orderItems);
       if (itemError) {
-        return NextResponse.json(
-          { error: 'Ошибка сохранения товаров: ' + itemError.message },
-          { status: 500 }
-        );
+        // Не роняем весь заказ, просто логируем
+        console.error('[order_items error]', itemError.message);
       }
     }
 
     const baseUrl = new URL(req.url).origin;
 
-    // Обработка списания бонусов
+    // --- Побочные ошибки ловим отдельно ---
+    let redeemBonusError = null;
+    let orderBonusError = null;
+    let promoError = null;
+    let telegramError = null;
+    let bonusAdded = 0;
+
+    // Списание бонусов
     if (bonuses_used > 0) {
-      const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }),
-      });
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`[${new Date().toISOString()}] Error redeeming bonuses:`, errorText);
+      try {
+        const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }),
+        });
+        if (!res.ok) {
+          redeemBonusError = await res.text();
+        }
+      } catch (e: any) {
+        redeemBonusError = e.message;
       }
     }
 
     // Начисление бонусов
-    const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }),
-    });
-
-    let bonusResult;
-    if (resBonus.ok) {
-      bonusResult = await resBonus.json();
-    } else {
-      const errorText = await resBonus.text();
-      return NextResponse.json(
-        { success: false, error: 'Ошибка начисления бонусов: ' + errorText },
-        { status: 500 }
-      );
+    try {
+      const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }),
+      });
+      if (resBonus.ok) {
+        const bonusResult = await resBonus.json();
+        bonusAdded = bonusResult.bonus_added || 0;
+      } else {
+        orderBonusError = await resBonus.text();
+      }
+    } catch (e: any) {
+      orderBonusError = e.message;
     }
 
     // Обновляем заказ с начисленным количеством бонусов
-    const bonusAdded = bonusResult.bonus_added || 0;
-    const { error: updateOrderError } = await supabase
-      .from('orders')
-      .update({ bonus: bonusAdded })
-      .eq('id', order.id);
-
-    if (updateOrderError) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления заказа с бонусами: ' + updateOrderError.message },
-        { status: 500 }
-      );
+    if (bonusAdded) {
+      const { error: updateOrderError } = await supabase
+        .from('orders')
+        .update({ bonus: bonusAdded })
+        .eq('id', order.id);
+      if (updateOrderError) {
+        console.error('[bonus update error]', updateOrderError.message);
+      }
     }
 
-    // Обновление промокода
+    // Обновление промокода (использований)
     if (promo_id) {
-      const { data: promoData, error: promoFetchError } = await supabase
-        .from('promo_codes')
-        .select('used_count')
-        .eq('id', promo_id)
-        .single();
-
-      if (promoFetchError || !promoData) {
-        console.error(`[${new Date().toISOString()}] Error fetching promo code:`, promoFetchError?.message);
-      } else {
-        const newUsedCount = (promoData.used_count || 0) + 1;
-        const { error: promoUpdateError } = await supabase
+      try {
+        const { data: promoData, error: promoFetchError } = await supabase
           .from('promo_codes')
-          .update({ used_count: newUsedCount })
-          .eq('id', promo_id);
-        if (promoUpdateError) {
-          console.error(`[${new Date().toISOString()}] Error updating promo code:`, promoUpdateError.message);
+          .select('used_count')
+          .eq('id', promo_id)
+          .single();
+        if (!promoFetchError && promoData) {
+          const newUsedCount = (promoData.used_count || 0) + 1;
+          const { error: promoUpdateError } = await supabase
+            .from('promo_codes')
+            .update({ used_count: newUsedCount })
+            .eq('id', promo_id);
+          if (promoUpdateError) {
+            promoError = promoUpdateError.message;
+          }
+        } else {
+          promoError = promoFetchError?.message || 'promoData not found';
         }
+      } catch (e: any) {
+        promoError = e.message;
       }
     }
 
@@ -340,25 +343,30 @@ ${itemsList}
 <b>Дополнения:</b>
 ${upsellList}`;
 
-    // Отправляем сообщение в Telegram
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML',
-      }),
-    });
-
-    if (!telegramResponse.ok) {
-      const telegramError = await telegramResponse.text();
-      return NextResponse.json(
-        { error: 'Ошибка отправки уведомления в Telegram: ' + telegramError },
-        { status: 500 }
+    // Отправляем сообщение в Telegram (не роняем заказ)
+    try {
+      const telegramResponse = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: message,
+            parse_mode: 'HTML',
+          }),
+        }
       );
+      if (!telegramResponse.ok) {
+        telegramError = await telegramResponse.text();
+        console.error('[Telegram error]', telegramError);
+      }
+    } catch (e: any) {
+      telegramError = e.message;
+      console.error('[Telegram send error]', telegramError);
     }
 
+    // Возвращаем всегда успех (даже если бонусы/telegram/промо упали)
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -367,8 +375,13 @@ ${upsellList}`;
       items: order.items,
       upsell_details: order.upsell_details,
       tracking_url: `/account/orders/${order.id}`,
+      telegramError,
+      redeemBonusError,
+      orderBonusError,
+      promoError,
     });
   } catch (error: any) {
+    console.error('[ORDER API ERROR]', error, error?.stack);
     return NextResponse.json(
       { error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
