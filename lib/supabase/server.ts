@@ -1,26 +1,25 @@
-// ✅ Путь: lib/supabase/server.ts
-import { createClient } from '@supabase/supabase-js';
-import { revalidateTag } from 'next/cache';
+import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/lib/supabase/types_new';
+import { cookies } from 'next/headers';
 
-// Админ-клиент с сервис-ключом (только на сервере!)
-export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      persistSession: false,
-      detectSessionInUrl: false,
-      autoRefreshToken: false,
-    },
-  }
-);
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
 
-/**
- * Сброс кеша ISR-страниц по тегу
- * Пример: await invalidate('products');
- */
-export async function invalidate(tag: string) {
-  'use server';
-  revalidateTag(tag);
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set(name, value, options);
+        },
+        remove(name: string) {
+          cookieStore.delete(name);
+        },
+      },
+    }
+  );
 }

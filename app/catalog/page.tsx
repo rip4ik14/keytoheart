@@ -1,21 +1,15 @@
-// ✅ Путь: app/catalog/page.tsx
 import { Metadata } from 'next';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { Database } from '@/lib/supabase/types_new';
-import CatalogClient from '@components/CatalogClient';
-import { Product } from '@/types/product';
-import { type CategoryFromDB, type SubcategoryFromDB, type SitePage } from '@components/CatalogClient';
+import { supabasePublic as supabase } from '@/lib/supabase/public';
+import CatalogClient, { Product, SitePage, CategoryFromDB, SubcategoryFromDB } from '@components/CatalogClient';
 
-export const revalidate = 3600;
-
+// Метаданные для SEO
 export const metadata: Metadata = {
   title: 'Каталог товаров | KeyToHeart',
-  description: 'Ознакомьтесь с нашим ассортиментом клубничных букетов, цветов и подарков с доставкой по Краснодару.',
-  keywords: ['клубничные букеты', 'цветы Краснодар', 'подарки Краснодар', 'KeyToHeart'],
+  description: 'Купите клубничные букеты и цветы с доставкой по Краснодару. Широкий выбор, свежие цветы, лучшие цены.',
+  keywords: ['клубничные букеты', 'цветы', 'доставка Краснодар', 'KeyToHeart'],
   openGraph: {
     title: 'Каталог товаров | KeyToHeart',
-    description: 'Ознакомьтесь с нашим ассортиментом клубничных букетов, цветов и подарков.',
+    description: 'Купите клубничные букеты и цветы с доставкой по Краснодару.',
     url: 'https://keytoheart.ru/catalog',
     images: [{ url: '/og-cover.jpg', width: 1200, height: 630 }],
   },
@@ -23,181 +17,210 @@ export const metadata: Metadata = {
 };
 
 export default async function CatalogPage() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return Array.from(cookieStore.getAll()).map((cookie) => ({
-            name: cookie.name,
-            value: cookie.value,
-          }));
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
+  // Загружаем sitePages из Supabase
+  const fetchSitePages = async (): Promise<SitePage[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('site_pages')
+        .select('label, href')
+        .order('order_index');
+
+      if (error) {
+        throw new Error(`Ошибка загрузки site_pages: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (err) {
+      console.error('Ошибка загрузки sitePages:', err);
+      return [];
     }
-  );
+  };
 
-  let products: Product[] = [];
-  let categories: CategoryFromDB[] = [];
-  let subcategories: SubcategoryFromDB[] = [];
-  let sitePages: SitePage[] = [];
+  // Загружаем категории из Supabase
+  const fetchCategories = async (): Promise<CategoryFromDB[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name, slug, is_visible');
 
-  try {
-    // Получаем связи товаров с категориями
-    const { data: productCategoryData, error: productCategoryError } = await supabase
-      .from('product_categories')
-      .select('product_id, category_id')
-      .neq('category_id', 38); // Исключаем "Без категории"
+      if (error) {
+        throw new Error(`Ошибка загрузки категорий: ${error.message}`);
+      }
 
-    if (productCategoryError) throw new Error(`Ошибка загрузки категорий: ${productCategoryError.message}`);
+      // Приводим is_visible к boolean с помощью значения по умолчанию
+      return data?.map(category => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        is_visible: category.is_visible ?? true, // Приводим к boolean
+      })) || [];
+    } catch (err) {
+      console.error('Ошибка загрузки категорий:', err);
+      return [];
+    }
+  };
 
-    // Группируем category_ids по product_id
-    const productCategoriesMap = new Map<number, number[]>();
-    productCategoryData.forEach((item) => {
-      const existing = productCategoriesMap.get(item.product_id) || [];
-      productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
-    });
+  // Загружаем подкатегории из Supabase
+  const fetchSubcategories = async (): Promise<SubcategoryFromDB[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('subcategories')
+        .select('id, name, slug, is_visible');
 
-    // Получаем связи товаров с подкатегориями
-    const { data: productSubcategoryData, error: productSubcategoryError } = await supabase
-      .from('product_subcategories')
-      .select('product_id, subcategory_id');
+      if (error) {
+        throw new Error(`Ошибка загрузки подкатегорий: ${error.message}`);
+      }
 
-    if (productSubcategoryError) throw new Error(`Ошибка загрузки подкатегорий: ${productSubcategoryError.message}`);
+      // Приводим is_visible к boolean с помощью значения по умолчанию
+      return data?.map(subcategory => ({
+        id: subcategory.id,
+        name: subcategory.name,
+        slug: subcategory.slug,
+        is_visible: subcategory.is_visible ?? true, // Приводим к boolean
+      })) || [];
+    } catch (err) {
+      console.error('Ошибка загрузки подкатегорий:', err);
+      return [];
+    }
+  };
 
-    // Группируем subcategory_ids по product_id
-    const productSubcategoriesMap = new Map<number, number[]>();
-    productSubcategoryData.forEach((item) => {
-      const existing = productSubcategoriesMap.get(item.product_id) || [];
-      productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
-    });
+  // Загружаем все товары из Supabase
+  const fetchProducts = async (): Promise<Product[]> => {
+    try {
+      const start = Date.now();
 
-    // Получаем названия подкатегорий
-    const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map((item) => item.subcategory_id)));
-    const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabase
-      .from('subcategories')
-      .select('id, name')
-      .in('id', allSubcategoryIds.length > 0 ? allSubcategoryIds : [0]);
+      // Получаем связи товаров с категориями
+      const { data: productCategoryData, error: productCategoryError } = await supabase
+        .from('product_categories')
+        .select('product_id, category_id');
 
-    if (subcategoryNamesError) throw new Error(`Ошибка загрузки названий подкатегорий: ${subcategoryNamesError.message}`);
+      if (productCategoryError) {
+        throw new Error(`Ошибка загрузки связей категорий: ${productCategoryError.message}`);
+      }
 
-    const subcategoryNamesMap = new Map<number, string>();
-    subcategoryNamesData.forEach((sub) => subcategoryNamesMap.set(sub.id, sub.name));
+      // Группируем category_ids по product_id
+      const productCategoriesMap = new Map<number, number[]>();
+      productCategoryData.forEach(item => {
+        const existing = productCategoriesMap.get(item.product_id) || [];
+        productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+      });
 
-    const productIds = Array.from(productCategoriesMap.keys());
+      // Получаем связи товаров с подкатегориями
+      const { data: productSubcategoryData, error: productSubcategoryError } = await supabase
+        .from('product_subcategories')
+        .select('product_id, subcategory_id');
 
-    // Получаем товары
-    const { data: productsData, error: productsError } = await supabase
-      .from('products')
-      .select(`
-        id,
-        title,
-        price,
-        discount_percent,
-        in_stock,
-        images,
-        image_url,
-        created_at,
-        slug,
-        bonus,
-        short_desc,
-        description,
-        composition,
-        is_popular,
-        is_visible,
-        original_price,
-        order_index,
-        production_time
-      `)
-      .in('id', productIds.length > 0 ? productIds : [0])
-      .eq('in_stock', true)
-      .eq('is_visible', true)
-      .order('id', { ascending: false });
+      if (productSubcategoryError) {
+        throw new Error(`Ошибка загрузки связей подкатегорий: ${productSubcategoryError.message}`);
+      }
 
-    if (productsError) throw new Error(`Ошибка загрузки товаров: ${productsError.message}`);
+      // Группируем subcategory_ids по product_id
+      const productSubcategoriesMap = new Map<number, number[]>();
+      productSubcategoryData.forEach(item => {
+        const existing = productSubcategoriesMap.get(item.product_id) || [];
+        productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
+      });
 
-    products = productsData?.map((product) => ({
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      discount_percent: product.discount_percent,
-      original_price: typeof product.original_price === 'string' ? parseFloat(product.original_price) || null : product.original_price,
-      in_stock: product.in_stock,
-      images: product.images ?? [],
-      image_url: product.image_url,
-      created_at: product.created_at,
-      slug: product.slug,
-      bonus: product.bonus,
-      short_desc: product.short_desc,
-      description: product.description,
-      composition: product.composition,
-      is_popular: product.is_popular,
-      is_visible: product.is_visible,
-      category_ids: productCategoriesMap.get(product.id) || [],
-      subcategory_ids: productSubcategoriesMap.get(product.id) || [],
-      subcategory_names: (productSubcategoriesMap.get(product.id) || []).map((id) => subcategoryNamesMap.get(id) || '').filter(Boolean),
-      production_time: product.production_time,
-      order_index: product.order_index,
-    })) ?? [];
+      // Получаем названия подкатегорий
+      const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map(item => item.subcategory_id)));
+      const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabase
+        .from('subcategories')
+        .select('id, name')
+        .in('id', allSubcategoryIds.length > 0 ? allSubcategoryIds : [0]); // Избегаем пустого IN
 
-    // Получаем категории
-    const { data: categoriesData, error: categoriesError } = await supabase
-      .from('categories')
-      .select('id, name, slug, is_visible')
-      .eq('is_visible', true)
-      .neq('id', 38); // Исключаем "Без категории"
+      if (subcategoryNamesError) {
+        throw new Error(`Ошибка загрузки названий подкатегорий: ${subcategoryNamesError.message}`);
+      }
 
-    if (categoriesError) throw new Error(`Ошибка загрузки категорий: ${categoriesError.message}`);
+      const subcategoryNamesMap = new Map<number, string>();
+      subcategoryNamesData.forEach(sub => subcategoryNamesMap.set(sub.id, sub.name));
 
-    categories = categoriesData?.map((category) => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      is_visible: category.is_visible ?? false, // Обрабатываем null
-    })) ?? [];
+      // Получаем все товары
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          price,
+          original_price,
+          discount_percent,
+          images,
+          image_url,
+          created_at,
+          slug,
+          bonus,
+          short_desc,
+          description,
+          composition,
+          is_popular,
+          is_visible,
+          in_stock
+        `)
+        .order('id', { ascending: true });
 
-    // Получаем подкатегории
-    const { data: subcategoriesData, error: subcategoriesError } = await supabase
-      .from('subcategories')
-      .select('id, name, slug, is_visible')
-      .eq('is_visible', true);
+      console.log('Supabase query duration for products:', Date.now() - start, 'ms');
+      console.log('Supabase fetch result:', { data, error });
 
-    if (subcategoriesError) throw new Error(`Ошибка загрузки подкатегорий: ${subcategoriesError.message}`);
+      if (error) {
+        throw new Error(`Supabase error: ${error.message || 'Неизвестная ошибка'} (code: ${error.code || 'N/A'}, details: ${error.details || 'N/A'}, hint: ${error.hint || 'N/A'})`);
+      }
 
-    subcategories = subcategoriesData?.map((subcategory) => ({
-      id: subcategory.id,
-      name: subcategory.name,
-      slug: subcategory.slug,
-      is_visible: subcategory.is_visible ?? false, // Обрабатываем null
-    })) ?? [];
+      if (!data || data.length === 0) {
+        console.warn('Товары не найдены в таблице products');
+        return [];
+      }
 
-    // Получаем страницы сайта
-    const { data: sitePagesData, error: sitePagesError } = await supabase
-      .from('site_pages')
-      .select('label, href');
+      return data.map(product => {
+        const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
+        const subcategoryNames = subcategoryIds.map(id => subcategoryNamesMap.get(id) || '').filter(name => name);
 
-    if (sitePagesError) throw new Error(`Ошибка загрузки страниц сайта: ${sitePagesError.message}`);
+        return {
+          id: product.id,
+          title: product.title || 'Без названия',
+          price: product.price || 0,
+          original_price: product.original_price ?? product.price,
+          discount_percent: product.discount_percent ?? 0,
+          images: Array.isArray(product.images) ? product.images : [],
+          image_url: product.image_url ?? null,
+          created_at: product.created_at ?? null,
+          slug: product.slug ?? null,
+          bonus: product.bonus ?? null,
+          short_desc: product.short_desc ?? null,
+          description: product.description ?? null,
+          composition: product.composition ?? null,
+          is_popular: product.is_popular ?? null,
+          is_visible: product.is_visible ?? null,
+          in_stock: product.in_stock ?? null,
+          category_ids: productCategoriesMap.get(product.id) || [],
+          subcategory_ids: subcategoryIds,
+          subcategory_names: subcategoryNames,
+        };
+      });
+    } catch (err: any) {
+      console.error('Ошибка загрузки товаров:', {
+        message: err.message || 'Неизвестная ошибка',
+        stack: err.stack || 'Нет стека',
+        details: err.details || 'Нет деталей',
+        name: err.name || 'Нет имени',
+      });
+      return [];
+    }
+  };
 
-    sitePages = sitePagesData ?? [];
-  } catch (err: any) {
-    console.error('Ошибка загрузки данных каталога:', err);
-  }
+  // Загружаем данные параллельно
+  const [products, sitePages, subcategoriesDB, categoriesDB] = await Promise.all([
+    fetchProducts(),
+    fetchSitePages(),
+    fetchSubcategories(),
+    fetchCategories(),
+  ]);
 
   return (
-    <main aria-label="Каталог товаров">
-      <CatalogClient
-        initialProducts={products}
-        initialSitePages={sitePages}
-        initialSubcategoriesDB={subcategories}
-        categoriesDB={categories}
-      />
-    </main>
+    <CatalogClient
+      initialProducts={products}
+      initialSitePages={sitePages}
+      initialSubcategoriesDB={subcategoriesDB}
+      categoriesDB={categoriesDB}
+    />
   );
 }

@@ -1,4 +1,3 @@
-// ✅ Путь: app/product/[id]/page.tsx
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
@@ -8,7 +7,20 @@ import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
-import { Product } from '@/types/product'; // Исправленный импорт
+
+// Обновлённый тип Product
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  original_price?: number | null;
+  discount_percent: number | null;
+  images: string[];
+  description: string;
+  composition: string;
+  production_time: number | null;
+  category_ids: number[];
+}
 
 type ComboItem = {
   id: number;
@@ -91,46 +103,28 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     .single();
   console.log('Supabase query duration for product in ProductPage:', Date.now() - startProduct, 'ms');
 
+  console.log('Product fetch result:', {
+    productData,
+    productError,
+  });
+
+  // Проверяем, есть ли ошибка или отсутствуют данные
   if (productError || !productData) {
     console.error('Product fetch error:', productError);
     notFound();
   }
 
-  // Получаем category_ids
+  // Получаем category_ids через product_categories
   const { data: productCategoryData, error: productCategoryError } = await supabaseAnon
     .from('product_categories')
     .select('category_id')
-    .eq('product_id', numericId)
-    .neq('category_id', 38); // Исключаем "Без категории"
+    .eq('product_id', numericId);
 
   if (productCategoryError) {
     console.error('Error fetching category_ids:', productCategoryError);
   }
 
-  const categoryIds = productCategoryData?.map((item) => item.category_id) || [];
-
-  // Получаем subcategory_ids и subcategory_names
-  const { data: productSubcategoryData, error: productSubcategoryError } = await supabaseAnon
-    .from('product_subcategories')
-    .select('subcategory_id')
-    .eq('product_id', numericId);
-
-  if (productSubcategoryError) {
-    console.error('Error fetching subcategory_ids:', productSubcategoryError);
-  }
-
-  const subcategoryIds = productSubcategoryData?.map((item) => item.subcategory_id) || [];
-
-  const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabaseAnon
-    .from('subcategories')
-    .select('id, name')
-    .in('id', subcategoryIds.length > 0 ? subcategoryIds : [0]);
-
-  if (subcategoryNamesError) {
-    console.error('Error fetching subcategory names:', subcategoryNamesError);
-  }
-
-  const subcategoryNames = subcategoryNamesData?.map((sub) => sub.name) || [];
+  const categoryIds = productCategoryData?.map(item => item.category_id) || [];
 
   const validatedProduct: Product = {
     id: productData.id,
@@ -143,8 +137,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     composition: productData.composition ?? '',
     production_time: productData.production_time ?? null,
     category_ids: categoryIds,
-    subcategory_ids: subcategoryIds,
-    subcategory_names: subcategoryNames,
   };
 
   let combos: ComboItem[] = [];
@@ -154,6 +146,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     .select('id, title, price, image_url');
 
   console.log('Supabase query duration for upsells in ProductPage:', Date.now() - startUpsells, 'ms');
+
+  console.log('Upsells fetch result:', {
+    upsellsData: upsellItems,
+    upsellsError,
+  });
 
   if (upsellsError) {
     console.error('Upsells fetch error:', upsellsError);

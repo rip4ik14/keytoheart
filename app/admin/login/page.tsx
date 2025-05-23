@@ -1,98 +1,94 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { supabasePublic } from '@/lib/supabase/client';
 
-export default function AdminLoginPage() {
+export default function AdminLogin() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
-  const params = useSearchParams();
-  const redirectTo = params.get('from') || '/admin/products';
-  const error = params.get('error');
-
-  useEffect(() => {
-    if (error === 'no-session') {
-      toast.error('Пожалуйста, войдите в систему');
-    } else if (error === 'invalid-session') {
-      toast.error('Сессия истекла, войдите снова');
-    }
-  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setError('');
 
-    try {
-      const res = await fetch('/api/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ password: password.trim() }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success('Успешный вход');
-        setTimeout(() => {
-          router.push(redirectTo);
-          router.refresh();
-        }, 1000);
-      } else {
-        throw new Error(data.message || 'Неверный пароль');
-      }
-    } catch (err: any) {
-      toast.error(`Ошибка: ${err.message}`);
-    } finally {
-      setLoading(false);
+    if (!email || !password) {
+      setError('Введите email и пароль');
+      return;
     }
+
+    const { error: signInError } = await supabasePublic.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError('Неверный email или пароль');
+      return;
+    }
+
+    router.push('/admin');
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <motion.form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded shadow-md w-full max-w-sm"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        aria-labelledby="login-title"
-      >
-        <h1 id="login-title" className="text-2xl mb-6 text-center">
+    <motion.div
+      className="min-h-screen flex items-center justify-center bg-gray-100"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-2xl font-sans font-bold mb-6 text-center">
           Вход в админ-панель
         </h1>
-        <div className="mb-4">
-          <label htmlFor="password" className="block mb-1">
-            Пароль:
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full mt-1 p-2 border rounded"
-            placeholder="Введите пароль"
-            disabled={loading}
-            required
-            aria-describedby="password-desc"
-          />
-          <p id="password-desc" className="text-sm text-gray-500 mt-1">
-            Введите пароль для доступа к админ-панели.
-          </p>
-        </div>
-        <motion.button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2 bg-black text-white rounded transition disabled:bg-gray-500"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="Войти в админ-панель"
-        >
-          {loading ? 'Вход...' : 'Войти'}
-        </motion.button>
-      </motion.form>
-    </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+              placeholder="admin@example.com"
+              required
+              aria-describedby={error ? 'email-error' : undefined}
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Пароль
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
+              required
+              aria-describedby={error ? 'password-error' : undefined}
+            />
+            {error && (
+              <p id="error" className="mt-2 text-sm text-red-600">
+                {error}
+              </p>
+            )}
+          </div>
+          <motion.button
+            type="submit"
+            className="w-full bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Войти
+          </motion.button>
+        </form>
+      </div>
+    </motion.div>
   );
 }

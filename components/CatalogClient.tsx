@@ -1,4 +1,3 @@
-// ✅ Путь: app/components/CatalogClient.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,8 +6,31 @@ import ProductCardSkeleton from '@components/ProductCardSkeleton';
 import FilterSection from '@components/FilterSection';
 import SortDropdown from '@components/SortDropdown';
 import type { Database } from '@/lib/supabase/types_new';
-import { Product } from '@/types/product';
 
+// Обновлённый интерфейс Product
+export interface Product {
+  id: number;
+  title: string;
+  price: number;
+  discount_percent?: number | null | undefined;
+  original_price?: number | null | undefined;
+  in_stock?: boolean | null;
+  images: string[];
+  image_url?: string | null;
+  created_at?: string | null;
+  slug?: string | null;
+  bonus?: number | null;
+  short_desc?: string | null;
+  description?: string | null;
+  composition?: string | null;
+  is_popular?: boolean | null;
+  is_visible?: boolean | null;
+  category_ids: number[]; // Массив ID категорий
+  subcategory_ids: number[]; // Массив ID подкатегорий
+  subcategory_names: string[]; // Массив названий подкатегорий
+}
+
+// Тип ProductRow для использования при запросах к Supabase
 export type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export type SitePage = {
@@ -69,22 +91,19 @@ export default function CatalogClient({
 
   // Создаём маппинг slug -> category_id
   const categorySlugToIdMap = new Map<string, number>();
-  categoriesDB.forEach((category) => {
-    if (category.is_visible && category.id !== 38) {
-      // Исключаем категорию "Без категории"
-      categorySlugToIdMap.set(category.slug, category.id);
-    }
+  categoriesDB.forEach(category => {
+    categorySlugToIdMap.set(category.slug, category.id);
   });
 
   // Получаем все категории из sitePages
   const categories: Category[] = Array.from(
     new Map(
       sitePages
-        .filter((page) => {
+        .filter(page => {
           const segments = page.href.split('/').filter(Boolean);
           return page.href.startsWith('/category/') && segments.length === 2;
         })
-        .map((page) => {
+        .map(page => {
           const slug = page.href.split('/')[2];
           return [slug, { label: page.label, slug }];
         })
@@ -94,20 +113,20 @@ export default function CatalogClient({
   // Получаем подкатегории для выбранной категории
   const subcategories: Subcategory[] = selectedCategory
     ? sitePages
-        .filter((page) => {
+        .filter(page => {
           const segments = page.href.split('/').filter(Boolean);
           return page.href.startsWith(`/category/${selectedCategory}/`) && segments.length === 3;
         })
-        .map((page) => {
+        .map(page => {
           const slug = page.href.split('/')[3];
-          const subcategory = subcategoriesDB.find((sub) => sub.slug === slug);
+          const subcategory = subcategoriesDB.find(sub => sub.slug === slug);
           return {
             label: page.label,
             slug,
             id: subcategory ? subcategory.id : 0,
           };
         })
-        .filter((sub) => sub.id !== 0)
+        .filter(sub => sub.id !== 0)
     : [];
 
   // Применяем фильтры
@@ -115,7 +134,7 @@ export default function CatalogClient({
     let filtered = [...products];
 
     // Фильтр по цене
-    filtered = filtered.filter((product) => {
+    filtered = filtered.filter(product => {
       const price = product.discount_percent
         ? Math.round(product.price * (1 - product.discount_percent / 100))
         : product.price;
@@ -126,7 +145,7 @@ export default function CatalogClient({
     if (selectedCategory) {
       const selectedCategoryId = categorySlugToIdMap.get(selectedCategory);
       if (selectedCategoryId) {
-        filtered = filtered.filter((product) => product.category_ids.includes(selectedCategoryId));
+        filtered = filtered.filter(product => product.category_ids.includes(selectedCategoryId));
       } else {
         filtered = []; // Если category_id не найден, показываем пустой список
       }
@@ -134,7 +153,7 @@ export default function CatalogClient({
 
     // Фильтр по подкатегории (по subcategory_ids)
     if (selectedSubcategory) {
-      filtered = filtered.filter((product) => product.subcategory_ids.includes(Number(selectedSubcategory)));
+      filtered = filtered.filter(product => product.subcategory_ids.includes(Number(selectedSubcategory)));
     }
 
     // Сортировка по цене
@@ -190,7 +209,7 @@ export default function CatalogClient({
               <p className="text-center text-gray-500 text-lg">Товары не найдены</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map(product => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>

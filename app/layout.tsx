@@ -1,4 +1,3 @@
-// ✅ Путь: app/layout.tsx
 import './styles/globals.css';
 import './styles/fonts.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
@@ -33,13 +32,35 @@ export const metadata: Metadata = {
     template: '%s | KeyToHeart',
   },
   description:
-    'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодаре. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы и любой праздник! Доставка 24/7.',
+    'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы и любой праздник! Доставка 24/7.',
   keywords: [
     'клубничные букеты Краснодар',
     'доставка цветов Краснодар',
     'подарки Краснодар',
     'цветы Краснодар',
     'подарочные боксы Краснодар',
+    'подарки на 8 марта Краснодар',
+    'подарки на Новый год Краснодар',
+    'цветы на День Победы Краснодар',
+    'цветы на выпускной Краснодар',
+    'подарки на свадьбу Краснодар',
+    'цветы на 14 февраля Краснодар',
+    'доставка цветов недорого Краснодар',
+    'доставка цветов 24/7 Краснодар',
+    'заказать цветы Краснодар',
+    'клубничные букеты недорого Краснодар',
+    'подарки на день рождения Краснодар',
+    'подарки на юбилей Краснодар',
+    'подарки для девушки Краснодар',
+    'подарки для мужчины Краснодар',
+    'романтические подарки Краснодар',
+    'цветы на День учителя Краснодар',
+    'цветы на День матери Краснодар',
+    'подарки на 23 февраля Краснодар',
+    'эксклюзивные подарки Краснодар',
+    'подарки на годовщину Краснодар',
+    'доставка цветов на дом Краснодар',
+    'цветы оптом Краснодар',
     'KeyToHeart',
   ],
   openGraph: {
@@ -49,7 +70,7 @@ export const metadata: Metadata = {
     url: 'https://keytoheart.ru',
     title: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
     description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодаре. KeyToHeart — идеальные подарки на любой праздник!',
+      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
     images: [
       {
         url: '/og-cover.jpg',
@@ -64,7 +85,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
     description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодаре.',
+      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
     images: ['/og-cover.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
@@ -141,14 +162,15 @@ export default async function RootLayout({
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-        <link rel="preload" href="/og-cover.jpg" as="image" fetchPriority="high" />
+        <link rel="preload" href="/_next/static/css/6bfcc40b5e423c29.css" as="style" />
+        <link rel="preload" href="/og-cover.jpg" as="image" />
         <JsonLd<WebSite>
           item={{
             '@type': 'WebSite',
             name: 'KeyToHeart',
             url: 'https://keytoheart.ru',
             description:
-              'Клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодаре.',
+              'Клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. Подарки на 8 марта, Новый год, День Победы и любой праздник!',
           }}
         />
         <JsonLd<LocalBusiness>
@@ -172,6 +194,19 @@ export default async function RootLayout({
             },
           }}
         />
+        <JsonLd<BreadcrumbList>
+          item={{
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Главная',
+                item: 'https://keytoheart.ru',
+              },
+            ],
+          }}
+        />
         {ymId && (
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`
@@ -180,20 +215,35 @@ export default async function RootLayout({
                   (m[i].a=m[i].a||[]).push(arguments)
                 };
                 m[i].l=1*new Date();
-                for (var j = 0; j < document.scripts.length; j++) {
-                  if (document.scripts[j].src === r) { return; }
-                }
-                k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+                k=e.createElement(t);
+                a=e.getElementsByTagName(t)[0];
+                k.async=1;
+                k.src=r;
+                a.parentNode.insertBefore(k,a)
               })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-              ym(${ymId}, "init", {
+              ym('${ymId}', "init", {
                 clickmap: true,
                 trackLinks: true,
                 accurateTrackBounce: true,
-                ecommerce: "dataLayer"
+                trackHash: true,
+                webvisor: true,
+                ecommerce: "dataLayer",
+                triggerEvent: true
               });
             `}
           </Script>
         )}
+        {/* Yandex Turbo Pages */}
+        <Script id="yandex-turbo" strategy="afterInteractive">
+          {`
+            (function() {
+              var turboScript = document.createElement('script');
+              turboScript.src = 'https://cdn.turbo.yandex.ru/turbo.js';
+              turboScript.async = true;
+              document.head.appendChild(turboScript);
+            })();
+          `}
+        </Script>
       </head>
       <body className="bg-white font-sans">
         <CartAnimationProvider>
@@ -207,6 +257,12 @@ export default async function RootLayout({
               </main>
               <Footer />
               <CookieBanner />
+              {/* Скрытый текст для SEO */}
+              <div className="sr-only" aria-hidden="true">
+                <p>
+                  Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар, романтические подарки Краснодар, цветы на День учителя Краснодар, цветы на День матери Краснодар, подарки на 23 февраля Краснодар, эксклюзивные подарки Краснодар, подарки на годовщину Краснодар, доставка цветов на дом Краснодар, цветы оптом Краснодар, KeyToHeart
+                </p>
+              </div>
             </CartProvider>
           </SupabaseProvider>
         </CartAnimationProvider>

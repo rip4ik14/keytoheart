@@ -1,12 +1,31 @@
-// ✅ Путь: app/category/[category]/page.tsx
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
-import { Tables } from '@/lib/supabase/types_new';
-import { Product } from '@/types/product';
+
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  discount_percent: number | null;
+  original_price?: number | null;
+  in_stock: boolean;
+  images: string[];
+  image_url: string | null;
+  created_at: string | null;
+  slug: string | null;
+  bonus: number | null;
+  short_desc: string | null;
+  description: string | null;
+  composition: string | null;
+  is_popular: boolean;
+  is_visible: boolean;
+  category_ids: number[];
+  subcategory_ids: number[];
+  subcategory_names: string[];
+}
 
 interface Subcategory {
   id: number;
@@ -59,15 +78,13 @@ export async function generateMetadata({
   const name = nameMap[category] ?? 'Категория';
 
   return {
-    title: `${name} — купить с доставкой в Краснодаре | KeyToHeart`,
-    description: `Свежие ${name.toLowerCase()} с доставкой по Краснодару. Закажите онлайн за 1 час!`,
-    keywords: [name.toLowerCase(), 'клубничные букеты', 'доставка цветов', 'Краснодар', 'KeyToHeart'],
+    title: `${name} — купить с доставкой в Краснодаре`,
+    description: `Свежие ${name.toLowerCase()} с доставкой по Краснодару. Онлайн-заказ за час.`,
+    keywords: [name.toLowerCase(), 'KeyToHeart', 'доставка'],
     openGraph: {
       title: `${name} | KeyToHeart`,
-      description: `Закажите ${name.toLowerCase()} с доставкой по Краснодару.`,
+      description: `Закажите ${name.toLowerCase()} с доставкой.`,
       url: `https://keytoheart.ru/category/${category}`,
-      images: ['/og-cover.jpg'],
-      type: 'website',
     },
     alternates: { canonical: `https://keytoheart.ru/category/${category}` },
   };
@@ -122,34 +139,39 @@ export default async function CategoryPage({
     console.error('Error fetching subcategories:', subcategoriesError.message);
   }
 
+  // Преобразуем is_visible из boolean | null в boolean
   const subcategories: Subcategory[] = subcategoriesData?.map((sub: any) => ({
     id: sub.id,
     name: sub.name,
     slug: sub.slug,
-    is_visible: sub.is_visible ?? true,
+    is_visible: sub.is_visible ?? true, // Приводим к boolean
   })) ?? [];
 
+  // Проверяем, если URL содержит подкатегорию (например, /category/klubnichnye-bukety/club-nabory)
+  // и перенаправляем на корректный URL с параметром ?subcategory=...
   if (subcategories.length > 0) {
     const subcategoryFromUrl = subcategories.find((sub) => sub.slug === initialSubcategory);
     if (initialSubcategory !== 'all' && !subcategoryFromUrl) {
+      // Если подкатегория в URL не найдена, перенаправляем на страницу категории без подкатегории
       redirect(`/category/${category}?sort=${sort}`);
     }
   }
 
+  // Получаем ID товаров, связанных с категорией через product_categories
   const { data: productCategoryData, error: productCategoryError } = await supabaseAdmin
     .from('product_categories')
     .select('product_id')
-    .eq('category_id', categoryId)
-    .neq('category_id', 38); // Исключаем категорию "Без категории"
+    .eq('category_id', categoryId);
 
   if (productCategoryError || !productCategoryData) {
     console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
     redirect('/404');
   }
 
-  const productIds = productCategoryData.map((item) => item.product_id);
+  const productIds = productCategoryData.map(item => item.product_id);
 
   if (productIds.length === 0) {
+    // Если нет товаров в категории, можно вернуть пустой список
     return (
       <main aria-label={`Категория ${apiName}`}>
         <JsonLd<ItemList>
@@ -168,6 +190,7 @@ export default async function CategoryPage({
     );
   }
 
+  // Получаем товары по найденным ID
   const { data: productsData, error: productsError } = await supabaseAdmin
     .from('products')
     .select(`
@@ -185,10 +208,7 @@ export default async function CategoryPage({
       description,
       composition,
       is_popular,
-      is_visible,
-      original_price,
-      order_index,
-      production_time
+      is_visible
     `)
     .in('id', productIds)
     .eq('in_stock', true)
@@ -200,6 +220,7 @@ export default async function CategoryPage({
     redirect('/404');
   }
 
+  // Получаем связи с подкатегориями через product_subcategories
   const { data: productSubcategoryData, error: productSubcategoryError } = await supabaseAdmin
     .from('product_subcategories')
     .select('product_id, subcategory_id')
@@ -209,13 +230,15 @@ export default async function CategoryPage({
     console.error('Error fetching product subcategories:', productSubcategoryError.message);
   }
 
+  // Группируем подкатегории по товару
   const productSubcategoriesMap = new Map<number, number[]>();
-  productSubcategoryData?.forEach((item) => {
+  productSubcategoryData?.forEach(item => {
     const existing = productSubcategoriesMap.get(item.product_id) || [];
     productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
   });
 
-  const allSubcategoryIds = Array.from(new Set(productSubcategoryData?.map((item) => item.subcategory_id) || []));
+  // Получаем названия подкатегорий
+  const allSubcategoryIds = Array.from(new Set(productSubcategoryData?.map(item => item.subcategory_id) || []));
   const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabaseAdmin
     .from('subcategories')
     .select('id, name')
@@ -226,46 +249,30 @@ export default async function CategoryPage({
   }
 
   const subcategoryNamesMap = new Map<number, string>();
-  subcategoryNamesData?.forEach((sub) => subcategoryNamesMap.set(sub.id, sub.name));
+  subcategoryNamesData?.forEach(sub => subcategoryNamesMap.set(sub.id, sub.name));
 
-  const products: Product[] = productsData?.map((product: Tables<'products'>) => {
+  const products: Product[] = productsData?.map((product) => {
     const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
-    const subcategoryNames = subcategoryIds.map((id) => subcategoryNamesMap.get(id) || '').filter((name) => name);
-    const images = Array.isArray(product.images)
-      ? product.images.map((img: string) =>
-          img.includes('example.com')
-            ? 'https://via.placeholder.com/300x300?text=Product+Image'
-            : img
-        )
-      : [];
+    const subcategoryNames = subcategoryIds.map(id => subcategoryNamesMap.get(id) || '').filter(name => name);
 
     return {
       id: product.id,
       title: product.title,
       price: product.price,
-      discount_percent: product.discount_percent,
-      original_price:
-        typeof product.original_price === 'string'
-          ? parseFloat(product.original_price) || null
-          : product.original_price,
-      in_stock: product.in_stock,
-      images,
-      image_url: product.image_url
-        ? product.image_url.includes('example.com')
-          ? 'https://via.placeholder.com/300x300?text=Product+Image'
-          : product.image_url
-        : null,
-      created_at: product.created_at,
-      slug: product.slug,
-      bonus: product.bonus,
-      short_desc: product.short_desc,
-      description: product.description,
-      composition: product.composition,
-      is_popular: product.is_popular,
-      is_visible: product.is_visible,
-      order_index: product.order_index,
-      production_time: product.production_time,
-      category_ids: [categoryId],
+      discount_percent: product.discount_percent ?? null,
+      original_price: undefined,
+      in_stock: product.in_stock ?? true,
+      images: product.images ?? [],
+      image_url: product.image_url ?? null,
+      created_at: product.created_at ?? null,
+      slug: product.slug ?? null,
+      bonus: product.bonus ?? null,
+      short_desc: product.short_desc ?? null,
+      description: product.description ?? null,
+      composition: product.composition ?? null,
+      is_popular: product.is_popular ?? false,
+      is_visible: product.is_visible ?? true,
+      category_ids: [categoryId], // Мы уже знаем, что товар принадлежит этой категории
       subcategory_ids: subcategoryIds,
       subcategory_names: subcategoryNames,
     };
@@ -282,9 +289,8 @@ export default async function CategoryPage({
             item: {
               '@type': 'Product',
               name: p.title,
-              url: `https://keytoheart.ru/product/${p.slug || p.id}`,
-              image: p.images?.[0] || p.image_url || '',
-              description: p.short_desc || '',
+              url: `https://keytoheart.ru/product/${p.id}`,
+              image: p.images && p.images.length > 0 ? p.images[0] : '',
               offers: {
                 '@type': 'Offer',
                 price: p.price,

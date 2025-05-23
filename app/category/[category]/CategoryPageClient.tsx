@@ -1,4 +1,3 @@
-// ✅ Путь: app/category/[category]/CategoryPageClient.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,7 +5,7 @@ import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Product } from '@/types/product'; // Исправленный импорт
+import { Product } from '@components/CatalogClient';
 
 export interface Subcategory {
   id: number;
@@ -41,7 +40,9 @@ export default function CategoryPageClient({
     if (subcategory !== 'all') {
       const subcategoryId = subcategories.find((sub) => sub.slug === subcategory)?.id;
       if (subcategoryId) {
-        sortedProducts = sortedProducts.filter((p) => p.subcategory_ids.includes(subcategoryId));
+        sortedProducts = sortedProducts.filter(
+          (p) => p.subcategory_ids.includes(subcategoryId)
+        );
       } else {
         sortedProducts = [];
       }
@@ -53,37 +54,29 @@ export default function CategoryPageClient({
     } else if (sort === 'price-desc') {
       sortedProducts.sort((a, b) => b.price - a.price);
     } else {
+      // По новизне (по умолчанию, по ID descending)
       sortedProducts.sort((a, b) => b.id - a.id);
     }
 
+    console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
     setFilteredProducts(sortedProducts);
   }, [sort, subcategory, products, subcategories]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'view_category', {
-        event_category: 'category',
-        event_label: apiName,
-      });
-    }
-    if (
-      typeof window !== 'undefined' &&
-      window.ym &&
-      process.env.NEXT_PUBLIC_YM_ID &&
-      !isNaN(parseInt(process.env.NEXT_PUBLIC_YM_ID, 10))
-    ) {
-      window.ym(parseInt(process.env.NEXT_PUBLIC_YM_ID, 10), 'reachGoal', 'view_category', {
-        category: apiName,
-      });
-    }
+    window.gtag?.('event', 'view_category', {
+      event_category: 'category',
+      event_label: apiName,
+    });
+    window.ym?.(12345678, 'reachGoal', 'view_category', { category: apiName });
   }, [apiName]);
 
   return (
     <section className="container mx-auto py-6 px-4" aria-label={`Товары в категории ${apiName}`}>
       <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">{apiName}</h1>
 
+      {/* Фильтры подкатегорий */}
       {subcategories.length > 0 && (
-        <nav className="mb-6 flex flex-wrap gap-2" aria-label="Фильтры подкатегорий">
+        <div className="mb-6 flex flex-wrap gap-2">
           <Link
             href={`/category/${slug}?sort=${sort}&subcategory=all`}
             className={`px-3 py-1 rounded-full text-sm font-medium transition ${
@@ -91,7 +84,6 @@ export default function CategoryPageClient({
                 ? 'bg-black text-white'
                 : 'bg-white text-black border hover:bg-gray-100'
             }`}
-            aria-current={subcategory === 'all' ? 'true' : 'false'}
           >
             Все
           </Link>
@@ -104,14 +96,14 @@ export default function CategoryPageClient({
                   ? 'bg-black text-white'
                   : 'bg-white text-black border hover:bg-gray-100'
               }`}
-              aria-current={subcategory === sub.slug ? 'true' : 'false'}
             >
               {sub.name}
             </Link>
           ))}
-        </nav>
+        </div>
       )}
 
+      {/* Сортировка */}
       <div className="mb-6 flex justify-end">
         <select
           value={sort}
@@ -128,6 +120,7 @@ export default function CategoryPageClient({
         </select>
       </div>
 
+      {/* Список товаров */}
       {filteredProducts.length === 0 ? (
         <p className="text-gray-500 font-sans">
           Нет товаров в этой категории или подкатегории.
@@ -138,7 +131,6 @@ export default function CategoryPageClient({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          role="list"
           aria-label="Список товаров"
         >
           {filteredProducts.map((p) => (
@@ -147,7 +139,6 @@ export default function CategoryPageClient({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              role="listitem"
             >
               <ProductCard product={p} />
             </motion.div>
