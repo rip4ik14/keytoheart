@@ -1,3 +1,5 @@
+// ✅ Путь: app/admin/(protected)/edit-product/[id]/page.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -61,7 +63,13 @@ export default function EditProductPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/admin-session', { credentials: 'include' });
+        const res = await fetch('/api/admin-session', { 
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         const data = await res.json();
         console.log('[EditProductPage] Admin session response:', data);
         if (!res.ok || !data.success) {
@@ -70,7 +78,7 @@ export default function EditProductPage() {
         setIsAuthenticated(true);
       } catch (err: any) {
         console.error('[EditProductPage] Auth error:', err.message);
-        toast.error('Войдите как администратор');
+        toast.error('Необходима авторизация администратора');
         router.push(`/admin/login?from=${encodeURIComponent(`/admin/edit-product/${id}`)}`);
       }
     };
@@ -87,8 +95,7 @@ export default function EditProductPage() {
         const { data: categoriesData, error: categoriesError } = await supabasePublic
           .from('categories')
           .select('id, name')
-          .order('name', { ascending: true })
-          .neq('id', 38);
+          .order('name', { ascending: true });
 
         if (categoriesError) throw new Error(categoriesError.message);
         setCategories(categoriesData || []);
@@ -101,6 +108,7 @@ export default function EditProductPage() {
         if (subcategoriesError) throw new Error(subcategoriesError.message);
         setSubcategories(subcategoriesData || []);
       } catch (err: any) {
+        console.error('Error loading categories:', err);
         toast.error('Ошибка загрузки категорий: ' + err.message);
       } finally {
         setIsCategoriesLoading(false);
@@ -112,7 +120,7 @@ export default function EditProductPage() {
 
   // Загрузка данных товара
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !id) return;
 
     const fetchProduct = async () => {
       try {
@@ -121,6 +129,7 @@ export default function EditProductPage() {
           throw new Error('Неверный ID товара');
         }
 
+        // Получаем данные товара
         const { data, error } = await supabasePublic
           .from('products')
           .select(`
@@ -136,12 +145,8 @@ export default function EditProductPage() {
             is_visible,
             is_popular,
             discount_percent,
-            slug,
             bonus,
-            image_url,
-            created_at,
-            production_time,
-            order_index
+            production_time
           `)
           .eq('id', numericId)
           .single();
@@ -150,6 +155,7 @@ export default function EditProductPage() {
           throw new Error(error?.message || 'Товар не найден');
         }
 
+        // Получаем категории товара
         const { data: categoryData, error: categoryError } = await supabasePublic
           .from('product_categories')
           .select('category_id')
@@ -161,6 +167,7 @@ export default function EditProductPage() {
 
         const productCategoryIds = categoryData.map((item) => item.category_id);
 
+        // Получаем подкатегории товара
         const { data: subcategoryData, error: subcategoryError } = await supabasePublic
           .from('product_subcategories')
           .select('subcategory_id')
@@ -172,45 +179,30 @@ export default function EditProductPage() {
 
         const productSubcategoryIds = subcategoryData.map((item) => item.subcategory_id);
 
-        const normalizedData: Product = {
-          id: data.id,
-          title: data.title || '',
-          price: data.price || 0,
-          original_price: data.original_price ?? null,
-          category_ids: productCategoryIds,
-          subcategory_ids: productSubcategoryIds,
-          subcategory_names: [],
-          short_desc: data.short_desc || '',
-          description: data.description || '',
-          composition: data.composition || '',
-          images: data.images || [],
-          in_stock: data.in_stock ?? false,
-          is_visible: data.is_visible ?? false,
-          is_popular: data.is_popular ?? false,
-          discount_percent: data.discount_percent ?? 0,
-          slug: data.slug || null,
-          bonus: data.bonus || null,
-          image_url: data.image_url || null,
-          created_at: data.created_at || null,
-          production_time: data.production_time || null,
-          order_index: data.order_index || null,
-        };
+        // Заполняем форму данными
+        setTitle(data.title || '');
+        setPrice(data.price.toString());
+        setOriginalPrice(data.original_price?.toString() || data.price.toString());
+        setDiscountPercent(data.discount_percent?.toString() || '0');
+        setCategoryIds(productCategoryIds);
+        setSubcategoryIds(productSubcategoryIds);
+        setShortDesc(data.short_desc || '');
+        setDescription(data.description || '');
+        setComposition(data.composition || '');
+        setExistingImages(Array.isArray(data.images) ? data.images : []);
+        setInStock(data.in_stock ?? true);
+        setIsVisible(data.is_visible ?? true);
+        setIsPopular(data.is_popular ?? false);
 
-        setProduct(normalizedData);
-        setTitle(normalizedData.title);
-        setPrice(normalizedData.price.toString());
-        setOriginalPrice(normalizedData.original_price?.toString() || normalizedData.price.toString());
-        setDiscountPercent(normalizedData.discount_percent?.toString() || '0');
-        setCategoryIds(normalizedData.category_ids);
-        setSubcategoryIds(normalizedData.subcategory_ids);
-        setShortDesc(normalizedData.short_desc || '');
-        setDescription(normalizedData.description || '');
-        setComposition(normalizedData.composition || '');
-        setExistingImages(normalizedData.images || []);
-        setInStock(normalizedData.in_stock ?? false);
-        setIsVisible(normalizedData.is_visible ?? false);
-        setIsPopular(normalizedData.is_popular ?? false);
+        console.log('Product data loaded:', {
+          id: numericId,
+          title: data.title,
+          categories: productCategoryIds,
+          subcategories: productSubcategoryIds
+        });
+
       } catch (err: any) {
+        console.error('Error loading product:', err);
         toast.error(err.message);
         router.push('/admin/products');
       }
@@ -222,9 +214,13 @@ export default function EditProductPage() {
   // Фильтрация подкатегорий
   useEffect(() => {
     if (categoryIds.length > 0) {
-      const filtered = subcategories.filter((sub) => sub.category_id && categoryIds.includes(sub.category_id));
+      const filtered = subcategories.filter((sub) => 
+        sub.category_id && categoryIds.includes(sub.category_id)
+      );
       setFilteredSubcategories(filtered);
-      setSubcategoryIds((prev) => prev.filter((id) => filtered.some((sub) => sub.id === id)));
+      setSubcategoryIds((prev) => 
+        prev.filter((id) => filtered.some((sub) => sub.id === id))
+      );
     } else {
       setFilteredSubcategories([]);
       setSubcategoryIds([]);
@@ -241,126 +237,33 @@ export default function EditProductPage() {
   // Валидация формы
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+    
     if (title.trim().length < 3) {
       newErrors.title = 'Название должно быть ≥ 3 символов';
     }
+    
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum <= 0) {
       newErrors.price = 'Цена должна быть > 0';
     }
+    
     const originalPriceNum = parseFloat(originalPrice);
     if (isNaN(originalPriceNum) || originalPriceNum <= 0) {
       newErrors.originalPrice = 'Старая цена должна быть > 0';
     }
+    
     if (categoryIds.length === 0) {
       newErrors.categoryIds = 'Необходимо выбрать хотя бы одну категорию';
     }
+    
     const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
     if (discountNum < 0 || discountNum > 100) {
       newErrors.discountPercent = 'Скидка должна быть от 0 до 100%';
     }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // Отправка формы
-  async function handleSubmit(csrfToken: string) {
-    try {
-      if (!validateForm()) {
-        throw new Error('Пожалуйста, исправьте ошибки в форме');
-      }
-      setLoading(true);
-
-      const priceNum = parseFloat(price);
-      const originalPriceNum = parseFloat(originalPrice);
-      const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
-
-      let imageUrls = [...existingImages];
-      if (images.length > 0) {
-        for (const image of images) {
-          const compressedImage = await compressImage(image);
-          const fileName = `${uuidv4()}-${compressedImage.name}`;
-          const { error } = await supabasePublic.storage
-            .from('product-image')
-            .upload(fileName, compressedImage);
-
-          if (error) {
-            throw new Error('Ошибка загрузки изображения: ' + error.message);
-          }
-
-          const { data: publicData } = supabasePublic.storage
-            .from('product-image')
-            .getPublicUrl(fileName);
-
-          if (publicData?.publicUrl) {
-            imageUrls.push(publicData.publicUrl);
-          } else {
-            throw new Error('Не удалось получить публичный URL изображения');
-          }
-        }
-      }
-
-      const res = await fetch('/api/products', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          id: parseInt(id),
-          title: title.trim(),
-          price: priceNum,
-          original_price: originalPriceNum,
-          category_ids: categoryIds,
-          subcategory_ids: subcategoryIds,
-          short_desc: shortDesc.trim(),
-          description: description.trim(),
-          composition: composition.trim(),
-          images: imageUrls,
-          discount_percent: discountNum,
-          in_stock: inStock,
-          is_visible: isVisible,
-          is_popular: isPopular,
-        }),
-      });
-
-      console.log('[EditProductPage] PATCH /api/products status:', res.status);
-
-      const data = await res.json();
-      if (!res.ok) {
-        console.error('[EditProductPage] PATCH /api/products error response:', data);
-        throw new Error(data.error || 'Ошибка обновления товара');
-      }
-
-      toast.success('Товар успешно обновлён');
-      router.push('/admin/products');
-    } catch (err: any) {
-      console.error('[EditProductPage] Submit error:', err.message);
-      toast.error('Ошибка: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Удаление изображения
-  async function handleRemoveImage(imageUrl: string) {
-    try {
-      const fileName = decodeURIComponent(imageUrl.split('/').pop()!);
-      const { error } = await supabasePublic.storage
-        .from('product-image')
-        .remove([fileName]);
-
-      if (error) {
-        throw new Error('Ошибка удаления изображения: ' + error.message);
-      }
-
-      setExistingImages((prev) => prev.filter((url) => url !== imageUrl));
-      toast.success('Изображение удалено');
-    } catch (err: any) {
-      toast.error('Ошибка: ' + err.message);
-    }
-  }
 
   // Сжатие изображения
   const compressImage = (file: File): Promise<File> => {
@@ -380,15 +283,145 @@ export default function EditProductPage() {
     });
   };
 
+  // Отправка формы
+  const handleSubmit = async (csrfToken: string) => {
+    const toastId = toast.loading('Обновление товара...');
+    
+    try {
+      if (!validateForm()) {
+        throw new Error('Пожалуйста, исправьте ошибки в форме');
+      }
+      
+      setLoading(true);
+
+      const priceNum = parseFloat(price);
+      const originalPriceNum = parseFloat(originalPrice);
+      const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
+
+      // Загружаем новые изображения
+      let imageUrls = [...existingImages];
+      if (images.length > 0) {
+        for (const image of images) {
+          console.log('Compressing and uploading image:', image.name);
+          const compressedImage = await compressImage(image);
+          const fileName = `${uuidv4()}-${compressedImage.name}`;
+          
+          const { error } = await supabasePublic.storage
+            .from('product-image')
+            .upload(fileName, compressedImage);
+
+          if (error) {
+            throw new Error('Ошибка загрузки изображения: ' + error.message);
+          }
+
+          const { data: publicData } = supabasePublic.storage
+            .from('product-image')
+            .getPublicUrl(fileName);
+
+          if (publicData?.publicUrl) {
+            imageUrls.push(publicData.publicUrl);
+            console.log('Image uploaded successfully:', publicData.publicUrl);
+          } else {
+            throw new Error('Не удалось получить публичный URL изображения');
+          }
+        }
+      }
+
+      // Отправляем данные на сервер
+      const requestBody = {
+        id: parseInt(id),
+        title: title.trim(),
+        price: priceNum,
+        original_price: originalPriceNum,
+        category_ids: categoryIds,
+        subcategory_ids: subcategoryIds,
+        short_desc: shortDesc.trim(),
+        description: description.trim(),
+        composition: composition.trim(),
+        images: imageUrls,
+        discount_percent: discountNum,
+        in_stock: inStock,
+        is_visible: isVisible,
+        is_popular: isPopular,
+      };
+
+      console.log('Sending PATCH request with data:', requestBody);
+
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('[EditProductPage] PATCH /api/products status:', res.status);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[EditProductPage] PATCH /api/products error response:', errorText);
+        
+        let errorMessage = 'Ошибка обновления товара';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const data = await res.json();
+      console.log('Product updated successfully:', data);
+
+      toast.success('Товар успешно обновлён', { id: toastId });
+      router.push('/admin/products');
+      
+    } catch (err: any) {
+      console.error('[EditProductPage] Submit error:', err);
+      toast.error('Ошибка: ' + err.message, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Удаление изображения
+  const handleRemoveImage = async (imageUrl: string) => {
+    try {
+      const fileName = decodeURIComponent(imageUrl.split('/').pop()!);
+      const { error } = await supabasePublic.storage
+        .from('product-image')
+        .remove([fileName]);
+
+      if (error) {
+        console.error('Storage deletion error:', error);
+        // Не блокируем удаление из UI при ошибке Storage
+      }
+
+      setExistingImages((prev) => prev.filter((url) => url !== imageUrl));
+      toast.success('Изображение удалено');
+    } catch (err: any) {
+      console.error('Image removal error:', err);
+      toast.error('Ошибка удаления изображения: ' + err.message);
+    }
+  };
+
   // Обработка загрузки изображений
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length + existingImages.length > 5) {
-      toast.error('Максимум 5 изображений');
+    const totalImages = files.length + existingImages.length;
+    
+    if (totalImages > 7) {
+      toast.error('Максимум 7 изображений');
       return;
     }
+    
     const maxSize = 5 * 1024 * 1024; // 5MB
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    
     const oversizedFiles = files.filter((file) => file.size > maxSize);
     const invalidTypeFiles = files.filter((file) => !allowedTypes.includes(file.type));
 
@@ -396,10 +429,12 @@ export default function EditProductPage() {
       toast.error('Некоторые файлы превышают 5MB');
       return;
     }
+    
     if (invalidTypeFiles.length > 0) {
       toast.error('Поддерживаются только JPEG, PNG, WebP');
       return;
     }
+    
     setImages(files);
   };
 
@@ -426,10 +461,19 @@ export default function EditProductPage() {
     setAccordionOpen((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
+  // Показываем загрузку до проверки авторизации
   if (isAuthenticated === null) {
-    return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
+          <p className="text-gray-600">Проверка авторизации...</p>
+        </div>
+      </div>
+    );
   }
 
+  // Если не авторизован, ничего не показываем (произойдет редирект)
   if (!isAuthenticated) {
     return null;
   }
@@ -437,491 +481,517 @@ export default function EditProductPage() {
   return (
     <CSRFToken>
       {(csrfToken) => (
-        <motion.div
-          className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
-            <motion.button
-              type="button"
-              onClick={() => router.push('/admin/products')}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
-              whileHover={{ scale: 1.05 }}
-              aria-label="Вернуться к списку товаров"
+        <div className="min-h-screen bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <motion.div
+              className="space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
             >
-              Назад
-            </motion.button>
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit(csrfToken);
-            }}
-            className="space-y-6"
-          >
-            {/* Основная информация */}
-            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('main')}
-                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                Основная информация
-                {accordionOpen.main ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-              <AnimatePresence>
-                {accordionOpen.main && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-4 space-y-4"
-                  >
-                    <div>
-                      <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-600">
-                        Название
-                      </label>
-                      <motion.input
-                        id="title"
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.title ? 'border-red-500' : ''
-                        }`}
-                        placeholder="Введите название товара (мин. 3 символа)"
-                        required
-                        aria-describedby="title-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
-                      <p id="title-desc" className="text-xs text-gray-500 mt-1">
-                        Название товара, отображаемое на сайте.
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-600">
-                        Категории
-                      </label>
-                      {isCategoriesLoading ? (
-                        <p className="text-gray-500 text-sm">Загрузка категорий...</p>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {categories.map((cat) => (
-                            <label key={cat.id} className="flex items-center text-sm">
-                              <input
-                                type="checkbox"
-                                checked={categoryIds.includes(cat.id)}
-                                onChange={(e) => handleCategoryChange(cat.id, e.target.checked)}
-                                className="mr-2"
-                              />
-                              {cat.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      {errors.categoryIds && <p className="text-red-500 text-xs mt-1">{errors.categoryIds}</p>}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Выберите категории для товара.
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-600">
-                        Подкатегории
-                      </label>
-                      {filteredSubcategories.length === 0 ? (
-                        <p className="text-gray-500 text-sm">
-                          Выберите категории, чтобы увидеть доступные подкатегории.
-                        </p>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {filteredSubcategories.map((sub) => (
-                            <label key={sub.id} className="flex items-center text-sm">
-                              <input
-                                type="checkbox"
-                                checked={subcategoryIds.includes(sub.id)}
-                                onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)}
-                                className="mr-2"
-                              />
-                              {sub.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Выберите подкатегории для товара (опционально).
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
+              {/* Заголовок */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    Редактировать товар
+                  </h1>
+                  <p className="text-gray-600 mt-1">ID: {id}</p>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => router.push('/admin/products')}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  aria-label="Вернуться к списку товаров"
+                >
+                  ← Назад к товарам
+                </motion.button>
+              </div>
 
-            {/* Цены и скидки */}
-            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('pricing')}
-                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              {/* Форма */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmit(csrfToken);
+                }}
+                className="space-y-6"
               >
-                Цены и скидки
-                {accordionOpen.pricing ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-              <AnimatePresence>
-                {accordionOpen.pricing && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-4 space-y-4"
+                {/* Основная информация */}
+                <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion('main')}
+                    className="w-full flex justify-between items-center p-6 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
                   >
-                    <div>
-                      <label htmlFor="price" className="block mb-1 text-sm font-medium text-gray-600">
-                        Цена (₽)
-                      </label>
-                      <motion.input
-                        id="price"
-                        type="number"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.price ? 'border-red-500' : ''
-                        }`}
-                        placeholder="Введите цену"
-                        required
-                        min="0.01"
-                        step="0.01"
-                        aria-describedby="price-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
-                      <p id="price-desc" className="text-xs text-gray-500 mt-1">
-                        Текущая цена товара в рублях.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="originalPrice" className="block mb-1 text-sm font-medium text-gray-600">
-                        Старая цена (₽)
-                      </label>
-                      <motion.input
-                        id="originalPrice"
-                        type="number"
-                        value={originalPrice}
-                        onChange={(e) => setOriginalPrice(e.target.value)}
-                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.originalPrice ? 'border-red-500' : ''
-                        }`}
-                        placeholder="Введите старую цену"
-                        required
-                        min="0.01"
-                        step="0.01"
-                        aria-describedby="originalPrice-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      {errors.originalPrice && <p className="text-red-500 text-xs mt-1">{errors.originalPrice}</p>}
-                      <p id="originalPrice-desc" className="text-xs text-gray-500 mt-1">
-                        Цена до скидки (для отображения скидки).
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="discountPercent" className="block mb-1 text-sm font-medium text-gray-600">
-                        Скидка (%)
-                      </label>
-                      <motion.input
-                        id="discountPercent"
-                        type="number"
-                        value={discountPercent}
-                        onChange={(e) => setDiscountPercent(e.target.value)}
-                        className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.discountPercent ? 'border-red-500' : ''
-                        }`}
-                        placeholder="Введите скидку (0-100)"
-                        min="0"
-                        max="100"
-                        step="1"
-                        aria-describedby="discountPercent-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      {errors.discountPercent && (
-                        <p className="text-red-500 text-xs mt-1">{errors.discountPercent}</p>
-                      )}
-                      <p id="discountPercent-desc" className="text-xs text-gray-500 mt-1">
-                        Процент скидки (если применимо).
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
-
-            {/* Описание */}
-            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('description')}
-                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                Описание
-                {accordionOpen.description ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-              <AnimatePresence>
-                {accordionOpen.description && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-4 space-y-4"
-                  >
-                    <div>
-                      <label htmlFor="shortDesc" className="block mb-1 text-sm font-medium text-gray-600">
-                        Краткое описание
-                      </label>
-                      <motion.textarea
-                        id="shortDesc"
-                        value={shortDesc}
-                        onChange={(e) => setShortDesc(e.target.value)}
-                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Введите краткое описание"
-                        rows={3}
-                        aria-describedby="shortDesc-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      <p id="shortDesc-desc" className="text-xs text-gray-500 mt-1">
-                        Краткое описание для карточки товара.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-600">
-                        Полное описание
-                      </label>
-                      <motion.textarea
-                        id="description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Введите полное описание"
-                        rows={5}
-                        aria-describedby="description-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      <p id="description-desc" className="text-xs text-gray-500 mt-1">
-                        Подробное описание товара.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="composition" className="block mb-1 text-sm font-medium text-gray-600">
-                        Состав
-                      </label>
-                      <motion.textarea
-                        id="composition"
-                        value={composition}
-                        onChange={(e) => setComposition(e.target.value)}
-                        className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Введите состав"
-                        rows={3}
-                        aria-describedby="composition-desc"
-                        whileFocus={{ scale: 1.02 }}
-                      />
-                      <p id="composition-desc" className="text-xs text-gray-500 mt-1">
-                        Состав товара (например, ингредиенты).
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
-
-            {/* Изображения и настройки */}
-            <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('images')}
-                className="w-full flex justify-between items-center p-4 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                Изображения и настройки
-                {accordionOpen.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-              <AnimatePresence>
-                {accordionOpen.images && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-4 space-y-4"
-                  >
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-600">
-                        Существующие изображения
-                      </label>
-                      {existingImages.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                          {existingImages.map((url, index) => (
-                            <motion.div
-                              key={index}
-                              className="relative"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                            >
-                              <img
-                                src={url}
-                                alt={`Изображение ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-md"
-                                loading="lazy"
-                              />
-                              <motion.button
-                                type="button"
-                                onClick={() => handleRemoveImage(url)}
-                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                whileHover={{ scale: 1.1 }}
-                                aria-label={`Удалить изображение ${index + 1}`}
-                              >
-                                <X size={16} />
-                              </motion.button>
-                            </motion.div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm">Изображения отсутствуют</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="images" className="block mb-1 text-sm font-medium text-gray-600">
-                        Добавить новые изображения
-                      </label>
-                      <div className="flex items-center justify-center w-full">
-                        <label
-                          htmlFor="images"
-                          className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50"
-                        >
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <ImageIcon size={24} className="text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-500">
-                              Перетащите изображения или кликните для выбора (макс. 5)
-                            </p>
-                          </div>
+                    Основная информация
+                    {accordionOpen.main ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {accordionOpen.main && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="px-6 pb-6 space-y-4"
+                      >
+                        {/* Название */}
+                        <div>
+                          <label htmlFor="title" className="block mb-2 text-sm font-medium text-gray-700">
+                            Название товара <span className="text-red-500">*</span>
+                          </label>
                           <input
-                            id="images"
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                            aria-describedby="images-desc"
+                            id="title"
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
+                              errors.title ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder="Введите название товара (мин. 3 символа)"
+                            required
                           />
-                        </label>
-                      </div>
-                      <p id="images-desc" className="text-xs text-gray-500 mt-1">
-                        Поддерживаются JPEG, PNG, WebP. Максимум 5MB на файл.
-                      </p>
-                      {imagePreviews.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
-                          {imagePreviews.map((url, index) => (
-                            <motion.div
-                              key={index}
-                              className="relative"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                            >
-                              <img
-                                src={url}
-                                alt={`Новое изображение ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-md"
-                                loading="lazy"
-                              />
-                              <motion.button
-                                type="button"
-                                onClick={() => {
-                                  setImages((prev) => prev.filter((_, i) => i !== index));
-                                  setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-                                }}
-                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
-                                whileHover={{ scale: 1.1 }}
-                                aria-label={`Удалить новое изображение ${index + 1}`}
-                              >
-                                <X size={16} />
-                              </motion.button>
-                            </motion.div>
-                          ))}
+                          {errors.title && (
+                            <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <label htmlFor="inStock" className="flex items-center text-sm">
-                        <input
-                          id="inStock"
-                          type="checkbox"
-                          checked={inStock}
-                          onChange={(e) => setInStock(e.target.checked)}
-                          className="mr-2"
-                          aria-describedby="inStock-desc"
-                        />
-                        В наличии
-                      </label>
-                      <label htmlFor="isVisible" className="flex items-center text-sm">
-                        <input
-                          id="isVisible"
-                          type="checkbox"
-                          checked={isVisible}
-                          onChange={(e) => setIsVisible(e.target.checked)}
-                          className="mr-2"
-                          aria-describedby="isVisible-desc"
-                        />
-                        Показать товар
-                      </label>
-                      <label htmlFor="isPopular" className="flex items-center text-sm">
-                        <input
-                          id="isPopular"
-                          type="checkbox"
-                          checked={isPopular}
-                          onChange={(e) => setIsPopular(e.target.checked)}
-                          className="mr-2"
-                          aria-describedby="isPopular-desc"
-                        />
-                        Популярный товар
-                      </label>
-                    </div>
-                    <p id="inStock-desc" className="text-xs text-gray-500 mt-1">
-                      Настройки отображения и доступности товара.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
 
-            {/* Кнопки */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <motion.button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-2 bg-black text-white rounded-md hover:opacity-90 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed text-sm"
-                whileHover={{ scale: loading ? 1 : 1.05 }}
-                whileTap={{ scale: loading ? 1 : 0.95 }}
-                aria-label="Сохранить изменения"
-              >
-                {loading ? 'Сохранение...' : 'Сохранить изменения'}
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={() => router.push('/admin/products')}
-                className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label="Отмена"
-              >
-                Отмена
-              </motion.button>
-            </div>
-          </form>
-        </motion.div>
+                        {/* Категории */}
+                        <div>
+                          <label className="block mb-2 text-sm font-medium text-gray-700">
+                            Категории <span className="text-red-500">*</span>
+                          </label>
+                          {isCategoriesLoading ? (
+                            <p className="text-gray-500">Загрузка категорий...</p>
+                          ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {categories.map((cat) => (
+                                <label key={cat.id} className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={categoryIds.includes(cat.id)}
+                                    onChange={(e) => handleCategoryChange(cat.id, e.target.checked)}
+                                    className="w-4 h-4 text-black focus:ring-black border-gray-300 rounded"
+                                  />
+                                  <span className="text-sm text-gray-700">{cat.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {errors.categoryIds && (
+                            <p className="text-red-500 text-sm mt-1">{errors.categoryIds}</p>
+                          )}
+                        </div>
+
+                        {/* Подкатегории */}
+                        {filteredSubcategories.length > 0 && (
+                          <div>
+                            <label className="block mb-2 text-sm font-medium text-gray-700">
+                              Подкатегории
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {filteredSubcategories.map((sub) => (
+                                <label key={sub.id} className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={subcategoryIds.includes(sub.id)}
+                                    onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)}
+                                    className="w-4 h-4 text-black focus:ring-black border-gray-300 rounded"
+                                  />
+                                  <span className="text-sm text-gray-700">{sub.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+
+                {/* Цены и скидки */}
+                <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion('pricing')}
+                    className="w-full flex justify-between items-center p-6 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    Цены и скидки
+                    {accordionOpen.pricing ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {accordionOpen.pricing && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="px-6 pb-6 space-y-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Цена */}
+                          <div>
+                            <label htmlFor="price" className="block mb-2 text-sm font-medium text-gray-700">
+                              Цена (₽) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="price"
+                              type="number"
+                              value={price}
+                              onChange={(e) => setPrice(e.target.value)}
+                              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
+                                errors.price ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="0"
+                              required
+                              min="0.01"
+                              step="0.01"
+                            />
+                            {errors.price && (
+                              <p className="text-red-500 text-sm mt-1">{errors.price}</p>
+                            )}
+                          </div>
+
+                          {/* Старая цена */}
+                          <div>
+                            <label htmlFor="originalPrice" className="block mb-2 text-sm font-medium text-gray-700">
+                              Старая цена (₽) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="originalPrice"
+                              type="number"
+                              value={originalPrice}
+                              onChange={(e) => setOriginalPrice(e.target.value)}
+                              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
+                                errors.originalPrice ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="0"
+                              required
+                              min="0.01"
+                              step="0.01"
+                            />
+                            {errors.originalPrice && (
+                              <p className="text-red-500 text-sm mt-1">{errors.originalPrice}</p>
+                            )}
+                          </div>
+
+                          {/* Скидка */}
+                          <div>
+                            <label htmlFor="discountPercent" className="block mb-2 text-sm font-medium text-gray-700">
+                              Скидка (%)
+                            </label>
+                            <input
+                              id="discountPercent"
+                              type="number"
+                              value={discountPercent}
+                              onChange={(e) => setDiscountPercent(e.target.value)}
+                              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
+                                errors.discountPercent ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="0"
+                              min="0"
+                              max="100"
+                              step="1"
+                            />
+                            {errors.discountPercent && (
+                              <p className="text-red-500 text-sm mt-1">{errors.discountPercent}</p>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+
+                {/* Описание */}
+                <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion('description')}
+                    className="w-full flex justify-between items-center p-6 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    Описание
+                    {accordionOpen.description ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {accordionOpen.description && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="px-6 pb-6 space-y-4"
+                      >
+                        {/* Краткое описание */}
+                        <div>
+                          <label htmlFor="shortDesc" className="block mb-2 text-sm font-medium text-gray-700">
+                            Краткое описание
+                          </label>
+                          <textarea
+                            id="shortDesc"
+                            value={shortDesc}
+                            onChange={(e) => setShortDesc(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                            placeholder="Краткое описание для карточки товара"
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* Полное описание */}
+                        <div>
+                          <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
+                            Полное описание
+                          </label>
+                          <textarea
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                            placeholder="Подробное описание товара"
+                            rows={5}
+                          />
+                        </div>
+
+                        {/* Состав */}
+                        <div>
+                          <label htmlFor="composition" className="block mb-2 text-sm font-medium text-gray-700">
+                            Состав
+                          </label>
+                          <textarea
+                            id="composition"
+                            value={composition}
+                            onChange={(e) => setComposition(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                            placeholder="Состав товара (например, ингредиенты)"
+                            rows={3}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+
+                {/* Изображения и настройки */}
+                <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion('images')}
+                    className="w-full flex justify-between items-center p-6 text-lg font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    Изображения и настройки
+                    {accordionOpen.images ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {accordionOpen.images && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="px-6 pb-6 space-y-6"
+                      >
+                        {/* Существующие изображения */}
+                        <div>
+                          <label className="block mb-3 text-sm font-medium text-gray-700">
+                            Текущие изображения
+                          </label>
+                          {existingImages.length > 0 ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                              {existingImages.map((url, index) => (
+                                <motion.div
+                                  key={index}
+                                  className="relative group"
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ duration: 0.3 }}
+                                >
+                                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                    <img
+                                      src={url}
+                                      alt={`Изображение ${index + 1}`}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                  <motion.button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(url)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    aria-label={`Удалить изображение ${index + 1}`}
+                                  >
+                                    <X size={14} />
+                                  </motion.button>
+                                </motion.div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                              <ImageIcon size={48} className="mx-auto text-gray-400 mb-2" />
+                              <p className="text-gray-500">Изображения отсутствуют</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Добавить новые изображения */}
+                        <div>
+                          <label htmlFor="images" className="block mb-3 text-sm font-medium text-gray-700">
+                            Добавить новые изображения
+                          </label>
+                          <div className="flex items-center justify-center w-full">
+                            <label
+                              htmlFor="images"
+                              className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                            >
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                <ImageIcon size={32} className="text-gray-400 mb-3" />
+                                <p className="text-sm text-gray-500 text-center">
+                                  <span className="font-medium">Нажмите для выбора</span> или перетащите файлы
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  JPEG, PNG, WebP (макс. 5MB каждый)
+                                </p>
+                              </div>
+                              <input
+                                id="images"
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                          
+                          {/* Предварительный просмотр новых изображений */}
+                          {imagePreviews.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-sm font-medium text-gray-700 mb-3">Новые изображения:</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {imagePreviews.map((url, index) => (
+                                  <motion.div
+                                    key={index}
+                                    className="relative group"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.3 }}
+                                  >
+                                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                      <img
+                                        src={url}
+                                        alt={`Новое изображение ${index + 1}`}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                        loading="lazy"
+                                      />
+                                    </div>
+                                    <motion.button
+                                      type="button"
+                                      onClick={() => {
+                                        setImages((prev) => prev.filter((_, i) => i !== index));
+                                      }}
+                                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                      aria-label={`Удалить новое изображение ${index + 1}`}
+                                    >
+                                      <X size={14} />
+                                    </motion.button>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Настройки товара */}
+                        <div>
+                          <label className="block mb-3 text-sm font-medium text-gray-700">
+                            Настройки товара
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={inStock}
+                                onChange={(e) => setInStock(e.target.checked)}
+                                className="w-4 h-4 text-black focus:ring-black border-gray-300 rounded"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-700">В наличии</span>
+                                <p className="text-xs text-gray-500">Товар доступен для заказа</p>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isVisible}
+                                onChange={(e) => setIsVisible(e.target.checked)}
+                                className="w-4 h-4 text-black focus:ring-black border-gray-300 rounded"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-700">Отображать</span>
+                                <p className="text-xs text-gray-500">Показывать на сайте</p>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isPopular}
+                                onChange={(e) => setIsPopular(e.target.checked)}
+                                className="w-4 h-4 text-black focus:ring-black border-gray-300 rounded"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-700">Популярный</span>
+                                <p className="text-xs text-gray-500">В разделе "Популярное"</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+
+                {/* Кнопки управления */}
+                <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 px-6 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+                    whileHover={{ scale: loading ? 1 : 1.02 }}
+                    whileTap={{ scale: loading ? 1 : 0.98 }}
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Сохранение...
+                      </div>
+                    ) : (
+                      'Сохранить изменения'
+                    )}
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    onClick={() => router.push('/admin/products')}
+                    className="flex-1 py-3 px-6 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Отмена
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        </div>
       )}
     </CSRFToken>
   );
