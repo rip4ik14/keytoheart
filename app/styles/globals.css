@@ -3,35 +3,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "SF Pro Display";
-  src: url("/fonts/SFPRODISPLAYREGULAR.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "SF Pro Display";
-  src: url("/fonts/SFPRODISPLAYBOLD.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "SF Pro Display";
-  src: url("/fonts/SFPRODISPLAYLIGHT.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "SF Pro Display";
-  src: url("/fonts/SFPRODISPLAYMEDIUM.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Убираем желтый фон при автозаполнении */
 @layer base {
   input:-webkit-autofill,
@@ -94,7 +65,8 @@
 
 /* Базовый стиль BODY */
 body {
-  @apply font-sans bg-white text-black;
+  font-family: 'Berold', sans-serif;
+  @apply bg-white text-black;
 }
 
 /* Базовые стили заголовков */
@@ -104,6 +76,7 @@ h3,
 h4,
 h5,
 h6 {
+  font-family: 'Berold', sans-serif;
   @apply font-bold text-black;
 }
 

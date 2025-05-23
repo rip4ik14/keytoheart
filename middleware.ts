@@ -1,60 +1,131 @@
-import { NextResponse } from 'next/server';
-  import { createServerClient } from '@supabase/ssr';
-  import type { Database } from '@/lib/supabase/types_new';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types_new';
 
-  export async function middleware(request: Request) {
-    const url = new URL(request.url);
-    const isAdminRoute = url.pathname.startsWith('/admin');
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-    if (isAdminRoute && url.pathname !== '/admin/login') {
-      const supabase = createServerClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            get(name: string) {
-              const cookie = request.headers.get('cookie')?.split('; ').find(row => row.startsWith(`${name}=`));
-              return cookie?.split('=')[1];
-            },
-            set() {},
-            remove() {},
-          },
-        }
-      );
+export async function middleware(req: NextRequest) {
+  const url = req.nextUrl;
+  const pathname = url.pathname;
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        console.error('Middleware: Supabase getSession error:', sessionError);
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-      }
+  console.log(`[${new Date().toISOString()}] Middleware processing: ${pathname}`);
 
-      if (!session) {
-        console.log('Middleware: No session found for', url.pathname);
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-      }
-
-      // Безопасно получаем пользователя через getUser
-      const { data: user, error: userError } = await supabase.auth.getUser();
-      if (userError || !user.user) {
-        console.error('Middleware: Supabase getUser error:', userError || 'No user found');
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-      }
-
-      const { data: admin, error: adminError } = await supabase
-        .from('admins')
-        .select('role')
-        .eq('id', user.user.id)
-        .single();
-
-      if (adminError || !admin || admin.role !== 'admin') {
-        console.error('Middleware: Admin check failed:', adminError || `Role not admin: ${admin?.role}`);
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-      }
-    }
-
+  // Пропускаем API маршруты
+  if (pathname.startsWith('/api')) {
+    console.log(`[${new Date().toISOString()}] Skipping checks for API route: ${pathname}`);
     return NextResponse.next();
   }
 
-  export const config = {
-    matcher: ['/admin/:path*'],
-  };
+  // Устанавливаем CSP заголовок для не-API маршрутов
+  const response = NextResponse.next();
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru",
+    "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co wss://gwbeabfkknhewwoesqax.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com https://mc.yandex.ru",
+    "font-src 'self' data:",
+    "frame-src 'self' https://mc.yandex.com https://mc.yandex.ru https://yandex.ru https://*.yandex.ru",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "worker-src 'self'",
+  ].join('; ');
+  response.headers.set('Content-Security-Policy', csp);
+
+  // Пропускаем /admin/login и /account
+  if (pathname === '/admin/login' || pathname === '/account') {
+    console.log(`[${new Date().toISOString()}] Allowing direct access to: ${pathname}`);
+    return response;
+  }
+
+  // Проверяем токен для /admin
+  if (pathname.startsWith('/admin')) {
+    const token = req.cookies.get('admin_session')?.value;
+
+    if (!token) {
+      console.log(`[${new Date().toISOString()}] No admin_session token found for /admin route`);
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
+    }
+
+    try {
+      const verifyRes = await fetch(new URL('/api/admin-session', req.url), {
+        headers: {
+          Cookie: `admin_session=${token}`,
+        },
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.success) {
+        console.log(`[${new Date().toISOString()}] Invalid admin_session token:`, verifyData);
+        const login = url.clone();
+        login.pathname = '/admin/login';
+        login.searchParams.set('from', pathname);
+        login.searchParams.set('error', 'invalid-session');
+        return NextResponse.redirect(login);
+      }
+
+      console.log(`[${new Date().toISOString()}] Admin session verified for: ${pathname}`);
+      return response;
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Admin middleware auth error:`, error);
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
+    }
+  }
+
+  // Проверяем токен для /account и /checkout
+  if (pathname.startsWith('/account') || pathname.startsWith('/checkout')) {
+    const token = req.cookies.get('access_token')?.value;
+
+    if (!token) {
+      console.log(`[${new Date().toISOString()}] No access_token found for ${pathname}`);
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
+    }
+
+    try {
+      console.log(`[${new Date().toISOString()}] Verifying access_token: ${token}`);
+      const { data: userData, error } = await supabase.auth.getUser(token);
+      if (error || !userData.user) {
+        console.error(`[${new Date().toISOString()}] Invalid access_token for ${pathname}:`, error?.message || 'No user data');
+        const login = url.clone();
+        login.pathname = '/account';
+        login.searchParams.set('from', pathname);
+        login.searchParams.set('error', 'invalid-session');
+        return NextResponse.redirect(login);
+      }
+      console.log(`[${new Date().toISOString()}] Successfully verified access_token for ${pathname}, user: ${userData.user.id}`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] User middleware auth error for ${pathname}:`, error);
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
+    }
+  }
+
+  console.log(`[${new Date().toISOString()}] Allowing access to: ${pathname}`);
+  return response;
+}
+
+export const config = {
+  matcher: ['/:path*'],
+};

@@ -22,7 +22,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Ubuntu', 'Arial', 'sans-serif'], // Используем Ubuntu для font-sans
+        sans: ['Berold', 'Arial', 'sans-serif'], // Заменили Luxia на Berold
       },
       animation: {
         marquee: 'marquee 50s linear infinite',

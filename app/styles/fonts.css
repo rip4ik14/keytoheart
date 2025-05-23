@@ -1,16 +1,15 @@
+/* ✅ Путь: app/styles/fonts.css */
 @font-face {
-  font-family: 'Ubuntu';
-  src: url('/fonts/Ubuntu-Regular.woff2') format('woff2'),
-       url('/fonts/Ubuntu-Regular.woff') format('woff');
+  font-family: 'Berold';
+  src: url('/fonts/Berold regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Ubuntu';
-  src: url('/fonts/Ubuntu-Bold.woff2') format('woff2'),
-       url('/fonts/Ubuntu-Bold.woff') format('woff');
+  font-family: 'Berold';
+  src: url('/fonts/Berold stylistic.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
