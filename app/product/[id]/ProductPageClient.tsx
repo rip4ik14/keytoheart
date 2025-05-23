@@ -11,9 +11,9 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/free-mode';
 import 'swiper/css/thumbs';
-import styles from './ProductPageClient.module.css';
 import { Product } from '@/types/product';
 
+// Тип для рекомендованных товаров
 export type ComboItem = {
   id: number;
   title: string;
@@ -50,8 +50,6 @@ export default function ProductPageClient({
   const [showNotification, setShowNotification] = useState(false);
   const [bonusPercent] = useState<number>(0.025);
 
-  console.log('ProductPageClient received props:', { product, combos });
-
   useEffect(() => {
     try {
       window.gtag?.('event', 'view_item', {
@@ -69,7 +67,13 @@ export default function ProductPageClient({
   const discountedPrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
   const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
-  const handleAdd = (id: number, title: string, price: number, img: string | null, productionTime: number | null) => {
+  const handleAdd = (
+    id: number,
+    title: string,
+    price: number,
+    img: string | null,
+    productionTime: number | null
+  ) => {
     addItem({ id: `${id}`, title, price, quantity: 1, imageUrl: img || '', production_time: productionTime });
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 2000);
@@ -87,11 +91,13 @@ export default function ProductPageClient({
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
-        title: product.title,
-        text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
-        url: window.location.href,
-      }).catch((error) => console.error('Share error:', error));
+      navigator
+        .share({
+          title: product.title,
+          text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
+          url: window.location.href,
+        })
+        .catch((error) => console.error('Share error:', error));
     } else {
       navigator.clipboard.writeText(window.location.href).then(() => {
         alert('Ссылка скопирована в буфер обмена!');
@@ -126,12 +132,12 @@ export default function ProductPageClient({
           >
             <Swiper
               navigation={{
-                prevEl: `.${styles.customSwiperButtonPrev}`,
-                nextEl: `.${styles.customSwiperButtonNext}`,
+                prevEl: `.customSwiperButtonPrev`,
+                nextEl: `.customSwiperButtonNext`,
               }}
               thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
               modules={[FreeMode, Navigation, Thumbs]}
-              className={`${styles.customSwiper} rounded-lg overflow-hidden relative`}
+              className={`customSwiper rounded-lg overflow-hidden relative`}
               aria-label="Основной слайдер изображений"
             >
               {(product.images || []).map((src, i) => (
@@ -148,8 +154,8 @@ export default function ProductPageClient({
                   </div>
                 </SwiperSlide>
               ))}
-              <div className={styles.customSwiperButtonPrev}></div>
-              <div className={styles.customSwiperButtonNext}></div>
+              <div className="customSwiperButtonPrev"></div>
+              <div className="customSwiperButtonNext"></div>
             </Swiper>
             <Swiper
               onSwiper={setThumbsSwiper}
@@ -326,21 +332,21 @@ export default function ProductPageClient({
                 {combos.slice(0, 4).map((combo) => (
                   <SwiperSlide key={combo.id}>
                     <motion.div
-                      className="flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white"
-                      whileHover={{ y: -5 }}
-                      transition={{ duration: 0.3 }}
+                      className="combo-card-mobile flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white h-60 transition-transform duration-200 hover:scale-105"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      <div className="relative w-full aspect-[4/3] bg-gray-100">
+                      <div className="relative w-full h-36 bg-gray-100">
                         <Image
                           src={combo.image}
                           alt={combo.title}
                           fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="object-cover transition-transform duration-300"
                           loading="lazy"
                           sizes="(max-width: 768px) 50vw, 25vw"
                         />
                       </div>
-                      <div className="p-3 w-full">
+                      <div className="p-3 w-full flex-1 flex flex-col justify-between">
                         <p className="text-sm text-left">{combo.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-sm font-bold text-black">
@@ -370,21 +376,21 @@ export default function ProductPageClient({
               {combos.slice(0, 4).map((combo) => (
                 <motion.div
                   key={combo.id}
-                  className="flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white"
-                  whileHover={{ y: -5 }}
-                  transition={{ duration: 0.3 }}
+                  className="combo-card-desktop flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white h-80 transition-transform duration-200 hover:scale-105"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <div className="relative w-full aspect-[4/3] bg-gray-100">
+                  <div className="relative w-full h-44 bg-gray-100">
                     <Image
                       src={combo.image}
                       alt={combo.title}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-cover transition-transform duration-300"
                       loading="lazy"
                       sizes="(max-width: 768px) 50vw, 25vw"
                     />
                   </div>
-                  <div className="p-3 w-full">
+                  <div className="p-3 w-full flex-1 flex flex-col justify-between">
                     <p className="text-sm sm:text-base text-left">{combo.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-sm sm:text-base font-bold text-black">

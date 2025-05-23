@@ -76,10 +76,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     const checkSession = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        console.log('Checking session:', { userId: user?.id, error: error?.message });
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
         if (user) {
           const normalizedPhone = normalizePhone(user.phone || '');
           setIsAuthenticated(true);
@@ -93,7 +90,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           setBonusData(null);
         }
       } catch (error) {
-        console.error('Error checking session:', error);
         setIsAuthenticated(false);
         setPhone('');
         setOrders([]);
@@ -104,7 +100,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     checkSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      console.log('Auth state changed:', { event, hasSession: !!session });
       checkSession();
     });
 
@@ -113,15 +108,26 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     };
   }, [initialOrders, initialBonusData, supabase]);
 
-  // Загрузка данных
+  // Загружаем данные и вызываем expire-bonuses
   const fetchAccountData = useCallback(async () => {
     if (!phone || !supabase) return;
     const normalizedPhone = normalizePhone(phone);
     setIsLoading(true);
     try {
-      console.log('Fetching account data for phone:', normalizedPhone);
+      // 1. Сгораемость бонусов
+      await fetch('/api/account/expire-bonuses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone }),
+      })
+        .then((res) => res.json())
+        .then((expire) => {
+          if (expire.success && expire.expired > 0) {
+            toast(`Сгорело ${expire.expired} бонусов за неактивность 6 месяцев`, { icon: '⚠️' });
+          }
+        });
 
-      // Загружаем бонусы через API
+      // 2. Загружаем бонусы
       const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
         method: 'GET',
         headers: {
@@ -133,7 +139,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         throw new Error('Bonuses fetch error: ' + bonusesRes.statusText);
       }
       const bonusesResult = await bonusesRes.json();
-      console.log('Bonuses API response:', bonusesResult);
       if (!bonusesResult.success) {
         throw new Error('Bonuses fetch error: ' + bonusesResult.error);
       }
@@ -155,7 +160,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         })) || [];
       }
 
-      // Загружаем заказы через API
+      // 3. Загружаем заказы через API
       const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(normalizedPhone)}`, {
         method: 'GET',
         headers: {
@@ -167,7 +172,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         throw new Error('Orders fetch error: ' + ordersRes.statusText);
       }
       const ordersResult = await ordersRes.json();
-      console.log('Orders API response:', ordersResult);
       if (!ordersResult.success) {
         throw new Error('Orders fetch error: ' + ordersResult.error);
       }
@@ -197,7 +201,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         })),
       }));
 
-      // Обновляем уровень лояльности
+      // 4. Обновляем уровень лояльности
       const loyaltyRes = await fetch('/api/account/update-loyalty', {
         method: 'POST',
         headers: {
@@ -206,8 +210,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         body: JSON.stringify({ phone: normalizedPhone }),
       });
       const loyaltyResult = await loyaltyRes.json();
-      console.log('Loyalty API response:', loyaltyResult);
-
       if (loyaltyRes.ok && loyaltyResult.success) {
         bonuses.level = loyaltyResult.level;
       }
@@ -218,7 +220,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       window.gtag?.('event', 'view_account', { event_category: 'account' });
       window.ym?.(96644553, 'reachGoal', 'view_account');
     } catch (error: any) {
-      console.error('Error in fetchAccountData:', error);
       toast.error('Ошибка загрузки данных');
       setOrders([]);
     } finally {
@@ -241,7 +242,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
     const normalizedPhone = normalizePhone(phone);
-    console.log('Auth success phone:', normalizedPhone);
     setPhone(normalizedPhone);
     fetchAccountData();
   };
@@ -258,7 +258,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       window.gtag?.('event', 'logout', { event_category: 'auth' });
       window.ym?.(96644553, 'reachGoal', 'logout');
     } catch (error) {
-      console.error('Ошибка при выходе:', error);
       toast.error('Ошибка при выходе из аккаунта');
     } finally {
       setIsLoading(false);

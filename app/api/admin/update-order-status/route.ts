@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Проверяем admin_session токен
+    // Проверка токена
     const token = req.cookies.get('admin_session')?.value;
     if (!token) {
       return NextResponse.json(
@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-
     const isValidToken = await verifyAdminJwt(token);
     if (!isValidToken) {
       return NextResponse.json(
@@ -37,29 +36,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Updating order status with admin_session token'); // Отладка
-
-    // Проверяем существование заказа
+    // Проверяем заказ
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('phone, bonus, user_id, status')
+      .select('id, phone, bonus, user_id, status')
       .eq('id', id)
       .single();
 
     if (orderError || !order) {
-      console.error('Error fetching order:', orderError);
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
-    }
-
-    // Проверяем, был ли заказ уже завершён
-    if (order.status === 'Доставлен' && status === 'Доставлен') {
-      return NextResponse.json(
-        { error: 'Order already completed, bonuses already accrued' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Проверяем допустимые статусы
@@ -71,35 +56,33 @@ export async function POST(req: NextRequest) {
       'Отменён',
     ];
     if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
+    }
+
+    // Если уже был "Доставлен", не начисляем ещё раз
+    if (order.status === 'Доставлен' && status === 'Доставлен') {
       return NextResponse.json(
-        { error: 'Invalid status value' },
+        { error: 'Order already completed, bonuses already accrued' },
         { status: 400 }
       );
     }
 
-    // Обновляем только статус заказа
+    // Обновляем статус заказа
     const { error: updateError } = await supabaseAdmin
       .from('orders')
       .update({ status })
       .eq('id', id);
 
     if (updateError) {
-      console.error('Error updating order status:', {
-        error: updateError.message,
-        details: updateError.details,
-        hint: updateError.hint,
-        code: updateError.code,
-      });
       return NextResponse.json(
         { error: `Failed to update order status: ${updateError.message}` },
         { status: 500 }
       );
     }
 
-    // Начисляем бонусы, если статус стал "Доставлен"
-    if (status === 'Доставлен' && order.bonus > 0) {
+    // Начисляем бонусы только если заказ доставлен (и был не доставлен)
+    if (status === 'Доставлен' && order.status !== 'Доставлен' && order.bonus > 0) {
       if (!order.phone) {
-        console.error('Order has no associated phone number');
         return NextResponse.json(
           { error: 'Cannot accrue bonuses: Order has no phone number' },
           { status: 400 }
@@ -108,19 +91,23 @@ export async function POST(req: NextRequest) {
 
       const { data: bonusData, error: bonusError } = await supabaseAdmin
         .from('bonuses')
-        .select('id, bonus_balance')
+        .select('id, bonus_balance, total_spent, level')
         .eq('phone', order.phone)
         .single();
 
       if (bonusError || !bonusData) {
-        console.error('Error fetching bonuses:', bonusError);
         return NextResponse.json(
           { error: 'Failed to fetch bonus data' },
           { status: 500 }
         );
       }
 
+      // Добавляем бонус к балансу
       const newBalance = (bonusData.bonus_balance || 0) + order.bonus;
+
+      // (опционально) увеличиваем total_spent и пересчитываем уровень
+      // Тебе надо прописать свою формулу если хочешь обновлять уровень
+
       const { error: balanceError } = await supabaseAdmin
         .from('bonuses')
         .update({
@@ -130,13 +117,13 @@ export async function POST(req: NextRequest) {
         .eq('id', bonusData.id);
 
       if (balanceError) {
-        console.error('Error updating bonus balance:', balanceError);
         return NextResponse.json(
           { error: 'Failed to update bonus balance' },
           { status: 500 }
         );
       }
 
+      // Запись в историю
       const { error: historyError } = await supabaseAdmin
         .from('bonus_history')
         .insert({
@@ -148,14 +135,11 @@ export async function POST(req: NextRequest) {
         });
 
       if (historyError) {
-        console.error('Error logging bonus history:', historyError);
         return NextResponse.json(
           { error: 'Failed to log bonus history' },
           { status: 500 }
         );
       }
-
-      console.log(`Bonuses accrued: ${order.bonus} for order #${id}, new balance: ${newBalance}`);
     }
 
     return NextResponse.json({
@@ -163,7 +147,6 @@ export async function POST(req: NextRequest) {
       message: 'Order status updated successfully',
     });
   } catch (err: any) {
-    console.error('Error in update-order-status:', err.message);
     return NextResponse.json(
       { error: 'Server error: ' + err.message },
       { status: 500 }
