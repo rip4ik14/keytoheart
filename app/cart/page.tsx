@@ -138,6 +138,7 @@ export default function CartPage() {
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<{
     orderId: string;
+    orderNumber: number;
     trackingUrl?: string;
   } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
@@ -811,6 +812,7 @@ export default function CartPage() {
 
       setOrderDetails({
         orderId: json.order_id,
+         orderNumber: json.order_number,
         trackingUrl: json.tracking_url,
       });
       setShowSuccess(true);
@@ -1216,7 +1218,7 @@ export default function CartPage() {
       {showSuccess && orderDetails && (
         <ThankYouModal
           onClose={() => setShowSuccess(false)}
-          orderId={orderDetails.orderId}
+          orderNumber={orderDetails.orderNumber}
           trackingUrl={orderDetails.trackingUrl}
         />
       )}

@@ -8,85 +8,56 @@ import toast from 'react-hot-toast';
 
 interface Props {
   onClose: () => void;
-  orderId: string;
+  orderNumber: number; // Только число!
   trackingUrl?: string;
 }
 
-export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) {
-  const [timer, setTimer] = useState(15); // 15 секунд для авто-закрытия
+export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Props) {
+  const [timer, setTimer] = useState(15);
 
-  // Варианты анимации для контейнера
+  // Анимации — не меняем
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.5 } },
     exit: { opacity: 0, transition: { duration: 0.3 } },
   };
-
-  // Варианты анимации для содержимого модального окна
   const modalVariants = {
     hidden: { scale: 0.8, opacity: 0, rotate: -5 },
     visible: {
       scale: 1,
       opacity: 1,
       rotate: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 200,
-        damping: 15,
-        mass: 0.5,
-      },
+      transition: { type: 'spring', stiffness: 200, damping: 15, mass: 0.5 },
     },
-    exit: {
-      scale: 0.8,
-      opacity: 0,
-      rotate: 5,
-      transition: { duration: 0.3 },
-    },
+    exit: { scale: 0.8, opacity: 0, rotate: 5, transition: { duration: 0.3 } },
   };
-
-  // Варианты анимации для иконки
   const iconVariants = {
     hidden: { scale: 0, opacity: 0, rotate: -180 },
     visible: {
       scale: 1,
       opacity: 1,
       rotate: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 150,
-        damping: 10,
-        delay: 0.2,
-      },
+      transition: { type: 'spring', stiffness: 150, damping: 10, delay: 0.2 },
     },
   };
-
-  // Варианты анимации для текста
   const textVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: {
-        duration: 0.5,
-        delay: 0.4,
-      },
+      transition: { duration: 0.5, delay: 0.4 },
     },
   };
-
-  // Варианты анимации для кнопок
   const buttonVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
-      transition: {
-        duration: 0.5,
-        delay: 0.6,
-      },
+      transition: { duration: 0.5, delay: 0.6 },
     },
   };
 
-  // Эффект для автоматического закрытия через 15 секунд
+  // Таймер для автозакрытия
   useEffect(() => {
     const timerInterval = setInterval(() => {
       setTimer((prev) => {
@@ -97,7 +68,6 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timerInterval);
   }, [onClose]);
 
@@ -131,7 +101,7 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
           animate="visible"
           exit="exit"
         >
-          {/* Кнопка закрытия с анимацией */}
+          {/* Кнопка закрытия */}
           <motion.button
             onClick={onClose}
             className="absolute right-4 top-4 text-gray-400 transition-all hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 rounded-full p-1"
@@ -142,21 +112,9 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
             <Image src="/icons/times.svg" alt="Закрыть" width={24} height={24} />
           </motion.button>
 
-          {/* Иконка с анимацией */}
-          <motion.div
-            className="flex justify-center mb-4"
-            variants={iconVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <Image
-              src="/thank-you.svg"
-              alt="Спасибо за заказ"
-              width={96}
-              height={96}
-              loading="lazy"
-              className="drop-shadow-md"
-            />
+          {/* Иконка */}
+          <motion.div className="flex justify-center mb-4" variants={iconVariants} initial="hidden" animate="visible">
+            <Image src="/thank-you.svg" alt="Спасибо за заказ" width={96} height={96} loading="lazy" className="drop-shadow-md" />
           </motion.div>
 
           {/* Заголовок */}
@@ -170,17 +128,17 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
             Спасибо за заказ! 🎉
           </motion.h2>
 
-          {/* Сообщение об успешном заказе */}
+          {/* Показываем только orderNumber */}
           <motion.p
             className="mb-3 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
             variants={textVariants}
             initial="hidden"
             animate="visible"
           >
-            Ваш заказ <span className="font-semibold text-gray-800">#{orderId}</span> успешно оформлен.
+            Ваш заказ <span className="font-semibold text-gray-800">№{orderNumber}</span> успешно оформлен.
           </motion.p>
 
-          {/* Ссылка для отслеживания и копирование */}
+          {/* Ссылка для отслеживания */}
           {trackingUrl && (
             <motion.div
               className="mb-4 text-center text-sm sm:text-base text-gray-600 flex items-center justify-center gap-2"
@@ -194,7 +152,7 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
                 ariaLabel="Отследить заказ"
                 category="Cart"
                 action="Track Order"
-                label={`Order #${orderId}`}
+                label={`Order #${orderNumber}`}
                 className="text-indigo-600 underline hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -208,34 +166,18 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <Image
-                  src="/icons/copy.svg"
-                  alt="Копировать"
-                  width={16}
-                  height={16}
-                  loading="lazy"
-                />
+                <Image src="/icons/copy.svg" alt="Копировать" width={16} height={16} loading="lazy" />
               </motion.button>
             </motion.div>
           )}
 
-          {/* Сообщение о подтверждении */}
-          <motion.p
-            className="mb-6 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
-            variants={textVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          <motion.p className="mb-6 text-center text-sm sm:text-base text-gray-600 leading-relaxed"
+            variants={textVariants} initial="hidden" animate="visible">
             Мы свяжемся с вами для подтверждения в ближайшее время.
           </motion.p>
 
-          {/* Кнопка "На главную" */}
-          <motion.div
-            className="flex justify-center"
-            variants={buttonVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          <motion.div className="flex justify-center"
+            variants={buttonVariants} initial="hidden" animate="visible">
             <TrackedLink
               href="/"
               onClick={onClose}
@@ -249,13 +191,9 @@ export default function ThankYouModal({ onClose, orderId, trackingUrl }: Props) 
             </TrackedLink>
           </motion.div>
 
-          {/* Таймер автоматического закрытия */}
-          <motion.div
-            className="mt-4 text-center text-xs text-gray-400"
-            variants={textVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          {/* Таймер автозакрытия */}
+          <motion.div className="mt-4 text-center text-xs text-gray-400"
+            variants={textVariants} initial="hidden" animate="visible">
             Окно закроется через {timer} секунд...
           </motion.div>
         </motion.div>
