@@ -5,14 +5,28 @@ export async function POST(req: NextRequest) {
   try {
     const { password } = await req.json();
 
-    console.log('Received password:', password);
-    console.log('Expected ADMIN_PASSWORD:', process.env.ADMIN_PASSWORD);
+    console.log('Received password:', JSON.stringify(password)); // Логируем пароль как строку
+    console.log('Expected ADMIN_PASSWORD:', JSON.stringify(process.env.ADMIN_PASSWORD));
+    console.log('Environment variables:', {
+      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+      JWT_SECRET: process.env.JWT_SECRET,
+      NODE_ENV: process.env.NODE_ENV,
+    });
 
     if (!password) {
+      console.log('No password provided');
       return NextResponse.json({ error: 'NEAUTH', message: 'Пароль обязателен' }, { status: 400 });
     }
 
-    if (password !== process.env.ADMIN_PASSWORD) {
+    const trimmedPassword = password.trim();
+    const expectedPassword = process.env.ADMIN_PASSWORD?.trim();
+
+    if (!expectedPassword) {
+      console.error('ADMIN_PASSWORD is not defined in environment');
+      return NextResponse.json({ error: 'SERVER_ERROR', message: 'Серверная ошибка: пароль не настроен' }, { status: 500 });
+    }
+
+    if (trimmedPassword !== expectedPassword) {
       console.log('Password mismatch');
       return NextResponse.json({ error: 'NEAUTH', message: 'Неверный пароль' }, { status: 401 });
     }

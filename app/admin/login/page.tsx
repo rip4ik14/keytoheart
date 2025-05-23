@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/login/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -30,22 +29,23 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        credentials: 'include',
+        body: JSON.stringify({ password: password.trim() }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success('Успешный вход');
-        // Задержка для отображения уведомления перед перенаправлением
         setTimeout(() => {
           router.push(redirectTo);
-          router.refresh(); // Обновляем состояние, чтобы middleware сработал
+          router.refresh();
         }, 1000);
       } else {
         throw new Error(data.message || 'Неверный пароль');
       }
     } catch (err: any) {
       toast.error(`Ошибка: ${err.message}`);
+    } finally {
       setLoading(false);
     }
   };
