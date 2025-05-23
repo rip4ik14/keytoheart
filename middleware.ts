@@ -33,8 +33,8 @@ export async function middleware(req: NextRequest) {
   ].join('; ');
   response.headers.set('Content-Security-Policy', csp);
 
-  // Пропускаем /admin/login и /account
-  if (pathname === '/admin/login' || pathname === '/account') {
+  // Пропускаем /admin/login, /account и GET-запросы к /api/csrf-token
+  if (pathname === '/admin/login' || pathname === '/account' || (pathname === '/api/csrf-token' && req.method === 'GET')) {
     console.log(`[${new Date().toISOString()}] Allowing direct access to: ${pathname}`);
     return response;
   }
@@ -79,16 +79,19 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Проверка API маршрутов
-  if (pathname.startsWith('/api/products')) {
+  // Проверка API маршрутов (кроме /api/csrf-token)
+  if (pathname.startsWith('/api') && pathname !== '/api/csrf-token') {
     const token = req.cookies.get('admin_session')?.value;
     if (!token || !verifyAdminJwt(token)) {
-      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 });
     }
 
-    const csrfToken = req.headers.get('X-CSRF-Token');
-    if (!csrfToken) {
-      return NextResponse.json({ error: 'CSRF-токен отсутствует' }, { status: 403 });
+    if (req.method !== 'GET') {
+      const csrfToken = req.headers.get('X-CSRF-Token');
+      if (!csrfToken) {
+        return NextResponse.json({ error: 'CSRF-токен отсутствует' }, { status: 403 });
+      }
+      // Здесь можно добавить проверку токена в базе данных, если он сохраняется
     }
 
     return response;

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     // Проверка авторизации
     const token = req.cookies.get('admin_session')?.value;
     if (!token || !verifyAdminJwt(token)) {
-      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 });
     }
 
     // Проверка CSRF-токена
@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest) {
     // Проверка авторизации
     const token = req.cookies.get('admin_session')?.value;
     if (!token || !verifyAdminJwt(token)) {
-      return NextResponse.json({ error: 'Неавторизован' }, { status: 403 });
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 });
     }
 
     // Проверка CSRF-токена

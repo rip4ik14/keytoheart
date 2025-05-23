@@ -1,20 +1,19 @@
-// ✅ Путь: app/api/csrf-token/route.ts
-import { NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
 
-export async function GET() {
-  // Генерируем случайный CSRF-токен
-  const csrfToken = randomBytes(32).toString('hex');
+export async function GET(req: NextRequest) {
+  try {
+    // Проверка авторизации
+    const token = req.cookies.get('admin_session')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Неавторизован' }, { status: 401 });
+    }
 
-  // Сохраняем токен в cookie (или можно использовать сессию)
-  const response = NextResponse.json({ csrfToken });
-  response.cookies.set('csrf_token', csrfToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60, // 1 час
-  });
-
-  return response;
+    const csrfToken = uuidv4();
+    // Здесь можно сохранить токен в сессии или базе данных для проверки
+    return NextResponse.json({ csrfToken }, { status: 200 });
+  } catch (err: any) {
+    console.error('GET /api/csrf-token error:', err);
+    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+  }
 }
