@@ -5,21 +5,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from '@dnd-kit/sortable';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Edit, Trash2, CheckCircle, XCircle, Eye, EyeOff, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -44,7 +31,7 @@ interface Category {
   name: string;
 }
 
-type ViewMode = 'table' | 'cards';
+export type ViewMode = 'table' | 'cards';
 
 interface ProductTableProps {
   products: Product[];
@@ -70,28 +57,19 @@ interface ProductActionsProps {
   isTableView?: boolean;
 }
 
-const ProductActions = ({
-  product,
-  onEdit,
-  onDelete,
-  isTableView = false,
-}: ProductActionsProps) => (
+const ProductActions = ({ product, onEdit, onDelete, isTableView = false }: ProductActionsProps) => (
   <div className={`flex gap-2 ${isTableView ? 'justify-start' : 'justify-center sm:justify-start'}`}>
     <Link
-      href={`/admin/edit-product/${product.id}`}
+      href={`/admin/products/edit/${product.id}`}
       onClick={() => onEdit(product.id)}
-      className={`p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        isTableView ? 'text-sm' : ''
-      }`}
+      className={`p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${isTableView ? 'text-sm' : ''}`}
       aria-label={`Редактировать товар ${product.title}`}
     >
       <Edit size={isTableView ? 14 : 18} />
     </Link>
     <motion.button
       onClick={() => onDelete(product.id)}
-      className={`p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${
-        isTableView ? 'text-sm' : ''
-      }`}
+      className={`p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${isTableView ? 'text-sm' : ''}`}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
       aria-label={`Удалить товар ${product.title}`}
@@ -101,13 +79,7 @@ const ProductActions = ({
   </div>
 );
 
-const SortableProduct = ({
-  product,
-  toggleInStock,
-  deleteProduct,
-  categoriesMap,
-  onSelect,
-}: SortableProductProps) => {
+const SortableProduct = ({ product, toggleInStock, deleteProduct, categoriesMap, onSelect }: SortableProductProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: product.id,
     disabled: !product.is_popular,
@@ -120,9 +92,7 @@ const SortableProduct = ({
     zIndex: isDragging ? 10 : 0,
   };
 
-  const categoryNames = product.category_ids
-    .map((id) => categoriesMap.get(id) || '—')
-    .join(', ');
+  const categoryNames = product.category_ids.map((id) => categoriesMap.get(id) || '—').join(', ');
 
   return (
     <motion.div
@@ -163,9 +133,7 @@ const SortableProduct = ({
         )}
       </div>
       <div className="flex-1 min-w-0 space-y-1">
-        <h3 className="text-lg font-semibold text-gray-800 truncate" title={product.title}>
-          {product.title}
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-800 truncate" title={product.title}>{product.title}</h3>
         <p className="text-gray-600 font-medium">
           {product.discount_percent != null && product.discount_percent > 0
             ? `${Math.round(product.price * (1 - product.discount_percent / 100))} ₽`
@@ -174,60 +142,33 @@ const SortableProduct = ({
         <div className="flex flex-wrap gap-2">
           <motion.button
             onClick={() => toggleInStock(product.id, product.in_stock ?? false)}
-            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${
-              product.in_stock
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-red-100 text-red-700 hover:bg-red-200'
-            } focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500`}
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${product.in_stock ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'} focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500`}
             whileHover={{ scale: 1.05 }}
-            aria-label={
-              product.in_stock
-                ? `Убрать товар ${product.title} из наличия`
-                : `Добавить товар ${product.title} в наличие`
-            }
+            aria-label={product.in_stock ? `Убрать товар ${product.title} из наличия` : `Добавить товар ${product.title} в наличие`}
           >
             {product.in_stock ? <CheckCircle size={12} /> : <XCircle size={12} />}
             {product.in_stock ? 'В наличии' : 'Нет в наличии'}
           </motion.button>
-          <span
-            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-              product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
+          <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
             {product.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
             {product.is_visible ? 'Видимый' : 'Скрыт'}
           </span>
-          <span
-            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-              product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
+          <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
             {product.is_popular ? <Star size={12} /> : <Star size={12} className="opacity-50" />}
             {product.is_popular ? 'Популярный' : 'Обычный'}
           </span>
         </div>
-        <p className="text-sm text-gray-500 truncate" title={categoryNames}>
-          Категории: {categoryNames}
-        </p>
+        <p className="text-sm text-gray-500 truncate" title={categoryNames}>Категории: {categoryNames}</p>
       </div>
       <ProductActions product={product} onEdit={() => {}} onDelete={deleteProduct} />
     </motion.div>
   );
 };
 
-export default function ProductTable({
-  products,
-  toggleInStock,
-  deleteProduct,
-  viewMode,
-  onReorder,
-  onSelect,
-}: ProductTableProps) {
+export default function ProductTable({ products, toggleInStock, deleteProduct, viewMode, onReorder, onSelect }: ProductTableProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
@@ -235,9 +176,7 @@ export default function ProductTable({
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const allCategoryIds = Array.from(
-        new Set(products.flatMap((product) => product.category_ids))
-      );
+      const allCategoryIds = Array.from(new Set(products.flatMap((product) => product.category_ids)));
       if (allCategoryIds.length === 0) return;
 
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -262,17 +201,13 @@ export default function ProductTable({
   useEffect(() => {
     const channel = supabase
       .channel('products-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        (payload: any) => {
-          const changedProductId = payload.new?.id || payload.old?.id;
-          if (products.some((p) => p.id === changedProductId)) {
-            console.log('Products change detected:', payload);
-            onReorder(products);
-          }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload: any) => {
+        const changedProductId = payload.new?.id || payload.old?.id;
+        if (products.some((p) => p.id === changedProductId)) {
+          console.log('Products change detected:', payload);
+          onReorder(products);
         }
-      )
+      })
       .subscribe();
 
     return () => {
@@ -308,10 +243,7 @@ export default function ProductTable({
 
     try {
       for (const p of updatedProducts.filter((p) => p.is_popular)) {
-        const { error } = await supabase
-          .from('products')
-          .update({ order_index: p.order_index })
-          .eq('id', p.id);
+        const { error } = await supabase.from('products').update({ order_index: p.order_index }).eq('id', p.id);
         if (error) throw new Error(error.message);
       }
       toast.success('Порядок популярных товаров обновлён');
@@ -323,9 +255,7 @@ export default function ProductTable({
 
   const handleSort = (key: keyof Product) => {
     let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
 
     const sortedProducts = [...products].sort((a, b) => {
@@ -420,9 +350,7 @@ export default function ProductTable({
                       </div>
                     )}
                   </td>
-                  <td className="p-3 truncate max-w-xs" title={product.title}>
-                    {product.title}
-                  </td>
+                  <td className="p-3 truncate max-w-xs" title={product.title}>{product.title}</td>
                   <td className="p-3">
                     {product.discount_percent != null && product.discount_percent > 0
                       ? `${Math.round(product.price * (1 - product.discount_percent / 100))} ₽`
@@ -432,50 +360,25 @@ export default function ProductTable({
                     <div className="flex gap-2">
                       <motion.button
                         onClick={() => toggleInStock(product.id, product.in_stock ?? false)}
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                          product.in_stock
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${product.in_stock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
                         whileHover={{ scale: 1.05 }}
-                        aria-label={
-                          product.in_stock
-                            ? `Убрать товар ${product.title} из наличия`
-                            : `Добавить товар ${product.title} в наличие`
-                        }
+                        aria-label={product.in_stock ? `Убрать товар ${product.title} из наличия` : `Добавить товар ${product.title} в наличие`}
                       >
                         {product.in_stock ? <CheckCircle size={12} /> : <XCircle size={12} />}
                       </motion.button>
-                      <span
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                          product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
+                      <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${product.is_visible ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
                         {product.is_visible ? <Eye size={12} /> : <EyeOff size={12} />}
                       </span>
-                      <span
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                          product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
+                      <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${product.is_popular ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
                         {product.is_popular ? <Star size={12} /> : <Star size={12} className="opacity-50" />}
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 truncate max-w-xs" title={product.category_ids
-                    .map((id) => categoriesMap.get(id) || '—')
-                    .join(', ')}>
-                    {product.category_ids
-                      .map((id) => categoriesMap.get(id) || '—')
-                      .join(', ')}
+                  <td className="p-3 truncate max-w-xs" title={product.category_ids.map((id) => categoriesMap.get(id) || '—').join(', ')}>
+                    {product.category_ids.map((id) => categoriesMap.get(id) || '—').join(', ')}
                   </td>
                   <td className="p-3">
-                    <ProductActions
-                      product={product}
-                      onEdit={() => {}}
-                      onDelete={deleteProduct}
-                      isTableView
-                    />
+                    <ProductActions product={product} onEdit={() => {}} onDelete={deleteProduct} isTableView />
                   </td>
                 </tr>
               ))}

@@ -34,23 +34,19 @@ interface Product {
   isSelected?: boolean;
 }
 
-export type ViewMode = 'table' | 'cards';
-
 interface Category {
   id: number;
   name: string;
 }
 
+export type ViewMode = 'table' | 'cards';
+
 const queryClient = new QueryClient();
 
-// Собственная реализация debounce
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
-
   return (...args: Parameters<T>) => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
+    if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
 }
@@ -94,9 +90,7 @@ function ProductsContent() {
       try {
         const res = await fetch('/api/admin-session', { credentials: 'include' });
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'Доступ запрещён');
-        }
+        if (!res.ok || !data.success) throw new Error(data.message || 'Доступ запрещён');
         setIsAuthenticated(true);
       } catch (err: any) {
         toast.error('Войдите как администратор');
@@ -106,7 +100,7 @@ function ProductsContent() {
     checkAuth();
   }, [router]);
 
-  const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<Product[], Error>({
+  const { data: fetchedProducts = [], isLoading, error, isError } = useQuery<Product[], Error>({
     queryKey: ['products', selectedPage],
     queryFn: async () => {
       const { data: productCategoryData, error: productCategoryError } = await supabase
@@ -114,9 +108,7 @@ function ProductsContent() {
         .select('product_id, category_id')
         .neq('category_id', 38);
 
-      if (productCategoryError) {
-        throw new Error(productCategoryError.message || 'Ошибка загрузки связей категорий');
-      }
+      if (productCategoryError) throw new Error(productCategoryError.message || 'Ошибка загрузки связей категорий');
 
       const productCategoriesMap = new Map<number, number[]>();
       productCategoryData.forEach((item) => {
@@ -129,24 +121,9 @@ function ProductsContent() {
       let query = supabase
         .from('products')
         .select(`
-          id,
-          title,
-          price,
-          original_price,
-          discount_percent,
-          images,
-          in_stock,
-          is_visible,
-          is_popular,
-          order_index,
-          bonus,
-          composition,
-          created_at,
-          description,
-          image_url,
-          short_desc,
-          slug,
-          production_time
+          id, title, price, original_price, discount_percent, images, in_stock,
+          is_visible, is_popular, order_index, bonus, composition, created_at,
+          description, image_url, short_desc, slug, production_time
         `)
         .in('id', productIds.length > 0 ? productIds : [0])
         .order('order_index', { ascending: true })
@@ -162,9 +139,7 @@ function ProductsContent() {
             .eq('slug', categoryName)
             .single();
 
-          if (categoryError || !categoryData) {
-            throw new Error(categoryError?.message || 'Категория не найдена');
-          }
+          if (categoryError || !categoryData) throw new Error(categoryError?.message || 'Категория не найдена');
 
           const categoryId = categoryData.id;
           const filteredProductIds = productCategoryData
@@ -215,62 +190,32 @@ function ProductsContent() {
     setProducts(fetchedProducts);
   }, [fetchedProducts]);
 
-  const debouncedSearch = useCallback(
-    debounce((query: string) => {
-      setSearchQuery(query);
-    }, 300),
-    []
-  );
+  const debouncedSearch = useCallback(debounce((query: string) => setSearchQuery(query), 300), []);
 
   useEffect(() => {
     let filtered = fetchedProducts;
 
-    if (categoryFilter) {
-      filtered = filtered.filter((product) => product.category_ids.includes(Number(categoryFilter)));
-    }
-
-    if (stockFilter !== 'all') {
-      filtered = filtered.filter((product) => product.in_stock === (stockFilter === 'in_stock'));
-    }
-
-    if (visibilityFilter !== 'all') {
-      filtered = filtered.filter((product) => product.is_visible === (visibilityFilter === 'visible'));
-    }
-
-    if (popularityFilter !== 'all') {
-      filtered = filtered.filter((product) => product.is_popular === (popularityFilter === 'popular'));
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter((product) =>
-        product.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+    if (categoryFilter) filtered = filtered.filter((product) => product.category_ids.includes(Number(categoryFilter)));
+    if (stockFilter !== 'all') filtered = filtered.filter((product) => product.in_stock === (stockFilter === 'in_stock'));
+    if (visibilityFilter !== 'all') filtered = filtered.filter((product) => product.is_visible === (visibilityFilter === 'visible'));
+    if (popularityFilter !== 'all') filtered = filtered.filter((product) => product.is_popular === (popularityFilter === 'popular'));
+    if (searchQuery) filtered = filtered.filter((product) => product.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
     setProducts(filtered);
   }, [categoryFilter, stockFilter, visibilityFilter, popularityFilter, searchQuery, fetchedProducts]);
 
   useEffect(() => {
-    if (isError && error) {
-      toast.error('Ошибка загрузки товаров: ' + error.message);
-    }
+    if (isError && error) toast.error('Ошибка загрузки товаров: ' + error.message);
   }, [isError, error]);
 
   const toggleInStockMutation = useMutation({
     mutationFn: async ({ id, in_stock }: { id: number; in_stock: boolean | null }) => {
-      const { error } = await supabase
-        .from('products')
-        .update({ in_stock: !in_stock })
-        .eq('id', id);
+      const { error } = await supabase.from('products').update({ in_stock: !in_stock }).eq('id', id);
       if (error) throw new Error(error.message);
       return id;
     },
     onSuccess: (id) => {
-      setProducts((old) =>
-        old.map((product) =>
-          product.id === id ? { ...product, in_stock: !product.in_stock } : product
-        )
-      );
+      setProducts((old) => old.map((product) => product.id === id ? { ...product, in_stock: !product.in_stock } : product));
       toast.success('Статус наличия обновлён');
     },
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
@@ -280,15 +225,10 @@ function ProductsContent() {
     mutationFn: async (id: number) => {
       const product = fetchedProducts.find((p) => p.id === id);
       if (product?.images?.length) {
-        const filePaths = product.images.map((url: string) =>
-          decodeURIComponent(url.split('/').pop()!)
-        );
-        const { error: storageError } = await supabase.storage
-          .from('product-image')
-          .remove(filePaths);
+        const filePaths = product.images.map((url: string) => decodeURIComponent(url.split('/').pop()!));
+        const { error: storageError } = await supabase.storage.from('product-image').remove(filePaths);
         if (storageError) throw new Error(storageError.message);
       }
-
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
@@ -307,13 +247,10 @@ function ProductsContent() {
       for (const product of productsToDelete) {
         if (product.images?.length) {
           const filePaths = product.images.map((url) => decodeURIComponent(url.split('/').pop()!));
-          const { error: storageError } = await supabase.storage
-            .from('product-image')
-            .remove(filePaths);
+          const { error: storageError } = await supabase.storage.from('product-image').remove(filePaths);
           if (storageError) throw new Error(storageError.message);
         }
       }
-
       const { error } = await supabase.from('products').delete().in('id', ids);
       if (error) throw new Error(error.message);
     },
@@ -361,9 +298,7 @@ function ProductsContent() {
   };
 
   const handleSelectProduct = (id: number) => {
-    setSelectedProducts((old) =>
-      old.includes(id) ? old.filter((selectedId) => selectedId !== id) : [...old, id]
-    );
+    setSelectedProducts((old) => old.includes(id) ? old.filter((selectedId) => selectedId !== id) : [...old, id]);
   };
 
   const handleSelectAll = () => {
@@ -387,15 +322,9 @@ function ProductsContent() {
     setProducts(newProducts);
   };
 
-  if (isAuthenticated === null) {
-    return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
-  }
-
+  if (isAuthenticated === null) return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
   if (!isAuthenticated) return null;
-
-  if (isError) {
-    return <p className="text-center text-red-500">Ошибка: {error?.message}</p>;
-  }
+  if (isError) return <p className="text-center text-red-500">Ошибка: {error?.message}</p>;
 
   return (
     <motion.section
@@ -420,11 +349,7 @@ function ProductsContent() {
           <div className="flex gap-2">
             <motion.button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-md text-sm sm:text-base ${
-                viewMode === 'table'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } transition-colors`}
+              className={`px-3 py-1.5 rounded-md text-sm sm:text-base ${viewMode === 'table' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors`}
               whileHover={{ scale: 1.05 }}
               aria-label="Отобразить товары в виде таблицы"
             >
@@ -432,11 +357,7 @@ function ProductsContent() {
             </motion.button>
             <motion.button
               onClick={() => setViewMode('cards')}
-              className={`px-3 py-1.5 rounded-md text-sm sm:text-base ${
-                viewMode === 'cards'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } transition-colors`}
+              className={`px-3 py-1.5 rounded-md text-sm sm:text-base ${viewMode === 'cards' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors`}
               whileHover={{ scale: 1.05 }}
               aria-label="Отобразить товары в виде карточек"
             >
@@ -444,7 +365,7 @@ function ProductsContent() {
             </motion.button>
           </div>
           <motion.a
-            href="/admin/new"
+            href="/admin/products/new"
             className="px-4 py-1.5 bg-black text-white rounded-md hover:bg-gray-800 transition-colors text-sm sm:text-base flex items-center gap-2"
             whileHover={{ scale: 1.05 }}
             aria-label="Добавить новый товар"
@@ -466,9 +387,7 @@ function ProductsContent() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
-                <label htmlFor="categoryFilter" className="block mb-1 text-sm font-medium text-gray-600">
-                  Категория
-                </label>
+                <label htmlFor="categoryFilter" className="block mb-1 text-sm font-medium text-gray-600">Категория</label>
                 <select
                   id="categoryFilter"
                   value={categoryFilter}
@@ -477,16 +396,12 @@ function ProductsContent() {
                 >
                   <option value="">Все категории</option>
                   {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
+                    <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="stockFilter" className="block mb-1 text-sm font-medium text-gray-600">
-                  Наличие
-                </label>
+                <label htmlFor="stockFilter" className="block mb-1 text-sm font-medium text-gray-600">Наличие</label>
                 <select
                   id="stockFilter"
                   value={stockFilter}
@@ -499,9 +414,7 @@ function ProductsContent() {
                 </select>
               </div>
               <div>
-                <label htmlFor="visibilityFilter" className="block mb-1 text-sm font-medium text-gray-600">
-                  Видимость
-                </label>
+                <label htmlFor="visibilityFilter" className="block mb-1 text-sm font-medium text-gray-600">Видимость</label>
                 <select
                   id="visibilityFilter"
                   value={visibilityFilter}
@@ -514,9 +427,7 @@ function ProductsContent() {
                 </select>
               </div>
               <div>
-                <label htmlFor="popularityFilter" className="block mb-1 text-sm font-medium text-gray-600">
-                  Популярность
-                </label>
+                <label htmlFor="popularityFilter" className="block mb-1 text-sm font-medium text-gray-600">Популярность</label>
                 <select
                   id="popularityFilter"
                   value={popularityFilter}
@@ -529,9 +440,7 @@ function ProductsContent() {
                 </select>
               </div>
               <div className="relative">
-                <label htmlFor="searchQuery" className="block mb-1 text-sm font-medium text-gray-600">
-                  Поиск
-                </label>
+                <label htmlFor="searchQuery" className="block mb-1 text-sm font-medium text-gray-600">Поиск</label>
                 <div className="relative">
                   <input
                     id="searchQuery"
@@ -566,9 +475,7 @@ function ProductsContent() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4 p-4 bg-gray-50 rounded-md shadow-sm"
         >
-          <span className="text-sm text-gray-600">
-            Выбрано: {selectedProducts.length} товар(ов)
-          </span>
+          <span className="text-sm text-gray-600">Выбрано: {selectedProducts.length} товар(ов)</span>
           <motion.button
             onClick={() => bulkDeleteMutation.mutate(selectedProducts)}
             className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm flex items-center gap-2"
@@ -605,9 +512,7 @@ function ProductsContent() {
       {isLoading ? (
         <p className="text-center text-gray-500">Загрузка...</p>
       ) : products.length === 0 ? (
-        <p className="text-center text-gray-500">
-          {selectedPage ? 'Товары для этой страницы отсутствуют' : 'Товары отсутствуют'}
-        </p>
+        <p className="text-center text-gray-500">{selectedPage ? 'Товары для этой страницы отсутствуют' : 'Товары отсутствуют'}</p>
       ) : (
         <ProductTable
           products={products}
@@ -638,13 +543,9 @@ function ProductsContent() {
               transition={{ duration: 0.2 }}
               className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full"
             >
-              <h3 id="delete-modal-title" className="text-lg font-semibold mb-4 text-gray-800">
-                Подтверждение удаления
-              </h3>
+              <h3 id="delete-modal-title" className="text-lg font-semibold mb-4 text-gray-800">Подтверждение удаления</h3>
               <p className="text-gray-600 mb-6">
-                {selectedProducts.length > 1
-                  ? `Вы уверены, что хотите удалить ${selectedProducts.length} товаров?`
-                  : 'Вы уверены, что хотите удалить этот товар?'}
+                {selectedProducts.length > 1 ? `Вы уверены, что хотите удалить ${selectedProducts.length} товаров?` : 'Вы уверены, что хотите удалить этот товар?'}
                 Это действие нельзя отменить.
               </p>
               <div className="flex justify-end gap-3">
@@ -658,11 +559,7 @@ function ProductsContent() {
                   Отмена
                 </motion.button>
                 <motion.button
-                  onClick={() =>
-                    productToDelete
-                      ? deleteMutation.mutate(productToDelete)
-                      : bulkDeleteMutation.mutate(selectedProducts)
-                  }
+                  onClick={() => productToDelete ? deleteMutation.mutate(productToDelete) : bulkDeleteMutation.mutate(selectedProducts)}
                   className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm"
                   disabled={deleteMutation.isPending || bulkDeleteMutation.isPending}
                   whileHover={{ scale: 1.05 }}
