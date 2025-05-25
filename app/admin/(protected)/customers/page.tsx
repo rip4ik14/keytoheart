@@ -79,6 +79,12 @@ export default async function CustomersPage() {
         select: { type: true, date: true, description: true },
       });
 
+      // <--- Фиксируем даты
+      const important_dates: Event[] = dates.map((event: any) => ({
+        ...event,
+        date: event.date ? event.date.toISOString() : null,
+      }));
+
       // Заказы пользователя (обработка Decimal)
       const ordersRaw = await prisma.orders.findMany({
         where: { phone },
@@ -144,7 +150,7 @@ export default async function CustomersPage() {
         phone: phone || '—',
         email: profile.email || null,
         created_at: profile.created_at ? profile.created_at.toISOString() : null,
-        important_dates: dates || [],
+        important_dates, // <-- вот тут кладем уже массив строк!
         orders,
         bonuses: bonuses || { bonus_balance: null, level: null },
         bonus_history,

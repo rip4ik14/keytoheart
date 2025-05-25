@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
-import CustomerDetailClient from './CustomerDetailClient'; // <-- Вот так!
+import CustomerDetailClient from './CustomerDetailClient';
 
 interface Event {
   type: string;
@@ -47,10 +47,18 @@ export default async function CustomerPage({ params }: PageProps) {
     });
 
     if (profile && profile.phone) {
+      // Указали тип event явно!
       const dates = await prisma.important_dates.findMany({
         where: { phone: profile.phone },
         select: { type: true, date: true, description: true },
       });
+
+      const important_dates: Event[] = dates.map(
+        (event: { type: string; date: Date | null; description: string | null }) => ({
+          ...event,
+          date: event.date ? event.date.toISOString() : null,
+        })
+      );
 
       const orders = await prisma.orders.findMany({
         where: { phone: profile.phone },
@@ -89,8 +97,8 @@ export default async function CustomerPage({ params }: PageProps) {
         phone: profile.phone,
         email: profile.email,
         created_at: profile.created_at ? profile.created_at.toISOString() : null,
-        important_dates: dates,
-        orders: orders,
+        important_dates,
+        orders,
         bonuses: bonuses || { bonus_balance: null, level: null },
         bonus_history: bonusHistory,
       };

@@ -15,7 +15,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Получаем запись о бонусах
     const bonusRow = await prisma.bonuses.findFirst({
       where: { phone },
       select: { id: true, bonus_balance: true },
@@ -30,14 +29,12 @@ export async function POST(request: Request) {
 
     const bonusId = bonusRow.id;
 
-    // Получаем историю начислений/списаний по этому бонусу
     const history = await prisma.bonus_history.findMany({
       where: { bonus_id: bonusId },
       select: { id: true, amount: true, created_at: true },
       orderBy: { created_at: 'asc' },
     });
 
-    // 1. Считаем остатки для каждой начисленной порции бонусов (FIFO)
     type Accrual = {
       id: number;
       amount: number;
@@ -49,10 +46,17 @@ export async function POST(request: Request) {
 
     for (const entry of history || []) {
       const accrualId = typeof entry.id === 'string' ? Number(entry.id) : entry.id;
-      const accrualAmount = Number(entry.amount ?? 0);
-      const accrualDate = entry.created_at ?? '';
+      const accrualAmount = Number(
+        typeof entry.amount === 'object' && entry.amount !== null && 'toNumber' in entry.amount
+          ? entry.amount.toNumber()
+          : entry.amount ?? 0
+      );
+      const accrualDate = entry.created_at
+        ? typeof entry.created_at === 'string'
+          ? entry.created_at
+          : entry.created_at.toISOString()
+        : '';
       if (accrualAmount > 0) {
-        // Начисление
         balanceByAccrual.push({
           id: accrualId,
           amount: accrualAmount,
@@ -60,7 +64,6 @@ export async function POST(request: Request) {
           spent: 0,
         });
       } else {
-        // Списание или сгорание
         let toSpend = -accrualAmount;
         for (let accrual of balanceByAccrual) {
           const available = accrual.amount - accrual.spent;
@@ -73,7 +76,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Для каждой порции начисления считаем: если не потрачено и >180 дней — сгорает
     const now = new Date();
     const expiredAccruals = balanceByAccrual
       .filter(acc => acc.amount - acc.spent > 0)
@@ -83,7 +85,6 @@ export async function POST(request: Request) {
         return diffDays > BONUS_EXPIRE_DAYS;
       });
 
-    // Если есть бонусы, которые должны сгореть, делаем списания
     let expiredSum = 0;
     for (const acc of expiredAccruals) {
       const toExpire = acc.amount - acc.spent;
@@ -98,16 +99,18 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. Пересчитываем общий баланс
     const historyAfter = await prisma.bonus_history.findMany({
       where: { bonus_id: bonusId },
       select: { amount: true },
     });
 
-    const newBalance = (historyAfter || []).reduce(
-      (sum: number, row: { amount: number | string | null }) => sum + Number(row.amount ?? 0),
-      0
-    );
+    const newBalance = (historyAfter || []).reduce((sum: number, row: { amount: any }) => {
+      let value = row.amount;
+      if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+        value = value.toNumber();
+      }
+      return sum + Number(value ?? 0);
+    }, 0);
 
     await prisma.bonuses.update({
       where: { id: bonusId },

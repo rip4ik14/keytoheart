@@ -1,4 +1,3 @@
-// app/api/admin/bonus/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -15,10 +14,11 @@ export async function POST(req: NextRequest) {
     if (newBalance < 0) return NextResponse.json({ error: 'Недостаточно бонусов' }, { status: 400 });
 
     await prisma.bonuses.update({ where: { phone }, data: { bonus_balance: newBalance } });
+
     await prisma.bonus_history.create({
       data: {
-        phone,
         user_id,
+        bonus_id: bonuses.id, // <-- Привязываем к бонусному счету
         amount,
         reason,
         created_at: new Date()

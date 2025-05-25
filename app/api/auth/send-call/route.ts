@@ -28,15 +28,14 @@ export async function POST(req: Request) {
 
     // Проверка количества попыток (за последние 24 часа)
     const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentAttempts = await prisma.auth_logs.findMany({
+    const recentAttempts = await prisma.auth_logs.count({
       where: {
         phone: `+${cleanPhone}`,
         created_at: { gte: cutoffDate },
       },
-      select: { id: true },
     });
 
-    if (recentAttempts.length >= 30) {
+    if (recentAttempts >= 30) {
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
 
