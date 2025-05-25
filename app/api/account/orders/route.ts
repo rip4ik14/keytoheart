@@ -1,24 +1,10 @@
+// app/api/account/orders/route.ts
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
 
 const prisma = new PrismaClient();
-
-interface OrderResponse {
-  success: boolean;
-  data: {
-    id: string;
-    created_at: string;
-    total: number;
-    bonuses_used: number;
-    payment_method: string;
-    status: string;
-    recipient: string;
-    items: { quantity: number; price: number; product_id: number; title: string }[];
-    upsell_details: { title: string; price: number; quantity: number; category: string }[];
-  }[];
-  error?: string;
-}
 
 export async function GET(req: Request) {
   try {
@@ -38,7 +24,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Получаем заказы пользователя по номеру телефона
     const orders = await prisma.orders.findMany({
       where: { phone: sanitizedPhone },
       orderBy: { created_at: 'desc' },
@@ -50,8 +35,8 @@ export async function GET(req: Request) {
         payment_method: true,
         status: true,
         recipient: true,
-        items: true, // jsonb[]
-        upsell_details: true // jsonb[]
+        items: true,
+        upsell_details: true
       },
     });
 
@@ -60,13 +45,12 @@ export async function GET(req: Request) {
     }
 
     const ordersWithItems = orders.map((order: any) => {
-      // Если поля items/upsell_details в базе jsonb[] — они уже распаршены, иначе подправь
       const items = Array.isArray(order.items)
         ? order.items.map((item: any) => ({
-            quantity: item.quantity ?? 1,
-            price: item.price ?? 0,
             product_id: item.product_id ?? item.id ?? 0,
             title: item.title || 'Неизвестный товар',
+            quantity: item.quantity ?? 1,
+            price: item.price ?? 0,
           }))
         : [];
 
@@ -82,7 +66,7 @@ export async function GET(req: Request) {
       return {
         id: order.id,
         created_at: order.created_at ?? '',
-        total: order.total ?? 0,
+        total: Number(order.total ?? 0),
         bonuses_used: order.bonuses_used ?? 0,
         payment_method: order.payment_method ?? 'cash',
         status: order.status ?? '',
@@ -93,7 +77,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, data: ordersWithItems } as OrderResponse,
+      { success: true, data: ordersWithItems },
       {
         headers: { 'Cache-Control': 'private, no-store' },
       }

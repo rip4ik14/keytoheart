@@ -31,7 +31,6 @@ export default function OrdersList({ orders }: OrdersListProps) {
     visible: { opacity: 1, height: 'auto', transition: { duration: 0.3 } },
   };
 
-  // Проверка на undefined
   if (!orders) {
     return (
       <div className="text-center py-10 text-gray-500 text-sm">
@@ -57,7 +56,9 @@ export default function OrdersList({ orders }: OrdersListProps) {
       whileInView="visible"
       viewport={{ once: true }}
     >
-      <h2 className="text-lg font-semibold mb-4">Мои заказы</h2>
+      <h2 id="orders-list-title" className="text-lg font-semibold mb-4">
+        Мои заказы
+      </h2>
       <table className="w-full border-separate border-spacing-y-2 text-sm">
         <thead>
           <tr className="text-left text-gray-500 uppercase text-xs">
@@ -72,13 +73,14 @@ export default function OrdersList({ orders }: OrdersListProps) {
         </thead>
         <tbody>
           {orders.map((o) => {
+            // Собираем единый список товаров + доп. товары
             const draftItems = [
               ...o.items.map((it) => ({
                 id: it.product_id,
-                title: it.products.title,
+                title: it.title,
                 price: it.price,
                 quantity: it.quantity,
-                imageUrl: it.products.cover_url || '/no-image.jpg',
+                imageUrl: it.cover_url || '/no-image.jpg',
               })),
               ...o.upsell_details.map((upsell) => ({
                 id: upsell.title,
@@ -101,7 +103,9 @@ export default function OrdersList({ orders }: OrdersListProps) {
                 >
                   <td className="px-4 py-3 font-medium">#{o.id}</td>
                   <td className="px-4 py-3">{o.recipient || 'Не указан'}</td>
-                  <td className="px-4 py-3">{o.payment_method === 'cash' ? 'Наличные' : 'Оплачено'}</td>
+                  <td className="px-4 py-3">
+                    {o.payment_method === 'cash' ? 'Наличные' : 'Оплачено'}
+                  </td>
                   <td className="px-4 py-3 capitalize">{o.status}</td>
                   <td className="px-4 py-3">
                     {new Date(o.created_at).toLocaleDateString('ru-RU', {
@@ -124,9 +128,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     <motion.button
                       className="text-black hover:underline text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                       onClick={() => {
-                        const draft = {
-                          items: draftItems,
-                        };
+                        const draft = { items: draftItems };
                         localStorage.setItem('repeatDraft', JSON.stringify(draft));
                         toast.success('Заказ скопирован в корзину');
                         router.push('/cart');
@@ -162,42 +164,40 @@ export default function OrdersList({ orders }: OrdersListProps) {
                             <h4 className="text-sm font-semibold">Товары в заказе:</h4>
                             <div className="space-y-2">
                               {o.items.map((item, idx) => (
-                                <React.Fragment key={`item-${idx}`}>
-                                  <div className="flex items-center gap-3">
-                                    <Image
-                                      src={item.products.cover_url || '/no-image.jpg'}
-                                      alt={item.products.title}
-                                      width={50}
-                                      height={50}
-                                      className="rounded-md object-cover"
-                                    />
-                                    <div>
-                                      <p className="text-sm">{item.products.title}</p>
-                                      <p className="text-xs text-gray-500">
-                                        {item.quantity} × {item.price} ₽
-                                      </p>
-                                    </div>
+                                <div key={`item-${idx}`} className="flex items-center gap-3">
+                                  <Image
+                                    src={item.cover_url || '/no-image.jpg'}
+                                    alt={item.title}
+                                    width={50}
+                                    height={50}
+                                    className="rounded-md object-cover"
+                                  />
+                                  <div>
+                                    <p className="text-sm">{item.title}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {item.quantity} × {item.price} ₽
+                                    </p>
                                   </div>
-                                </React.Fragment>
+                                </div>
                               ))}
                               {o.upsell_details.map((upsell, idx) => (
-                                <React.Fragment key={`upsell-${idx}`}>
-                                  <div className="flex items-center gap-3">
-                                    <Image
-                                      src="/no-image.jpg"
-                                      alt={upsell.title}
-                                      width={50}
-                                      height={50}
-                                      className="rounded-md object-cover"
-                                    />
-                                    <div>
-                                      <p className="text-sm">{upsell.title} ({upsell.category})</p>
-                                      <p className="text-xs text-gray-500">
-                                        {upsell.quantity} × {upsell.price} ₽
-                                      </p>
-                                    </div>
+                                <div key={`upsell-${idx}`} className="flex items-center gap-3">
+                                  <Image
+                                    src="/no-image.jpg"
+                                    alt={upsell.title}
+                                    width={50}
+                                    height={50}
+                                    className="rounded-md object-cover"
+                                  />
+                                  <div>
+                                    <p className="text-sm">
+                                      {upsell.title} ({upsell.category})
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {upsell.quantity} × {upsell.price} ₽
+                                    </p>
                                   </div>
-                                </React.Fragment>
+                                </div>
                               ))}
                             </div>
                           </div>

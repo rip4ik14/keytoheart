@@ -3,8 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database, Json } from '@/lib/supabase/types_new';
 import { useCart } from '@context/CartContext';
 import OrderStep from '@components/OrderStep';
 import StoreBanner from '@components/StoreBanner';
@@ -25,32 +23,44 @@ import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Явно указываем типы для ErrorModal
+// Анимации
+const containerVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, staggerChildren: 0.1 },
+  },
+};
+const stepVariants = {
+  initial: { opacity: 0, x: 100 },
+  animate: { opacity: 1, x: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
+  exit: { opacity: 0, x: -100, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
+};
+
+// Модалка ошибки
 interface ErrorModalProps {
   message: string;
   onRetry: () => Promise<void>;
   onClose: () => void;
 }
-
 const ErrorModal = ErrorModalComponent as React.FC<ErrorModalProps>;
 
-// Типизация для Yandex Maps API
+// Яндекс-карты (для типов)
 interface YandexMaps {
-  suggest: (query: string, options: { boundedBy: number[][]; strictBounds: boolean; results: number }) => Promise<{ value: string }[]>;
+  suggest: (
+    query: string,
+    options: { boundedBy: number[][]; strictBounds: boolean; results: number }
+  ) => Promise<{ value: string }[]>;
 }
-
-declare global {
-  interface Window {
-    ymaps: YandexMaps;
-  }
-}
+// БЕЗ declare global!!!
+// Всё глобальное объявлено в types/global.d.ts, не дублируем здесь ничего!
 
 interface DaySchedule {
   start: string;
   end: string;
   enabled?: boolean;
 }
-
 interface StoreSettings {
   order_acceptance_enabled: boolean;
   banner_message: string | null;
@@ -58,34 +68,26 @@ interface StoreSettings {
   order_acceptance_schedule: Record<string, DaySchedule>;
   store_hours: Record<string, DaySchedule>;
 }
-
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
-// Функция для нормализации телефона
+// Телефон нормализация
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  } else if (cleanPhone.length === 10) {
-    return `+7${cleanPhone}`;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
-    return `+7${cleanPhone.slice(1)}`;
-  }
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) return `+${cleanPhone}`;
+  if (cleanPhone.length === 10) return `+7${cleanPhone}`;
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) return `+7${cleanPhone.slice(1)}`;
   return phone.startsWith('+') ? phone : `+${phone}`;
 };
 
-// Функция для преобразования Json в Record<string, DaySchedule>
-const transformSchedule = (schedule: Json): Record<string, DaySchedule> => {
-  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  const result: Record<string, DaySchedule> = daysOfWeek.reduce((acc, day) => {
-    acc[day] = { start: '09:00', end: '18:00' };
-    return acc;
-  }, {} as Record<string, DaySchedule>);
-
-  if (typeof schedule !== 'object' || schedule === null) {
-    return result;
-  }
-
+const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
+  const daysOfWeek = [
+    'monday','tuesday','wednesday','thursday','friday','saturday','sunday'
+  ];
+  const result: Record<string, DaySchedule> = daysOfWeek.reduce(
+    (acc, day) => { acc[day] = { start: '09:00', end: '18:00' }; return acc; },
+    {} as Record<string, DaySchedule>
+  );
+  if (typeof schedule !== 'object' || schedule === null) return result;
   for (const [key, value] of Object.entries(schedule)) {
     if (daysOfWeek.includes(key) && typeof value === 'object' && value !== null) {
       const { start, end, enabled } = value as any;
@@ -102,7 +104,6 @@ const transformSchedule = (schedule: Json): Record<string, DaySchedule> => {
       }
     }
   }
-
   return result;
 };
 
@@ -111,15 +112,13 @@ export default function CartPage() {
   try {
     cartContext = useCart();
   } catch (error) {
-    console.error('Cart context error:', error);
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex items-center justify-center h-screen">
         <p className="text-red-500">Ошибка: Корзина недоступна. Пожалуйста, обновите страницу.</p>
       </div>
     );
   }
-
-  const { items, setItems, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
+  const { items, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [phone, setPhone] = useState<string | null>(null);
@@ -187,256 +186,93 @@ export default function CartPage() {
     resetForm,
   } = useCheckoutForm();
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-      },
-    }
-  );
+  // --- Обработчик изменения телефона (маска)
+  const handlePhoneChange = useCallback((value: string) => {
+    const normalized = normalizePhone(value);
+    onFormChange({ target: { name: 'phone', value: normalized } } as any);
+    setPhoneError('');
+  }, [onFormChange, setPhoneError]);
 
-  // Очистка старых cookies при загрузке
-  useEffect(() => {
-    if (!window.location.pathname.startsWith('/admin')) {
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'sb-gwbeabfkknhewwoesqax-auth-token' && value) {
-          try {
-            JSON.parse(value);
-          } catch (e) {
-            console.error('Clearing invalid cookie:', name);
-            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-          }
-        }
-      }
-      console.log('Cleared invalid auth cookies on page load');
-    }
-  }, []);
-
-  // Проверяем repeatDraft из localStorage при загрузке страницы
-  useEffect(() => {
-    const repeatDraft = localStorage.getItem('repeatDraft');
-    if (repeatDraft) {
-      try {
-        const draft = JSON.parse(repeatDraft);
-        if (draft.items && Array.isArray(draft.items)) {
-          addMultipleItems(draft.items);
-          toast.success('Товары из предыдущего заказа добавлены в корзину');
-        }
-        localStorage.removeItem('repeatDraft');
-      } catch (error) {
-        console.error('Ошибка парсинга repeatDraft:', error);
-        localStorage.removeItem('repeatDraft');
-      }
-    }
-  }, [addMultipleItems]);
-
-  // Проверка сессии
+  // --- Проверка сессии и профиля
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-          console.error('Check session failed:', error?.message);
-          localStorage.removeItem('auth');
-          setStep(0);
-          return;
-        }
-
-        const normalizedPhone = normalizePhone(user.phone || '');
-        console.log('Session found for user:', user.id, 'phone:', normalizedPhone);
-        setIsAuthenticated(true);
-        setPhone(normalizedPhone);
-        setUserId(user.id);
-        setFormData({ phone: normalizedPhone });
-
-        const { data: bonusData, error: bonusError } = await supabase
-          .from('bonuses')
-          .select('bonus_balance')
-          .eq('phone', normalizedPhone)
-          .single();
-
-        if (bonusError) {
-          console.error('Error fetching bonus balance from bonuses:', bonusError);
-          setBonusBalance(0);
+        const res = await fetch('/api/auth/session', { credentials: 'include' });
+        const json = await res.json();
+        if (res.ok && json.user) {
+          const normalizedPhone = normalizePhone(json.user.phone);
+          setIsAuthenticated(true);
+          setPhone(normalizedPhone);
+          setUserId(json.user.id);
+          onFormChange({ target: { name: 'phone', value: normalizedPhone } } as any);
+          const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
+          const bonusJson = await bonusRes.json();
+          setBonusBalance(bonusRes.ok && bonusJson.success ? bonusJson.data.bonus_balance || 0 : 0);
+          setStep(1);
         } else {
-          const balance = bonusData?.bonus_balance || 0;
-          console.log('Bonus balance fetched from bonuses:', balance);
-          setBonusBalance(balance);
+          setStep(0);
         }
-
-        setStep(1);
-        localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
       } catch (err) {
-        console.error('Error checking session:', err);
-        localStorage.removeItem('auth');
         setStep(0);
       }
     };
-
     checkSession();
-  }, []);
+  }, [onFormChange, setStep]);
 
-  const setFormData = (data: Partial<typeof form>) => {
-    onFormChange({ target: { name: 'phone', value: data.phone || form.phone } } as any);
-    onFormChange({ target: { name: 'name', value: data.name || form.name } } as any);
-    onFormChange({ target: { name: 'email', value: data.email || form.email } } as any);
-    onFormChange({ target: { name: 'whatsapp', value: data.whatsapp ?? form.whatsapp } } as any);
-  };
-
-  const handleAuthSuccess = async (phone: string) => {
-    const normalizedPhone = normalizePhone(phone);
-    setIsAuthenticated(true);
-    setPhone(normalizedPhone);
-
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        console.error('Auth success failed:', error?.message);
-        throw new Error('Не удалось получить данные пользователя');
-      }
-
-      console.log('Auth success for user:', user.id, 'phone:', normalizedPhone);
-      setUserId(user.id);
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('name')
-        .eq('phone', normalizedPhone)
-        .single();
-
-      const { data: bonusData, error: bonusError } = await supabase
-        .from('bonuses')
-        .select('bonus_balance')
-        .eq('phone', normalizedPhone)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        setFormData({ phone: normalizedPhone, name: '', email: form.email, whatsapp: form.whatsapp });
-      } else {
-        const name = profileData?.name || '';
-        setFormData({ phone: normalizedPhone, name, email: form.email, whatsapp: form.whatsapp });
-      }
-
-      if (bonusError) {
-        console.error('Error fetching bonus balance from bonuses:', bonusError);
-        setBonusBalance(0);
-      } else {
-        const balance = bonusData?.bonus_balance || 0;
-        console.log('Bonus balance fetched from bonuses:', balance);
-        setBonusBalance(balance);
-      }
-
-      localStorage.setItem('auth', JSON.stringify({ phone: normalizedPhone, isAuthenticated: true, userId: user.id }));
-      setStep(1);
-    } catch (error) {
-      console.error('Error in handleAuthSuccess:', error);
-      toast.error('Ошибка при загрузке данных после авторизации');
-      setStep(0);
-    }
-  };
-
-  const handlePhoneChange = useCallback(
-    (value: string) => {
-      const normalizedPhone = normalizePhone(value);
-      onFormChange({
-        target: { name: 'phone', value: normalizedPhone },
-      } as React.ChangeEvent<HTMLInputElement>);
-      setPhoneError('');
-    },
-    [onFormChange, setPhoneError]
-  );
-
-  const deliveryCost = useMemo(
-    () => (form.deliveryMethod === 'delivery' ? 300 : 0),
-    [form.deliveryMethod]
-  );
-
-  const subtotal = useMemo(
-    () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-    [items]
-  );
-
-  const upsellTotal = useMemo(
-    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
-    [selectedUpsells]
-  );
-
+  // --- Вычисления для заказа
+  const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
+  const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.price * i.quantity, 0), [items]);
+  const upsellTotal = useMemo(() => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0), [selectedUpsells]);
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
-    if (promoType === 'percentage') {
-      return (totalBeforeDiscounts * promoDiscount) / 100;
-    }
-    return promoDiscount;
+    return promoType === 'percentage' ? (totalBeforeDiscounts * promoDiscount) / 100 : promoDiscount;
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
-
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
-  useEffect(() => {
-    setBonusesUsed(bonusesToUse);
-  }, [useBonuses, bonusBalance, maxBonusesAllowed]);
-
+  useEffect(() => { setBonusesUsed(bonusesToUse); }, [useBonuses, bonusBalance, maxBonusesAllowed]);
   const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
+  // --- Загрузка настроек магазина
   useEffect(() => {
     const fetchStoreSettings = async () => {
       setIsStoreSettingsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('store_settings')
-          .select('*')
-          .single();
-
-        if (error) throw error;
-
-        const transformedData: StoreSettings = {
-          order_acceptance_enabled: data.order_acceptance_enabled ?? false,
-          banner_message: data.banner_message ?? null,
-          banner_active: data.banner_active ?? false,
-          order_acceptance_schedule: transformSchedule(data.order_acceptance_schedule),
-          store_hours: transformSchedule(data.store_hours),
-        };
-
-        setStoreSettings(transformedData);
+        const res = await fetch('/api/store-settings');
+        const json = await res.json();
+        if (res.ok && json.success) {
+          setStoreSettings({
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
+            banner_message: json.data.banner_message ?? null,
+            banner_active: json.data.banner_active ?? false,
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
+            store_hours: transformSchedule(json.data.store_hours),
+          });
+        }
       } catch (error: any) {
-        console.error('Fetch store settings error:', error);
         toast.error('Не удалось загрузить настройки магазина');
       } finally {
         setIsStoreSettingsLoading(false);
       }
     };
-
     fetchStoreSettings();
   }, []);
 
+  // --- Доступность оформления заказа
   const canPlaceOrder = useMemo(() => {
     if (!storeSettings || isStoreSettingsLoading) return true;
-
     if (!storeSettings.order_acceptance_enabled) return false;
-
     const now = new Date();
     const dayKey = now.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-    const currentTime = now.toTimeString().slice(0, 5);
-
     const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
-    if (!orderSchedule) return false;
-
-    const { start, end, enabled } = orderSchedule;
-    if (!start || !end || !enabled) return false;
-
-    return currentTime >= start && currentTime <= end;
+    if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) return false;
+    const currentTime = now.toTimeString().slice(0, 5);
+    return currentTime >= orderSchedule.start && currentTime <= orderSchedule.end;
   }, [storeSettings, isStoreSettingsLoading]);
 
   const currentDaySchedule = useMemo(() => {
     if (!storeSettings || isStoreSettingsLoading) return null;
-
     const now = new Date();
     const dayKey = now.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
     return {
@@ -446,38 +282,26 @@ export default function CartPage() {
     };
   }, [storeSettings, isStoreSettingsLoading]);
 
-  const getStoreHoursForDate = (date: string): DaySchedule | null => {
-    if (!storeSettings) return null;
-
-    const selectedDate = new Date(date);
-    const dayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-    return storeSettings.store_hours[dayKey] || null;
-  };
-
+  // --- Яндекс подсказки
   useEffect(() => {
     const loadYandexSuggestScript = () => {
+      if (document.getElementById('ymaps-script')) return;
       const script = document.createElement('script');
+      script.id = 'ymaps-script';
       script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
-      script.onload = () => {
-        console.log('Яндекс.Карты API загружен');
-      };
+      script.onload = () => {};
       script.onerror = () => {
-        console.error('Ошибка загрузки Яндекс.Карт API');
         toast.error('Не удалось загрузить автодополнение адресов');
       };
       document.body.appendChild(script);
     };
-
-    if (!window.ymaps) {
-      loadYandexSuggestScript();
-    }
+    if (!window.ymaps) loadYandexSuggestScript();
   }, []);
 
   const fetchAddressSuggestions = useCallback(
     debounce(async (query: string) => {
       if (!query.trim() || !window.ymaps) return;
-
       setIsLoadingSuggestions(true);
       try {
         const response = await window.ymaps.suggest(query, {
@@ -485,16 +309,11 @@ export default function CartPage() {
           strictBounds: true,
           results: 5,
         });
-
         setAddressSuggestions(response.map((item: any) => item.value));
         setShowSuggestions(true);
-
-        window.ym?.(12345678, 'reachGoal', 'fetch_address_suggestions', { query });
       } catch (error) {
-        console.error('Ошибка получения подсказок адреса:', error);
         setAddressSuggestions([]);
         setShowSuggestions(false);
-        toast.error('Не удалось загрузить подсказки адресов');
       } finally {
         setIsLoadingSuggestions(false);
       }
@@ -509,10 +328,6 @@ export default function CartPage() {
       } as React.ChangeEvent<HTMLInputElement>);
       setShowSuggestions(false);
       setAddressError('');
-
-      window.ym?.(12345678, 'reachGoal', 'select_address_suggestion', {
-        selected_address: address,
-      });
     },
     [onFormChange, setAddressError]
   );
@@ -535,32 +350,17 @@ export default function CartPage() {
     const handleClickOutside = () => {
       setShowSuggestions(false);
     };
-
     document.addEventListener('click', handleClickOutside);
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
+  // --- Upsell (подарки/открытки)
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
-    window.ym?.(12345678, 'reachGoal', 'remove_upsell', { upsell_id: id });
   }, []);
-
-  useEffect(() => {
-    const allItems: CartItemType[] = [...items, ...selectedUpsells];
-    const idCounts = allItems.reduce((acc, item) => {
-      acc[item.id] = (acc[item.id] || 0) + item.quantity;
-      return acc;
-    }, {} as Record<string, number>);
-    const duplicates = Object.entries(idCounts)
-      .filter(([_, count]) => count > 1)
-      .map(([id]) => id);
-    if (duplicates.length > 0) {
-      console.warn('Обнаружены дубликаты ID в корзине:', duplicates);
-    }
-  }, [items, selectedUpsells]);
 
   useEffect(() => {
     const fetchUpsellItems = async () => {
@@ -568,9 +368,7 @@ export default function CartPage() {
         setIsUpsellLoading(true);
         const res = await fetch(`/api/upsell/categories?category=podarki&subcategories=balloons,cards`);
         const { success, data, error } = await res.json();
-        if (!success) {
-          throw new Error(error || 'Не удалось загрузить дополнительные товары');
-        }
+        if (!success) throw new Error(error || 'Не удалось загрузить дополнительные товары');
         const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
           ...item,
           quantity: 1,
@@ -583,109 +381,98 @@ export default function CartPage() {
         setIsUpsellLoading(false);
       }
     };
-
     fetchUpsellItems();
   }, []);
 
+  // --- Промокод
   const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
       return;
     }
-
     try {
       const response = await fetch('/api/promo/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: promoCode }),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Не удалось применить промокод');
-      }
-
+      if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
       setPromoId(result.promoId);
       setPromoError(null);
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
-      window.ym?.(12345678, 'reachGoal', 'apply_promo', { promo_code: promoCode });
     } catch (error: any) {
       setPromoError(error.message);
       toast.error(error.message);
     }
   }, [promoCode]);
 
+  // --- Проверка валидности товаров перед заказом
   const checkItems = useCallback(async () => {
     const productIds = items
       .filter((item: CartItemType) => !item.isUpsell)
       .map((item: CartItemType) => parseInt(item.id, 10))
       .filter((id: number) => !isNaN(id));
-
     if (productIds.length === 0) return true;
-
-    const { data, error } = await supabase
-      .from('products')
-      .select('id')
-      .in('id', productIds);
-
-    if (error) {
-      console.error('Error checking products:', error);
+    try {
+      const res = await fetch('/api/products/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error('Ошибка проверки товаров');
+        return false;
+      }
+      const existingIds = new Set(json.data.map((p: { id: number }) => p.id));
+      const invalidItems = items.filter(
+        (item: CartItemType) => !item.isUpsell && !existingIds.has(parseInt(item.id, 10))
+      );
+      if (invalidItems.length > 0) {
+        toast.error(
+          `Некоторые товары больше не доступны: ${invalidItems.map((i: CartItemType) => i.title).join(', ')}`
+        );
+        const validItems = items.filter(
+          (item: CartItemType) => item.isUpsell || existingIds.has(parseInt(item.id, 10))
+        );
+        clearCart();
+        addMultipleItems(validItems);
+        return false;
+      }
+      return true;
+    } catch (error) {
       toast.error('Ошибка проверки товаров');
       return false;
     }
+  }, [items, clearCart, addMultipleItems]);
 
-    const existingIds = new Set(data.map((p: any) => p.id));
-    const invalidItems = items.filter(
-      (item: CartItemType) => !item.isUpsell && !existingIds.has(parseInt(item.id, 10))
-    );
-    if (invalidItems.length > 0) {
-      toast.error(
-        `Некоторые товары больше не доступны: ${invalidItems.map((i: CartItemType) => i.title).join(', ')}`
-      );
-      const validItems = items.filter(
-        (item: CartItemType) => item.isUpsell || existingIds.has(parseInt(item.id, 10))
-      );
-      clearCart();
-      addMultipleItems(validItems);
-      return false;
-    }
-    return true;
-  }, [items, supabase, clearCart, addMultipleItems]);
-
+  // --- Отправка заказа
   const submitOrder = useCallback(async () => {
-    if (!validateStep5(agreed)) {
-      return;
-    }
-
+    if (!validateStep5(agreed)) return;
     if (!validateAllSteps()) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
-
     if (!canPlaceOrder) {
       toast.error(
         'Магазин временно не принимает заказы. Пожалуйста, выберите другое время или дату на шаге "Дата и время".'
       );
       return;
     }
-
     if (items.length === 0 && selectedUpsells.length === 0) {
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
-
     if (!(await checkItems())) return;
-
     if (!phone) {
       setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
       setIsAuthenticated(false);
       setStep(0);
       return;
     }
-
     setIsSubmittingOrder(true);
     try {
       const cartItems = items.map((item: CartItemType) => ({
@@ -695,8 +482,7 @@ export default function CartPage() {
         quantity: item.quantity,
         isUpsell: false,
       }));
-
-      const upsellItems = selectedUpsells.map((u: UpsellItem) => ({
+      const upsellItemsPayload = selectedUpsells.map((u: UpsellItem) => ({
         id: u.id,
         title: u.title,
         price: u.price,
@@ -704,28 +490,19 @@ export default function CartPage() {
         category: u.category,
         isUpsell: true,
       }));
-
-      const payloadItems = [...cartItems, ...upsellItems];
-
-      const normalizedPhone = normalizePhone(phone);
-      const normalizedRecipientPhone = normalizePhone(form.recipientPhone);
-
       const payload = {
-        phone: normalizedPhone,
+        phone: normalizePhone(phone),
         name: form.name,
         recipient: form.recipient,
-        recipientPhone: normalizedRecipientPhone,
+        recipientPhone: normalizePhone(form.recipientPhone),
         address:
           form.street && form.deliveryMethod !== 'pickup'
-            ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${
-                form.apartment ? `, кв. ${form.apartment}` : ''
-              }${form.entrance ? `, подъезд ${form.entrance}` : ''}`
+            ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${form.apartment ? `, кв. ${form.apartment}` : ''}${form.entrance ? `, подъезд ${form.entrance}` : ''}`
             : 'Самовывоз',
-        deliveryMethod: form.deliveryMethod,
+        payment: form.payment,
         date: form.date,
         time: form.time,
-        payment: form.payment,
-        items: payloadItems,
+        items: [...cartItems, ...upsellItemsPayload],
         total: finalTotal,
         bonuses_used: bonusesUsed,
         bonus: bonusAccrual,
@@ -736,87 +513,39 @@ export default function CartPage() {
         anonymous: form.anonymous,
         whatsapp: form.whatsapp,
       };
-
-      console.log('Submitting order with payload:', payload);
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-
       if (!res.ok || !json.success) {
-        console.error('Order submission failed:', json.error, res.status);
-        if (res.status === 429) {
-          setErrorModal('Слишком много запросов. Попробуйте снова через несколько минут.');
-        } else if (res.status === 401) {
-          setErrorModal('Не авторизован. Пожалуйста, войдите снова.');
-          setIsAuthenticated(false);
-          setStep(0);
-        } else {
-          setErrorModal(json.error || 'Ошибка оформления заказа.');
-        }
+        setErrorModal(json.error || 'Ошибка оформления заказа');
         return;
       }
-
-      console.log('Order submitted successfully:', json.order_id);
-      const { data: bonusData, error: bonusError } = await supabase
-        .from('bonuses')
-        .select('id')
-        .eq('phone', normalizedPhone)
-        .single();
-
-      if (bonusError || !bonusData) {
-        console.error('Error fetching bonus_id:', bonusError);
-        toast.error('Ошибка получения бонусного ID');
-        return;
-      }
-
-      const bonusId = bonusData.id;
-
       if (bonusesUsed > 0) {
-        const newBalance = bonusBalance - bonusesUsed;
-        const { error: updateError } = await supabase
-          .from('bonuses')
-          .update({ bonus_balance: newBalance })
-          .eq('phone', normalizedPhone);
-
-        if (updateError) {
-          console.error('Error updating bonus balance:', updateError);
-          toast.error('Ошибка обновления бонусного баланса');
-        } else {
-          setBonusBalance(newBalance);
-
-          const { error: historyError } = await supabase
-            .from('bonus_history')
-            .insert({
-              bonus_id: bonusId,
-              amount: -bonusesUsed,
-              reason: 'Списание бонусов при заказе #' + json.order_id,
-              created_at: new Date().toISOString(),
-            });
-
-          if (historyError) {
-            console.error('Error logging bonus history:', historyError);
-          }
+        try {
+          const bonusRes = await fetch('/api/redeem-bonus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: normalizePhone(phone),
+              amount: bonusesUsed,
+              order_id: json.order_id,
+            }),
+          });
+          const bonusJson = await bonusRes.json();
+          setBonusBalance(bonusJson.new_balance || 0);
+        } catch {
+          toast.error('Ошибка списания бонусов');
         }
       }
-
-      const { data: { user }, error: sessionError } = await supabase.auth.getUser();
-      if (sessionError || !user) {
-        console.error('Session lost after order submission:', sessionError);
-        setIsAuthenticated(false);
-        setStep(0);
-        return;
-      }
-
       setOrderDetails({
         orderId: json.order_id,
-         orderNumber: json.order_number,
+        orderNumber: json.order_number,
         trackingUrl: json.tracking_url,
       });
       setShowSuccess(true);
-      console.log('Showing ThankYouModal with order:', json.order_id, 'trackingUrl:', json.tracking_url);
       clearCart();
       resetForm();
       setSelectedUpsells([]);
@@ -827,15 +556,7 @@ export default function CartPage() {
       setPromoId(null);
       setUseBonuses(false);
       setBonusesUsed(0);
-
-      localStorage.setItem('orderSuccess', 'true');
-
-      window.ym?.(12345678, 'reachGoal', 'submit_order', {
-        order_id: json.order_id,
-        total: finalTotal,
-      });
-    } catch (error: any) {
-      console.error('Error submitting order:', error);
+    } catch {
       setErrorModal('Произошла неизвестная ошибка при оформлении заказа.');
     } finally {
       setIsSubmittingOrder(false);
@@ -874,17 +595,7 @@ export default function CartPage() {
     userId,
   ]);
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
-  };
-
-  const stepVariants = {
-    initial: { opacity: 0, x: 100 },
-    animate: { opacity: 1, x: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, x: -100, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-  };
-
+  // --- Рендеринг
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 pb-[80px] md:pb-12">
       <StoreBanner />
@@ -907,7 +618,7 @@ export default function CartPage() {
       )}
 
       <motion.div
-        className="mb-6 flex justify-between items-center sticky top-0 z-30 bg-white py-2 md:static"
+        className="mb-6 flex items-center justify-between sticky top-0 z-30 bg-white py-2 md:static"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -915,9 +626,7 @@ export default function CartPage() {
         {[0, 1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${
-                step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
-              }`}
+              className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}
               initial={{ scale: 0.8 }}
               animate={{ scale: step >= s ? 1 : 0.8 }}
               transition={{ duration: 0.3 }}
@@ -927,7 +636,7 @@ export default function CartPage() {
             </motion.div>
             {s < 5 && (
               <motion.div
-                className={`h-1 w-6 mx-1 sm:w-10 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
+                className={`w-6 h-1 mx-1 sm:w-10 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
                 initial={{ width: '0%', opacity: 0 }}
                 animate={{ width: step > s ? '100%' : '0%', opacity: 1 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -938,7 +647,7 @@ export default function CartPage() {
       </motion.div>
 
       <motion.div
-        className="mt-6 grid gap-6 md:grid-cols-3 md:gap-10"
+        className="grid gap-6 mt-6 md:grid-cols-3 md:gap-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -954,7 +663,12 @@ export default function CartPage() {
           >
             {step === 0 && (
               <OrderStep step={0} currentStep={step} title="Авторизация">
-                <AuthWithCall onSuccess={handleAuthSuccess} />
+                <AuthWithCall onSuccess={(phone: string) => {
+                  setIsAuthenticated(true);
+                  setPhone(normalizePhone(phone));
+                  setStep(1);
+                  onFormChange({ target: { name: 'phone', value: normalizePhone(phone) } } as any);
+                }} />
               </OrderStep>
             )}
             {step === 1 && (
@@ -970,7 +684,7 @@ export default function CartPage() {
                 <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>
                   {isUpsellLoading ? (
                     <motion.div
-                      className="flex justify-center py-4 w-full"
+                      className="flex justify-center w-full py-4"
                       variants={containerVariants}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -988,11 +702,8 @@ export default function CartPage() {
                     <>
                       <motion.button
                         type="button"
-                        onClick={() => {
-                          setShowPostcard(true);
-                          window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        onClick={() => setShowPostcard(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                         aria-label="Добавить открытку"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -1009,11 +720,8 @@ export default function CartPage() {
                       </motion.button>
                       <motion.button
                         type="button"
-                        onClick={() => {
-                          setShowBalloons(true);
-                          window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                        onClick={() => setShowBalloons(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                         aria-label="Добавить шары"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -1085,10 +793,7 @@ export default function CartPage() {
 
         <div className="space-y-6">
           {[...items, ...selectedUpsells]
-            .filter(
-              (item, index, self) =>
-                index === self.findIndex((t) => t.id === item.id)
-            )
+            .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
             .map((item, idx) => {
               const isUpsell = 'isUpsell' in item && item.isUpsell;
               return (
@@ -1100,13 +805,10 @@ export default function CartPage() {
                 />
               );
             })}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 sm:p-6">
+          <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6">
             <motion.button
-              onClick={() => {
-                setShowPromoField(!showPromoField);
-                window.ym?.(12345678, 'reachGoal', showPromoField ? 'hide_promo_field' : 'show_promo_field');
-              }}
-              className="w-full text-sm text-gray-500 underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-black"
+              onClick={() => setShowPromoField(!showPromoField)}
+              className="flex items-center w-full gap-1 text-sm text-gray-500 underline focus:outline-none focus:ring-2 focus:ring-black"
               aria-expanded={showPromoField}
               aria-controls="promo-field"
               whileHover={{ scale: 1.02 }}
@@ -1137,12 +839,12 @@ export default function CartPage() {
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Введите промокод"
-                      className="border rounded-lg p-2 flex-1 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+                      className="flex-1 p-2 text-black border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
                       aria-label="Введите промокод"
                     />
                     <motion.button
                       onClick={handleApplyPromo}
-                      className="bg-black text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                      className="px-4 py-2 font-medium text-white bg-black rounded-lg hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                       aria-label="Применить промокод"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -1151,11 +853,11 @@ export default function CartPage() {
                     </motion.button>
                   </div>
                   {promoError && (
-                    <p className="text-red-500 text-xs mt-1">{promoError}</p>
+                    <p className="mt-1 text-xs text-red-500">{promoError}</p>
                   )}
                   {promoDiscount !== null && (
                     <motion.p
-                      className="text-green-500 text-xs mt-1"
+                      className="mt-1 text-xs text-green-500"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
@@ -1191,9 +893,7 @@ export default function CartPage() {
           onClose={() => setShowPostcard(false)}
           onSelect={(item: UpsellItem) => {
             setSelectedUpsells((prev) => {
-              if (prev.some((i) => i.id === item.id)) {
-                return prev;
-              }
+              if (prev.some((i) => i.id === item.id)) return prev;
               return [...prev, { ...item, category: 'postcard', isUpsell: true, quantity: 1 }];
             });
             setShowPostcard(false);
@@ -1206,9 +906,7 @@ export default function CartPage() {
           onClose={() => setShowBalloons(false)}
           onSelect={(item: UpsellItem) => {
             setSelectedUpsells((prev) => {
-              if (prev.some((i) => i.id === item.id)) {
-                return prev;
-              }
+              if (prev.some((i) => i.id === item.id)) return prev;
               return [...prev, { ...item, category: 'balloon', isUpsell: true, quantity: 1 }];
             });
             setShowBalloons(false);

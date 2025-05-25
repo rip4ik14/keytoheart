@@ -13,8 +13,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
-import type { Database } from '@/lib/supabase/types_new';
-import { Category } from '@/types/category';
+import type { Category } from '@/types/category';
 
 // Хелпер для аналитики
 const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
@@ -35,8 +34,8 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: CartItem[] };
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
-  const cartSum = items.reduce((s: number, i: CartItem) => s + i.price * i.quantity, 0);
-  const totalItems = items.reduce((s: number, i: CartItem) => s + i.quantity, 0);
+  const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const formattedCartSum = new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
@@ -53,80 +52,82 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
-  const supabase = createBrowserClient<Database>(
+  const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Отслеживаем изменения в корзине для анимации
+  // Анимация пузыря на корзине
   useEffect(() => {
     if (totalItems > 0) {
-      cartControls.start({
-        scale: [1, 1.2, 1],
-        transition: { duration: 0.3, ease: 'easeInOut' },
-      });
+      cartControls.start({ scale: [1, 1.2, 1], transition: { duration: 0.3, ease: 'easeInOut' } });
     }
   }, [totalItems, cartControls]);
 
   // Отслеживаем позицию иконки корзины
   useEffect(() => {
-    const updateCartIconPosition = () => {
+    const updatePos = () => {
       if (cartIconRef.current) {
         const rect = cartIconRef.current.getBoundingClientRect();
         setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
       }
     };
-
-    updateCartIconPosition();
-    window.addEventListener('resize', updateCartIconPosition);
-    window.addEventListener('scroll', updateCartIconPosition);
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('scroll', updatePos);
     return () => {
-      window.removeEventListener('resize', updateCartIconPosition);
-      window.removeEventListener('scroll', updateCartIconPosition);
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('scroll', updatePos);
     };
   }, [setCartIconPosition]);
 
-  // Запускаем анимацию "полёта" при изменении animationState
   useEffect(() => {
     if (animationState.isAnimating) {
       setIsFlying(true);
     }
   }, [animationState]);
 
+  // Получаем сессию из Supabase Auth
   useEffect(() => {
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
-    };
+    })();
 
-    fetchSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+    return () => void subscription?.unsubscribe();
   }, [supabase]);
 
+  // Берём телефон из метаданных
   const phone = session?.user?.user_metadata?.phone as string | undefined;
 
+  // Вместо supabase.from('bonuses')… — обращаемся к вашему API-роуту
   useEffect(() => {
     if (!phone) {
       setBonus(null);
       return;
     }
-    supabase
-      .from('bonuses')
-      .select('bonus_balance')
-      .eq('phone', phone)
-      .single()
-      .then(({ data, error }) => {
-        if (!error) setBonus(data?.bonus_balance ?? 0);
-      });
-  }, [phone, supabase]);
+    (async () => {
+      try {
+        const res = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`);
+        const json = await res.json();
+        if (res.ok && json.success) {
+          setBonus(json.data.bonus_balance);
+        }
+      } catch {
+        // silent
+      }
+    })();
+  }, [phone]);
 
+  // Закрываем профиль кликом вне
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -144,17 +145,35 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     trackEvent('sign_out', 'header');
   };
 
+  // Анимация "полетевшего" товара
+  const flyBall = isFlying && animationState.isAnimating && (
+    <motion.div
+      className="fixed pointer-events-none z-[9999]"
+      initial={{ x: animationState.startX, y: animationState.startY, opacity: 1, scale: 1 }}
+      animate={{ x: cartIconPosition.x, y: cartIconPosition.y, opacity: 0, scale: 0.5 }}
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      onAnimationComplete={() => {
+        setIsFlying(false);
+        setAnimationState({ ...animationState, isAnimating: false });
+      }}
+    >
+      <Image
+        src={animationState.imageUrl}
+        alt="Product"
+        width={40}
+        height={40}
+        className="w-10 h-10 object-cover rounded-full border border-gray-300"
+      />
+    </motion.div>
+  );
+
   return (
     <>
-      <header
-        className="sticky top-0 z-50 bg-white border-b shadow-sm"
-        aria-label="Основная навигация"
-      >
+      <header className="sticky top-0 z-50 bg-white border-b shadow-sm" aria-label="Основная навигация">
         <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-          {/* Left Section: Burger Menu and Logo (Mobile), Contact Info (Desktop) */}
+          {/* Левый блок */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
-            {/* Logo: Left on Mobile, Centered on Desktop */}
             <Link
               href="/"
               className="text-xl md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2"
@@ -162,7 +181,6 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             >
               Key to Heart
             </Link>
-            {/* Desktop: Contact Info */}
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>
               <div className="flex flex-col leading-tight">
@@ -184,14 +202,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                   rel="nofollow"
                   onClick={() => trackEvent('whatsapp_click', 'header')}
                 >
-                  <Image
-                    src="/icons/whatsapp.svg"
-                    alt="WhatsApp"
-                    width={16}
-                    height={16}
-                    className="w-4 h-4 text-black"
-                    loading="lazy"
-                  />
+                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="lazy" />
                 </a>
                 <a
                   href="https://t.me/keytomyheart"
@@ -201,20 +212,13 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                   rel="nofollow"
                   onClick={() => trackEvent('telegram_click', 'header')}
                 >
-                  <Image
-                    src="/icons/telegram.svg"
-                    alt="Telegram"
-                    width={16}
-                    height={16}
-                    className="w-4 h-4 text-black"
-                    loading="lazy"
-                  />
+                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} loading="lazy" />
                 </a>
               </div>
             </div>
           </div>
 
-          {/* Right Section: Search, Profile, Cart */}
+          {/* Правый блок */}
           <div className="flex items-center gap-2 md:gap-3 relative">
             <button
               ref={searchButtonRef}
@@ -224,29 +228,18 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               }}
               className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
               title="Поиск"
-              aria-label="Открыть поиск"
               aria-controls="search-modal"
             >
-              <Image
-                src="/icons/search.svg"
-                alt="Search"
-                width={20}
-                height={20}
-                className="w-5 h-5 text-black"
-                loading="lazy"
-              />
+              <Image src="/icons/search.svg" alt="Search" width={20} height={20} loading="lazy" />
             </button>
 
             {session ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
-                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full"
-                  aria-label="Открыть меню профиля"
+                  className="p-2 hover:bg-gray-100 rounded-full md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
                   aria-expanded={openProfile}
-                  aria-controls="profile-menu"
                 >
-                  {/* Mobile: Icon Only */}
                   <Image
                     src="/icons/user.svg"
                     alt="Profile"
@@ -255,13 +248,8 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                     className="w-5 h-5 text-black md:hidden"
                     loading="lazy"
                   />
-                  {/* Desktop: Text + Bonus */}
                   <div className="hidden md:flex items-center gap-2">
-                    {bonus !== null && (
-                      <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
-                        Бонусов: {bonus}
-                      </span>
-                    )}
+                    {bonus !== null && <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">Бонусов: {bonus}</span>}
                     <span>Профиль</span>
                   </div>
                 </button>
@@ -269,38 +257,24 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                 <AnimatePresence>
                   {openProfile && (
                     <motion.div
-                      id="profile-menu"
-                      className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border z-50"
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      role="menu"
-                      aria-label="Меню профиля"
+                      className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
                     >
                       <div className="py-1">
-                        {bonus !== null && (
-                          <div className="px-4 py-2 text-sm text-gray-700 md:hidden">
-                            Бонусов: {bonus}
-                          </div>
-                        )}
+                        {bonus !== null && <div className="px-4 py-2 text-sm text-gray-700 md:hidden">Бонусов: {bonus}</div>}
                         <Link
                           href="/account"
-                          className="block px-4 py-2 text-sm text-black hover:bg-gray-100 focus:bg-gray-100 outline-none"
-                          onClick={() => {
-                            setOpenProfile(false);
-                            trackEvent('profile_account_click', 'header');
-                          }}
-                          role="menuitem"
-                          aria-current={pathname === '/account' ? 'page' : undefined}
+                          className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
+                          onClick={() => trackEvent('profile_account_click', 'header')}
                         >
                           Личный кабинет
                         </Link>
                         <button
                           onClick={handleSignOut}
-                          className="w-full text-left px-4 py-2 text-sm text-black hover:bg-gray-100 focus:bg-gray-100 outline-none"
-                          role="menuitem"
-                          aria-label="Выйти из аккаунта"
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
                         >
                           Выход
                         </button>
@@ -312,90 +286,41 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             ) : (
               <Link
                 href="/account"
-                className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:px-4 md:py-1 md:border md:rounded-full"
+                className="p-2 hover:bg-gray-100 rounded-full md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
                 onClick={() => trackEvent('login_click', 'header')}
-                aria-label="Войти в аккаунт"
-                aria-current={pathname === '/account' ? 'page' : undefined}
               >
-                {/* Mobile: Icon Only */}
-                <Image
-                  src="/icons/user.svg"
-                  alt="Login"
-                  width={20}
-                  height={20}
-                  className="w-5 h-5 text-black md:hidden"
-                  loading="lazy"
-                />
-                {/* Desktop: Text */}
+                <Image src="/icons/user.svg" alt="Login" width={20} height={20} loading="lazy" />
                 <span className="hidden md:inline">Вход</span>
               </Link>
             )}
 
             <Link
               href="/cart"
-              className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:border md:px-3 md:py-1 md:rounded-full"
-              title="Корзина"
-              aria-label="Перейти в корзину"
-              aria-current={pathname === '/cart' ? 'page' : undefined}
+              className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full md:border md:px-3 md:py-1 md:rounded-full focus:ring-2 focus:ring-black"
               onClick={() => trackEvent('cart_click', 'header')}
             >
               <motion.div animate={cartControls}>
                 <Image
                   ref={cartIconRef}
                   src="/icons/shopping-cart.svg"
-                  alt="Shopping Cart"
+                  alt="Cart"
                   width={20}
                   height={20}
-                  className="w-5 h-5 text-black"
                   loading="lazy"
                 />
               </motion.div>
-              {cartSum > 0 && (
-                <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>
-              )}
+              {cartSum > 0 && <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>}
             </Link>
           </div>
         </div>
 
-        {/* Анимация "полёта" товара */}
-        {isFlying && animationState.isAnimating && (
-          <motion.div
-            className="fixed pointer-events-none z-[9999]"
-            initial={{
-              x: animationState.startX,
-              y: animationState.startY,
-              opacity: 1,
-              scale: 1,
-            }}
-            animate={{
-              x: cartIconPosition.x,
-              y: cartIconPosition.y,
-              opacity: 0,
-              scale: 0.5,
-            }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-            onAnimationComplete={() => {
-              setIsFlying(false);
-              setAnimationState({ ...animationState, isAnimating: false });
-            }}
-          >
-            <Image
-              src={animationState.imageUrl}
-              alt="Product"
-              width={40}
-              height={40}
-              className="w-10 h-10 object-cover rounded-full border border-gray-300"
-            />
-          </motion.div>
-        )}
+        {flyBall}
 
-        {/* Category Navigation */}
         <div className="border-t">
           <CategoryNav initialCategories={initialCategories} />
         </div>
       </header>
 
-      {/* Search Modal */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -404,23 +329,16 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Модальное окно поиска"
+            transition={{ duration: 0.3 }}
           >
             <motion.div
               className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
               onClick={() => setIsSearchOpen(false)}
               aria-hidden="true"
             />
             <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
-                className="w-full rounded-2xl bg-white z-10"
+                className="bg-white rounded-2xl z-10"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
@@ -430,21 +348,14 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               </motion.div>
               <motion.button
                 onClick={() => setIsSearchOpen(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-black focus:outline-none focus:ring-2 focus:ring-black"
+                className="absolute top-4 right-4 text-gray-400 hover:text-black focus:ring-2 focus:ring-black"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, delay: 0.1 }}
                 aria-label="Закрыть поиск"
               >
-                <Image
-                  src="/icons/x.svg"
-                  alt="Close"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6"
-                  loading="lazy"
-                />
+                <Image src="/icons/x.svg" alt="Close" width={24} height={24} loading="lazy" />
               </motion.button>
             </div>
           </motion.div>

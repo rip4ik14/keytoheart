@@ -1,8 +1,9 @@
 export type OrderItem = {
-  products: { title: string; cover_url: string | null };
+  product_id: number;
   quantity: number;
   price: number;
-  product_id: number;
+  title: string;
+  cover_url: string | null;
 };
 
 export type UpsellDetail = {
@@ -17,9 +18,9 @@ export type Order = {
   created_at: string;
   total: number;
   bonuses_used: number;
-  payment_method: 'cash' | 'card';
+  payment_method: string;
   status: string;
+  recipient: string;
   items: OrderItem[];
   upsell_details: UpsellDetail[];
-  recipient?: string;
 };
