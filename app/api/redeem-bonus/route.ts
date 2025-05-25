@@ -1,13 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
-import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -17,9 +10,9 @@ function normalizePhone(raw: string): string {
   return raw.startsWith('+') ? raw : '+' + raw;
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { phone: rawPhone, amount, order_id } = await request.json();
+    const { phone: rawPhone, amount, order_id } = await req.json();
 
     if (typeof rawPhone !== 'string' || typeof amount !== 'number' || !order_id) {
       return NextResponse.json(
@@ -38,20 +31,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (amount < 0) {
+    if (amount <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Некорректная сумма' },
+        { success: false, error: 'Сумма должна быть больше 0' },
         { status: 400 }
       );
     }
 
-    const { data: bonusRow, error: fetchErr } = await supabase
-      .from('bonuses')
-      .select('id, bonus_balance')
-      .eq('phone', phone)
-      .single();
+    const bonusRow = await prisma.bonuses.findUnique({
+      where: { phone },
+      select: { id: true, bonus_balance: true },
+    });
 
-    if (fetchErr || !bonusRow) {
+    if (!bonusRow) {
       return NextResponse.json(
         { success: false, error: 'Бонусы не найдены для этого номера' },
         { status: 404 }
@@ -67,29 +59,26 @@ export async function POST(request: Request) {
     }
 
     const newBalance = currentBalance - amount;
-    const { error: updateErr } = await supabase
-      .from('bonuses')
-      .update({ bonus_balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('phone', phone);
 
-    if (updateErr) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка при списании бонусов: ' + updateErr.message },
-        { status: 500 }
-      );
-    }
-
-    await supabase
-      .from('bonus_history')
-      .insert({
-        bonus_id: bonusRow.id,
-        amount: -amount,
-        reason: `Списание за заказ #${order_id}`,
-        created_at: new Date().toISOString(),
-      });
+    // Транзакция
+    await prisma.$transaction([
+      prisma.bonuses.update({
+        where: { id: bonusRow.id }, // Используем id вместо phone
+        data: { bonus_balance: newBalance, updated_at: new Date() },
+      }),
+      prisma.bonus_history.create({
+        data: {
+          bonus_id: bonusRow.id,
+          amount: -amount,
+          reason: `Списание за заказ #${order_id}`,
+          created_at: new Date(),
+        },
+      }),
+    ]);
 
     return NextResponse.json({ success: true, balance: newBalance });
   } catch (err: any) {
+    console.error('Error redeeming bonuses:', err);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + err.message },
       { status: 500 }

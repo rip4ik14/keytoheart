@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { prisma } from '@/lib/prisma';
 
 const TOKEN = process.env.CORPORATE_TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.CORPORATE_TELEGRAM_CHAT_ID;
@@ -13,9 +7,9 @@ const CHAT_ID = process.env.CORPORATE_TELEGRAM_CHAT_ID;
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
 };
 
 export async function POST(req: Request) {
@@ -51,23 +45,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // Сохраняем заявку в Supabase
+    // Сохраняем заявку в PostgreSQL через Prisma
     console.log('Inserting into corporate_requests:', { name, company, phone, email, message });
-    const { error: dbError } = await supabase
-      .from('corporate_requests')
-      .insert([
-        {
+    try {
+      await prisma.corporate_requests.create({
+        data: {
           name,
           company: company || null,
           phone,
           email,
           message: message || null,
-          created_at: new Date().toISOString(),
+          created_at: new Date(),
         },
-      ]);
-
-    if (dbError) {
-      console.error('Supabase error:', dbError);
+      });
+    } catch (dbError: any) {
+      console.error('Prisma error:', dbError);
       return NextResponse.json(
         { success: false, error: 'Ошибка сохранения заявки в базе данных: ' + dbError.message },
         { status: 500 }

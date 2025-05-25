@@ -5,6 +5,7 @@ export async function POST() {
     const response = NextResponse.json({ success: true });
     response.cookies.delete('access_token');
     response.cookies.delete('refresh_token');
+    response.cookies.delete('admin_session'); // Добавил также очистку admin_session, если такая есть
     return response;
   } catch (e: any) {
     console.error('Server error:', e);

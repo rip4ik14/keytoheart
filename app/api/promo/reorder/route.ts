@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { PrismaClient } from '@prisma/client';
 
-// POST: принимает { order: [{ id, order_index }, ...] }
+const prisma = new PrismaClient();
+
 export async function POST(req: NextRequest) {
   try {
     const { order } = await req.json();
@@ -10,13 +11,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Некорректный формат данных' }, { status: 400 });
     }
 
-    // Обновляем все order_index (batch update)
-    for (const { id, order_index } of order) {
-      await supabaseAdmin
-        .from('promo_blocks')
-        .update({ order_index })
-        .eq('id', id);
-    }
+    // Обновляем все order_index одной транзакцией
+    await prisma.$transaction(
+      order.map(({ id, order_index }: { id: number; order_index: number }) =>
+        prisma.promo_blocks.update({
+          where: { id },
+          data: { order_index },
+        })
+      )
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

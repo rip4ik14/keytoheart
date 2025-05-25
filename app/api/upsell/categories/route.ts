@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -14,7 +16,6 @@ export async function GET(req: Request) {
     );
   }
 
-  // Определяем подкатегории для запроса
   let subcategories: string[] = [];
   if (subcategoriesParam) {
     subcategories = subcategoriesParam.split(',');
@@ -28,47 +29,40 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Запрашиваем данные из таблицы upsell_items
-    const startQuery = Date.now();
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('upsell_items')
-      .select('id, title, price, image_url, category')
-      .in('category', subcategories); // Фильтруем только по подкатегориям (cards, balloons)
-
-    console.log('Supabase query duration for upsell_items in /api/upsell/categories:', Date.now() - startQuery, 'ms');
-    console.log('Fetched upsell items:', items);
-
-    if (itemsError) {
-      console.error('Error fetching upsell items:', itemsError);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка загрузки товаров', details: itemsError.message },
-        { status: 500 }
-      );
-    }
+    // Если у тебя поле category строка, фильтруем по ним
+    const items = await prisma.upsell_items.findMany({
+      where: { category: { in: subcategories } },
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        image_url: true,
+        category: true,
+      },
+    });
 
     if (!items || items.length === 0) {
-      console.log('No upsell items found for subcategories:', subcategories);
       return NextResponse.json(
         { success: true, data: [] },
         { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800' } }
       );
     }
 
-    // Форматируем данные
-    const formattedItems = items.map(item => ({
-      id: item.id.toString(),
-      title: item.title,
-      price: item.price,
-      image_url: item.image_url || '',
-      category: item.category,
-    }));
+    // id в строку, image_url гарантируем не null
+    const formattedItems = items.map((item: { id: number | string, title: string, price: number, image_url?: string, category: string }) => ({
+  id: item.id.toString(),
+  title: item.title,
+  price: item.price,
+  image_url: item.image_url || '',
+  category: item.category,
+}));
+
 
     return NextResponse.json(
       { success: true, data: formattedItems },
       { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800' } }
     );
   } catch (err: any) {
-    console.error('Unexpected error in /api/upsell/categories:', err);
     return NextResponse.json(
       { success: false, error: 'Неожиданная ошибка сервера', details: err.message },
       { status: 500 }
@@ -76,4 +70,4 @@ export async function GET(req: Request) {
   }
 }
 
-export const revalidate = 3600; // Кэшируем на 1 час
+export const revalidate = 3600;

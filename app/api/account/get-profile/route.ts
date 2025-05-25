@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { PrismaClient } from '@prisma/client';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -18,59 +15,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Проверяем существование пользователя в auth.users
-    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      console.error(`[${new Date().toISOString()}] Ошибка при получении списка пользователей:`, listError.message);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка проверки пользователя: ' + listError.message },
-        { status: 500 }
-      );
+    // Проверяем существование пользователя (можно только по user_profiles, так как Supabase Auth больше нет)
+    // Если у тебя есть отдельная таблица пользователей/аутентификации — проверь по ней!
+    // Если только user_profiles — используем её
+    let userProfile = await prisma.user_profiles.findUnique({
+      where: { phone },
+      select: { name: true, phone: true },
+    });
+
+    // Если профиля нет — создаём новый (upsert-логика)
+    if (!userProfile) {
+      userProfile = await prisma.user_profiles.create({
+        data: {
+          phone,
+          name: null,
+          updated_at: new Date().toISOString(),
+        },
+        select: { name: true, phone: true },
+      });
+      return NextResponse.json({ success: true, name: null });
     }
 
-    const userExists = users.users.some((u: any) => u.phone === phone);
-    if (!userExists) {
-      console.log(`[${new Date().toISOString()}] Пользователь с телефоном ${phone} не найден в auth.users`);
-      return NextResponse.json(
-        { success: false, error: 'Пользователь не зарегистрирован в системе' },
-        { status: 404 }
-      );
-    }
-
-    // Получаем профиль
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('name')
-      .eq('phone', phone)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // Если записи нет, создаём новую
-        const { error: upsertError } = await supabase
-          .from('user_profiles')
-          .upsert(
-            { phone, name: null, updated_at: new Date().toISOString() },
-            { onConflict: 'phone' }
-          );
-
-        if (upsertError) {
-          console.error('Ошибка создания профиля:', upsertError);
-          return NextResponse.json(
-            { success: false, error: 'Ошибка создания профиля: ' + upsertError.message },
-            { status: 500 }
-          );
-        }
-        return NextResponse.json({ success: true, name: null });
-      }
-      console.error('Ошибка загрузки профиля:', error);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка загрузки профиля: ' + error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true, name: data.name || null });
+    return NextResponse.json({ success: true, name: userProfile.name || null });
   } catch (error: any) {
     console.error('Ошибка в get-profile:', error);
     return NextResponse.json(

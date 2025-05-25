@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
+
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -15,28 +17,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Получаем заказы только со статусом 'delivered'
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select('total, status')
-      .eq('phone', sanitizedPhone)
-      .eq('status', 'delivered');
-
-    if (ordersError) {
-      console.error(`[${new Date().toISOString()}] Error fetching orders:`, ordersError);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка получения заказов: ' + ordersError.message },
-        { status: 500 }
-      );
-    }
+    // Получаем все доставленные заказы пользователя
+    const orders = await prisma.orders.findMany({
+      where: { phone: sanitizedPhone, status: 'delivered' },
+      select: { total: true, status: true },
+    });
 
     console.log(`[${new Date().toISOString()}] Orders fetched for phone ${sanitizedPhone}:`, orders);
 
     // Суммируем total, безопасно обрабатывая строки и null
-    const totalSpent = orders?.reduce((sum, order) => {
-      const totalValue = order.total != null ? String(order.total) : '0';
-      return sum + (parseFloat(totalValue) || 0);
-    }, 0) || 0;
+    const totalSpent = orders?.reduce(
+      (sum: number, order: { total: any }) => {
+        const totalValue = order.total != null ? String(order.total) : '0';
+        return sum + (parseFloat(totalValue) || 0);
+      },
+      0
+    ) || 0;
+
     console.log(`[${new Date().toISOString()}] Total spent (delivered orders) for phone ${sanitizedPhone}: ${totalSpent}`);
 
     // Определяем уровень
@@ -48,18 +45,10 @@ export async function POST(request: Request) {
     else level = 'bronze';
 
     // Обновляем уровень в таблице bonuses
-    const { error: updateError } = await supabase
-      .from('bonuses')
-      .update({ level, updated_at: new Date().toISOString() })
-      .eq('phone', sanitizedPhone);
-
-    if (updateError) {
-      console.error(`[${new Date().toISOString()}] Error updating loyalty level:`, updateError);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления уровня: ' + updateError.message },
-        { status: 500 }
-      );
-    }
+    await prisma.bonuses.updateMany({
+      where: { phone: sanitizedPhone },
+      data: { level, updated_at: new Date().toISOString() },
+    });
 
     console.log(`[${new Date().toISOString()}] Updated loyalty level to ${level} for phone ${sanitizedPhone}`);
 

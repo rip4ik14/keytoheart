@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 
 export async function POST(req: NextRequest) {
-  const sessionRes = await fetch('/api/admin-session', {
+  // Не забудь поправить абсолютный url!
+  const baseUrl = new URL(req.url).origin;
+  const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
     headers: { cookie: req.headers.get('cookie') || '' },
   });
   const sessionData = await sessionRes.json();

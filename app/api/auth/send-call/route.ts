@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { PrismaClient } from '@prisma/client';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
@@ -31,26 +26,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Проверка количества попыток
-    const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentAttempts, error: attemptsError } = await supabase
-      .from('auth_logs')
-      .select('created_at')
-      .eq('phone', `+${cleanPhone}`)
-      .gte('created_at', cutoffDate);
-
-    if (attemptsError) {
-      return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
-    }
+    // Проверка количества попыток (за последние 24 часа)
+    const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentAttempts = await prisma.auth_logs.findMany({
+      where: {
+        phone: `+${cleanPhone}`,
+        created_at: { gte: cutoffDate },
+      },
+      select: { id: true },
+    });
 
     if (recentAttempts.length >= 30) {
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
 
+    // Отправка запроса к SMS.ru
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     const smsResponse = await fetch(
       `https://sms.ru/callcheck/add?api_id=${process.env.SMS_RU_API_ID}&phone=${cleanPhone}&json=1`,
-      { signal: AbortSignal.timeout(10000) }
+      { signal: controller.signal }
     );
+    clearTimeout(timeout);
+
     const smsData = await smsResponse.json();
 
     if (!smsResponse.ok || smsData.status !== 'OK') {
@@ -60,22 +59,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error: upsertError } = await supabase
-      .from('auth_logs')
-      .upsert(
-        {
-          phone: `+${cleanPhone}`,
-          check_id: smsData.check_id,
-          status: 'PENDING',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'check_id' }
-      );
-
-    if (upsertError) {
-      return NextResponse.json({ success: false, error: 'Ошибка записи в базу данных' }, { status: 500 });
-    }
+    // Запись или обновление лога попытки авторизации
+    await prisma.auth_logs.upsert({
+      where: { check_id: smsData.check_id },
+      update: {
+        phone: `+${cleanPhone}`,
+        status: 'PENDING',
+        updated_at: new Date(),
+      },
+      create: {
+        phone: `+${cleanPhone}`,
+        check_id: smsData.check_id,
+        status: 'PENDING',
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
 
     return NextResponse.json({
       success: true,

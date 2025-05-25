@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
-import type { Database } from '@/lib/supabase/types_new';
 
 // Уровни кешбэка
 const CASHBACK_LEVELS = [
@@ -11,11 +10,6 @@ const CASHBACK_LEVELS = [
   { level: 'platinum', percentage: 10, minTotal: 30000 },
   { level: 'premium', percentage: 15, minTotal: 50000 },
 ];
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -55,39 +49,29 @@ export async function POST(request: Request) {
     }
 
     // Пытаемся получить существующую запись
-    let { data: bonusRecord, error: getErr } = await supabase
-      .from('bonuses')
-      .select('id, bonus_balance, level, total_spent, total_bonus')
-      .eq('phone', phone)
-      .single();
+    let bonusRecord = await prisma.bonuses.findUnique({
+      where: { phone },
+      select: { id: true, bonus_balance: true, level: true, total_spent: true, total_bonus: true },
+    });
 
     // Если не нашли — создаём
-    if (getErr || !bonusRecord) {
-      const { data: newRow, error: insertErr } = await supabase
-        .from('bonuses')
-        .insert({
+    if (!bonusRecord) {
+      bonusRecord = await prisma.bonuses.create({
+        data: {
           phone,
           bonus_balance: 0,
           level: 'bronze',
           total_spent: 0,
           total_bonus: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .select('id, bonus_balance, level, total_spent, total_bonus')
-        .single();
-
-      if (insertErr || !newRow) {
-        return NextResponse.json(
-          { success: false, error: 'Ошибка создания бонусной записи: ' + insertErr?.message },
-          { status: 500 }
-        );
-      }
-      bonusRecord = newRow;
+          updated_at: new Date(),
+        },
+        select: { id: true, bonus_balance: true, level: true, total_spent: true, total_bonus: true },
+      });
     }
 
     const prevBalance = bonusRecord.bonus_balance ?? 0;
-    const prevSpent   = bonusRecord.total_spent   ?? 0;
-    const prevBonus   = bonusRecord.total_bonus   ?? 0;
+    const prevSpent = bonusRecord.total_spent ?? 0;
+    const prevBonus = bonusRecord.total_bonus ?? 0;
 
     const newTotalSpent = prevSpent + order_total;
     const levelObj = CASHBACK_LEVELS
@@ -96,37 +80,30 @@ export async function POST(request: Request) {
       || CASHBACK_LEVELS[0];
 
     const bonusToAdd = Math.floor(order_total * (levelObj.percentage / 100));
-    const newBalance   = prevBalance + bonusToAdd;
+    const newBalance = prevBalance + bonusToAdd;
     const newTotalBonus = prevBonus + bonusToAdd;
 
     // Обновляем запись
-    const { error: updateErr } = await supabase
-      .from('bonuses')
-      .update({
+    await prisma.bonuses.update({
+      where: { phone },
+      data: {
         bonus_balance: newBalance,
         level: levelObj.level,
         total_spent: newTotalSpent,
         total_bonus: newTotalBonus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('phone', phone);
-
-    if (updateErr) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления бонусов: ' + updateErr.message },
-        { status: 500 }
-      );
-    }
+        updated_at: new Date(),
+      },
+    });
 
     // Логируем историю начисления
-    await supabase
-      .from('bonus_history')
-      .insert({
+    await prisma.bonus_history.create({
+      data: {
         bonus_id: bonusRecord.id,
         amount: bonusToAdd,
         reason: `Начисление за заказ #${order_id}`,
-        created_at: new Date().toISOString(),
-      });
+        created_at: new Date(),
+      },
+    });
 
     return NextResponse.json({
       success: true,

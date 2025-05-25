@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { PrismaClient } from '@prisma/client';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -28,39 +25,23 @@ export async function POST(request: Request) {
     const sanitizedName = name.replace(/[<>&'"]/g, '');
 
     // Проверим, есть ли профиль
-    const { data: existing } = await supabase
-      .from('user_profiles')
-      .select('phone')
-      .eq('phone', phone)
-      .single();
+    const existing = await prisma.user_profiles.findUnique({
+      where: { phone },
+      select: { phone: true },
+    });
 
     if (existing) {
       // Только обновляем имя, остальные поля не трогаем!
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ name: sanitizedName, updated_at: new Date().toISOString() })
-        .eq('phone', phone);
-
-      if (updateError) {
-        console.error('Ошибка обновления профиля:', updateError);
-        return NextResponse.json(
-          { success: false, error: 'Ошибка обновления профиля: ' + updateError.message },
-          { status: 500 }
-        );
-      }
+      await prisma.user_profiles.update({
+        where: { phone },
+        data: { name: sanitizedName, updated_at: new Date().toISOString() },
+      });
       return NextResponse.json({ success: true });
     } else {
       // Если профиля нет — создаём с обязательными полями
-      const { error: insertError } = await supabase
-        .from('user_profiles')
-        .insert([{ phone, name: sanitizedName, updated_at: new Date().toISOString() }]);
-      if (insertError) {
-        console.error('Ошибка создания профиля:', insertError);
-        return NextResponse.json(
-          { success: false, error: 'Ошибка создания профиля: ' + insertError.message },
-          { status: 500 }
-        );
-      }
+      await prisma.user_profiles.create({
+        data: { phone, name: sanitizedName, updated_at: new Date().toISOString() },
+      });
       return NextResponse.json({ success: true });
     }
   } catch (error: any) {

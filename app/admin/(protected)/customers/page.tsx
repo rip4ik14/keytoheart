@@ -1,8 +1,37 @@
+// app/admin/(protected)/customers/page.tsx
+
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
 import CustomersClient from './CustomersClient';
+
+// Определяем типы для истории бонусов и заказов
+interface BonusHistoryEntry {
+  amount: number;
+  reason: string | null;
+  created_at: string | null;
+}
+
+interface OrderItem {
+  quantity: number;
+  price: number;
+  product_id: number | null;
+  products: {
+    title: string;
+    image_url: string | null;
+  } | null;
+}
+
+interface Order {
+  id: string;
+  created_at: string | null;
+  total: number;
+  bonuses_used: number;
+  payment_method: string | null;
+  status: string | null;
+  order_items: OrderItem[];
+}
 
 interface Event {
   type: string;
@@ -16,103 +45,109 @@ interface Customer {
   email: string | null;
   created_at: string | null;
   important_dates: Event[];
-  orders: any[];
+  orders: Order[];
   bonuses: { bonus_balance: number | null; level: string | null };
-  bonus_history: any[];
+  bonus_history: BonusHistoryEntry[];
 }
 
 export default async function CustomersPage() {
   const cookieStore = await cookies();
-
-  // Очистка некорректных cookies
-  const allCookies = cookieStore.getAll();
-  for (const cookie of allCookies) {
-    if (cookie.name.includes('sb-')) {
-      console.error('Clearing Supabase cookie:', cookie.name);
-      cookieStore.delete(cookie.name);
-    }
-  }
-
-  // Проверяем admin_session токен
   const token = cookieStore.get('admin_session')?.value;
-  console.log('Admin session token:', token); // Отладка
+
   if (!token) {
-    console.error('No admin session token found');
     redirect('/admin/login?error=no-session');
   }
 
   const isValidToken = await verifyAdminJwt(token);
-  console.log('Token verification result:', isValidToken); // Отладка
   if (!isValidToken) {
-    console.error('Invalid admin session token');
     redirect('/admin/login?error=invalid-session');
   }
 
   let customers: Customer[] = [];
-
   try {
-    // Получаем профили пользователей из user_profiles
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('id, phone, email, created_at');
-
-    if (profilesError) throw profilesError;
+    const profiles = await prisma.user_profiles.findMany({
+      select: { id: true, phone: true, email: true, created_at: true },
+    });
 
     for (const profile of profiles) {
       const phone = profile.phone;
       if (!phone) continue;
 
-      // Важные даты
-      const { data: dates } = await supabaseAdmin
-        .from('important_dates')
-        .select('type, date, description')
-        .eq('phone', phone);
+      // Важные даты пользователя
+      const dates = await prisma.important_dates.findMany({
+        where: { phone },
+        select: { type: true, date: true, description: true },
+      });
 
-      // Заказы
-      const { data: orders } = await supabaseAdmin
-        .from('orders')
-        .select(
-          `
-          id,
-          created_at,
-          total,
-          bonuses_used,
-          payment_method,
-          status,
-          order_items(
-            quantity,
-            price,
-            product_id,
-            products(title, cover_url)
-          )
-        `
-        )
-        .eq('phone', phone)
-        .order('created_at', { ascending: false });
+      // Заказы пользователя (обработка Decimal)
+      const ordersRaw = await prisma.orders.findMany({
+        where: { phone },
+        select: {
+          id: true,
+          created_at: true,
+          total: true,
+          bonuses_used: true,
+          payment_method: true,
+          status: true,
+          order_items: {
+            select: {
+              quantity: true,
+              price: true,
+              product_id: true,
+              products: { select: { title: true, image_url: true } },
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+
+      const orders: Order[] = ordersRaw.map((order: any) => ({
+        ...order,
+        created_at: order.created_at ? order.created_at.toISOString() : null,
+        total:
+          typeof order.total === 'object' && order.total !== null && 'toNumber' in order.total
+            ? Number(order.total)
+            : order.total ?? 0,
+        bonuses_used:
+          typeof order.bonuses_used === 'object' &&
+          order.bonuses_used !== null &&
+          'toNumber' in order.bonuses_used
+            ? Number(order.bonuses_used)
+            : order.bonuses_used ?? 0,
+        order_items: order.order_items,
+      }));
 
       // Бонусы
-      const { data: bonuses } = await supabaseAdmin
-        .from('bonuses')
-        .select('bonus_balance, level')
-        .eq('phone', phone)
-        .single();
+      const bonuses = await prisma.bonuses.findUnique({
+        where: { phone },
+        select: { bonus_balance: true, level: true },
+      });
 
-      // История бонусов
-      const { data: bonusHistory } = await supabaseAdmin
-        .from('bonus_history')
-        .select('amount, reason, created_at')
-        .eq('phone', phone)
-        .order('created_at', { ascending: false });
+      // История бонусов (обработка Decimal)
+      const bonusHistoryRaw = await prisma.bonus_history.findMany({
+        where: { user_id: profile.id },
+        select: { amount: true, reason: true, created_at: true },
+        orderBy: { created_at: 'desc' },
+      });
+
+      const bonus_history: BonusHistoryEntry[] = bonusHistoryRaw.map((entry: any) => ({
+        amount:
+          typeof entry.amount === 'object' && entry.amount !== null && 'toNumber' in entry.amount
+            ? Number(entry.amount)
+            : entry.amount ?? 0,
+        reason: entry.reason,
+        created_at: entry.created_at ? entry.created_at.toISOString() : null,
+      }));
 
       customers.push({
         id: profile.id,
         phone: phone || '—',
         email: profile.email || null,
-        created_at: profile.created_at || null,
+        created_at: profile.created_at ? profile.created_at.toISOString() : null,
         important_dates: dates || [],
-        orders: orders || [],
+        orders,
         bonuses: bonuses || { bonus_balance: null, level: null },
-        bonus_history: bonusHistory || [],
+        bonus_history,
       });
     }
   } catch (error: any) {

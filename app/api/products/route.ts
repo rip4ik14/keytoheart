@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
-import sanitizeHtml from 'sanitize-html';
-import type { Tables } from '@/lib/supabase/types_new';
+import DOMPurify from 'dompurify';
 
 interface ProductData {
   id?: number;
   title: string;
   price: number;
   original_price?: number;
-  category: string;
-  category_ids: number[];
-  subcategory_ids: number[];
+  category: string; // Название категории (для отображения, объединяем названия категорий)
+  category_ids: number[]; // Список ID категорий
+  subcategory_ids: number[]; // Список ID подкатегорий
   short_desc?: string;
   description?: string;
   composition?: string;
@@ -34,24 +33,20 @@ interface ProductResponse {
   is_visible?: boolean;
 }
 
-interface SubcategorySelect {
+interface Subcategory {
   id: number;
-  category_id: number | null;
+  name: string;
+  category_id: number; // Ensure this is non-nullable
 }
 
-// Санитизация текстовых полей для Node.js (безопасно и стабильно)
+// Санитизация текстовых полей
 const sanitize = (input: string | undefined): string => {
-  return input
-    ? sanitizeHtml(input.trim(), {
-        allowedTags: [],      // удаляем ВСЕ html-теги (только текст)
-        allowedAttributes: {}, // удаляем ВСЕ атрибуты
-      })
-    : '';
+  return input ? DOMPurify.sanitize(input.trim()) : '';
 };
 
 // Генерация уникального slug
 const generateUniqueSlug = async (title: string): Promise<string> => {
-  let slug = title.toLowerCase().replace(/[^a-z0-9а-я]+/g, '-').replace(/(^-|-$)/g, '');
+  let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   let uniqueSlug = slug;
   let counter = 1;
 
@@ -62,10 +57,11 @@ const generateUniqueSlug = async (title: string): Promise<string> => {
       .eq('slug', uniqueSlug)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== 'PGRST116') { // PGRST116 — "запись не найдена"
       throw new Error('Ошибка проверки уникальности slug: ' + error.message);
     }
-    if (!data) break;
+
+    if (!data) break; // slug уникален
     uniqueSlug = `${slug}-${counter++}`;
   }
 
@@ -82,6 +78,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body: ProductData = await req.json();
+  console.log('Received payload for POST:', body);
+
   // Валидация входных данных
   if (!body.title || body.title.trim().length < 3) {
     return NextResponse.json({ error: 'Название должно быть ≥ 3 символов' }, { status: 400 });
@@ -95,10 +93,7 @@ export async function POST(req: NextRequest) {
   if (!body.category_ids || !Array.isArray(body.category_ids) || body.category_ids.length === 0) {
     return NextResponse.json({ error: 'Необходимо указать хотя бы одну категорию' }, { status: 400 });
   }
-  if (
-    body.discount_percent &&
-    (body.discount_percent < 0 || body.discount_percent > 100 || !Number.isInteger(body.discount_percent))
-  ) {
+  if (body.discount_percent && (body.discount_percent < 0 || body.discount_percent > 100 || !Number.isInteger(body.discount_percent))) {
     return NextResponse.json({ error: 'Скидка должна быть целым числом от 0 до 100%' }, { status: 400 });
   }
 
@@ -109,6 +104,7 @@ export async function POST(req: NextRequest) {
     .in('id', body.category_ids);
 
   if (categoriesError || !categoriesData || categoriesData.length !== body.category_ids.length) {
+    console.error('Categories validation failed:', categoriesError);
     return NextResponse.json({ error: 'Одна или несколько категорий не найдены' }, { status: 400 });
   }
 
@@ -121,10 +117,13 @@ export async function POST(req: NextRequest) {
       .in('id', body.subcategory_ids);
 
     if (subcategoriesError || !subcategoriesData) {
+      console.error('Subcategories validation failed:', subcategoriesError);
       return NextResponse.json({ error: 'Ошибка проверки подкатегорий' }, { status: 400 });
     }
 
+    // Проверяем, что каждая подкатегория принадлежит хотя бы одной из выбранных категорий
     for (const subcategory of subcategoriesData) {
+      // Runtime check to ensure category_id is not null (though it shouldn't be per schema)
       if (subcategory.category_id === null) {
         return NextResponse.json(
           { error: `Подкатегория ${subcategory.id} не имеет связанной категории` },
@@ -139,7 +138,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    finalSubcategoryIds = subcategoriesData.map((sub: SubcategorySelect) => sub.id);
+    finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
   }
 
   // Санитизация текстовых полей
@@ -175,6 +174,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (productError) {
+    console.error('Supabase error:', productError);
     return NextResponse.json({ error: productError.message }, { status: 500 });
   }
 
@@ -190,6 +190,7 @@ export async function POST(req: NextRequest) {
     .insert(categoryEntries);
 
   if (categoryLinkError) {
+    console.error('Error linking categories:', categoryLinkError);
     return NextResponse.json({ error: 'Ошибка привязки категорий: ' + categoryLinkError.message }, { status: 500 });
   }
 
@@ -204,6 +205,7 @@ export async function POST(req: NextRequest) {
       .insert(subcategoryEntries);
 
     if (subcategoryLinkError) {
+      console.error('Error linking subcategories:', subcategoryLinkError);
       return NextResponse.json({ error: 'Ошибка привязки подкатегорий: ' + subcategoryLinkError.message }, { status: 500 });
     }
   }
@@ -219,6 +221,7 @@ export async function POST(req: NextRequest) {
     is_visible: body.is_visible,
   };
 
+  console.log('Product created:', response);
   await invalidate('products');
   await invalidate('/api/popular');
   return NextResponse.json(response, { status: 201 });
@@ -234,6 +237,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body: ProductData = await req.json();
+  console.log('Received payload for PATCH:', body);
 
   // Валидация входных данных
   if (!body.id) {
@@ -251,10 +255,7 @@ export async function PATCH(req: NextRequest) {
   if (!body.category_ids || !Array.isArray(body.category_ids) || body.category_ids.length === 0) {
     return NextResponse.json({ error: 'Необходимо указать хотя бы одну категорию' }, { status: 400 });
   }
-  if (
-    body.discount_percent &&
-    (body.discount_percent < 0 || body.discount_percent > 100 || !Number.isInteger(body.discount_percent))
-  ) {
+  if (body.discount_percent && (body.discount_percent < 0 || body.discount_percent > 100 || !Number.isInteger(body.discount_percent))) {
     return NextResponse.json({ error: 'Скидка должна быть целым числом от 0 до 100%' }, { status: 400 });
   }
 
@@ -265,6 +266,7 @@ export async function PATCH(req: NextRequest) {
     .in('id', body.category_ids);
 
   if (categoriesError || !categoriesData || categoriesData.length !== body.category_ids.length) {
+    console.error('Categories validation failed:', categoriesError);
     return NextResponse.json({ error: 'Одна или несколько категорий не найдены' }, { status: 400 });
   }
 
@@ -277,10 +279,12 @@ export async function PATCH(req: NextRequest) {
       .in('id', body.subcategory_ids);
 
     if (subcategoriesError || !subcategoriesData) {
+      console.error('Subcategories validation failed:', subcategoriesError);
       return NextResponse.json({ error: 'Ошибка проверки подкатегорий' }, { status: 400 });
     }
 
     for (const subcategory of subcategoriesData) {
+      // Runtime check to ensure category_id is not null
       if (subcategory.category_id === null) {
         return NextResponse.json(
           { error: `Подкатегория ${subcategory.id} не имеет связанной категории` },
@@ -295,7 +299,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    finalSubcategoryIds = subcategoriesData.map((sub: SubcategorySelect) => sub.id);
+    finalSubcategoryIds = subcategoriesData.map(sub => sub.id);
   }
 
   // Санитизация текстовых полей
@@ -331,6 +335,7 @@ export async function PATCH(req: NextRequest) {
     .single();
 
   if (productError) {
+    console.error('Supabase error:', productError);
     return NextResponse.json({ error: productError.message }, { status: 500 });
   }
 
@@ -343,6 +348,7 @@ export async function PATCH(req: NextRequest) {
     .eq('product_id', productId);
 
   if (deleteCategoryError) {
+    console.error('Error deleting old category links:', deleteCategoryError);
     return NextResponse.json({ error: 'Ошибка удаления старых связей с категориями: ' + deleteCategoryError.message }, { status: 500 });
   }
 
@@ -352,6 +358,7 @@ export async function PATCH(req: NextRequest) {
     .eq('product_id', productId);
 
   if (deleteSubcategoryError) {
+    console.error('Error deleting old subcategory links:', deleteSubcategoryError);
     return NextResponse.json({ error: 'Ошибка удаления старых связей с подкатегориями: ' + deleteSubcategoryError.message }, { status: 500 });
   }
 
@@ -365,6 +372,7 @@ export async function PATCH(req: NextRequest) {
     .insert(categoryEntries);
 
   if (categoryLinkError) {
+    console.error('Error linking categories:', categoryLinkError);
     return NextResponse.json({ error: 'Ошибка привязки категорий: ' + categoryLinkError.message }, { status: 500 });
   }
 
@@ -379,6 +387,7 @@ export async function PATCH(req: NextRequest) {
       .insert(subcategoryEntries);
 
     if (subcategoryLinkError) {
+      console.error('Error linking subcategories:', subcategoryLinkError);
       return NextResponse.json({ error: 'Ошибка привязки подкатегорий: ' + subcategoryLinkError.message }, { status: 500 });
     }
   }
@@ -394,6 +403,7 @@ export async function PATCH(req: NextRequest) {
     is_visible: body.is_visible,
   };
 
+  console.log('Product updated:', response);
   await invalidate('products');
   await invalidate('/api/popular');
   return NextResponse.json(response, { status: 200 });
@@ -421,6 +431,7 @@ export async function DELETE(req: NextRequest) {
     .single();
 
   if (fetchError) {
+    console.error('Error fetching product for deletion:', fetchError);
     return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
 
@@ -428,10 +439,11 @@ export async function DELETE(req: NextRequest) {
   if (productData?.images && productData.images.length > 0) {
     const fileNames = productData.images.map((url: string) => decodeURIComponent(url.split('/').pop()!));
     const { error: storageError } = await supabaseAdmin.storage
-      .from('products')
+      .from('product-image')
       .remove(fileNames);
 
     if (storageError) {
+      console.error('Error deleting images from storage:', storageError);
       return NextResponse.json({ error: 'Ошибка удаления изображений: ' + storageError.message }, { status: 500 });
     }
   }
@@ -445,9 +457,11 @@ export async function DELETE(req: NextRequest) {
     .single();
 
   if (error) {
+    console.error('Supabase error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  console.log('Product deleted:', data);
   await invalidate('products');
   await invalidate('/api/popular');
   return NextResponse.json({ success: true, id: data.id });

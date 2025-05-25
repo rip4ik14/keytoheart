@@ -1,15 +1,15 @@
-// ✅ Путь: app/api/promo/upload-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { writeFile, unlink } from 'fs/promises';
+import { join } from 'path';
+import { randomBytes } from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    // Построение полного URL для /api/admin-session
+    // Проверка сессии
     const baseUrl = new URL(req.url).origin;
     const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
-
     const sessionData = await sessionRes.json();
     if (!sessionRes.ok || !sessionData.success) {
       return NextResponse.json({ error: 'NEAUTH', message: 'Доступ запрещён' }, { status: 401 });
@@ -17,46 +17,34 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const oldImageUrl = formData.get('oldImageUrl') as string;
+    const oldImageUrl = formData.get('oldImageUrl') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'Файл обязателен' }, { status: 400 });
     }
 
-    const fileName = `${Date.now()}-${file.name}`;
+    // Генерируем уникальное имя файла
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`;
+    const uploadDir = join(process.cwd(), 'public', 'uploads', 'promo');
+    const uploadPath = join(uploadDir, fileName);
 
-    // Загрузка файла в существующий бакет promo-images
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('promo-images') // Используем правильное имя бакета
-      .upload(fileName, file);
+    // Читаем файл как ArrayBuffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+    // Сохраняем файл
+    await writeFile(uploadPath, buffer);
 
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    const publicUrl = `/uploads/promo/${fileName}`;
+
+    // Удаляем старое изображение, если указано
+    if (oldImageUrl && oldImageUrl.startsWith('/uploads/promo/')) {
+      const oldFilePath = join(process.cwd(), 'public', oldImageUrl);
+      try { await unlink(oldFilePath); } catch {}
+
+      // Если файл не найден — ничего страшного, пропускаем ошибку
     }
 
-    const { data: publicData } = supabaseAdmin.storage
-      .from('promo-images') // Используем правильное имя бакета
-      .getPublicUrl(fileName);
-
-    if (!publicData?.publicUrl) {
-      return NextResponse.json({ error: 'Не удалось получить публичный URL' }, { status: 500 });
-    }
-
-    // Удаляем старое изображение, если оно есть
-    if (oldImageUrl) {
-      const oldFileName = decodeURIComponent(oldImageUrl.split('/').pop()!);
-      const { error: deleteError } = await supabaseAdmin.storage
-        .from('promo-images') // Используем правильное имя бакета
-        .remove([oldFileName]);
-
-      if (deleteError) {
-        console.error('Delete error:', deleteError);
-        // Не возвращаем ошибку, так как новое изображение уже загружено
-      }
-    }
-
-    return NextResponse.json({ image_url: publicData.publicUrl });
+    return NextResponse.json({ image_url: publicUrl });
   } catch (err: any) {
     console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

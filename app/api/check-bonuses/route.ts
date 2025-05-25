@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { PrismaClient } from '@prisma/client';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -19,26 +15,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await supabase
-      .from('bonuses')
-      .select('bonus_balance, level')
-      .eq('phone', phone)
-      .single();
+    const bonuses = await prisma.bonuses.findUnique({
+      where: { phone },
+      select: { bonus_balance: true, level: true },
+    });
 
-    console.log(`[${new Date().toISOString()}] Bonuses check response:`, { data, error });
+    console.log(`[${new Date().toISOString()}] Bonuses check result:`, bonuses);
 
-    if (error || !data) {
-      console.error(`[${new Date().toISOString()}] Bonuses fetch error:`, error?.message);
+    if (!bonuses) {
       return NextResponse.json(
-        { success: false, error: 'Ошибка поиска бонусов: ' + (error?.message || 'не найден') },
-        { status: 500 }
+        { success: false, error: 'Бонусы не найдены для указанного телефона' },
+        { status: 404 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      bonus_balance: data.bonus_balance ?? 0,
-      level: data.level ?? 'basic',
+      bonus_balance: bonuses.bonus_balance ?? 0,
+      level: bonuses.level ?? 'basic',
     });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Server error in checkbonuses:`, error.message);

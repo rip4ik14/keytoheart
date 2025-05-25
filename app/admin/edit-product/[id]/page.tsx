@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/edit-product/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,13 +14,11 @@ interface Category {
   id: number;
   name: string;
 }
-
 interface Subcategory {
   id: number;
   name: string;
   category_id: number | null;
 }
-
 interface Product {
   id: number;
   title: string;
@@ -40,11 +39,12 @@ interface Product {
 
 export default function EditProductPage() {
   const router = useRouter();
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const id = params.id as string;
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
+
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
@@ -70,9 +70,7 @@ export default function EditProductPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/admin-session', {
-          credentials: 'include',
-        });
+        const res = await fetch('/api/admin-session', { credentials: 'include' });
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Доступ запрещён: требуется роль администратора');
@@ -136,7 +134,7 @@ export default function EditProductPage() {
           .select('category_id')
           .eq('product_id', parseInt(id));
         if (categoryError) throw new Error('Ошибка загрузки категорий товара: ' + categoryError.message);
-        const productCategoryIds = categoryData.map(item => item.category_id);
+        const productCategoryIds = categoryData.map((item: any) => item.category_id);
 
         // Получаем связанные подкатегории
         const { data: subcategoryData, error: subcategoryError } = await supabasePublic
@@ -144,7 +142,7 @@ export default function EditProductPage() {
           .select('subcategory_id')
           .eq('product_id', parseInt(id));
         if (subcategoryError) throw new Error('Ошибка загрузки подкатегорий товара: ' + subcategoryError.message);
-        const productSubcategoryIds = subcategoryData.map(item => item.subcategory_id);
+        const productSubcategoryIds = subcategoryData.map((item: any) => item.subcategory_id);
 
         const normalizedData: Product = {
           id: data.id,
@@ -196,13 +194,14 @@ export default function EditProductPage() {
     if (categoryIds.length > 0) {
       const filtered = subcategories.filter((sub) => sub.category_id && categoryIds.includes(sub.category_id));
       setFilteredSubcategories(filtered);
-      setSubcategoryIds(prev => prev.filter(id => filtered.some(sub => sub.id === id)));
+      setSubcategoryIds((prev) => prev.filter((id) => filtered.some((sub) => sub.id === id)));
     } else {
       setFilteredSubcategories([]);
       setSubcategoryIds([]);
     }
   }, [categoryIds, subcategories]);
 
+  // --- Handlers ---
   // Обработка отправки формы
   const handleSubmit = async (e: React.FormEvent, csrfToken: string) => {
     e.preventDefault();
@@ -226,7 +225,7 @@ export default function EditProductPage() {
         .select('name')
         .in('id', categoryIds);
       if (categoriesError || !categoriesData) throw new Error('Ошибка получения названий категорий: ' + categoriesError.message);
-      const categoryNames = categoriesData.map(cat => cat.name).join(', ');
+      const categoryNames = categoriesData.map((cat: any) => cat.name).join(', ');
 
       let imageUrls = [...existingImages];
       if (images.length > 0) {
@@ -300,7 +299,7 @@ export default function EditProductPage() {
     }
   };
 
-  // Обработка сжатия изображения
+  // Сжатие изображения перед загрузкой
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       new Compressor(file, {
@@ -318,7 +317,7 @@ export default function EditProductPage() {
     });
   };
 
-  // Обработка изменения списка изображений
+  // Изменение новых изображений
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 5) {
@@ -338,21 +337,21 @@ export default function EditProductPage() {
     setImages(files);
   };
 
-  // Обработчик выбора категорий
+  // Выбор категории
   const handleCategoryChange = (categoryId: number, checked: boolean) => {
     if (checked) {
-      setCategoryIds(prev => [...prev, categoryId]);
+      setCategoryIds((prev) => [...prev, categoryId]);
     } else {
-      setCategoryIds(prev => prev.filter(id => id !== categoryId));
+      setCategoryIds((prev) => prev.filter((id) => id !== categoryId));
     }
   };
 
-  // Обработчик выбора подкатегорий
+  // Выбор подкатегории
   const handleSubcategoryChange = (subcategoryId: number, checked: boolean) => {
     if (checked) {
-      setSubcategoryIds(prev => [...prev, subcategoryId]);
+      setSubcategoryIds((prev) => [...prev, subcategoryId]);
     } else {
-      setSubcategoryIds(prev => prev.filter(id => id !== subcategoryId));
+      setSubcategoryIds((prev) => prev.filter((id) => id !== subcategoryId));
     }
   };
 
@@ -434,7 +433,7 @@ export default function EditProductPage() {
                           onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)}
                           className="mr-2"
                         />
-                        {sub.name} (Категория: {categories.find(cat => cat.id === sub.category_id)?.name})
+                        {sub.name} (Категория: {categories.find((cat) => cat.id === sub.category_id)?.name})
                       </label>
                     ))}
                   </div>
@@ -586,7 +585,7 @@ export default function EditProductPage() {
                   aria-describedby="composition-desc"
                   whileFocus={{ scale: 1.02 }}
                 />
-                <p id="composition-desc" className="text.sm text-gray-500 mt-1">
+                <p id="composition-desc" className="text-sm text-gray-500 mt-1">
                   Состав товара (например, ингредиенты).
                 </p>
               </div>

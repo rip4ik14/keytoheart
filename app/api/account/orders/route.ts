@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
-import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const prisma = new PrismaClient();
 
 interface OrderResponse {
   success: boolean;
@@ -43,21 +38,29 @@ export async function GET(req: Request) {
       );
     }
 
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select('id, created_at, total, bonuses_used, payment_method, status, recipient, items, upsell_details')
-      .eq('phone', sanitizedPhone)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ success: false, data: [], error: error.message }, { status: 500 });
-    }
+    // Получаем заказы пользователя по номеру телефона
+    const orders = await prisma.orders.findMany({
+      where: { phone: sanitizedPhone },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        created_at: true,
+        total: true,
+        bonuses_used: true,
+        payment_method: true,
+        status: true,
+        recipient: true,
+        items: true, // jsonb[]
+        upsell_details: true // jsonb[]
+      },
+    });
 
     if (!orders || orders.length === 0) {
       return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
-    const ordersWithItems = orders.map((order) => {
+    const ordersWithItems = orders.map((order: any) => {
+      // Если поля items/upsell_details в базе jsonb[] — они уже распаршены, иначе подправь
       const items = Array.isArray(order.items)
         ? order.items.map((item: any) => ({
             quantity: item.quantity ?? 1,

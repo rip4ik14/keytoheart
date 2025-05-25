@@ -1,34 +1,46 @@
 import { NextResponse } from 'next/server';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   const { code } = await req.json();
+
   if (!code) {
     return NextResponse.json({ valid: false, message: 'Код промокода обязателен' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('promo_codes')
-    .select('id, discount, is_active, expires_at, max_uses, used_count')
-    .eq('code', code.trim().toUpperCase())
-    .single();
+  const promo = await prisma.promo_codes.findFirst({
+    where: {
+      code: code.trim().toUpperCase(),
+    },
+    select: {
+      id: true,
+      discount: true,
+      is_active: true,
+      expires_at: true,
+      max_uses: true,
+      used_count: true,
+    },
+  });
 
-  if (error || !data) {
+  if (!promo) {
     return NextResponse.json({ valid: false, message: 'Промокод не найден' }, { status: 400 });
   }
 
   const now = new Date();
-  if (!data.is_active) {
+
+  if (!promo.is_active) {
     return NextResponse.json({ valid: false, message: 'Промокод отключён' }, { status: 400 });
   }
 
-  if (data.expires_at && new Date(data.expires_at) < now) {
+  if (promo.expires_at && promo.expires_at < now) {
     return NextResponse.json({ valid: false, message: 'Срок действия истёк' }, { status: 400 });
   }
 
-  if (data.max_uses && data.used_count >= data.max_uses) {
+  if (promo.max_uses !== null && promo.used_count >= promo.max_uses) {
     return NextResponse.json({ valid: false, message: 'Лимит использований исчерпан' }, { status: 400 });
   }
 
-  return NextResponse.json({ valid: true, discount: data.discount });
+  return NextResponse.json({ valid: true, discount: promo.discount });
 }

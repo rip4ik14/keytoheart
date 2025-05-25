@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
-import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
@@ -42,6 +35,11 @@ interface OrderRequest {
   whatsapp?: boolean;
 }
 
+// Тип для результата запроса products
+interface Product {
+  id: number;
+}
+
 // Функция для нормализации телефона
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -60,9 +58,9 @@ const normalizePhone = (phone: string): string => {
 // Функция для экранирования HTML-символов в Telegram-сообщении
 const escapeHtml = (text: string) => {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
 };
 
 export async function POST(req: Request) {
@@ -124,13 +122,12 @@ export async function POST(req: Request) {
       : null;
 
     // Проверка профиля пользователя
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('phone', sanitizedPhone)
-      .single();
+    const profile = await prisma.user_profiles.findUnique({
+      where: { phone: sanitizedPhone },
+      select: { id: true },
+    });
 
-    if (profileError || !profile) {
+    if (!profile) {
       return NextResponse.json(
         { error: 'Профиль с таким телефоном не найден' },
         { status: 404 }
@@ -145,8 +142,12 @@ export async function POST(req: Request) {
 
     // Проверяем, что все product_id для основных товаров существуют в таблице products
     const productIds = regularItems
-      .map((item) => parseInt(item.id, 10))
-      .filter((id: number) => !isNaN(id));
+      .map((item) => {
+        const id = parseInt(item.id, 10);
+        return isNaN(id) ? null : id;
+      })
+      .filter((id): id is number => id !== null);
+
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
@@ -155,62 +156,52 @@ export async function POST(req: Request) {
     }
 
     if (productIds.length > 0) {
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('id')
-        .in('id', productIds);
-      if (productsError) {
-        return NextResponse.json({ error: 'Ошибка проверки товаров' }, { status: 500 });
-      }
-      const existingProductIds = new Set(products.map((p: any) => p.id));
-      const invalidItems = regularItems.filter((item) => !existingProductIds.has(parseInt(item.id, 10)));
+      const products: Product[] = await prisma.products.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true },
+      });
+      const existingProductIds = new Set(products.map((p) => p.id));
+      const invalidItems = regularItems.filter((item) => {
+        const itemId = parseInt(item.id, 10);
+        return !isNaN(itemId) && !existingProductIds.has(itemId);
+      });
       if (invalidItems.length > 0) {
         return NextResponse.json(
-          { error: `Товары с ID ${invalidItems.map((i: any) => i.id).join(', ')} не найдены` },
+          { error: `Товары с ID ${invalidItems.map((i) => i.id).join(', ')} не найдены` },
           { status: 400 }
         );
       }
     }
 
-    // Сохраняем заказ
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert([
-        {
-          user_id,
-          phone: sanitizedPhone,
-          recipient_phone: sanitizedRecipientPhone,
-          contact_name: sanitizedName,
-          recipient: sanitizedRecipient,
-          address: sanitizedAddress,
-          delivery_method: deliveryMethod,
-          delivery_date: date,
-          delivery_time: time,
-          payment_method: payment,
-          total,
-          bonuses_used,
-          bonus: 0,
-          promo_id,
-          promo_discount,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          delivery_instructions: sanitizedDeliveryInstructions,
-          postcard_text: sanitizedPostcardText,
-          anonymous,
-          whatsapp,
-          items: regularItems,
-          upsell_details: upsellItems,
-        },
-      ])
-      .select('id, order_number, items, upsell_details')
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Ошибка сохранения заказа: ' + (orderError?.message || 'Неизвестная ошибка') },
-        { status: 500 }
-      );
-    }
+    // Генерируем order_number (используем автоинкремент из базы)
+    const order = await prisma.orders.create({
+      data: {
+        user_id,
+        phone: sanitizedPhone,
+        recipient_phone: sanitizedRecipientPhone,
+        contact_name: sanitizedName,
+        recipient: sanitizedRecipient,
+        address: sanitizedAddress,
+        delivery_method: deliveryMethod,
+        delivery_date: date,
+        delivery_time: time,
+        payment_method: payment,
+        total,
+        bonuses_used,
+        bonus: 0,
+        promo_id,
+        promo_discount,
+        status: 'pending',
+        created_at: new Date(),
+        delivery_instructions: sanitizedDeliveryInstructions,
+        postcard_text: sanitizedPostcardText,
+        anonymous,
+        whatsapp,
+        items: regularItems,
+        upsell_details: upsellItems,
+      },
+      select: { id: true, order_number: true, items: true, upsell_details: true },
+    });
 
     // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item) => ({
@@ -221,9 +212,11 @@ export async function POST(req: Request) {
     }));
 
     if (orderItems.length > 0) {
-      const { error: itemError } = await supabase.from('order_items').insert(orderItems);
-      if (itemError) {
-        // Не роняем весь заказ, просто логируем
+      try {
+        await prisma.order_items.createMany({
+          data: orderItems,
+        });
+      } catch (itemError: any) {
         console.error('[order_items error]', itemError.message);
       }
     }
@@ -231,10 +224,10 @@ export async function POST(req: Request) {
     const baseUrl = new URL(req.url).origin;
 
     // --- Побочные ошибки ловим отдельно ---
-    let redeemBonusError = null;
-    let orderBonusError = null;
-    let promoError = null;
-    let telegramError = null;
+    let redeemBonusError: string | null = null;
+    let orderBonusError: string | null = null;
+    let promoError: string | null = null;
+    let telegramError: string | null = null;
     let bonusAdded = 0;
 
     // Списание бонусов
@@ -272,11 +265,12 @@ export async function POST(req: Request) {
 
     // Обновляем заказ с начисленным количеством бонусов
     if (bonusAdded) {
-      const { error: updateOrderError } = await supabase
-        .from('orders')
-        .update({ bonus: bonusAdded })
-        .eq('id', order.id);
-      if (updateOrderError) {
+      try {
+        await prisma.orders.update({
+          where: { id: order.id },
+          data: { bonus: bonusAdded },
+        });
+      } catch (updateOrderError: any) {
         console.error('[bonus update error]', updateOrderError.message);
       }
     }
@@ -284,22 +278,17 @@ export async function POST(req: Request) {
     // Обновление промокода (использований)
     if (promo_id) {
       try {
-        const { data: promoData, error: promoFetchError } = await supabase
-          .from('promo_codes')
-          .select('used_count')
-          .eq('id', promo_id)
-          .single();
-        if (!promoFetchError && promoData) {
-          const newUsedCount = (promoData.used_count || 0) + 1;
-          const { error: promoUpdateError } = await supabase
-            .from('promo_codes')
-            .update({ used_count: newUsedCount })
-            .eq('id', promo_id);
-          if (promoUpdateError) {
-            promoError = promoUpdateError.message;
-          }
+        const promoData = await prisma.promo_codes.findUnique({
+          where: { id: promo_id },
+          select: { used_count: true },
+        });
+        if (promoData) {
+          await prisma.promo_codes.update({
+            where: { id: promo_id },
+            data: { used_count: (promoData.used_count || 0) + 1 },
+          });
         } else {
-          promoError = promoFetchError?.message || 'promoData not found';
+          promoError = 'Промокод не найден';
         }
       } catch (e: any) {
         promoError = e.message;

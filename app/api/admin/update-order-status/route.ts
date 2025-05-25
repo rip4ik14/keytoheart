@@ -1,13 +1,6 @@
-import { NextResponse, NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
-
-const supabaseAdmin = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,13 +30,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем заказ
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .select('id, phone, bonus, user_id, status')
-      .eq('id', id)
-      .single();
+    const order = await prisma.orders.findUnique({
+      where: { id }, // id как строка (UUID)
+      select: { id: true, phone: true, bonus: true, user_id: true, status: true },
+    });
 
-    if (orderError || !order) {
+    if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -68,17 +60,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Обновляем статус заказа
-    const { error: updateError } = await supabaseAdmin
-      .from('orders')
-      .update({ status })
-      .eq('id', id);
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: `Failed to update order status: ${updateError.message}` },
-        { status: 500 }
-      );
-    }
+    await prisma.orders.update({
+      where: { id },
+      data: { status },
+    });
 
     // Начисляем бонусы только если заказ доставлен (и был не доставлен)
     if (status === 'Доставлен' && order.status !== 'Доставлен' && order.bonus > 0) {
@@ -89,13 +74,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { data: bonusData, error: bonusError } = await supabaseAdmin
-        .from('bonuses')
-        .select('id, bonus_balance, total_spent, level')
-        .eq('phone', order.phone)
-        .single();
+      const bonusData = await prisma.bonuses.findUnique({
+        where: { phone: order.phone },
+        select: { id: true, bonus_balance: true, total_spent: true, level: true },
+      });
 
-      if (bonusError || !bonusData) {
+      if (!bonusData) {
         return NextResponse.json(
           { error: 'Failed to fetch bonus data' },
           { status: 500 }
@@ -103,43 +87,26 @@ export async function POST(req: NextRequest) {
       }
 
       // Добавляем бонус к балансу
-      const newBalance = (bonusData.bonus_balance || 0) + order.bonus;
+      const newBalance = (bonusData.bonus_balance || 0) + (order.bonus || 0);
 
-      // (опционально) увеличиваем total_spent и пересчитываем уровень
-      // Тебе надо прописать свою формулу если хочешь обновлять уровень
-
-      const { error: balanceError } = await supabaseAdmin
-        .from('bonuses')
-        .update({
+      await prisma.bonuses.update({
+        where: { id: bonusData.id },
+        data: {
           bonus_balance: newBalance,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', bonusData.id);
-
-      if (balanceError) {
-        return NextResponse.json(
-          { error: 'Failed to update bonus balance' },
-          { status: 500 }
-        );
-      }
+          updated_at: new Date(),
+        },
+      });
 
       // Запись в историю
-      const { error: historyError } = await supabaseAdmin
-        .from('bonus_history')
-        .insert({
+      await prisma.bonus_history.create({
+        data: {
           bonus_id: bonusData.id,
           amount: order.bonus,
           reason: `Начисление бонусов за заказ #${id}`,
-          created_at: new Date().toISOString(),
+          created_at: new Date(),
           user_id: order.user_id,
-        });
-
-      if (historyError) {
-        return NextResponse.json(
-          { error: 'Failed to log bonus history' },
-          { status: 500 }
-        );
-      }
+        },
+      });
     }
 
     return NextResponse.json({
@@ -147,6 +114,7 @@ export async function POST(req: NextRequest) {
       message: 'Order status updated successfully',
     });
   } catch (err: any) {
+    console.error('Error updating order status:', err);
     return NextResponse.json(
       { error: 'Server error: ' + err.message },
       { status: 500 }

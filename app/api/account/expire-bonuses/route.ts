@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+import { PrismaClient } from '@prisma/client';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
+const prisma = new PrismaClient();
 const BONUS_EXPIRE_DAYS = 180; // 6 месяцев
 
 export async function POST(request: Request) {
@@ -21,13 +16,12 @@ export async function POST(request: Request) {
     }
 
     // Получаем запись о бонусах
-    const { data: bonusRow, error: bonusRowError } = await supabase
-      .from('bonuses')
-      .select('id, bonus_balance')
-      .eq('phone', phone)
-      .single();
+    const bonusRow = await prisma.bonuses.findFirst({
+      where: { phone },
+      select: { id: true, bonus_balance: true },
+    });
 
-    if (bonusRowError || !bonusRow) {
+    if (!bonusRow) {
       return NextResponse.json(
         { success: false, error: 'Бонусы не найдены' },
         { status: 404 }
@@ -37,18 +31,11 @@ export async function POST(request: Request) {
     const bonusId = bonusRow.id;
 
     // Получаем историю начислений/списаний по этому бонусу
-    const { data: history, error: historyError } = await supabase
-      .from('bonus_history')
-      .select('id, amount, created_at')
-      .eq('bonus_id', bonusId)
-      .order('created_at', { ascending: true });
-
-    if (historyError) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка получения истории бонусов' },
-        { status: 500 }
-      );
-    }
+    const history = await prisma.bonus_history.findMany({
+      where: { bonus_id: bonusId },
+      select: { id: true, amount: true, created_at: true },
+      orderBy: { created_at: 'asc' },
+    });
 
     // 1. Считаем остатки для каждой начисленной порции бонусов (FIFO)
     type Accrual = {
@@ -70,7 +57,7 @@ export async function POST(request: Request) {
           id: accrualId,
           amount: accrualAmount,
           created_at: accrualDate,
-          spent: 0
+          spent: 0,
         });
       } else {
         // Списание или сгорание
@@ -101,45 +88,40 @@ export async function POST(request: Request) {
     for (const acc of expiredAccruals) {
       const toExpire = acc.amount - acc.spent;
       expiredSum += toExpire;
-      await supabase
-        .from('bonus_history')
-        .insert({
+      await prisma.bonus_history.create({
+        data: {
           bonus_id: bonusId,
           amount: -toExpire,
           reason: `Сгорание бонусов спустя 6 месяцев`,
           created_at: new Date().toISOString(),
-        });
+        },
+      });
     }
 
     // 3. Пересчитываем общий баланс
-    const { data: historyAfter, error: historyAfterError } = await supabase
-      .from('bonus_history')
-      .select('amount')
-      .eq('bonus_id', bonusId);
+    const historyAfter = await prisma.bonus_history.findMany({
+      where: { bonus_id: bonusId },
+      select: { amount: true },
+    });
 
-    if (historyAfterError) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления баланса' },
-        { status: 500 }
-      );
-    }
+    const newBalance = (historyAfter || []).reduce(
+      (sum: number, row: { amount: number | string | null }) => sum + Number(row.amount ?? 0),
+      0
+    );
 
-    const newBalance = (historyAfter || []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-
-    await supabase
-      .from('bonuses')
-      .update({
+    await prisma.bonuses.update({
+      where: { id: bonusId },
+      data: {
         bonus_balance: newBalance,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', bonusId);
+      },
+    });
 
     return NextResponse.json({
       success: true,
       expired: expiredSum,
-      new_balance: newBalance
+      new_balance: newBalance,
     });
-
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },

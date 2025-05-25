@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   try {
@@ -22,28 +18,30 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data, error } = await supabase
-      .from('bonuses')
-      .select('id, bonus_balance, level')
-      .eq('phone', sanitizedPhone)
-      .limit(1)
-      .single();
+    const bonuses = await prisma.bonuses.findFirst({
+      where: { phone: sanitizedPhone },
+      select: {
+        id: true,
+        bonus_balance: true,
+        level: true,
+      },
+    });
 
-    console.log(`[${new Date().toISOString()}] Bonuses response:`, { data, error });
+    console.log(`[${new Date().toISOString()}] Bonuses response:`, bonuses);
 
-    if (error && error.code !== 'PGRST116') {
-      console.error(`[${new Date().toISOString()}] Bonuses fetch error:`, error);
-      return NextResponse.json(
-        { success: false, error: 'Ошибка получения бонусов: ' + error.message },
-        { status: 500 }
-      );
-    }
+    const data = bonuses
+      ? {
+          id: bonuses.id,
+          bonus_balance: bonuses.bonus_balance ?? 0,
+          level: bonuses.level ?? 'bronze',
+        }
+      : {
+          id: null,
+          bonus_balance: 0,
+          level: 'bronze',
+        };
 
-    const bonuses = data
-      ? { id: data.id, bonus_balance: data.bonus_balance ?? 0, level: data.level ?? 'bronze' }
-      : { id: null, bonus_balance: 0, level: 'bronze' };
-
-    return NextResponse.json({ success: true, data: bonuses });
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] Server error in bonuses:`, error);
     return NextResponse.json(

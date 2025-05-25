@@ -9,7 +9,7 @@ export async function POST() {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/admin",
-    maxAge: 0,
+    maxAge: 0, // мгновенно удаляет cookie
   });
   return res;
 }

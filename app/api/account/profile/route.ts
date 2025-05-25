@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
-import type { Database } from '@/lib/supabase/types_new';
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const prisma = new PrismaClient();
 
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -38,20 +33,18 @@ export async function GET(request: Request) {
     const sanitizedPhone = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
     const normalizedPhone = normalizePhone(sanitizedPhone);
 
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('name, last_name, email, birthday, receive_offers')
-      .eq('phone', normalizedPhone)
-      .single();
+    const profile = await prisma.user_profiles.findUnique({
+      where: { phone: normalizedPhone },
+      select: {
+        name: true,
+        last_name: true,
+        email: true,
+        birthday: true,
+        receive_offers: true,
+      },
+    });
 
-    if (error && error.code !== 'PGRST116') {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка получения профиля' },
-        { status: 500 }
-      );
-    }
-
-    const profile = data || {
+    const data = profile || {
       name: null,
       last_name: null,
       email: null,
@@ -59,7 +52,7 @@ export async function GET(request: Request) {
       receive_offers: false,
     };
 
-    return NextResponse.json({ success: true, data: profile });
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера' },
@@ -80,27 +73,27 @@ export async function POST(request: Request) {
     const sanitizedEmail = sanitizeHtml(email || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedBirthday = sanitizeHtml(birthday || '', { allowedTags: [], allowedAttributes: {} });
 
-    const { error } = await supabase
-      .from('user_profiles')
-      .upsert(
-        {
-          phone: normalizedPhone,
-          name: sanitizedName || null,
-          last_name: sanitizedLastName || null,
-          email: sanitizedEmail || null,
-          birthday: sanitizedBirthday || null,
-          receive_offers: receive_offers ?? false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'phone' }
-      );
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Ошибка обновления профиля' },
-        { status: 500 }
-      );
-    }
+    // upsert: если профиль есть — обновляем, если нет — создаём
+    await prisma.user_profiles.upsert({
+      where: { phone: normalizedPhone },
+      update: {
+        name: sanitizedName || null,
+        last_name: sanitizedLastName || null,
+        email: sanitizedEmail || null,
+        birthday: sanitizedBirthday || null,
+        receive_offers: receive_offers ?? false,
+        updated_at: new Date().toISOString(),
+      },
+      create: {
+        phone: normalizedPhone,
+        name: sanitizedName || null,
+        last_name: sanitizedLastName || null,
+        email: sanitizedEmail || null,
+        birthday: sanitizedBirthday || null,
+        receive_offers: receive_offers ?? false,
+        updated_at: new Date().toISOString(),
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

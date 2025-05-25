@@ -1,48 +1,46 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { prisma } from '@/lib/prisma';
+
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  original_price: number | null;
+  discount_percent: number | null;
+  in_stock: boolean | null;
+  images: string[];
+  is_popular: boolean | null;
+  is_visible: boolean | null;
+  order_index: number | null;
+}
 
 export async function GET() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json(
-      { error: 'Серверная ошибка: отсутствуют настройки Supabase' },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        id,
-        title,
-        price,
-        original_price,
-        discount_percent,
-        in_stock,
-        images,
-        is_popular,
-        is_visible,
-        order_index
-      `)
-      .eq('in_stock', true)
-      .eq('is_popular', true)
-      .eq('is_visible', true)
-      .order('order_index', { ascending: true })
-      .limit(10);
+    const data = await prisma.products.findMany({
+      where: {
+        in_stock: true,
+        is_popular: true,
+        is_visible: true,
+      },
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        original_price: true,
+        discount_percent: true,
+        in_stock: true,
+        images: true,
+        is_popular: true,
+        is_visible: true,
+        order_index: true,
+      },
+      orderBy: {
+        order_index: 'asc',
+      },
+      take: 10,
+    });
 
-    if (error) {
-      return NextResponse.json(
-        { error: 'Ошибка загрузки популярных товаров из базы данных', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    const formattedData = (data || []).map(product => ({
+    const formattedData = data.map((product: Product) => ({
       ...product,
       images: Array.isArray(product.images) && product.images.length > 0 ? [product.images[0]] : [],
     }));
