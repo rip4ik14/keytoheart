@@ -23,6 +23,10 @@ import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import { Category } from '@/types/category';
 
+// Добавим Prisma для работы с бонусами
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
@@ -153,6 +157,22 @@ export default async function RootLayout({
     console.error('Ошибка загрузки категорий в layout:', err);
   }
 
+  // === ДОБАВЛЯЕМ: Получаем бонусы пользователя по номеру телефона ===
+  let bonus: number | null = null;
+  if (user?.phone) {
+    // Нормализуем телефон к +7...
+    let phone = user.phone.replace(/\D/g, '');
+    if (phone.startsWith('8')) phone = '7' + phone.slice(1);
+    if (!phone.startsWith('7')) phone = '7' + phone;
+    phone = `+${phone.slice(0, 11)}`;
+    // Получаем бонусы через Prisma
+    const bonuses = await prisma.bonuses.findUnique({
+      where: { phone },
+      select: { bonus_balance: true },
+    });
+    bonus = bonuses?.bonus_balance ?? 0;
+  }
+
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
 
   return (
@@ -250,7 +270,7 @@ export default async function RootLayout({
           <SupabaseProvider initialUser={user}>
             <CartProvider>
               <TopBar />
-              <StickyHeader initialCategories={categories} isAuthenticated={!!user} />
+              <StickyHeader initialCategories={categories} isAuthenticated={!!user} bonus={bonus} />
               <ClientBreadcrumbs />
               <main className="pt-12 sm:pt-14" aria-label="Основной контент">
                 {children}

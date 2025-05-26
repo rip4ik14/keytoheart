@@ -15,7 +15,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 
-// --- Анимация/Метрики ---
+// --- Метрики ---
 const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
   window.gtag?.('event', eventName, { event_category: category, ...params });
   window.ym?.(12345678, 'reachGoal', eventName, params);
@@ -30,21 +30,17 @@ interface CartItem {
   production_time?: number | null;
 }
 
-const normalizePhone = (phone?: string | null): string | null => {
-  if (!phone) return null;
-  let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
-  if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
-  return `+${cleaned.slice(0, 11)}`;
+type StickyHeaderProps = {
+  initialCategories: Category[];
+  isAuthenticated: boolean;
+  bonus?: number | null;
 };
 
 export default function StickyHeader({
   initialCategories,
   isAuthenticated,
-}: {
-  initialCategories: Category[];
-  isAuthenticated: boolean;
-}) {
+  bonus = null,
+}: StickyHeaderProps) {
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: CartItem[] };
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
@@ -56,10 +52,7 @@ export default function StickyHeader({
     minimumFractionDigits: 0,
   }).format(cartSum);
 
-  // --- Стейты ---
-  const [isAuth, setIsAuth] = useState(isAuthenticated);
-  const [session, setSession] = useState<any>(null);
-  const [bonus, setBonus] = useState<number | null>(null);
+  // --- Локальные стейты только для UI ---
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -67,12 +60,6 @@ export default function StickyHeader({
   const cartIconRef = useRef<HTMLImageElement>(null);
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
-
-  // --- Supabase только для Auth ---
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   // --- Анимация корзины ---
   useEffect(() => {
@@ -103,53 +90,6 @@ export default function StickyHeader({
     if (animationState.isAnimating) setIsFlying(true);
   }, [animationState]);
 
-  // --- Получаем и синхронизируем авторизацию ---
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!ignore) {
-        setIsAuth(!!session);
-        setSession(session);
-      }
-    })();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuth(!!session);
-      setSession(session);
-    });
-
-    return () => {
-      ignore = true;
-      subscription?.unsubscribe();
-    };
-  }, []);
-
-  // --- Получаем телефон пользователя ---
-  const rawPhone = session?.user?.user_metadata?.phone as string | undefined;
-  const phone = normalizePhone(rawPhone);
-
-  // --- Запрашиваем бонусы через API роут ---
-  useEffect(() => {
-    if (!isAuth || !phone) {
-      setBonus(null);
-      return;
-    }
-    let ignore = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`);
-        const json = await res.json();
-        if (!ignore && res.ok && json.success) {
-          setBonus(json.data.bonus_balance);
-        }
-      } catch {
-        if (!ignore) setBonus(null);
-      }
-    })();
-    return () => { ignore = true; };
-  }, [isAuth, phone]);
-
   // --- Закрытие профиля кликом вне ---
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -163,11 +103,10 @@ export default function StickyHeader({
 
   // --- Выход из аккаунта ---
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    // Можно использовать SupabaseProvider или Router для логаута
+    // Если есть кастомная функция signOut в контексте, вызывай её тут
+    window.location.href = '/account/logout'; // Быстрый вариант: редирект на route logout
     setOpenProfile(false);
-    setSession(null);
-    setBonus(null);
-    setIsAuth(false);
     toast.success('Вы вышли из аккаунта');
     trackEvent('sign_out', 'header');
   };
@@ -260,7 +199,7 @@ export default function StickyHeader({
               <Image src="/icons/search.svg" alt="Search" width={20} height={20} loading="lazy" />
             </button>
 
-            {isAuth ? (
+            {isAuthenticated ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
@@ -276,7 +215,9 @@ export default function StickyHeader({
                     loading="lazy"
                   />
                   <div className="hidden md:flex items-center gap-2">
-                    {bonus !== null && <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">Бонусов: {bonus}</span>}
+                    {bonus !== null && bonus > 0 && (
+                      <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">Бонусов: {bonus}</span>
+                    )}
                     <span>Профиль</span>
                   </div>
                 </button>
@@ -290,7 +231,9 @@ export default function StickyHeader({
                       className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
                     >
                       <div className="py-1">
-                        {bonus !== null && <div className="px-4 py-2 text-sm text-gray-700 md:hidden">Бонусов: {bonus}</div>}
+                        {bonus !== null && bonus > 0 && (
+                          <div className="px-4 py-2 text-sm text-gray-700 md:hidden">Бонусов: {bonus}</div>
+                        )}
                         <Link
                           href="/account"
                           className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
