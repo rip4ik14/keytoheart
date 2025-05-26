@@ -1,3 +1,4 @@
+// app/layout.tsx
 import './styles/globals.css';
 import './styles/fonts.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
@@ -23,9 +24,8 @@ import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import { Category } from '@/types/category';
 
-// Добавим Prisma для работы с бонусами
+// Если используешь Prisma только на сервере, импорт прямо тут:
 import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
 
 export const revalidate = 3600;
 
@@ -109,14 +109,15 @@ export default async function RootLayout({
 }) {
   const supabase = createServerComponentClient<Database>({ cookies });
 
+  // Получаем пользователя через Supabase
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
   if (userError) console.error('Supabase getUser error:', userError);
 
+  // Получаем категории из Supabase
   let categories: Category[] = [];
-
   try {
     const { data, error } = await supabase
       .from('categories')
@@ -157,20 +158,27 @@ export default async function RootLayout({
     console.error('Ошибка загрузки категорий в layout:', err);
   }
 
-  // === ДОБАВЛЯЕМ: Получаем бонусы пользователя по номеру телефона ===
+  // Получаем бонусы пользователя через Prisma (по номеру телефона)
   let bonus: number | null = null;
   if (user?.phone) {
-    // Нормализуем телефон к +7...
+    // Нормализуем телефон к формату +7...
     let phone = user.phone.replace(/\D/g, '');
     if (phone.startsWith('8')) phone = '7' + phone.slice(1);
     if (!phone.startsWith('7')) phone = '7' + phone;
     phone = `+${phone.slice(0, 11)}`;
     // Получаем бонусы через Prisma
-    const bonuses = await prisma.bonuses.findUnique({
-      where: { phone },
-      select: { bonus_balance: true },
-    });
-    bonus = bonuses?.bonus_balance ?? 0;
+    const prisma = new PrismaClient();
+    try {
+      const bonuses = await prisma.bonuses.findUnique({
+        where: { phone },
+        select: { bonus_balance: true },
+      });
+      bonus = bonuses?.bonus_balance ?? 0;
+    } catch (e) {
+      console.error('Ошибка получения бонусов:', e);
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;

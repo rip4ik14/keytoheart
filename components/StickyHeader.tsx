@@ -9,7 +9,6 @@ import SearchModal from '@components/SearchModal';
 import CookieBanner from '@components/CookieBanner';
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
-import { createBrowserClient } from '@supabase/ssr';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -103,9 +102,7 @@ export default function StickyHeader({
 
   // --- Выход из аккаунта ---
   const handleSignOut = async () => {
-    // Можно использовать SupabaseProvider или Router для логаута
-    // Если есть кастомная функция signOut в контексте, вызывай её тут
-    window.location.href = '/account/logout'; // Быстрый вариант: редирект на route logout
+    window.location.href = '/account/logout';
     setOpenProfile(false);
     toast.success('Вы вышли из аккаунта');
     trackEvent('sign_out', 'header');
