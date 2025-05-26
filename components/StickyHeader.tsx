@@ -30,7 +30,6 @@ interface CartItem {
   production_time?: number | null;
 }
 
-// --- Вспомогательные функции ---
 const normalizePhone = (phone?: string | null): string | null => {
   if (!phone) return null;
   let cleaned = phone.replace(/\D/g, '');
@@ -39,7 +38,13 @@ const normalizePhone = (phone?: string | null): string | null => {
   return `+${cleaned.slice(0, 11)}`;
 };
 
-export default function StickyHeader({ initialCategories }: { initialCategories: Category[] }) {
+export default function StickyHeader({
+  initialCategories,
+  isAuthenticated,
+}: {
+  initialCategories: Category[];
+  isAuthenticated: boolean;
+}) {
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: CartItem[] };
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
@@ -52,6 +57,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   }).format(cartSum);
 
   // --- Стейты ---
+  const [isAuth, setIsAuth] = useState(isAuthenticated);
   const [session, setSession] = useState<any>(null);
   const [bonus, setBonus] = useState<number | null>(null);
   const [openProfile, setOpenProfile] = useState(false);
@@ -97,31 +103,35 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     if (animationState.isAnimating) setIsFlying(true);
   }, [animationState]);
 
-  // --- Сессия Supabase ---
+  // --- Получаем и синхронизируем авторизацию ---
   useEffect(() => {
+    let ignore = false;
     (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!ignore) {
+        setIsAuth(!!session);
+        setSession(session);
+      }
     })();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuth(!!session);
       setSession(session);
     });
 
-    return () => void subscription?.unsubscribe();
-  }, [supabase]);
+    return () => {
+      ignore = true;
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   // --- Получаем телефон пользователя ---
   const rawPhone = session?.user?.user_metadata?.phone as string | undefined;
   const phone = normalizePhone(rawPhone);
 
-  // --- Запрашиваем бонусы через API роут на Prisma ---
+  // --- Запрашиваем бонусы через API роут ---
   useEffect(() => {
-    if (!phone) {
+    if (!isAuth || !phone) {
       setBonus(null);
       return;
     }
@@ -138,7 +148,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
       }
     })();
     return () => { ignore = true; };
-  }, [phone]);
+  }, [isAuth, phone]);
 
   // --- Закрытие профиля кликом вне ---
   useEffect(() => {
@@ -157,6 +167,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     setOpenProfile(false);
     setSession(null);
     setBonus(null);
+    setIsAuth(false);
     toast.success('Вы вышли из аккаунта');
     trackEvent('sign_out', 'header');
   };
@@ -249,7 +260,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <Image src="/icons/search.svg" alt="Search" width={20} height={20} loading="lazy" />
             </button>
 
-            {session && phone ? (
+            {isAuth ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}

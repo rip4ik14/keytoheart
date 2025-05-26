@@ -250,7 +250,7 @@ export default async function RootLayout({
           <SupabaseProvider initialUser={user}>
             <CartProvider>
               <TopBar />
-              <StickyHeader initialCategories={categories} />
+              <StickyHeader initialCategories={categories} isAuthenticated={!!user} />
               <ClientBreadcrumbs />
               <main className="pt-12 sm:pt-14" aria-label="Основной контент">
                 {children}
