@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 interface Product {
   id: number;
   title: string;
-  price: number;
+  price: number | null;
   original_price: number | null;
   discount_percent: number | null;
   in_stock: boolean | null;
@@ -42,6 +42,9 @@ export async function GET() {
 
     const formattedData = data.map((product: Product) => ({
       ...product,
+      original_price: product.original_price !== null ? Number(product.original_price) : null,
+      price: product.price !== null ? Number(product.price) : null,
+      discount_percent: product.discount_percent !== null ? Number(product.discount_percent) : null,
       images: Array.isArray(product.images) && product.images.length > 0 ? [product.images[0]] : [],
     }));
 
