@@ -12,9 +12,7 @@ import ImportantDates from '@components/account/ImportantDates';
 import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
-import { createBrowserClient } from '@supabase/ssr';
-import { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
+
 import type { Order, OrderItem, UpsellDetail } from '@/types/order';
 
 interface BonusHistoryItem {
@@ -38,7 +36,6 @@ interface Props {
 
 export default function AccountClient({ initialSession, initialOrders, initialBonusData }: Props) {
   const router = useRouter();
-  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
   const [orders, setOrders] = useState<Order[]>(initialOrders || []);
   const [bonusData, setBonusData] = useState<BonusesData | null>(initialBonusData);
@@ -47,78 +44,25 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialSession?.isAuthenticated || false);
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
-  // Инициализация клиента Supabase
+  // Проверка авторизации (кука user_phone)
   useEffect(() => {
-    const client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-        },
-      }
-    );
-    setSupabase(client);
-  }, []);
+    if (!isAuthenticated) {
+      setOrders([]);
+      setBonusData(null);
+      setPhone('');
+    }
+  }, [isAuthenticated]);
 
-  // Нормализация телефона
-  const normalizePhone = (phone: string): string => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    return cleaned.startsWith('7') ? `+${cleaned}` : `+7${cleaned}`;
-  };
-
-  // Проверка авторизации
-  useEffect(() => {
-    if (!supabase) return;
-
-    const checkSession = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (user) {
-          const normalizedPhone = normalizePhone(user.phone || '');
-          setIsAuthenticated(true);
-          setPhone(normalizedPhone);
-          setOrders(initialOrders || []);
-          setBonusData(initialBonusData);
-        } else {
-          setIsAuthenticated(false);
-          setPhone('');
-          setOrders([]);
-          setBonusData(null);
-        }
-      } catch (error) {
-        setIsAuthenticated(false);
-        setPhone('');
-        setOrders([]);
-        setBonusData(null);
-      }
-    };
-
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      checkSession();
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [initialOrders, initialBonusData, supabase]);
-
-  // Загружаем данные и вызываем expire-bonuses
+  // Повторная загрузка данных аккаунта
   const fetchAccountData = useCallback(async () => {
-    if (!phone || !supabase) return;
-    const normalizedPhone = normalizePhone(phone);
+    if (!phone) return;
     setIsLoading(true);
     try {
       // 1. Сгораемость бонусов
       await fetch('/api/account/expire-bonuses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ phone }),
       })
         .then((res) => res.json())
         .then((expire) => {
@@ -128,7 +72,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         });
 
       // 2. Загружаем бонусы
-      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
+      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -142,26 +86,10 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       if (!bonusesResult.success) {
         throw new Error('Bonuses fetch error: ' + bonusesResult.error);
       }
-
       let bonuses: BonusesData = bonusesResult.data;
-      if (bonuses.id) {
-        const { data: historyData, error: historyError } = await supabase
-          .from('bonus_history')
-          .select('amount, reason, created_at')
-          .eq('bonus_id', bonuses.id);
-
-        if (historyError) {
-          throw new Error('History fetch error: ' + historyError.message);
-        }
-        bonuses.history = historyData?.map((item: BonusHistoryItem) => ({
-          amount: item.amount ?? 0,
-          reason: item.reason ?? '',
-          created_at: item.created_at ?? '',
-        })) || [];
-      }
 
       // 3. Загружаем заказы через API
-      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(normalizedPhone)}`, {
+      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -188,10 +116,8 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           quantity: item.quantity,
           price: item.price,
           product_id: item.product_id ?? 0,
-          products: {
-            title: item.title || 'Неизвестный товар',
-            cover_url: item.imageUrl || null,
-          },
+          title: item.title || 'Неизвестный товар',
+          cover_url: item.imageUrl || null,
         })),
         upsell_details: (order.upsell_details || []).map((upsell: any) => ({
           title: upsell.title || 'Неизвестный товар',
@@ -207,7 +133,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ phone }),
       });
       const loyaltyResult = await loyaltyRes.json();
       if (loyaltyRes.ok && loyaltyResult.success) {
@@ -225,7 +151,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     } finally {
       setIsLoading(false);
     }
-  }, [phone, supabase]);
+  }, [phone]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -239,17 +165,18 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData]);
 
+  // Логика успешной авторизации по звонку
   const handleAuthSuccess = (phone: string) => {
     setIsAuthenticated(true);
-    const normalizedPhone = normalizePhone(phone);
-    setPhone(normalizedPhone);
+    setPhone(phone);
     fetchAccountData();
   };
 
+  // Выход — удаляем куку user_phone (через API), обновляем стейт
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await supabase?.auth.signOut();
+      await fetch('/api/auth/logout', { method: 'POST' });
       setIsAuthenticated(false);
       setPhone('');
       setOrders([]);
@@ -257,13 +184,15 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
       window.ym?.(96644553, 'reachGoal', 'logout');
-    } catch (error) {
+      router.refresh(); // чтобы сбросить куки и состояние страницы
+    } catch {
       toast.error('Ошибка при выходе из аккаунта');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Фильтр заказов
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     return orders.filter((o) => {
@@ -275,6 +204,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     });
   }, [orders, filterDays]);
 
+  // --- Рендер ---
   if (!isAuthenticated) {
     return (
       <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6 sm:max-w-md" aria-label="Вход в личный кабинет">
@@ -294,9 +224,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         <motion.button
           onClick={handleLogout}
           disabled={isLoading}
-          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${
-            isLoading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           aria-label="Выйти из аккаунта"
