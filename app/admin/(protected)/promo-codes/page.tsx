@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '../../layout';
+import AdminLayout from '../layout';  
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import CSRFToken from '@components/CSRFToken';

@@ -1,11 +1,11 @@
-// File: app/admin/(protected)/layout.tsx
+// app/admin/(protected)/layout.tsx
 'use client'
 
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
+import type { ReactNode } from 'react'
 
 export default function AdminProtectedLayout({
   children,
@@ -13,37 +13,33 @@ export default function AdminProtectedLayout({
   children: ReactNode
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const toggle = () => setIsMobileMenuOpen((o) => !o)
-
-  const container = {
-    hidden: { opacity: 0, x: -10 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.3, staggerChildren: 0.1 } },
-  }
-  const item = {
-    hidden: { opacity: 0, x: -5 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
-  }
-
   const navItems = [
-    { href: '/admin',        label: '🏠 Главная' },
-    { href: '/admin/products',   label: '📦 Товары' },
-    { href: '/admin/orders',     label: '🧾 Заказы' },
-    { href: '/admin/customers',  label: '👥 Клиенты' },
-    { href: '/admin/promo',      label: '🏷️ Промо-блоки' },
-    { href: '/admin/promo-codes',label: '💸 Промокоды' },
+    { href: '/admin', label: '🏠 Главная' },
+    { href: '/admin/products', label: '📦 Товары' },
+    { href: '/admin/orders', label: '🧾 Заказы' },
+    { href: '/admin/customers', label: '👥 Клиенты' },
+    { href: '/admin/promo', label: '🏷️ Промо-блоки' },
+    { href: '/admin/promo-codes', label: '💸 Промокоды' },
     { href: '/admin/categories', label: '📁 Категории' },
-    { href: '/admin/settings',   label: '⚙️ Настройки' },
-    { href: '/admin/stats',      label: '📊 Статистика' },
+    { href: '/admin/settings', label: '⚙️ Настройки' },
+    { href: '/admin/stats', label: '📊 Статистика' },
   ]
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* desktop sidebar */}
+      {/* Desktop sidebar */}
       <motion.aside
         className="w-64 bg-white border-r p-6 hidden md:block"
         initial="hidden"
         animate="visible"
-        variants={container}
+        variants={{
+          hidden: { opacity: 0, x: -10 },
+          visible: {
+            opacity: 1,
+            x: 0,
+            transition: { duration: 0.3, staggerChildren: 0.1 },
+          },
+        }}
       >
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-bold">Админ-панель</h2>
@@ -58,7 +54,13 @@ export default function AdminProtectedLayout({
         </div>
         <nav className="space-y-4 text-sm">
           {navItems.map(({ href, label }) => (
-            <motion.div key={href} variants={item}>
+            <motion.div
+              key={href}
+              variants={{
+                hidden: { opacity: 0, x: -5 },
+                visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+              }}
+            >
               <Link
                 href={href}
                 className="block hover:text-black focus:outline-none focus:ring-2 focus:ring-black"
@@ -68,7 +70,13 @@ export default function AdminProtectedLayout({
             </motion.div>
           ))}
         </nav>
-        <motion.div variants={item} className="mt-6">
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, x: -5 },
+            visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+          }}
+          className="mt-6"
+        >
           <Link
             href="/"
             className="text-gray-400 text-xs hover:text-black focus:outline-none focus:ring-2 focus:ring-black"
@@ -78,10 +86,10 @@ export default function AdminProtectedLayout({
         </motion.div>
       </motion.aside>
 
-      {/* mobile toggle & menu */}
+      {/* Mobile toggle */}
       <div className="md:hidden">
         <button
-          onClick={toggle}
+          onClick={() => setIsMobileMenuOpen((o) => !o)}
           className="p-4 focus:outline-none focus:ring-2 focus:ring-black"
         >
           <Image
@@ -91,7 +99,6 @@ export default function AdminProtectedLayout({
             height={24}
           />
         </button>
-
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.aside
@@ -104,7 +111,7 @@ export default function AdminProtectedLayout({
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-bold">Админ-панель</h2>
                 <button
-                  onClick={toggle}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="focus:outline-none focus:ring-2 focus:ring-black"
                 >
                   <Image src="/icons/times.svg" alt="Закрыть" width={20} height={20} />
@@ -115,7 +122,7 @@ export default function AdminProtectedLayout({
                   <Link
                     key={href}
                     href={href}
-                    onClick={toggle}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className="block hover:text-black focus:outline-none focus:ring-2 focus:ring-black"
                   >
                     {label}
@@ -141,7 +148,7 @@ export default function AdminProtectedLayout({
         </AnimatePresence>
       </div>
 
-      {/* main content */}
+      {/* Main content */}
       <main className="flex-1 p-6 bg-white overflow-auto">{children}</main>
     </div>
   )
