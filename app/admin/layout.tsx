@@ -1,4 +1,4 @@
-// app/admin/layout.tsx
+// File: app/admin/layout.tsx
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { verifyAdminJwt } from '@/lib/auth'
@@ -10,19 +10,18 @@ export default async function AdminLayout({
 }: {
   children: ReactNode
 }) {
-  // await! иначе cookies() вернёт Promise
+  // --- ОБЯЗАТЕЛЬНО async + await ---
   const cookieStore = await cookies()
   const token = cookieStore.get('admin_session')?.value
-
   const isAuthed = token ? verifyAdminJwt(token) : false
 
   if (!isAuthed) {
-    // редирект с параметром ошибки
     redirect('/admin/login?error=no-session')
   }
 
   return (
     <>
+      {/* Toaster подключаем здесь, чтобы можно было убирать/добавлять уведомления */}
       <Toaster position="top-right" />
       {children}
     </>
