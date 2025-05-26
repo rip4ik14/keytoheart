@@ -46,15 +46,13 @@ interface ErrorModalProps {
 }
 const ErrorModal = ErrorModalComponent as React.FC<ErrorModalProps>;
 
-// Яндекс-карты (для типов)
+// Типы для Yandex Maps
 interface YandexMaps {
   suggest: (
     query: string,
     options: { boundedBy: number[][]; strictBounds: boolean; results: number }
   ) => Promise<{ value: string }[]>;
 }
-// БЕЗ declare global!!!
-// Всё глобальное объявлено в types/global.d.ts, не дублируем здесь ничего!
 
 interface DaySchedule {
   start: string;
@@ -80,11 +78,12 @@ const normalizePhone = (phone: string): string => {
 };
 
 const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
-  const daysOfWeek = [
-    'monday','tuesday','wednesday','thursday','friday','saturday','sunday'
-  ];
+  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const result: Record<string, DaySchedule> = daysOfWeek.reduce(
-    (acc, day) => { acc[day] = { start: '09:00', end: '18:00' }; return acc; },
+    (acc, day) => {
+      acc[day] = { start: '09:00', end: '18:00' };
+      return acc;
+    },
     {} as Record<string, DaySchedule>
   );
   if (typeof schedule !== 'object' || schedule === null) return result;
@@ -112,6 +111,7 @@ export default function CartPage() {
   try {
     cartContext = useCart();
   } catch (error) {
+    console.error('Cart context error:', error);
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-red-500">Ошибка: Корзина недоступна. Пожалуйста, обновите страницу.</p>
@@ -186,43 +186,56 @@ export default function CartPage() {
     resetForm,
   } = useCheckoutForm();
 
-  // --- Обработчик изменения телефона (маска)
-  const handlePhoneChange = useCallback((value: string) => {
-    const normalized = normalizePhone(value);
-    onFormChange({ target: { name: 'phone', value: normalized } } as any);
-    setPhoneError('');
-  }, [onFormChange, setPhoneError]);
+  // Обработчик изменения телефона
+  const handlePhoneChange = useCallback(
+    (value: string) => {
+      const normalized = normalizePhone(value);
+      onFormChange({ target: { name: 'phone', value: normalized } } as React.ChangeEvent<HTMLInputElement>);
+      setPhoneError('');
+    },
+    [onFormChange, setPhoneError]
+  );
 
-  // --- Проверка сессии и профиля
+  // Проверка сессии и профиля
   useEffect(() => {
+    let isMounted = true;
     const checkSession = async () => {
       try {
         const res = await fetch('/api/auth/session', { credentials: 'include' });
         const json = await res.json();
-        if (res.ok && json.user) {
+        if (isMounted && res.ok && json.user) {
           const normalizedPhone = normalizePhone(json.user.phone);
           setIsAuthenticated(true);
           setPhone(normalizedPhone);
           setUserId(json.user.id);
-          onFormChange({ target: { name: 'phone', value: normalizedPhone } } as any);
+          onFormChange({ target: { name: 'phone', value: normalizedPhone } } as React.ChangeEvent<HTMLInputElement>);
           const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
           const bonusJson = await bonusRes.json();
-          setBonusBalance(bonusRes.ok && bonusJson.success ? bonusJson.data.bonus_balance || 0 : 0);
+          if (isMounted && bonusRes.ok && bonusJson.success) {
+            setBonusBalance(bonusJson.data.bonus_balance || 0);
+          }
           setStep(1);
-        } else {
+        } else if (isMounted) {
           setStep(0);
         }
       } catch (err) {
-        setStep(0);
+        console.error('Ошибка проверки сессии:', err);
+        if (isMounted) setStep(0);
       }
     };
     checkSession();
-  }, [onFormChange, setStep]);
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Убраны зависимости, так как начальная проверка сессии не должна зависеть от изменений
 
-  // --- Вычисления для заказа
+  // Вычисления для заказа
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.price * i.quantity, 0), [items]);
-  const upsellTotal = useMemo(() => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0), [selectedUpsells]);
+  const upsellTotal = useMemo(
+    () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
+    [selectedUpsells]
+  );
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
@@ -230,18 +243,21 @@ export default function CartPage() {
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
-  useEffect(() => { setBonusesUsed(bonusesToUse); }, [useBonuses, bonusBalance, maxBonusesAllowed]);
+  useEffect(() => {
+    setBonusesUsed(bonusesToUse);
+  }, [bonusesToUse]);
   const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
-  // --- Загрузка настроек магазина
+  // Загрузка настроек магазина
   useEffect(() => {
+    let isMounted = true;
     const fetchStoreSettings = async () => {
       setIsStoreSettingsLoading(true);
       try {
         const res = await fetch('/api/store-settings');
         const json = await res.json();
-        if (res.ok && json.success) {
+        if (isMounted && res.ok && json.success) {
           setStoreSettings({
             order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
             banner_message: json.data.banner_message ?? null,
@@ -249,17 +265,22 @@ export default function CartPage() {
             order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
             store_hours: transformSchedule(json.data.store_hours),
           });
+        } else if (isMounted) {
+          toast.error('Не удалось загрузить настройки магазина');
         }
       } catch (error: any) {
-        toast.error('Не удалось загрузить настройки магазина');
+        if (isMounted) toast.error('Не удалось загрузить настройки магазина');
       } finally {
-        setIsStoreSettingsLoading(false);
+        if (isMounted) setIsStoreSettingsLoading(false);
       }
     };
     fetchStoreSettings();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // --- Доступность оформления заказа
+  // Доступность оформления заказа
   const canPlaceOrder = useMemo(() => {
     if (!storeSettings || isStoreSettingsLoading) return true;
     if (!storeSettings.order_acceptance_enabled) return false;
@@ -282,21 +303,26 @@ export default function CartPage() {
     };
   }, [storeSettings, isStoreSettingsLoading]);
 
-  // --- Яндекс подсказки
+  // Яндекс подсказки
   useEffect(() => {
+    let isMounted = true;
     const loadYandexSuggestScript = () => {
-      if (document.getElementById('ymaps-script')) return;
+      if (document.querySelector('script[src*="api-maps.yandex.ru"]')) return;
       const script = document.createElement('script');
-      script.id = 'ymaps-script';
       script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
-      script.onload = () => {};
+      script.onload = () => {
+        if (isMounted) console.log('Яндекс.Карты загружены');
+      };
       script.onerror = () => {
-        toast.error('Не удалось загрузить автодополнение адресов');
+        if (isMounted) toast.error('Не удалось загрузить автодополнение адресов');
       };
       document.body.appendChild(script);
     };
-    if (!window.ymaps) loadYandexSuggestScript();
+    loadYandexSuggestScript();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const fetchAddressSuggestions = useCallback(
@@ -347,7 +373,7 @@ export default function CartPage() {
   );
 
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (event: MouseEvent) => {
       setShowSuggestions(false);
     };
     document.addEventListener('click', handleClickOutside);
@@ -356,35 +382,43 @@ export default function CartPage() {
     };
   }, []);
 
-  // --- Upsell (подарки/открытки)
+  // Upsell (подарки/открытки)
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchUpsellItems = async () => {
+      setIsUpsellLoading(true);
       try {
-        setIsUpsellLoading(true);
         const res = await fetch(`/api/upsell/categories?category=podarki&subcategories=balloons,cards`);
         const { success, data, error } = await res.json();
-        if (!success) throw new Error(error || 'Не удалось загрузить дополнительные товары');
-        const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
-          ...item,
-          quantity: 1,
-        }));
-        setUpsellItems(upsellWithQuantity);
+        if (isMounted && !success) throw new Error(error || 'Не удалось загрузить дополнительные товары');
+        if (isMounted) {
+          const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
+            ...item,
+            quantity: 1,
+          }));
+          setUpsellItems(upsellWithQuantity);
+        }
       } catch (err: any) {
-        setUpsellItems([]);
-        toast.error(err.message || 'Не удалось загрузить дополнительные товары');
+        if (isMounted) {
+          setUpsellItems([]);
+          toast.error(err.message || 'Не удалось загрузить дополнительные товары');
+        }
       } finally {
-        setIsUpsellLoading(false);
+        if (isMounted) setIsUpsellLoading(false);
       }
     };
     fetchUpsellItems();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // --- Промокод
+  // Промокод
   const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
@@ -409,7 +443,7 @@ export default function CartPage() {
     }
   }, [promoCode]);
 
-  // --- Проверка валидности товаров перед заказом
+  // Проверка валидности товаров
   const checkItems = useCallback(async () => {
     const productIds = items
       .filter((item: CartItemType) => !item.isUpsell)
@@ -449,7 +483,7 @@ export default function CartPage() {
     }
   }, [items, clearCart, addMultipleItems]);
 
-  // --- Отправка заказа
+  // Отправка заказа
   const submitOrder = useCallback(async () => {
     if (!validateStep5(agreed)) return;
     if (!validateAllSteps()) {
@@ -535,7 +569,11 @@ export default function CartPage() {
             }),
           });
           const bonusJson = await bonusRes.json();
-          setBonusBalance(bonusJson.new_balance || 0);
+          if (bonusRes.ok && bonusJson.success) {
+            setBonusBalance(bonusJson.new_balance || 0);
+          } else {
+            toast.error('Ошибка списания бонусов');
+          }
         } catch {
           toast.error('Ошибка списания бонусов');
         }
@@ -556,7 +594,7 @@ export default function CartPage() {
       setPromoId(null);
       setUseBonuses(false);
       setBonusesUsed(0);
-    } catch {
+    } catch (error) {
       setErrorModal('Произошла неизвестная ошибка при оформлении заказа.');
     } finally {
       setIsSubmittingOrder(false);
@@ -575,27 +613,13 @@ export default function CartPage() {
     promoId,
     discountAmount,
     postcardText,
-    setIsSubmittingOrder,
-    setErrorModal,
-    setOrderDetails,
-    setShowSuccess,
-    clearCart,
-    resetForm,
-    setSelectedUpsells,
-    setPostcardText,
-    setPromoCode,
-    setPromoDiscount,
-    setPromoType,
-    setPromoId,
-    setIsAuthenticated,
-    setStep,
     phone,
     bonusesUsed,
     bonusBalance,
     userId,
   ]);
 
-  // --- Рендеринг
+  // Рендеринг
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 pb-[80px] md:pb-12">
       <StoreBanner />
@@ -663,12 +687,14 @@ export default function CartPage() {
           >
             {step === 0 && (
               <OrderStep step={0} currentStep={step} title="Авторизация">
-                <AuthWithCall onSuccess={(phone: string) => {
-                  setIsAuthenticated(true);
-                  setPhone(normalizePhone(phone));
-                  setStep(1);
-                  onFormChange({ target: { name: 'phone', value: normalizePhone(phone) } } as any);
-                }} />
+                <AuthWithCall
+                  onSuccess={(phone: string) => {
+                    setIsAuthenticated(true);
+                    setPhone(normalizePhone(phone));
+                    setStep(1);
+                    onFormChange({ target: { name: 'phone', value: normalizePhone(phone) } } as React.ChangeEvent<HTMLInputElement>);
+                  }}
+                />
               </OrderStep>
             )}
             {step === 1 && (
