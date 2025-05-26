@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-interface Product {
+// Итоговый тип, который мы возвращаем на фронт (для автокомплита)
+interface PopularProduct {
   id: number;
   title: string;
   price: number | null;
@@ -16,6 +17,7 @@ interface Product {
 
 export async function GET() {
   try {
+    // Получаем товары из базы
     const data = await prisma.products.findMany({
       where: {
         in_stock: true,
@@ -40,12 +42,20 @@ export async function GET() {
       take: 10,
     });
 
-    const formattedData = data.map((product: Product) => ({
-      ...product,
-      original_price: product.original_price !== null ? Number(product.original_price) : null,
+    // Приводим все поля к правильным типам
+    const formattedData: PopularProduct[] = data.map((product: any) => ({
+      id: product.id,
+      title: product.title,
       price: product.price !== null ? Number(product.price) : null,
+      original_price: product.original_price !== null ? Number(product.original_price) : null,
       discount_percent: product.discount_percent !== null ? Number(product.discount_percent) : null,
-      images: Array.isArray(product.images) && product.images.length > 0 ? [product.images[0]] : [],
+      in_stock: product.in_stock,
+      images: Array.isArray(product.images)
+        ? (product.images.length > 0 ? [product.images[0]] : [])
+        : [],
+      is_popular: product.is_popular,
+      is_visible: product.is_visible,
+      order_index: product.order_index !== null ? Number(product.order_index) : null,
     }));
 
     return NextResponse.json(formattedData, {
