@@ -24,7 +24,6 @@ import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 import { Category } from '@/types/category';
 
-// Если используешь Prisma только на сервере, импорт прямо тут:
 import { PrismaClient } from '@prisma/client';
 
 export const revalidate = 3600;
@@ -109,14 +108,13 @@ export default async function RootLayout({
 }) {
   const supabase = createServerComponentClient<Database>({ cookies });
 
-  // Получаем пользователя через Supabase
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
   if (userError) console.error('Supabase getUser error:', userError);
 
-  // Получаем категории из Supabase
+  // Загрузка категорий
   let categories: Category[] = [];
   try {
     const { data, error } = await supabase
@@ -135,7 +133,6 @@ export default async function RootLayout({
       `)
       .eq('is_visible', true)
       .order('id', { ascending: true });
-
     if (error) throw error;
     if (Array.isArray(data)) {
       categories = data.map((cat) => ({
@@ -158,22 +155,22 @@ export default async function RootLayout({
     console.error('Ошибка загрузки категорий в layout:', err);
   }
 
-  // Получаем бонусы пользователя через Prisma (по номеру телефона)
+  // Получаем бонусы по телефону из user_metadata
   let bonus: number | null = null;
-  if (user?.phone) {
-    // Нормализуем телефон к формату +7...
-    let phone = user.phone.replace(/\D/g, '');
-    if (phone.startsWith('8')) phone = '7' + phone.slice(1);
-    if (!phone.startsWith('7')) phone = '7' + phone;
-    phone = `+${phone.slice(0, 11)}`;
-    // Получаем бонусы через Prisma
+  const rawPhone = user?.user_metadata?.phone as string | undefined;
+  if (rawPhone) {
+    let cleaned = rawPhone.replace(/\D/g, '');
+    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
+    const phone = `+${cleaned.slice(0, 11)}`;
+
     const prisma = new PrismaClient();
     try {
-      const bonuses = await prisma.bonuses.findUnique({
+      const rec = await prisma.bonuses.findUnique({
         where: { phone },
         select: { bonus_balance: true },
       });
-      bonus = bonuses?.bonus_balance ?? 0;
+      bonus = rec?.bonus_balance ?? 0;
     } catch (e) {
       console.error('Ошибка получения бонусов:', e);
     } finally {
@@ -216,7 +213,15 @@ export default async function RootLayout({
             email: 'info@keytoheart.ru',
             openingHoursSpecification: {
               '@type': 'OpeningHoursSpecification',
-              dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+              dayOfWeek: [
+                'Monday',
+                'Tuesday',
+                'Wednesday',
+                'Thursday',
+                'Friday',
+                'Saturday',
+                'Sunday',
+              ],
               opens: '08:00',
               closes: '22:00',
             },
@@ -261,7 +266,6 @@ export default async function RootLayout({
             `}
           </Script>
         )}
-        {/* Yandex Turbo Pages */}
         <Script id="yandex-turbo" strategy="afterInteractive">
           {`
             (function() {
@@ -278,18 +282,20 @@ export default async function RootLayout({
           <SupabaseProvider initialUser={user}>
             <CartProvider>
               <TopBar />
-              <StickyHeader initialCategories={categories} isAuthenticated={!!user} bonus={bonus} />
+              <StickyHeader
+                initialCategories={categories}
+                isAuthenticated={!!user}
+                bonus={bonus}
+              />
               <ClientBreadcrumbs />
               <main className="pt-12 sm:pt-14" aria-label="Основной контент">
                 {children}
               </main>
               <Footer />
               <CookieBanner />
-              {/* Скрытый текст для SEO */}
               <div className="sr-only" aria-hidden="true">
-                <p>
-                  Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар, романтические подарки Краснодар, цветы на День учителя Краснодар, цветы на День матери Краснодар, подарки на 23 февраля Краснодар, эксклюзивные подарки Краснодар, подарки на годовщину Краснодар, доставка цветов на дом Краснодар, цветы оптом Краснодар, KeyToHeart
-                </p>
+                {/* скрытый SEO-текст */}
+                <p>…</p>
               </div>
             </CartProvider>
           </SupabaseProvider>

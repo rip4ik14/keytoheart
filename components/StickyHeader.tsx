@@ -1,3 +1,4 @@
+// components/StickyHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -14,21 +15,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 
-// --- Метрики ---
-const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
-  window.gtag?.('event', eventName, { event_category: category, ...params });
-  window.ym?.(12345678, 'reachGoal', eventName, params);
-};
-
-interface CartItem {
-  id: string;
-  title: string;
-  price: number;
-  quantity: number;
-  imageUrl: string;
-  production_time?: number | null;
-}
-
 type StickyHeaderProps = {
   initialCategories: Category[];
   isAuthenticated: boolean;
@@ -41,8 +27,14 @@ export default function StickyHeader({
   bonus = null,
 }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
-  const { items } = useCart() as { items: CartItem[] };
-  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
+  const { items } = useCart() as { items: { price: number; quantity: number }[] };
+  const {
+    animationState,
+    setAnimationState,
+    setCartIconPosition,
+    cartIconPosition,
+  } = useCartAnimation();
+
   const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const formattedCartSum = new Intl.NumberFormat('ru-RU', {
@@ -51,7 +43,6 @@ export default function StickyHeader({
     minimumFractionDigits: 0,
   }).format(cartSum);
 
-  // --- Локальные стейты только для UI ---
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -60,18 +51,17 @@ export default function StickyHeader({
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
-  // --- Анимация корзины ---
   useEffect(() => {
     if (totalItems > 0) {
       cartControls.start({ scale: [1, 1.2, 1], transition: { duration: 0.3, ease: 'easeInOut' } });
     }
   }, [totalItems, cartControls]);
 
-  // --- Позиция корзины для анимации "полетевшего" товара ---
   useEffect(() => {
     const updatePos = () => {
-      if (cartIconRef.current) {
-        const rect = cartIconRef.current.getBoundingClientRect();
+      const el = cartIconRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
         setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
       }
     };
@@ -84,12 +74,10 @@ export default function StickyHeader({
     };
   }, [setCartIconPosition]);
 
-  // --- "Полетевший" товар ---
   useEffect(() => {
     if (animationState.isAnimating) setIsFlying(true);
   }, [animationState]);
 
-  // --- Закрытие профиля кликом вне ---
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -100,58 +88,51 @@ export default function StickyHeader({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // --- Выход из аккаунта ---
   const handleSignOut = async () => {
     window.location.href = '/account/logout';
     setOpenProfile(false);
     toast.success('Вы вышли из аккаунта');
-    trackEvent('sign_out', 'header');
   };
 
-  // --- "Полетевший" товар (анимация) ---
-  const flyBall = isFlying && animationState.isAnimating && (
-    <motion.div
-      className="fixed pointer-events-none z-[9999]"
-      initial={{ x: animationState.startX, y: animationState.startY, opacity: 1, scale: 1 }}
-      animate={{ x: cartIconPosition.x, y: cartIconPosition.y, opacity: 0, scale: 0.5 }}
-      transition={{ duration: 0.5, ease: 'easeInOut' }}
-      onAnimationComplete={() => {
-        setIsFlying(false);
-        setAnimationState({ ...animationState, isAnimating: false });
-      }}
-    >
-      <Image
-        src={animationState.imageUrl}
-        alt="Product"
-        width={40}
-        height={40}
-        className="w-10 h-10 object-cover rounded-full border border-gray-300"
-      />
-    </motion.div>
-  );
+  const flyBall =
+    isFlying && animationState.isAnimating ? (
+      <motion.div
+        className="fixed pointer-events-none z-[9999]"
+        initial={{ x: animationState.startX, y: animationState.startY, opacity: 1, scale: 1 }}
+        animate={{ x: cartIconPosition.x, y: cartIconPosition.y, opacity: 0, scale: 0.5 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        onAnimationComplete={() => {
+          setIsFlying(false);
+          setAnimationState({ ...animationState, isAnimating: false });
+        }}
+      >
+        <Image
+          src={animationState.imageUrl}
+          alt="Product"
+          width={40}
+          height={40}
+          className="w-10 h-10 object-cover rounded-full border border-gray-300"
+        />
+      </motion.div>
+    ) : null;
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-white border-b shadow-sm" aria-label="Основная навигация">
         <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-          {/* --- Левый блок --- */}
+          {/* левый блок */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
             <Link
               href="/"
               className="text-xl md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2"
-              aria-label="Перейти на главную страницу"
             >
               Key to Heart
             </Link>
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>
               <div className="flex flex-col leading-tight">
-                <a
-                  href="tel:+79886033821"
-                  className="font-medium hover:underline"
-                  aria-label="Позвонить по номеру +7 (988) 603-38-21"
-                >
+                <a href="tel:+79886033821" className="font-medium hover:underline">
                   +7 (988) 603-38-21
                 </a>
                 <span className="text-xs text-gray-400">с 08:00 до 22:00</span>
@@ -160,40 +141,27 @@ export default function StickyHeader({
                 <a
                   href="https://wa.me/79886033821"
                   className="border rounded-full p-2 hover:bg-gray-100"
-                  title="WhatsApp"
-                  aria-label="Перейти в WhatsApp"
-                  rel="nofollow"
-                  onClick={() => trackEvent('whatsapp_click', 'header')}
                 >
-                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="lazy" />
+                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
                 </a>
                 <a
                   href="https://t.me/keytomyheart"
                   className="border rounded-full p-2 hover:bg-gray-100"
-                  title="Telegram"
-                  aria-label="Перейти в Telegram"
-                  rel="nofollow"
-                  onClick={() => trackEvent('telegram_click', 'header')}
                 >
-                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} loading="lazy" />
+                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
                 </a>
               </div>
             </div>
           </div>
 
-          {/* --- Правый блок --- */}
+          {/* правый блок */}
           <div className="flex items-center gap-2 md:gap-3 relative">
             <button
               ref={searchButtonRef}
-              onClick={() => {
-                setIsSearchOpen(true);
-                trackEvent('open_search', 'header');
-              }}
+              onClick={() => setIsSearchOpen(true)}
               className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
-              title="Поиск"
-              aria-controls="search-modal"
             >
-              <Image src="/icons/search.svg" alt="Search" width={20} height={20} loading="lazy" />
+              <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} />
             </button>
 
             {isAuthenticated ? (
@@ -201,19 +169,19 @@ export default function StickyHeader({
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
                   className="p-2 hover:bg-gray-100 rounded-full md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
-                  aria-expanded={openProfile}
                 >
                   <Image
                     src="/icons/user.svg"
-                    alt="Profile"
+                    alt="Профиль"
                     width={20}
                     height={20}
-                    className="w-5 h-5 text-black md:hidden"
-                    loading="lazy"
+                    className="w-5 h-5 md:hidden"
                   />
                   <div className="hidden md:flex items-center gap-2">
                     {bonus !== null && bonus > 0 && (
-                      <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">Бонусов: {bonus}</span>
+                      <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
+                        Бонусов: {bonus}
+                      </span>
                     )}
                     <span>Профиль</span>
                   </div>
@@ -229,18 +197,16 @@ export default function StickyHeader({
                     >
                       <div className="py-1">
                         {bonus !== null && bonus > 0 && (
-                          <div className="px-4 py-2 text-sm text-gray-700 md:hidden">Бонусов: {bonus}</div>
+                          <div className="px-4 py-2 text-sm text-gray-700 md:hidden">
+                            Бонусов: {bonus}
+                          </div>
                         )}
-                        <Link
-                          href="/account"
-                          className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
-                          onClick={() => trackEvent('profile_account_click', 'header')}
-                        >
+                        <Link href="/account" className="block px-4 py-2 text-sm hover:bg-gray-100">
                           Личный кабинет
                         </Link>
                         <button
                           onClick={handleSignOut}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                         >
                           Выход
                         </button>
@@ -253,9 +219,8 @@ export default function StickyHeader({
               <Link
                 href="/account"
                 className="p-2 hover:bg-gray-100 rounded-full md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
-                onClick={() => trackEvent('login_click', 'header')}
               >
-                <Image src="/icons/user.svg" alt="Login" width={20} height={20} loading="lazy" />
+                <Image src="/icons/user.svg" alt="Вход" width={20} height={20} />
                 <span className="hidden md:inline">Вход</span>
               </Link>
             )}
@@ -263,19 +228,19 @@ export default function StickyHeader({
             <Link
               href="/cart"
               className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full md:border md:px-3 md:py-1 md:rounded-full focus:ring-2 focus:ring-black"
-              onClick={() => trackEvent('cart_click', 'header')}
             >
               <motion.div animate={cartControls}>
                 <Image
                   ref={cartIconRef}
                   src="/icons/shopping-cart.svg"
-                  alt="Cart"
+                  alt="Корзина"
                   width={20}
                   height={20}
-                  loading="lazy"
                 />
               </motion.div>
-              {cartSum > 0 && <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>}
+              {cartSum > 0 && (
+                <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>
+              )}
             </Link>
           </div>
         </div>
@@ -287,7 +252,6 @@ export default function StickyHeader({
         </div>
       </header>
 
-      {/* --- Search Modal --- */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -301,7 +265,6 @@ export default function StickyHeader({
             <motion.div
               className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               onClick={() => setIsSearchOpen(false)}
-              aria-hidden="true"
             />
             <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
@@ -311,7 +274,7 @@ export default function StickyHeader({
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.1 }}
               >
-                <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+                <SearchModal isOpen onClose={() => setIsSearchOpen(false)} />
               </motion.div>
               <motion.button
                 onClick={() => setIsSearchOpen(false)}
@@ -322,7 +285,7 @@ export default function StickyHeader({
                 transition={{ duration: 0.2, delay: 0.1 }}
                 aria-label="Закрыть поиск"
               >
-                <Image src="/icons/x.svg" alt="Close" width={24} height={24} loading="lazy" />
+                <Image src="/icons/x.svg" alt="Закрыть" width={24} height={24} />
               </motion.button>
             </div>
           </motion.div>
