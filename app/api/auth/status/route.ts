@@ -2,53 +2,52 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Вспомогательная функция парсинга cookies (если потребуется)
-function parseCookies(header: string | null): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  if (!header) return cookies;
-  for (const part of header.split(';')) {
-    const [k, v] = part.split('=').map(s => s.trim());
-    if (k && v) cookies[k] = v;
-  }
-  return cookies;
+// Утилита для нормализации номера (только цифры, всегда +7...)
+function normalizePhone(raw: string | null | undefined): string {
+  if (!raw) return '';
+  let num = raw.replace(/\D/g, '');
+  if (num.startsWith('8')) num = '7' + num.slice(1);
+  if (!num.startsWith('7')) num = '7' + num;
+  return `+${num.slice(0, 11)}`;
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const checkId = searchParams.get('checkId');
-  const phone = searchParams.get('phone')?.replace(/^\+/, '')!;
+  const phoneRaw = searchParams.get('phone');
+  const phone = normalizePhone(phoneRaw);
 
-  if (!checkId || !phone) {
-    return NextResponse.json({ success: false, error: 'Недостаточно параметров' }, { status: 400 });
+  if (!checkId || !phone || !/^\+7\d{10}$/.test(phone)) {
+    return NextResponse.json({ success: false, error: 'Недостаточно или неверный формат параметров' }, { status: 400 });
   }
 
   try {
-    // 1. Читаем статус звонка из Prisma (таблица public.auth_logs)
+    // 1. Проверка статуса звонка в БД (auth_logs)
     const log = await prisma.auth_logs.findUnique({
       where: { check_id: checkId },
       select: { status: true, phone: true },
     });
+
     if (!log) {
       return NextResponse.json({ success: false, error: 'checkId не найден' }, { status: 404 });
     }
 
+    // 2. Если уже VERIFIED/EXPIRED, вернуть сразу результат
     if (log.status === 'VERIFIED' || log.status === 'EXPIRED') {
-      // Если уже есть успешная авторизация — кладём куку user_phone и возвращаем успех
-      const response = NextResponse.json({ success: true, status: log.status });
+      const resp = NextResponse.json({ success: true, status: log.status });
       if (log.status === 'VERIFIED') {
-        // Кладём куку user_phone на 30 дней
-        response.cookies.set('user_phone', log.phone, {
+        resp.cookies.set('user_phone', normalizePhone(log.phone), {
           httpOnly: true,
-          secure: true,
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           maxAge: 30 * 24 * 3600,
           path: '/',
         });
       }
-      return response;
+      return resp;
     }
 
-    // 2. Иначе запрашиваем статус у SMS.ru
+    // 3. Запрашиваем статус у SMS.ru
     const smsRes = await fetch(
       `https://sms.ru/callcheck/status?api_id=${process.env.SMS_RU_API_ID}&check_id=${checkId}&json=1`
     );
@@ -57,22 +56,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: 'Ошибка SMS.ru' }, { status: 502 });
     }
 
-    // 3. Маппинг к нашему статусу
+    // 4. Маппинг статуса SMS.ru к нашему
     let newStatus: 'PENDING' | 'VERIFIED' | 'EXPIRED' = 'PENDING';
     if (smsJson.check_status === 401) newStatus = 'VERIFIED';
     if (smsJson.check_status === 402) newStatus = 'EXPIRED';
 
-    // 4. Обновляем в Prisma
+    // 5. Обновляем в БД
     await prisma.auth_logs.update({
       where: { check_id: checkId },
       data: { status: newStatus, updated_at: new Date() },
     });
 
+    // 6. Если не VERIFIED — просто вернуть
     if (newStatus !== 'VERIFIED') {
       return NextResponse.json({ success: true, status: newStatus });
     }
 
-    // 5. Создаём профиль, если надо
+    // 7. Создаём профиль пользователя, если ещё нет
     const exists = await prisma.user_profiles.findUnique({ where: { phone } });
     if (!exists) {
       await prisma.user_profiles.create({
@@ -80,16 +80,17 @@ export async function GET(req: Request) {
       });
     }
 
-    // 6. Кладём куку user_phone
+    // 8. Кладём httpOnly куку user_phone
     const response = NextResponse.json({ success: true, status: newStatus });
     response.cookies.set('user_phone', phone, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 30 * 24 * 3600,
       path: '/',
     });
     return response;
+
   } catch (e: any) {
     console.error('status/route.ts ошибка:', e);
     return NextResponse.json({ success: false, error: e.message || 'Серверная ошибка' }, { status: 500 });

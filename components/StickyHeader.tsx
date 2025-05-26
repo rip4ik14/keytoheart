@@ -15,7 +15,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 
-// Хелпер для аналитики
+// --- Анимация/Метрики ---
 const trackEvent = (eventName: string, category: string, params?: Record<string, any>) => {
   window.gtag?.('event', eventName, { event_category: category, ...params });
   window.ym?.(12345678, 'reachGoal', eventName, params);
@@ -30,7 +30,7 @@ interface CartItem {
   production_time?: number | null;
 }
 
-// Функция нормализации телефона к виду +7XXXXXXXXXX
+// --- Вспомогательные функции ---
 const normalizePhone = (phone?: string | null): string | null => {
   if (!phone) return null;
   let cleaned = phone.replace(/\D/g, '');
@@ -51,6 +51,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     minimumFractionDigits: 0,
   }).format(cartSum);
 
+  // --- Стейты ---
   const [session, setSession] = useState<any>(null);
   const [bonus, setBonus] = useState<number | null>(null);
   const [openProfile, setOpenProfile] = useState(false);
@@ -61,19 +62,20 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
+  // --- Supabase только для Auth ---
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Анимация пузыря на корзине
+  // --- Анимация корзины ---
   useEffect(() => {
     if (totalItems > 0) {
       cartControls.start({ scale: [1, 1.2, 1], transition: { duration: 0.3, ease: 'easeInOut' } });
     }
   }, [totalItems, cartControls]);
 
-  // Отслеживаем позицию иконки корзины
+  // --- Позиция корзины для анимации "полетевшего" товара ---
   useEffect(() => {
     const updatePos = () => {
       if (cartIconRef.current) {
@@ -90,13 +92,12 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     };
   }, [setCartIconPosition]);
 
+  // --- "Полетевший" товар ---
   useEffect(() => {
-    if (animationState.isAnimating) {
-      setIsFlying(true);
-    }
+    if (animationState.isAnimating) setIsFlying(true);
   }, [animationState]);
 
-  // Получаем сессию из Supabase Auth
+  // --- Сессия Supabase ---
   useEffect(() => {
     (async () => {
       const {
@@ -114,30 +115,32 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     return () => void subscription?.unsubscribe();
   }, [supabase]);
 
-  // Берём телефон из метаданных
+  // --- Получаем телефон пользователя ---
   const rawPhone = session?.user?.user_metadata?.phone as string | undefined;
   const phone = normalizePhone(rawPhone);
 
-  // Вместо supabase.from('bonuses')… — обращаемся к вашему API-роуту
+  // --- Запрашиваем бонусы через API роут на Prisma ---
   useEffect(() => {
     if (!phone) {
       setBonus(null);
       return;
     }
+    let ignore = false;
     (async () => {
       try {
         const res = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`);
         const json = await res.json();
-        if (res.ok && json.success) {
+        if (!ignore && res.ok && json.success) {
           setBonus(json.data.bonus_balance);
         }
       } catch {
-        // silent
+        if (!ignore) setBonus(null);
       }
     })();
+    return () => { ignore = true; };
   }, [phone]);
 
-  // Закрываем профиль кликом вне
+  // --- Закрытие профиля кликом вне ---
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -148,14 +151,17 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // --- Выход из аккаунта ---
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setOpenProfile(false);
+    setSession(null);
+    setBonus(null);
     toast.success('Вы вышли из аккаунта');
     trackEvent('sign_out', 'header');
   };
 
-  // Анимация "полетевшего" товара
+  // --- "Полетевший" товар (анимация) ---
   const flyBall = isFlying && animationState.isAnimating && (
     <motion.div
       className="fixed pointer-events-none z-[9999]"
@@ -181,7 +187,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
     <>
       <header className="sticky top-0 z-50 bg-white border-b shadow-sm" aria-label="Основная навигация">
         <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-          {/* Левый блок */}
+          {/* --- Левый блок --- */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
             <Link
@@ -228,7 +234,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
             </div>
           </div>
 
-          {/* Правый блок */}
+          {/* --- Правый блок --- */}
           <div className="flex items-center gap-2 md:gap-3 relative">
             <button
               ref={searchButtonRef}
@@ -243,7 +249,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
               <Image src="/icons/search.svg" alt="Search" width={20} height={20} loading="lazy" />
             </button>
 
-            {session ? (
+            {session && phone ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
@@ -263,7 +269,6 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
                     <span>Профиль</span>
                   </div>
                 </button>
-
                 <AnimatePresence>
                   {openProfile && (
                     <motion.div
@@ -331,6 +336,7 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
         </div>
       </header>
 
+      {/* --- Search Modal --- */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
