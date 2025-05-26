@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'NEAUTH', message: 'Неверный пароль' }, { status: 401 });
   }
 
-  const token = signAdminJwt();
+  const token = await signAdminJwt(); // ВАЖНО: await!
   const res = NextResponse.json({ success: true });
   res.cookies.set('admin_session', token, {
     httpOnly: true,
