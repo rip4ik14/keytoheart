@@ -30,6 +30,15 @@ interface CartItem {
   production_time?: number | null;
 }
 
+// Функция нормализации телефона к виду +7XXXXXXXXXX
+const normalizePhone = (phone?: string | null): string | null => {
+  if (!phone) return null;
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+  if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
+  return `+${cleaned.slice(0, 11)}`;
+};
+
 export default function StickyHeader({ initialCategories }: { initialCategories: Category[] }) {
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: CartItem[] };
@@ -106,7 +115,8 @@ export default function StickyHeader({ initialCategories }: { initialCategories:
   }, [supabase]);
 
   // Берём телефон из метаданных
-  const phone = session?.user?.user_metadata?.phone as string | undefined;
+  const rawPhone = session?.user?.user_metadata?.phone as string | undefined;
+  const phone = normalizePhone(rawPhone);
 
   // Вместо supabase.from('bonuses')… — обращаемся к вашему API-роуту
   useEffect(() => {

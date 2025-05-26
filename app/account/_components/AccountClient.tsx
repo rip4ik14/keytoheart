@@ -12,7 +12,6 @@ import ImportantDates from '@components/account/ImportantDates';
 import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
-
 import type { Order, OrderItem, UpsellDetail } from '@/types/order';
 
 interface BonusHistoryItem {
@@ -34,6 +33,13 @@ interface Props {
   initialBonusData: BonusesData | null;
 }
 
+// Нормализация номера: всегда +7XXXXXXXXXX
+function normalizePhone(phone: string): string {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  return cleaned.startsWith('7') ? `+${cleaned}` : `+7${cleaned}`;
+}
+
 export default function AccountClient({ initialSession, initialOrders, initialBonusData }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'personal' | 'orders' | 'dates'>('personal');
@@ -53,16 +59,17 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated]);
 
-  // Повторная загрузка данных аккаунта
+  // Повторная загрузка данных аккаунта с нормализацией телефона
   const fetchAccountData = useCallback(async () => {
     if (!phone) return;
+    const phoneForApi = normalizePhone(phone);
     setIsLoading(true);
     try {
       // 1. Сгораемость бонусов
       await fetch('/api/account/expire-bonuses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: phoneForApi }),
       })
         .then((res) => res.json())
         .then((expire) => {
@@ -72,7 +79,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         });
 
       // 2. Загружаем бонусы
-      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
+      const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phoneForApi)}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -89,7 +96,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       let bonuses: BonusesData = bonusesResult.data;
 
       // 3. Загружаем заказы через API
-      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phone)}`, {
+      const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phoneForApi)}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -133,7 +140,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: phoneForApi }),
       });
       const loyaltyResult = await loyaltyRes.json();
       if (loyaltyRes.ok && loyaltyResult.success) {
@@ -224,7 +231,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         <motion.button
           onClick={handleLogout}
           disabled={isLoading}
-          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`text-sm text-gray-500 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black flex items-center gap-2 ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           aria-label="Выйти из аккаунта"
@@ -264,7 +273,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
             {activeTab === 'personal' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
-                  <PersonalForm onUpdate={fetchAccountData} phone={phone} />
+                  <PersonalForm onUpdate={fetchAccountData} phone={normalizePhone(phone)} />
                   {bonusData?.history && bonusData.history.length > 0 && (
                     <BonusHistory history={bonusData.history} />
                   )}
@@ -302,7 +311,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
                 )}
               </>
             )}
-            {activeTab === 'dates' && <ImportantDates phone={phone} onUpdate={fetchAccountData} />}
+            {activeTab === 'dates' && <ImportantDates phone={normalizePhone(phone)} onUpdate={fetchAccountData} />}
           </>
         )}
       </div>
