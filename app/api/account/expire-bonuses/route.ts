@@ -1,3 +1,4 @@
+// ✅ Путь: app/api/account/expire-bonuses/route.ts
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
           amount: -toExpire,
           reason: `Сгорание бонусов спустя 6 месяцев`,
           created_at: new Date().toISOString(),
-          phone, // Добавляем phone для корректной проверки активности
+          // phone: нет такого поля!
         },
       });
     }
