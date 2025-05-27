@@ -41,16 +41,22 @@ interface Order {
 }
 
 export default async function AdminOrdersPage() {
-  // Проверка и очистка cookies Supabase
-  const cookieStore = await cookies();
-
-  for (const c of cookieStore.getAll()) {
-    if (c.name.startsWith('sb-')) {
-      cookieStore.delete(c.name);
+  // Очищаем cookies Supabase через API
+  try {
+    const res = await fetch('http://localhost:3000/api/clear-supabase-cookies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      console.error('Failed to clear Supabase cookies:', result.error);
     }
+  } catch (error: any) {
+    console.error('Error calling clear-supabase-cookies API:', error);
   }
 
   // Проверка сессии
+  const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
   if (!token) {
     redirect('/admin/login?error=no-session');
