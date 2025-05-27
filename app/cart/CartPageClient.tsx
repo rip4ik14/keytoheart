@@ -106,7 +106,7 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
   return result;
 };
 
-export default function CartPage() {
+export default function CartPageClient() {
   let cartContext;
   try {
     cartContext = useCart();
@@ -212,11 +212,13 @@ export default function CartPage() {
         const res = await fetch('/api/products/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: items.map(item => ({
-            id: parseInt(item.id, 10),
-            quantity: item.quantity,
-            price: item.price,
-          })) }),
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              id: parseInt(item.id, 10),
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          }),
         });
         const json = await res.json();
 
@@ -227,7 +229,7 @@ export default function CartPage() {
               const match = invalidItem.reason.match(/текущая (\d+)/);
               if (match) {
                 const newPrice = parseInt(match[1], 10);
-                const itemIndex = updatedItems.findIndex(item => parseInt(item.id, 10) === invalidItem.id);
+                const itemIndex = updatedItems.findIndex((item) => parseInt(item.id, 10) === invalidItem.id);
                 if (itemIndex !== -1) {
                   updatedItems[itemIndex] = { ...updatedItems[itemIndex], price: newPrice };
                   toast(`Цена товара "${updatedItems[itemIndex].title}" обновлена до ${newPrice} ₽`);
@@ -376,24 +378,13 @@ export default function CartPage() {
 
   // Доступность оформления заказа
   const canPlaceOrder = useMemo(() => {
+    // Проверяем только, включён ли приём заказов
     if (!storeSettings || isStoreSettingsLoading) return true;
-    if (!storeSettings.order_acceptance_enabled) return false;
-
-    const now = new Date();
-    const dayKey = now.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-
-    // Проверяем окно приёма заказов
-    const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
-    if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) return false;
-    const currentTime = now.toTimeString().slice(0, 5);
-    const canAcceptOrder = currentTime >= orderSchedule.start && currentTime <= orderSchedule.end;
-
-    // Проверяем график работы магазина
-    const storeSchedule = storeSettings.store_hours[dayKey];
-    if (!storeSchedule || !storeSchedule.start || !storeSchedule.end || storeSchedule.enabled === false) return false;
-    const canDeliverNow = currentTime >= storeSchedule.start && currentTime <= storeSchedule.end;
-
-    return canAcceptOrder && canDeliverNow;
+    if (!storeSettings.order_acceptance_enabled) {
+      toast.error('Магазин временно не принимает заказы. Попробуйте позже.');
+      return false;
+    }
+    return true; // Убираем проверку текущего времени
   }, [storeSettings, isStoreSettingsLoading]);
 
   const currentDaySchedule = useMemo(() => {
@@ -569,7 +560,9 @@ export default function CartPage() {
       console.log('Validation response:', json);
       if (!res.ok || !json.valid) {
         const errorMessage = json.invalidItems?.length > 0
-          ? `Некоторые товары недоступны: ${json.invalidItems.map((item: { id: number; reason: string }) => `Товар ${item.id}: ${item.reason}`).join('; ')}`
+          ? `Некоторые товары недоступны: ${json.invalidItems
+              .map((item: { id: number; reason: string }) => `Товар ${item.id}: ${item.reason}`)
+              .join('; ')}`
           : 'Ошибка проверки товаров';
         toast.error(errorMessage);
         return false;
@@ -600,32 +593,44 @@ export default function CartPage() {
     console.log('Selected upsells:', selectedUpsells);
     console.log('Store settings:', storeSettings);
 
+    // Проверка согласия с условиями
     if (!validateStep5(agreed)) {
       console.log('Step 5 validation failed');
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
       return;
     }
+
+    // Проверка заполнения всех полей
     if (!validateAllSteps()) {
       console.log('All steps validation failed');
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
+
+    // Проверка возможности оформления заказа
     if (!canPlaceOrder) {
       console.log('Cannot place order due to store settings');
       toast.error(
-        'Магазин временно не принимает заказы. Пожалуйста, выберите другое время или дату на шаге "Дата и время".'
+        'Магазин временно не принимает заказы. Попробуйте позже или свяжитесь с поддержкой.'
       );
       return;
     }
+
+    // Проверка наличия товаров в корзине
     if (items.length === 0 && selectedUpsells.length === 0) {
       console.log('Cart is empty');
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
+
+    // Проверка валидности товаров
     if (!(await checkItems())) {
       console.log('Items validation failed');
+      toast.error('Некоторые товары недоступны. Пожалуйста, обновите корзину и попробуйте снова.');
       return;
     }
+
+    // Проверка телефона
     if (!phone) {
       console.log('Phone is missing');
       setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
@@ -643,13 +648,15 @@ export default function CartPage() {
       const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
       if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) {
         console.log('Delivery time not available for order acceptance');
-        toast.error('Выбранное время доставки недоступно для приёма заказов. Пожалуйста, выберите другое время.');
+        toast.error(
+          `Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату на шаге "Дата и время".`
+        );
         return;
       }
       if (form.time < orderSchedule.start || form.time > orderSchedule.end) {
         console.log('Delivery time outside order acceptance schedule');
         toast.error(
-          `Выбранное время доставки (${form.time}) не попадает в окно приёма заказов (${orderSchedule.start} - ${orderSchedule.end}). Пожалуйста, выберите другое время.`
+          `Выбранное время доставки (${form.time}) не попадает в окно приёма заказов (${orderSchedule.start} - ${orderSchedule.end}). Пожалуйста, выберите другое время на шаге "Дата и время".`
         );
         return;
       }
@@ -658,19 +665,21 @@ export default function CartPage() {
       const storeSchedule = storeSettings.store_hours[dayKey];
       if (!storeSchedule || !storeSchedule.start || !storeSchedule.end || storeSchedule.enabled === false) {
         console.log('Delivery time not available for store hours');
-        toast.error('Выбранное время доставки недоступно для доставки. Пожалуйста, выберите другое время.');
+        toast.error(
+          `Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату на шаге "Дата и время".`
+        );
         return;
       }
       if (form.time < storeSchedule.start || form.time > storeSchedule.end) {
         console.log('Delivery time outside store hours');
         toast.error(
-          `Выбранное время доставки (${form.time}) не попадает в график работы магазина (${storeSchedule.start} - ${storeSchedule.end}). Пожалуйста, выберите другое время.`
+          `Выбранное время доставки (${form.time}) не попадает в график работы магазина (${storeSchedule.start} - ${storeSchedule.end}). Пожалуйста, выберите другое время на шаге "Дата и время".`
         );
         return;
       }
     } else {
       console.log('Date or time missing in form');
-      toast.error('Пожалуйста, выберите дату и время доставки.');
+      toast.error('Пожалуйста, выберите дату и время доставки на шаге "Дата и время".');
       return;
     }
 
@@ -723,7 +732,7 @@ export default function CartPage() {
       console.log('Order response:', json);
       if (!res.ok || !json.success) {
         console.log('Order submission failed:', json.error);
-        setErrorModal(json.error || 'Ошибка оформления заказа');
+        setErrorModal(json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
         return;
       }
       if (bonusesUsed > 0) {
@@ -742,11 +751,11 @@ export default function CartPage() {
           if (bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.new_balance || 0);
           } else {
-            toast.error('Ошибка списания бонусов');
+            toast.error('Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.');
           }
         } catch (error: any) {
           console.error('Error redeeming bonuses:', error);
-          toast.error('Ошибка списания бонусов');
+          toast.error('Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.');
         }
       }
       setOrderDetails({
@@ -767,7 +776,7 @@ export default function CartPage() {
       setBonusesUsed(0);
     } catch (error: any) {
       console.error('Error submitting order:', error);
-      setErrorModal('Произошла неизвестная ошибка при оформлении заказа: ' + error.message);
+      setErrorModal('Произошла неизвестная ошибка при оформлении заказа: ' + error.message + '. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -825,7 +834,9 @@ export default function CartPage() {
         {[0, 1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
-              className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}
+              className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${
+                step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
+              }`}
               initial={{ scale: 0.8 }}
               animate={{ scale: step >= s ? 1 : 0.8 }}
               transition={{ duration: 0.3 }}
@@ -867,7 +878,9 @@ export default function CartPage() {
                     setIsAuthenticated(true);
                     setPhone(normalizePhone(phone));
                     setStep(1);
-                    onFormChange({ target: { name: 'phone', value: normalizePhone(phone) } } as React.ChangeEvent<HTMLInputElement>);
+                    onFormChange({
+                      target: { name: 'phone', value: normalizePhone(phone) },
+                    } as React.ChangeEvent<HTMLInputElement>);
                   }}
                 />
               </OrderStep>
@@ -979,11 +992,13 @@ export default function CartPage() {
                   timeError={timeError}
                   onFormChange={onFormChange}
                   getMinDate={getMinDate}
-                  storeSettings={storeSettings || {
-                    order_acceptance_enabled: false,
-                    order_acceptance_schedule: {},
-                    store_hours: {},
-                  }}
+                  storeSettings={
+                    storeSettings || {
+                      order_acceptance_enabled: false,
+                      order_acceptance_schedule: {},
+                      store_hours: {},
+                    }
+                  }
                   maxProductionTime={maxProductionTime}
                 />
               </OrderStep>
@@ -1057,9 +1072,7 @@ export default function CartPage() {
                       Применить
                     </motion.button>
                   </div>
-                  {promoError && (
-                    <p className="mt-1 text-xs text-red-500">{promoError}</p>
-                  )}
+                  {promoError && <p className="mt-1 text-xs text-red-500">{promoError}</p>}
                   {promoDiscount !== null && (
                     <motion.p
                       className="mt-1 text-xs text-green-500"
