@@ -7,6 +7,7 @@ import { useCartAnimation } from '@context/CartAnimationContext';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { ShoppingCart } from 'lucide-react'; // 👈 Импорт иконки
 import type { Product } from '@/types/product';
 
 export default function ProductCard({ product }: { product: Product }) {
@@ -50,7 +51,6 @@ export default function ProductCard({ product }: { product: Product }) {
     };
     addItem(item);
 
-    // Запускаем анимацию "полёта" на мобильных устройствах
     if (isMobile && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const startX = rect.left + rect.width / 2;
@@ -135,19 +135,28 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
 
-      {/* Кнопка "В корзину" с анимацией */}
+      {/* Кнопка "В корзину" только дизайн — новая версия */}
       <AnimatePresence>
         {showButton && (
           <motion.button
             ref={buttonRef}
             onClick={handleAddToCart}
-            className="mt-2 bg-black text-white text-sm px-6 py-2 rounded-md shadow hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
+            className="
+              mt-2 w-full flex items-center justify-center gap-2
+              bg-black text-white font-bold text-base
+              rounded-xl shadow-lg py-3 px-4
+              transition-all duration-200
+              hover:bg-gray-900 active:scale-95
+              focus:outline-none focus:ring-2 focus:ring-black
+              drop-shadow-md
+            "
             initial="hidden"
             animate="visible"
             exit="hidden"
             variants={buttonVariants}
             aria-label={`Добавить ${product.title} в корзину`}
           >
+            <ShoppingCart size={20} strokeWidth={2.2} className="mr-1" />
             В корзину
           </motion.button>
         )}

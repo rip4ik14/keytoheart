@@ -1,3 +1,4 @@
+// ✅ Путь: app/api/account/bonuses/route.ts
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
       );
     }
 
+    // Получаем данные по бонусам по номеру телефона
     const bonuses = await prisma.bonuses.findFirst({
       where: { phone: sanitizedPhone },
       select: {
@@ -70,13 +72,23 @@ export async function POST(request: Request) {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const recentBonusActivity = await prisma.bonus_history.findFirst({
-      where: {
-        user_id: { not: null },
-        phone: sanitizedPhone,
-        created_at: { gte: sixMonthsAgo },
-      },
+    // Находим bonus_id по телефону из таблицы bonuses
+    const bonusRecord = await prisma.bonuses.findFirst({
+      where: { phone: sanitizedPhone },
+      select: { id: true },
     });
+
+    let recentBonusActivity = null;
+    if (bonusRecord) {
+      // Используем bonus_id для фильтрации bonus_history
+      recentBonusActivity = await prisma.bonus_history.findFirst({
+        where: {
+          bonus_id: bonusRecord.id,
+          created_at: { gte: sixMonthsAgo },
+          // phone: sanitizedPhone, // <--- этого больше нет!
+        },
+      });
+    }
 
     if (recentBonusActivity) {
       console.log(`[${new Date().toISOString()}] Recent bonus activity found for phone ${sanitizedPhone}, skipping expiration`);
@@ -107,10 +119,11 @@ export async function POST(request: Request) {
 
           await prisma.bonus_history.create({
             data: {
-              phone: sanitizedPhone,
+              // phone: sanitizedPhone, // такого поля нет!
               amount: -expired,
               reason: 'Сгорание бонусов за неактивность (6 месяцев)',
               created_at: new Date(),
+              bonus_id: bonusRecord?.id, // Связываем с bonus_id
             },
           });
 
