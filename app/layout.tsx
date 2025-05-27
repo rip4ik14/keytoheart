@@ -107,7 +107,7 @@ export default async function RootLayout({
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
-        cache: 'no-store',
+        next: { revalidate: 3600 }, // Кэширование на 1 час
       }
     );
     const data = await response.json();

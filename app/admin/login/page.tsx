@@ -1,11 +1,12 @@
+// app/admin/login/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
-export default function AdminLoginPage() {
+function LoginContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
@@ -138,5 +139,13 @@ export default function AdminLoginPage() {
         </motion.button>
       </motion.form>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
