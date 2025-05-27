@@ -1,6 +1,5 @@
-// app/admin/layout.tsx
-import type { ReactNode } from 'react'
-import { Toaster } from 'react-hot-toast'
+import { Toaster } from 'react-hot-toast';
+import type { ReactNode } from 'react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -8,5 +7,5 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <Toaster position="top-right" />
       {children}
     </>
-  )
+  );
 }

@@ -9,6 +9,7 @@ import SearchModal from '@components/SearchModal';
 import CookieBanner from '@components/CookieBanner';
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
+import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -16,15 +17,9 @@ import type { Category } from '@/types/category';
 
 type StickyHeaderProps = {
   initialCategories: Category[];
-  isAuthenticated: boolean;
-  bonus?: number | null;
 };
 
-export default function StickyHeader({
-  initialCategories,
-  isAuthenticated: initialIsAuthenticated,
-  bonus: initialBonus = null,
-}: StickyHeaderProps) {
+export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
   const {
@@ -33,6 +28,8 @@ export default function StickyHeader({
     setCartIconPosition,
     cartIconPosition,
   } = useCartAnimation();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [bonus, setBonus] = useState<number | null>(null);
 
   const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
@@ -42,8 +39,6 @@ export default function StickyHeader({
     minimumFractionDigits: 0,
   }).format(cartSum);
 
-  const [isAuth, setIsAuth] = useState(initialIsAuthenticated);
-  const [bonus, setBonus] = useState<number | null>(initialBonus);
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -52,36 +47,94 @@ export default function StickyHeader({
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
-  // Проверка сессии через API
+  // Проверка авторизации и загрузка бонусов
   useEffect(() => {
-    const checkSession = async () => {
+    let isMounted = true;
+
+    const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/session', { credentials: 'include' });
-        const json = await res.json();
-        if (res.ok && json.user) {
-          setIsAuth(true);
-          const phone = json.user.phone;
-          // Запрашиваем бонусы
-          const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`);
-          const bonusJson = await bonusRes.json();
-          if (bonusRes.ok && bonusJson.success) {
-            setBonus(bonusJson.data.bonus_balance ?? 0);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted) {
+          if (session?.user) {
+            const phone = session.user.user_metadata?.phone as string | undefined;
+            if (phone) {
+              const normalizedPhone = formatPhone(phone);
+              setIsAuthenticated(true);
+              try {
+                const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
+                const bonusJson = await bonusRes.json();
+                if (bonusRes.ok && bonusJson.success) {
+                  setBonus(bonusJson.data.bonus_balance ?? 0);
+                } else {
+                  setBonus(null);
+                }
+              } catch (error) {
+                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses`, error);
+                setBonus(null);
+              }
+            } else {
+              setIsAuthenticated(false);
+              setBonus(null);
+            }
           } else {
+            setIsAuthenticated(false);
+            setBonus(null);
+          }
+        }
+      } catch (error) {
+        console.error(`${new Date().toISOString()} StickyHeader: Error checking session`, error);
+        if (isMounted) {
+          setIsAuthenticated(false);
+          setBonus(null);
+        }
+      }
+    };
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        if (session?.user) {
+          const phone = session.user.user_metadata?.phone as string | undefined;
+          if (phone) {
+            const normalizedPhone = formatPhone(phone);
+            setIsAuthenticated(true);
+            fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`)
+              .then((res) => res.json())
+              .then((bonusJson) => {
+                if (isMounted && bonusJson.success) {
+                  setBonus(bonusJson.data.bonus_balance ?? 0);
+                } else if (isMounted) {
+                  setBonus(null);
+                }
+              })
+              .catch((error) => {
+                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses`, error);
+                if (isMounted) setBonus(null);
+              });
+          } else {
+            setIsAuthenticated(false);
             setBonus(null);
           }
         } else {
-          setIsAuth(false);
+          setIsAuthenticated(false);
           setBonus(null);
         }
-      } catch (error) {
-        console.error('Ошибка проверки сессии:', error);
-        setIsAuth(false);
-        setBonus(null);
       }
-    };
+    });
 
-    checkSession();
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
+
+  // Форматирование телефона
+  const formatPhone = (phone: string): string => {
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
+    return `+${cleaned.slice(0, 11)}`;
+  };
 
   // Анимация корзины
   useEffect(() => {
@@ -127,20 +180,13 @@ export default function StickyHeader({
   // Выход из аккаунта
   const handleSignOut = async () => {
     try {
-      const res = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        setIsAuth(false);
-        setBonus(null);
-        setOpenProfile(false);
-        toast.success('Вы вышли из аккаунта');
-      } else {
-        throw new Error('Ошибка выхода');
-      }
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setBonus(null);
+      setOpenProfile(false);
+      toast.success('Вы вышли из аккаунта');
     } catch (error) {
-      console.error('Ошибка при выходе:', error);
+      console.error(`${new Date().toISOString()} StickyHeader: Error signing out`, error);
       toast.error('Не удалось выйти из аккаунта');
     }
   };
@@ -228,7 +274,7 @@ export default function StickyHeader({
               <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} loading="lazy" />
             </button>
 
-            {isAuth ? (
+            {isAuthenticated ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}

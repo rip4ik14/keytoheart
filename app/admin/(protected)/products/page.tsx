@@ -10,7 +10,7 @@ import SitePagesDropdown from '../components/SitePagesDropdown';
 import ProductTable from './ProductTable';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Обновлённый интерфейс Product, соответствующий ProductTable
+// Интерфейс Product
 interface Product {
   id: number;
   title: string;
@@ -65,17 +65,18 @@ function ProductsContent() {
   const [popularityFilter, setPopularityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Загрузка предпочтений из localStorage
   useEffect(() => {
-    // Загружаем предпочтение режима из localStorage
     const savedMode = localStorage.getItem('productViewMode') as ViewMode;
     if (savedMode) setViewMode(savedMode);
   }, []);
 
+  // Сохранение режима в localStorage
   useEffect(() => {
-    // Сохраняем режим в localStorage
     localStorage.setItem('productViewMode', viewMode);
   }, [viewMode]);
 
+  // Проверка авторизации
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -93,10 +94,11 @@ function ProductsContent() {
     checkAuth();
   }, [router]);
 
+  // Загрузка продуктов и категорий
   const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<Product[], Error>({
     queryKey: ['products', selectedPage],
     queryFn: async () => {
-      // Сначала получаем все связи из product_categories
+      // Загрузка связей product_categories
       const { data: productCategoryData, error: productCategoryError } = await supabase
         .from('product_categories')
         .select('product_id, category_id');
@@ -105,7 +107,7 @@ function ProductsContent() {
         throw new Error(productCategoryError.message || 'Ошибка загрузки связей категорий');
       }
 
-      // Группируем category_ids по product_id
+      // Группировка category_ids по product_id
       const productCategoriesMap = new Map<number, number[]>();
       productCategoryData.forEach(item => {
         const existing = productCategoriesMap.get(item.product_id) || [];
@@ -114,7 +116,7 @@ function ProductsContent() {
 
       const productIds = Array.from(productCategoriesMap.keys());
 
-      // Загружаем товары
+      // Загрузка продуктов
       let query = supabase
         .from('products')
         .select(`
@@ -137,7 +139,7 @@ function ProductsContent() {
           slug,
           production_time
         `)
-        .in('id', productIds.length > 0 ? productIds : [0]) // Если нет товаров, передаём [0], чтобы избежать ошибки
+        .in('id', productIds.length > 0 ? productIds : [0])
         .order('order_index', { ascending: true })
         .order('id', { ascending: false });
 
@@ -160,7 +162,7 @@ function ProductsContent() {
             .filter(item => item.category_id === categoryId)
             .map(item => item.product_id);
 
-          if (filteredProductIds.length === 0) return []; // Если нет товаров в категории, возвращаем пустой массив
+          if (filteredProductIds.length === 0) return [];
 
           query = query.in('id', filteredProductIds);
         }
@@ -169,7 +171,7 @@ function ProductsContent() {
       const { data, error } = await query;
       if (error) throw new Error(error.message || 'Неизвестная ошибка при загрузке товаров');
 
-      // Загрузка категорий для фильтра
+      // Загрузка категорий
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('id, name')
@@ -178,7 +180,7 @@ function ProductsContent() {
       if (categoriesError) throw new Error(categoriesError.message);
       setCategories(categoriesData || []);
 
-      // Приводим данные к типу Product
+      // Формирование данных продуктов
       return data.map((product) => ({
         ...product,
         category_ids: productCategoriesMap.get(product.id) || [],
@@ -202,34 +204,31 @@ function ProductsContent() {
     initialData: [],
   });
 
+  // Обновление продуктов
   useEffect(() => {
     setProducts(fetchedProducts);
   }, [fetchedProducts]);
 
+  // Фильтрация продуктов
   useEffect(() => {
     let filtered = fetchedProducts;
 
-    // Фильтр по категории (по category_ids)
     if (categoryFilter) {
       filtered = filtered.filter(product => product.category_ids.includes(Number(categoryFilter)));
     }
 
-    // Фильтр по наличию
     if (stockFilter !== 'all') {
       filtered = filtered.filter(product => product.in_stock === (stockFilter === 'in_stock'));
     }
 
-    // Фильтр по видимости
     if (visibilityFilter !== 'all') {
       filtered = filtered.filter(product => product.is_visible === (visibilityFilter === 'visible'));
     }
 
-    // Фильтр по популярности
     if (popularityFilter !== 'all') {
       filtered = filtered.filter(product => product.is_popular === (popularityFilter === 'popular'));
     }
 
-    // Поиск по названию
     if (searchQuery) {
       filtered = filtered.filter(product =>
         product.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -239,12 +238,14 @@ function ProductsContent() {
     setProducts(filtered);
   }, [categoryFilter, stockFilter, visibilityFilter, popularityFilter, searchQuery, fetchedProducts]);
 
+  // Обработка ошибок загрузки
   useEffect(() => {
     if (isError && error) {
       toast.error('Ошибка загрузки товаров: ' + error.message);
     }
   }, [isError, error]);
 
+  // Мутация для переключения наличия
   const toggleInStockMutation = useMutation({
     mutationFn: async ({ id, in_stock }: { id: number; in_stock: boolean | null }) => {
       const { error } = await supabase
@@ -264,6 +265,7 @@ function ProductsContent() {
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
   });
 
+  // Мутация для удаления
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const product = fetchedProducts.find((p) => p.id === id);
@@ -307,10 +309,6 @@ function ProductsContent() {
   }
 
   if (!isAuthenticated) return null;
-
-  if (isError) {
-    return <p className="text-center text-red-500">Ошибка: {error?.message}</p>;
-  }
 
   return (
     <motion.section

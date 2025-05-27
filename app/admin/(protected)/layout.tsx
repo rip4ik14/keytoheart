@@ -1,18 +1,18 @@
 // app/admin/(protected)/layout.tsx
-'use client'
+'use client';
 
-import { useState } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { ReactNode } from 'react'
+import { useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { ReactNode } from 'react';
 
 export default function AdminProtectedLayout({
   children,
 }: {
-  children: ReactNode
+  children: ReactNode;
 }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navItems = [
     { href: '/admin', label: '🏠 Главная' },
     { href: '/admin/products', label: '📦 Товары' },
@@ -23,7 +23,7 @@ export default function AdminProtectedLayout({
     { href: '/admin/categories', label: '📁 Категории' },
     { href: '/admin/settings', label: '⚙️ Настройки' },
     { href: '/admin/stats', label: '📊 Статистика' },
-  ]
+  ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -90,7 +90,7 @@ export default function AdminProtectedLayout({
       <div className="md:hidden">
         <button
           onClick={() => setIsMobileMenuOpen((o) => !o)}
-          className="p-4 focus:outline-none focus:ring-2 focus:ring-black"
+          className="p-4 focus:outline-none focus:ring-4 focus:ring-black"
         >
           <Image
             src={isMobileMenuOpen ? '/icons/times.svg' : '/icons/bars.svg'}
@@ -151,5 +151,5 @@ export default function AdminProtectedLayout({
       {/* Main content */}
       <main className="flex-1 p-6 bg-white overflow-auto">{children}</main>
     </div>
-  )
+  );
 }

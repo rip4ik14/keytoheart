@@ -1,4 +1,3 @@
-// app/layout.tsx
 import './styles/globals.css';
 import './styles/fonts.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
@@ -17,14 +16,7 @@ import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 
-import SupabaseProvider from './providers/SupabaseProvider';
-
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import type { Database } from '@/lib/supabase/types_new';
 import { Category } from '@/types/category';
-
-import { PrismaClient } from '@prisma/client';
 
 export const revalidate = 3600;
 
@@ -106,44 +98,29 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createServerComponentClient<Database>({ cookies });
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError) console.error('Supabase getUser error:', userError);
-
-  // Загрузка категорий
+  // Загрузка категорий через REST-запрос
   let categories: Category[] = [];
   try {
-    const { data, error } = await supabase
-      .from('categories')
-      .select(`
-        id,
-        name,
-        slug,
-        is_visible,
-        subcategories!subcategories_category_id_fkey(
-          id,
-          name,
-          slug,
-          is_visible
-        )
-      `)
-      .eq('is_visible', true)
-      .order('id', { ascending: true });
-    if (error) throw error;
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        cache: 'no-store',
+      }
+    );
+    const data = await response.json();
     if (Array.isArray(data)) {
-      categories = data.map((cat) => ({
+      categories = data.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
         is_visible: cat.is_visible ?? true,
         subcategories:
           cat.subcategories
-            ?.filter((s) => s.is_visible)
-            .map((s) => ({
+            ?.filter((s: any) => s.is_visible)
+            .map((s: any) => ({
               id: s.id,
               name: s.name,
               slug: s.slug,
@@ -152,30 +129,7 @@ export default async function RootLayout({
       }));
     }
   } catch (err) {
-    console.error('Ошибка загрузки категорий в layout:', err);
-  }
-
-  // Получаем бонусы по телефону из user_metadata
-  let bonus: number | null = null;
-  const rawPhone = user?.user_metadata?.phone as string | undefined;
-  if (rawPhone) {
-    let cleaned = rawPhone.replace(/\D/g, '');
-    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
-    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
-    const phone = `+${cleaned.slice(0, 11)}`;
-
-    const prisma = new PrismaClient();
-    try {
-      const rec = await prisma.bonuses.findUnique({
-        where: { phone },
-        select: { bonus_balance: true },
-      });
-      bonus = rec?.bonus_balance ?? 0;
-    } catch (e) {
-      console.error('Ошибка получения бонусов:', e);
-    } finally {
-      await prisma.$disconnect();
-    }
+    console.error(`${new Date().toISOString()} RootLayout: Error loading categories`, err);
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
@@ -213,15 +167,7 @@ export default async function RootLayout({
             email: 'info@keytoheart.ru',
             openingHoursSpecification: {
               '@type': 'OpeningHoursSpecification',
-              dayOfWeek: [
-                'Monday',
-                'Tuesday',
-                'Wednesday',
-                'Thursday',
-                'Friday',
-                'Saturday',
-                'Sunday',
-              ],
+              dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
               opens: '08:00',
               closes: '22:00',
             },
@@ -279,26 +225,21 @@ export default async function RootLayout({
       </head>
       <body className="bg-white font-sans">
         <CartAnimationProvider>
-          <SupabaseProvider initialUser={user}>
-            <CartProvider>
-              <TopBar />
-              <StickyHeader
-                initialCategories={categories}
-                isAuthenticated={!!user}
-                bonus={bonus}
-              />
-              <ClientBreadcrumbs />
-              <main className="pt-12 sm:pt-14" aria-label="Основной контент">
-                {children}
-              </main>
-              <Footer />
-              <CookieBanner />
-              <div className="sr-only" aria-hidden="true">
-                {/* скрытый SEO-текст */}
-                <p>…</p>
-              </div>
-            </CartProvider>
-          </SupabaseProvider>
+          <CartProvider>
+            <TopBar />
+            <StickyHeader initialCategories={categories} />
+            <ClientBreadcrumbs />
+            <main className="pt-12 sm:pt-14" aria-label="Основной контент">
+              {children}
+            </main>
+            <Footer />
+            <CookieBanner />
+            <div className="sr-only" aria-hidden="true">
+              <p>
+                Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар, романтические подарки Краснодар, цветы на День учителя Краснодар, цветы на День матери Краснодар, подарки на 23 февраля Краснодар, эксклюзивные подарки Краснодар, подарки на годовщину Краснодар, доставка цветов на дом Краснодар, цветы оптом Краснодар, KeyToHeart
+              </p>
+            </div>
+          </CartProvider>
         </CartAnimationProvider>
       </body>
     </html>
