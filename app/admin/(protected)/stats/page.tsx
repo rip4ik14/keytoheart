@@ -1,24 +1,34 @@
-// app/admin/(protected)/stats/page.tsx
 import React from 'react';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { PrismaClient } from '@prisma/client';
 import StatsClient from './StatsClient';
 
 export const revalidate = 60; // обновлять раз в минуту
 
-export default async function AdminStatsPage() {
-  // приводим supabaseAdmin к any
-  const sb = supabaseAdmin as any;
+const prisma = new PrismaClient();
 
-  // 1) Все заказы
-  const { data: orders, error: ordersError } = await sb
-    .from('orders')
-    .select('id, total, created_at, phone, promo_id')
-    .order('created_at', { ascending: true });
-  if (ordersError) {
-    throw new Error('Не удалось загрузить заказы: ' + ordersError.message);
+export default async function AdminStatsPage() {
+  // 1) Все заказы (через Prisma)
+  let orders;
+  try {
+    orders = await prisma.orders.findMany({
+      select: {
+        id: true,
+        total: true,
+        created_at: true,
+        phone: true,
+        promo_id: true,
+      },
+      orderBy: {
+        created_at: 'asc',
+      },
+    });
+  } catch (error: any) {
+    throw new Error('Не удалось загрузить заказы: ' + error.message);
   }
 
-  // 2) Все позиции заказов
+  // 2) Все позиции заказов (через Supabase)
+  const sb = supabaseAdmin as any;
   const { data: items, error: itemsError } = await sb
     .from('order_items')
     .select('product_id, quantity, price')
@@ -36,7 +46,7 @@ export default async function AdminStatsPage() {
     )
   );
 
-  // 4) Тянем названия продуктов
+  // 4) Тянем названия продуктов (через Supabase)
   const { data: products, error: productsError } = await sb
     .from('products')
     .select('id, title')
@@ -56,7 +66,7 @@ export default async function AdminStatsPage() {
     };
   });
 
-  // 6) Данные о клиентах из auth.admin.listUsers()
+  // 6) Данные о клиентах из auth.admin.listUsers() (через Supabase)
   const { data: usersList, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
   if (usersError) {
     throw new Error('Не удалось загрузить пользователей: ' + usersError.message);
@@ -67,21 +77,29 @@ export default async function AdminStatsPage() {
     created_at: u.created_at,
   }));
 
-  // 7) История бонусов
-  const { data: bonusHistory, error: bonusError } = await sb
-    .from('bonus_history')
-    .select('amount, reason, created_at')
-    .order('created_at', { ascending: true });
-  if (bonusError) {
-    throw new Error('Не удалось загрузить историю бонусов: ' + bonusError.message);
+  // 7) История бонусов (через Prisma)
+  let bonusHistory;
+  try {
+    bonusHistory = await prisma.bonus_history.findMany({
+      select: {
+        amount: true,
+        reason: true,
+        created_at: true,
+      },
+      orderBy: {
+        created_at: 'asc',
+      },
+    });
+  } catch (error: any) {
+    throw new Error('Не удалось загрузить историю бонусов: ' + error.message);
   }
   const normalizedBonusHistory = (bonusHistory as any[]).map((b) => ({
-    amount: b.amount ?? 0,
+    amount: b.amount ? Number(b.amount) : 0, // Преобразуем Decimal в number
     reason: b.reason ?? '',
     created_at: b.created_at ?? '',
   }));
 
-  // 8) Промокоды
+  // 8) Промокоды (через Supabase)
   const { data: promoCodes, error: promoError } = await sb
     .from('promo_codes')
     .select('id, code, discount, created_at')

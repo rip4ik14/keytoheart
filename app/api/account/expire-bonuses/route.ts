@@ -29,6 +29,24 @@ export async function POST(request: Request) {
 
     const bonusId = bonusRow.id;
 
+    // Проверяем недавнюю активность (начисления или списания) за последние 6 месяцев
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const recentActivity = await prisma.bonus_history.findFirst({
+      where: {
+        bonus_id: bonusId,
+        created_at: { gte: sixMonthsAgo },
+      },
+      select: { id: true },
+    });
+
+    if (recentActivity) {
+      console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
+      return NextResponse.json({ success: true, expired: 0, new_balance: bonusRow.bonus_balance });
+    }
+
+    // Если недавней активности нет, проверяем начисления
     const history = await prisma.bonus_history.findMany({
       where: { bonus_id: bonusId },
       select: { id: true, amount: true, created_at: true },
@@ -95,6 +113,7 @@ export async function POST(request: Request) {
           amount: -toExpire,
           reason: `Сгорание бонусов спустя 6 месяцев`,
           created_at: new Date().toISOString(),
+          phone, // Добавляем phone для корректной проверки активности
         },
       });
     }

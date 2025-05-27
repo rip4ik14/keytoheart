@@ -14,7 +14,7 @@ export async function middleware(req: NextRequest) {
   if (!pathname.startsWith('/api')) {
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://cdn.turbo.yandex.ru",
       "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com",
@@ -45,7 +45,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(login);
       }
 
-      // Проверяем токен через API-роут, так как Edge Runtime не поддерживает jsonwebtoken
+      // Проверяем токен через API-роут
       try {
         const sessionRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
           method: 'GET',

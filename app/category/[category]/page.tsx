@@ -2,6 +2,7 @@ import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
+import { Suspense } from 'react';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
 import type { Tables } from '@/lib/supabase/types_new';
@@ -182,12 +183,14 @@ export default async function CategoryPage({
             itemListElement: [],
           }}
         />
-        <CategoryPageClient
-          products={[]}
-          apiName={apiName}
-          slug={category}
-          subcategories={subcategories}
-        />
+        <Suspense fallback={<div>Загрузка...</div>}>
+          <CategoryPageClient
+            products={[]}
+            apiName={apiName}
+            slug={category}
+            subcategories={subcategories}
+          />
+        </Suspense>
       </main>
     );
   }
@@ -306,12 +309,14 @@ export default async function CategoryPage({
           })),
         }}
       />
-      <CategoryPageClient
-        products={products}
-        apiName={apiName}
-        slug={category}
-        subcategories={subcategories}
-      />
+      <Suspense fallback={<div>Загрузка...</div>}>
+        <CategoryPageClient
+          products={products}
+          apiName={apiName}
+          slug={category}
+          subcategories={subcategories}
+        />
+      </Suspense>
     </main>
   );
 }

@@ -1,6 +1,7 @@
+// components/ClientBreadcrumbs.tsx
 'use client';
 
-import Breadcrumbs from '@components/Breadcrumbs';
+import Breadcrumbs from './Breadcrumbs';
 import { usePathname } from 'next/navigation';
 
 export default function ClientBreadcrumbs() {

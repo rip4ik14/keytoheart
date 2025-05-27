@@ -21,6 +21,48 @@ export type ComboItem = {
   image: string;
 };
 
+// Тип для настроек магазина
+interface DaySchedule {
+  start: string;
+  end: string;
+  enabled?: boolean;
+}
+
+interface StoreSettings {
+  order_acceptance_enabled: boolean;
+  order_acceptance_schedule: Record<string, DaySchedule>;
+  store_hours: Record<string, DaySchedule>;
+}
+
+const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
+  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const result: Record<string, DaySchedule> = daysOfWeek.reduce(
+    (acc, day) => {
+      acc[day] = { start: '09:00', end: '18:00', enabled: true };
+      return acc;
+    },
+    {} as Record<string, DaySchedule>
+  );
+  if (typeof schedule !== 'object' || schedule === null) return result;
+  for (const [key, value] of Object.entries(schedule)) {
+    if (daysOfWeek.includes(key) && typeof value === 'object' && value !== null) {
+      const { start, end, enabled } = value as any;
+      if (
+        typeof start === 'string' &&
+        typeof end === 'string' &&
+        (enabled === undefined || typeof enabled === 'boolean')
+      ) {
+        result[key] = {
+          start,
+          end,
+          enabled: enabled ?? true,
+        };
+      }
+    }
+  }
+  return result;
+};
+
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -49,6 +91,105 @@ export default function ProductPageClient({
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [bonusPercent] = useState<number>(0.025);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
+  const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
+
+  // Загружаем настройки магазина
+  useEffect(() => {
+    const fetchStoreSettings = async () => {
+      setIsStoreSettingsLoading(true);
+      try {
+        const res = await fetch('/api/store-settings');
+        const json = await res.json();
+        if (res.ok && json.success) {
+          setStoreSettings({
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
+            store_hours: transformSchedule(json.data.store_hours),
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching store settings:', error);
+      } finally {
+        setIsStoreSettingsLoading(false);
+      }
+    };
+    fetchStoreSettings();
+  }, []);
+
+  // Вычисляем ближайшее возможное время доставки
+  useEffect(() => {
+    if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
+      setEarliestDelivery(null);
+      return;
+    }
+
+    if (!storeSettings.order_acceptance_enabled) {
+      setEarliestDelivery('Магазин временно не принимает заказы.');
+      return;
+    }
+
+    const now = new Date();
+    const productionTime = product.production_time ?? 0;
+    now.setHours(now.getHours() + productionTime);
+
+    let earliestDate = now;
+    let attempts = 0;
+    const maxAttempts = 7; // Проверяем максимум 7 дней вперёд
+
+    while (attempts < maxAttempts) {
+      const dayKey = earliestDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+      const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
+      const storeSchedule = storeSettings.store_hours[dayKey];
+
+      // Проверяем, работает ли магазин в этот день
+      if (
+        orderSchedule?.enabled !== false &&
+        storeSchedule?.enabled !== false &&
+        orderSchedule?.start &&
+        orderSchedule?.end &&
+        storeSchedule?.start &&
+        storeSchedule?.end
+      ) {
+        const earliestStart = orderSchedule.start > storeSchedule.start ? orderSchedule.start : storeSchedule.start;
+        const latestEnd = orderSchedule.end < storeSchedule.end ? orderSchedule.end : storeSchedule.end;
+
+        const [startH, startM] = earliestStart.split(':').map(Number);
+        const earliestTime = new Date(earliestDate);
+        earliestTime.setHours(startH, startM, 0, 0);
+
+        if (earliestDate < earliestTime) {
+          earliestDate = earliestTime;
+        }
+
+        const [endH, endM] = latestEnd.split(':').map(Number);
+        const latestTime = new Date(earliestDate);
+        latestTime.setHours(endH, endM, 0, 0);
+
+        if (earliestDate <= latestTime) {
+          // Найдено подходящее время
+          const formattedDate = earliestDate.toLocaleDateString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+          const formattedTime = `${String(earliestDate.getHours()).padStart(2, '0')}:${String(
+            earliestDate.getMinutes()
+          ).padStart(2, '0')}`;
+          setEarliestDelivery(`Самое раннее время доставки: ${formattedDate} в ${formattedTime}`);
+          return;
+        }
+      }
+
+      // Если день не подходит, переходим к следующему
+      earliestDate = new Date(earliestDate);
+      earliestDate.setDate(earliestDate.getDate() + 1);
+      attempts++;
+    }
+
+    setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
+  }, [storeSettings, isStoreSettingsLoading, product.production_time]);
 
   useEffect(() => {
     try {
@@ -224,6 +365,14 @@ export default function ProductPageClient({
                   <Image src="/icons/clock.svg" alt="Время" width={20} height={20} />
                   <span className="text-base text-black font-medium">
                     Время изготовления: {product.production_time} {product.production_time === 1 ? 'час' : 'часов'}
+                  </span>
+                </div>
+              )}
+              {earliestDelivery && (
+                <div className="flex items-center gap-2">
+                  <Image src="/icons/truck.svg" alt="Доставка" width={20} height={20} />
+                  <span className="text-base text-black font-medium">
+                    {earliestDelivery}
                   </span>
                 </div>
               )}

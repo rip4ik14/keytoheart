@@ -1,5 +1,3 @@
-// app/admin/(protected)/customers/[id]/page.tsx
-
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
@@ -11,6 +9,7 @@ interface Event {
   date: string | null;
   description: string | null;
 }
+
 interface Customer {
   id: string;
   phone: string;
@@ -23,7 +22,7 @@ interface Customer {
 }
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function CustomerPage({ params }: PageProps) {
@@ -39,15 +38,18 @@ export default async function CustomerPage({ params }: PageProps) {
     redirect('/admin/login?error=invalid-session');
   }
 
+  // Распаковываем params с помощью await
+  const { id } = await params;
+
   let customer: Customer | null = null;
   try {
     const profile = await prisma.user_profiles.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, phone: true, email: true, created_at: true },
     });
 
     if (profile && profile.phone) {
-      // Указали тип event явно!
+      // Важные даты
       const dates = await prisma.important_dates.findMany({
         where: { phone: profile.phone },
         select: { type: true, date: true, description: true },
@@ -60,7 +62,8 @@ export default async function CustomerPage({ params }: PageProps) {
         })
       );
 
-      const orders = await prisma.orders.findMany({
+      // Заказы пользователя (обработка Decimal)
+      const ordersRaw = await prisma.orders.findMany({
         where: { phone: profile.phone },
         select: {
           id: true,
@@ -81,16 +84,32 @@ export default async function CustomerPage({ params }: PageProps) {
         orderBy: { created_at: 'desc' },
       });
 
+      const orders = ordersRaw.map((order: any) => ({
+        ...order,
+        created_at: order.created_at ? order.created_at.toISOString() : null,
+        total: order.total ? Number(order.total) : 0,
+        bonuses_used: order.bonuses_used ? Number(order.bonuses_used) : 0,
+        order_items: order.order_items,
+      }));
+
+      // Бонусы
       const bonuses = await prisma.bonuses.findUnique({
         where: { phone: profile.phone },
         select: { bonus_balance: true, level: true },
       });
 
-      const bonusHistory = await prisma.bonus_history.findMany({
+      // История бонусов (обработка Decimal)
+      const bonusHistoryRaw = await prisma.bonus_history.findMany({
         where: { user_id: profile.id },
         select: { amount: true, reason: true, created_at: true },
         orderBy: { created_at: 'desc' },
       });
+
+      const bonus_history = bonusHistoryRaw.map((entry: any) => ({
+        amount: entry.amount ? Number(entry.amount) : 0,
+        reason: entry.reason,
+        created_at: entry.created_at ? entry.created_at.toISOString() : null,
+      }));
 
       customer = {
         id: profile.id,
@@ -99,8 +118,13 @@ export default async function CustomerPage({ params }: PageProps) {
         created_at: profile.created_at ? profile.created_at.toISOString() : null,
         important_dates,
         orders,
-        bonuses: bonuses || { bonus_balance: null, level: null },
-        bonus_history: bonusHistory,
+        bonuses: bonuses
+          ? {
+              bonus_balance: bonuses.bonus_balance ? Number(bonuses.bonus_balance) : null,
+              level: bonuses.level,
+            }
+          : { bonus_balance: null, level: null },
+        bonus_history,
       };
     }
   } catch (error: any) {

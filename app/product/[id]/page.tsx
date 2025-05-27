@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import { JsonLd } from 'react-schemaorg';
 import type { Product as SchemaProduct } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
 
-// Обновлённый тип Product
+// Product type
 interface Product {
   id: number;
   title: string;
@@ -37,26 +37,22 @@ const supabaseAnon = createClient<Database>(
 export const revalidate = 3600;
 
 export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const start = Date.now();
   const { data } = await supabaseAnon.from('products').select('id');
-  console.log('Supabase query duration in generateStaticParams:', Date.now() - start, 'ms');
   return data?.map((p) => ({ id: String(p.id) })) ?? [];
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { id } = params;
   const numericId = parseInt(id, 10);
-  const start = Date.now();
   const { data: product, error } = await supabaseAnon
     .from('products')
     .select('title, description')
     .eq('id', numericId)
     .single();
-  console.log('Supabase query duration in generateMetadata:', Date.now() - start, 'ms');
 
   if (error || !product) {
     return {
@@ -80,12 +76,11 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const numericId = parseInt(id, 10);
 
-  console.log('Fetching product with ID:', numericId);
-  const startProduct = Date.now();
+  // Получение продукта
   const { data: productData, error: productError } = await supabaseAnon
     .from('products')
     .select(`
@@ -101,28 +96,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     `)
     .eq('id', numericId)
     .single();
-  console.log('Supabase query duration for product in ProductPage:', Date.now() - startProduct, 'ms');
 
-  console.log('Product fetch result:', {
-    productData,
-    productError,
-  });
-
-  // Проверяем, есть ли ошибка или отсутствуют данные
   if (productError || !productData) {
-    console.error('Product fetch error:', productError);
     notFound();
   }
 
   // Получаем category_ids через product_categories
-  const { data: productCategoryData, error: productCategoryError } = await supabaseAnon
+  const { data: productCategoryData } = await supabaseAnon
     .from('product_categories')
     .select('category_id')
     .eq('product_id', numericId);
-
-  if (productCategoryError) {
-    console.error('Error fetching category_ids:', productCategoryError);
-  }
 
   const categoryIds = productCategoryData?.map(item => item.category_id) || [];
 
@@ -139,30 +122,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     category_ids: categoryIds,
   };
 
+  // Получаем допродажи
   let combos: ComboItem[] = [];
-  const startUpsells = Date.now();
-  const { data: upsellItems, error: upsellsError } = await supabaseAnon
+  const { data: upsellItems } = await supabaseAnon
     .from('upsell_items')
     .select('id, title, price, image_url');
 
-  console.log('Supabase query duration for upsells in ProductPage:', Date.now() - startUpsells, 'ms');
-
-  console.log('Upsells fetch result:', {
-    upsellsData: upsellItems,
-    upsellsError,
-  });
-
-  if (upsellsError) {
-    console.error('Upsells fetch error:', upsellsError);
-  } else {
-    combos = upsellItems
-      ? upsellItems.map((u) => ({
-          id: parseInt(String(u.id), 10),
-          title: u.title,
-          price: u.price,
-          image: u.image_url || '',
-        }))
-      : [];
+  if (upsellItems) {
+    combos = upsellItems.map((u) => ({
+      id: parseInt(String(u.id), 10),
+      title: u.title,
+      price: u.price,
+      image: u.image_url || '',
+    }));
   }
 
   const discountedPrice =
@@ -188,8 +160,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           },
         }}
       />
-      <Breadcrumbs productTitle={validatedProduct.title} />
-      <ProductPageClient product={validatedProduct} combos={combos} />
+      {/* Оба компонента в Suspense */}
+      <Suspense fallback={null}>
+        <Breadcrumbs productTitle={validatedProduct.title} />
+      </Suspense>
+      <Suspense fallback={<div className="text-center py-8">Загрузка...</div>}>
+        <ProductPageClient product={validatedProduct} combos={combos} />
+      </Suspense>
     </main>
   );
 }

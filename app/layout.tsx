@@ -6,6 +6,7 @@ import { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
+import { Suspense } from 'react';
 
 import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
@@ -107,7 +108,7 @@ export default async function RootLayout({
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
-        next: { revalidate: 3600 }, // Кэширование на 1 час
+        next: { revalidate: 3600 },
       }
     );
     const data = await response.json();
@@ -141,7 +142,6 @@ export default async function RootLayout({
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-        <link rel="preload" href="/_next/static/css/6bfcc40b5e423c29.css" as="style" />
         <link rel="preload" href="/og-cover.jpg" as="image" />
         <JsonLd<WebSite>
           item={{
@@ -212,23 +212,27 @@ export default async function RootLayout({
             `}
           </Script>
         )}
-        <Script id="yandex-turbo" strategy="afterInteractive">
-          {`
-            (function() {
-              var turboScript = document.createElement('script');
-              turboScript.src = 'https://cdn.turbo.yandex.ru/turbo.js';
-              turboScript.async = true;
-              document.head.appendChild(turboScript);
-            })();
-          `}
-        </Script>
+        {ymId && (
+          <Script id="yandex-turbo" strategy="afterInteractive">
+            {`
+              (function() {
+                var turboScript = document.createElement('script');
+                turboScript.src = 'https://cdn.turbo.yandex.ru/turbo.js';
+                turboScript.async = true;
+                document.head.appendChild(turboScript);
+              })();
+            `}
+          </Script>
+        )}
       </head>
       <body className="bg-white font-sans">
         <CartAnimationProvider>
           <CartProvider>
             <TopBar />
             <StickyHeader initialCategories={categories} />
-            <ClientBreadcrumbs />
+            <Suspense fallback={<div>Загрузка...</div>}>
+              <ClientBreadcrumbs />
+            </Suspense>
             <main className="pt-12 sm:pt-14" aria-label="Основной контент">
               {children}
             </main>

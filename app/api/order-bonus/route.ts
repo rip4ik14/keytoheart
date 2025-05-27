@@ -72,12 +72,12 @@ export async function POST(request: Request) {
     const prevBalance = bonusRecord.bonus_balance ?? 0;
     const prevSpent = bonusRecord.total_spent ?? 0;
     const prevBonus = bonusRecord.total_bonus ?? 0;
+    const currentLevel = bonusRecord.level ?? 'bronze';
 
     const newTotalSpent = prevSpent + order_total;
-    const levelObj = CASHBACK_LEVELS
-      .slice().reverse()
-      .find((lvl) => newTotalSpent >= lvl.minTotal)!
-      || CASHBACK_LEVELS[0];
+
+    // Находим процент кешбэка на основе текущего уровня
+    const levelObj = CASHBACK_LEVELS.find((lvl) => lvl.level === currentLevel) || CASHBACK_LEVELS[0];
 
     const bonusToAdd = Math.floor(order_total * (levelObj.percentage / 100));
     const newBalance = prevBalance + bonusToAdd;
@@ -88,7 +88,6 @@ export async function POST(request: Request) {
       where: { phone },
       data: {
         bonus_balance: newBalance,
-        level: levelObj.level,
         total_spent: newTotalSpent,
         total_bonus: newTotalBonus,
         updated_at: new Date(),
@@ -109,7 +108,7 @@ export async function POST(request: Request) {
       success: true,
       bonus_added: bonusToAdd,
       new_balance: newBalance,
-      new_level: levelObj.level,
+      level: currentLevel,
     });
   } catch (err: any) {
     return NextResponse.json(

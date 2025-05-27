@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, Suspense } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
 type Category = {
@@ -20,12 +20,12 @@ type Crumb = {
 
 // Статические названия для других страниц
 const staticTitles: Record<string, string> = {
-  cart: "Корзина",
-  account: "Профиль",
-  catalog: "Каталог",
-  admin: "Админ-панель",
-  policy: "Политика конфиденциальности",
-  thank_you: "Спасибо за заказ",
+  cart: 'Корзина',
+  account: 'Профиль',
+  catalog: 'Каталог',
+  admin: 'Админ-панель',
+  policy: 'Политика конфиденциальности',
+  thank_you: 'Спасибо за заказ',
 };
 
 // Локальный кэш для категорий
@@ -51,17 +51,18 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-export default function Breadcrumbs({ productTitle }: { productTitle?: string }) {
+function Breadcrumbs({ productTitle }: { productTitle?: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const subcategorySlug = searchParams.get('subcategory') || 'all';
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchCategories = async () => {
     try {
       if (categoryCache) {
         setCategories(categoryCache);
+        setLoading(false);
         return;
       }
 
@@ -78,6 +79,7 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
         `)
         .eq('is_visible', true)
         .order('id', { ascending: true });
+
       console.log('Supabase query duration for categories in Breadcrumbs:', Date.now() - start, 'ms');
       console.log('Fetched categories for Breadcrumbs:', data);
 
@@ -149,7 +151,7 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
   // Хлебные крошки отображаются всегда, кроме главной страницы
   const shouldRender = pathname !== '/';
 
-  if (shouldRender) {
+  if (shouldRender && !loading) {
     segments.forEach((seg, idx) => {
       currentPath += `/${seg}`;
 
@@ -162,17 +164,6 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
         const category = categories.find((cat) => cat.slug === seg);
         if (category) {
           crumbs.push({ href: `/category/${category.slug}`, label: category.name });
-
-          // Добавляем подкатегорию, если она выбрана через параметр ?subcategory
-          if (subcategorySlug !== 'all') {
-            const subcategory = category.subcategories.find((sub) => sub.slug === subcategorySlug);
-            if (subcategory) {
-              crumbs.push({
-                href: `/category/${category.slug}/${subcategory.slug}`,
-                label: subcategory.name,
-              });
-            }
-          }
         } else {
           const label = decodeURIComponent(seg)
             .split('-')
@@ -187,7 +178,6 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
       }
       // Четвёртый сегмент — подкатегория (обрабатывается через параметр ?subcategory)
       else if (idx === 3 && segments[0] === 'category' && segments[2] === 'subcategory') {
-        // Этот сегмент уже обработан через ?subcategory
         return;
       }
       // Страница товара
@@ -230,40 +220,80 @@ export default function Breadcrumbs({ productTitle }: { productTitle?: string })
       aria-label="Хлебные крошки"
       className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
     >
-      <ol className="flex flex-wrap gap-1 items-center" role="list">
-        {crumbs.map((c, i) => (
-          <Fragment key={c.href}>
-            {i > 0 && (
-              <span aria-hidden="true" className="mx-1 text-gray-400">
-                /
-              </span>
-            )}
-            <li role="listitem">
-              {i === crumbs.length - 1 ? (
-                <span className="text-black font-medium" aria-current="page">
-                  {c.label}
+      {loading ? (
+        <div>Загрузка...</div>
+      ) : (
+        <ol className="flex flex-wrap gap-1 items-center" role="list">
+          {crumbs.map((c, i) => (
+            <Fragment key={c.href}>
+              {i > 0 && (
+                <span aria-hidden="true" className="mx-1 text-gray-400">
+                  /
                 </span>
-              ) : (
-                <Link
-                  href={c.href}
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'breadcrumb_click', {
-                      event_category: 'navigation',
-                      path: c.href,
-                    });
-                    window.ym?.(12345678, 'reachGoal', 'breadcrumb_click', {
-                      path: c.href,
-                    });
-                  }}
-                >
-                  {c.label}
-                </Link>
               )}
-            </li>
-          </Fragment>
-        ))}
-      </ol>
+              <li role="listitem">
+                {i === crumbs.length - 1 ? (
+                  <span className="text-black font-medium" aria-current="page">
+                    {c.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={c.href}
+                    className="hover:underline text-gray-500"
+                    onClick={() => {
+                      window.gtag?.('event', 'breadcrumb_click', {
+                        event_category: 'navigation',
+                        path: c.href,
+                      });
+                      window.ym?.(12345678, 'reachGoal', 'breadcrumb_click', {
+                        path: c.href,
+                      });
+                    }}
+                  >
+                    {c.label}
+                  </Link>
+                )}
+              </li>
+              {i === crumbs.length - 1 && segments[0] === 'category' && segments.length >= 2 && (
+                <Suspense fallback={null}>
+                  <SubcategoryCrumb categories={categories} />
+                </Suspense>
+              )}
+            </Fragment>
+          ))}
+        </ol>
+      )}
     </nav>
   );
 }
+
+// Компонент для отображения подкатегории
+function SubcategoryCrumb({ categories }: { categories: Category[] }) {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const subcategorySlug = searchParams.get('subcategory') || 'all';
+
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'category' || segments.length < 2) return null;
+
+  const categorySlug = segments[1];
+  const category = categories.find((cat) => cat.slug === categorySlug);
+  if (!category) return null;
+
+  if (subcategorySlug !== 'all') {
+    const subcategory = category.subcategories.find((sub) => sub.slug === subcategorySlug);
+    if (subcategory) {
+      return (
+        <li role="listitem" className="flex gap-2">
+          <span aria-hidden="true" className="mx-1 text-gray-400">/</span>
+          <span className="text-black font-medium" aria-current="page">
+            {subcategory.name}
+          </span>
+        </li>
+      );
+    }
+  }
+  return null;
+}
+
+export default Breadcrumbs;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 // Итоговый тип, который мы возвращаем на фронт (для автокомплита)
 interface PopularProduct {
@@ -17,33 +17,26 @@ interface PopularProduct {
 
 export async function GET() {
   try {
-    // Получаем товары из базы
-    const data = await prisma.products.findMany({
-      where: {
-        in_stock: true,
-        is_popular: true,
-        is_visible: true,
-      },
-      select: {
-        id: true,
-        title: true,
-        price: true,
-        original_price: true,
-        discount_percent: true,
-        in_stock: true,
-        images: true,
-        is_popular: true,
-        is_visible: true,
-        order_index: true,
-      },
-      orderBy: {
-        order_index: 'asc',
-      },
-      take: 10,
-    });
+    // Получаем товары из Supabase
+    const { data, error } = await supabaseAdmin
+      .from('products')
+      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index')
+      .eq('in_stock', true)
+      .eq('is_popular', true)
+      .eq('is_visible', true)
+      .order('order_index', { ascending: true })
+      .limit(10);
+
+    if (error) {
+      console.error('Supabase error fetching popular products:', error);
+      return NextResponse.json(
+        { error: 'Ошибка получения популярных товаров: ' + error.message },
+        { status: 500 }
+      );
+    }
 
     // Приводим все поля к правильным типам
-    const formattedData: PopularProduct[] = data.map((product: any) => ({
+    const formattedData: PopularProduct[] = (data || []).map((product: any) => ({
       id: product.id,
       title: product.title,
       price: product.price !== null ? Number(product.price) : null,

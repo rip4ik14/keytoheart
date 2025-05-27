@@ -1,4 +1,3 @@
-// components/AuthWithCall.tsx
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -6,6 +5,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { supabasePublic as supabase } from '@/lib/supabase/public';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -111,6 +111,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
         window.ym?.(96644553, 'reachGoal', 'auth_success', { phone: clearPhone });
+
+        // Отправляем кастомное событие после успешной авторизации
+        window.dispatchEvent(new Event('authChange'));
 
         const redirectTo = searchParams.get('from') || '/account';
         router.push(redirectTo);

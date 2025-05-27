@@ -51,13 +51,46 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const [phone, setPhone] = useState<string>(initialSession?.phone || '');
 
   // Проверка авторизации (кука user_phone)
-  useEffect(() => {
-    if (!isAuthenticated) {
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/check-session', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const sessionData = await response.json();
+      console.log(`${new Date().toISOString()} AccountClient: Check session response`, sessionData);
+
+      if (sessionData.isAuthenticated) {
+        setIsAuthenticated(true);
+        setPhone(sessionData.phone || '');
+      } else {
+        setIsAuthenticated(false);
+        setPhone('');
+        setOrders([]);
+        setBonusData(null);
+      }
+    } catch (error) {
+      console.error(`${new Date().toISOString()} AccountClient: Error checking session`, error);
+      setIsAuthenticated(false);
+      setPhone('');
       setOrders([]);
       setBonusData(null);
-      setPhone('');
     }
-  }, [isAuthenticated]);
+  }, []);
+
+  // Подписка на событие authChange
+  useEffect(() => {
+    const handleAuthChange = () => {
+      console.log(`${new Date().toISOString()} AccountClient: Auth change event received`);
+      checkAuth();
+    };
+
+    window.addEventListener('authChange', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('authChange', handleAuthChange);
+    };
+  }, [checkAuth]);
 
   // Повторная загрузка данных аккаунта с нормализацией телефона
   const fetchAccountData = useCallback(async () => {
@@ -66,19 +99,30 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     setIsLoading(true);
     try {
       // 1. Сгораемость бонусов
-      await fetch('/api/account/expire-bonuses', {
+      const expireRes = await fetch('/api/account/expire-bonuses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phoneForApi }),
-      })
-        .then((res) => res.json())
-        .then((expire) => {
-          if (expire.success && expire.expired > 0) {
-            toast(`Сгорело ${expire.expired} бонусов за неактивность 6 месяцев`, { icon: '⚠️' });
-          }
-        });
+      });
+      const expireResult = await expireRes.json();
+      if (expireRes.ok && expireResult.success && expireResult.expired > 0) {
+        toast(`Сгорело ${expireResult.expired} бонусов за неактивность 6 месяцев`, { icon: '⚠️' });
+      }
 
-      // 2. Загружаем бонусы
+      // 2. Обновляем уровень лояльности
+      const loyaltyRes = await fetch('/api/account/update-loyalty', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone: phoneForApi }),
+      });
+      const loyaltyResult = await loyaltyRes.json();
+      if (!loyaltyRes.ok || !loyaltyResult.success) {
+        console.error('Failed to update loyalty:', loyaltyResult.error);
+      }
+
+      // 3. Загружаем бонусы (после expire-bonuses и update-loyalty)
       const bonusesRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phoneForApi)}`, {
         method: 'GET',
         headers: {
@@ -95,7 +139,12 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
       let bonuses: BonusesData = bonusesResult.data;
 
-      // 3. Загружаем заказы через API
+      // Устанавливаем уровень из loyaltyResult, если он был обновлён
+      if (loyaltyResult.success) {
+        bonuses.level = loyaltyResult.level;
+      }
+
+      // 4. Загружаем заказы через API
       const ordersRes = await fetch(`/api/account/orders?phone=${encodeURIComponent(phoneForApi)}`, {
         method: 'GET',
         headers: {
@@ -133,19 +182,6 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           category: upsell.category || 'unknown',
         })),
       }));
-
-      // 4. Обновляем уровень лояльности
-      const loyaltyRes = await fetch('/api/account/update-loyalty', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phone: phoneForApi }),
-      });
-      const loyaltyResult = await loyaltyRes.json();
-      if (loyaltyRes.ok && loyaltyResult.success) {
-        bonuses.level = loyaltyResult.level;
-      }
 
       setBonusData(bonuses);
       setOrders(transformedOrders);
@@ -191,7 +227,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
       window.ym?.(96644553, 'reachGoal', 'logout');
-      router.refresh(); // чтобы сбросить куки и состояние страницы
+      // Отправляем кастомное событие после выхода
+      window.dispatchEvent(new Event('authChange'));
+      router.refresh();
     } catch {
       toast.error('Ошибка при выходе из аккаунта');
     } finally {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Добавляем useRouter
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
 import SearchModal from '@components/SearchModal';
@@ -21,6 +21,7 @@ type StickyHeaderProps = {
 
 export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
+  const router = useRouter(); // Добавляем router
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
   const {
     animationState,
@@ -53,16 +54,24 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Проверяем наличие куки user_phone
+        const response = await fetch('/api/auth/check-session', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const sessionData = await response.json();
+        console.log(`${new Date().toISOString()} StickyHeader: Check session response`, sessionData);
+
         if (isMounted) {
-          if (session?.user) {
-            const phone = session.user.user_metadata?.phone as string | undefined;
+          if (sessionData.isAuthenticated) {
+            const phone = sessionData.phone;
             if (phone) {
               const normalizedPhone = formatPhone(phone);
               setIsAuthenticated(true);
               try {
                 const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
                 const bonusJson = await bonusRes.json();
+                console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch response`, bonusJson);
                 if (bonusRes.ok && bonusJson.success) {
                   setBonus(bonusJson.data.bonus_balance ?? 0);
                 } else {
@@ -77,8 +86,35 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               setBonus(null);
             }
           } else {
-            setIsAuthenticated(false);
-            setBonus(null);
+            // Проверяем через Supabase, если кука не найдена
+            const { data: { session } } = await supabase.auth.getSession();
+            console.log(`${new Date().toISOString()} StickyHeader: Initial session check (Supabase)`, session?.user);
+            if (session?.user) {
+              const phone = session.user.user_metadata?.phone as string | undefined;
+              if (phone) {
+                const normalizedPhone = formatPhone(phone);
+                setIsAuthenticated(true);
+                try {
+                  const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
+                  const bonusJson = await bonusRes.json();
+                  console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch response (Supabase)`, bonusJson);
+                  if (bonusRes.ok && bonusJson.success) {
+                    setBonus(bonusJson.data.bonus_balance ?? 0);
+                  } else {
+                    setBonus(null);
+                  }
+                } catch (error) {
+                  console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses (Supabase)`, error);
+                  setBonus(null);
+                }
+              } else {
+                setIsAuthenticated(false);
+                setBonus(null);
+              }
+            } else {
+              setIsAuthenticated(false);
+              setBonus(null);
+            }
           }
         }
       } catch (error) {
@@ -89,9 +125,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         }
       }
     };
+
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`${new Date().toISOString()} StickyHeader: Auth state changed`, event, session?.user);
       if (isMounted) {
         if (session?.user) {
           const phone = session.user.user_metadata?.phone as string | undefined;
@@ -101,6 +139,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`)
               .then((res) => res.json())
               .then((bonusJson) => {
+                console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch after auth change`, bonusJson);
                 if (isMounted && bonusJson.success) {
                   setBonus(bonusJson.data.bonus_balance ?? 0);
                 } else if (isMounted) {
@@ -108,7 +147,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 }
               })
               .catch((error) => {
-                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses`, error);
+                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses after auth change`, error);
                 if (isMounted) setBonus(null);
               });
           } else {
@@ -122,9 +161,29 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       }
     });
 
+    // Слушатель изменений в localStorage для синхронизации состояния
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'supabase.auth.token') {
+        console.log(`${new Date().toISOString()} StickyHeader: Storage event detected`, event.newValue);
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Слушатель кастомного события authChange
+    const handleAuthChange = () => {
+      console.log(`${new Date().toISOString()} StickyHeader: Auth change event received`);
+      checkAuth();
+    };
+
+    window.addEventListener('authChange', handleAuthChange);
+
     return () => {
       isMounted = false;
       subscription?.unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChange', handleAuthChange);
     };
   }, []);
 
@@ -180,11 +239,25 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   // Выход из аккаунта
   const handleSignOut = async () => {
     try {
+      // Очищаем сессию Supabase
       await supabase.auth.signOut();
-      setIsAuthenticated(false);
-      setBonus(null);
-      setOpenProfile(false);
-      toast.success('Вы вышли из аккаунта');
+      // Удаляем куку user_phone через API
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        setIsAuthenticated(false);
+        setBonus(null);
+        setOpenProfile(false);
+        toast.success('Вы вышли из аккаунта');
+        // Отправляем кастомное событие после выхода
+        window.dispatchEvent(new Event('authChange'));
+        // Обновляем страницу
+        router.refresh();
+      } else {
+        throw new Error('Failed to logout');
+      }
     } catch (error) {
       console.error(`${new Date().toISOString()} StickyHeader: Error signing out`, error);
       toast.error('Не удалось выйти из аккаунта');
@@ -290,7 +363,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     loading="lazy"
                   />
                   <div className="hidden md:flex items-center gap-2">
-                    {bonus !== null && bonus > 0 && (
+                    {bonus !== null && bonus >= 0 && (
                       <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
                         Бонусов: {bonus}
                       </span>
@@ -308,7 +381,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                       className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
                     >
                       <div className="py-1">
-                        {bonus !== null && bonus > 0 && (
+                        {bonus !== null && bonus >= 0 && (
                           <div className="px-4 py-2 text-sm text-gray-700 md:hidden">
                             Бонусов: {bonus}
                           </div>

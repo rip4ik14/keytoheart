@@ -1,18 +1,26 @@
-// ✅ Путь: components/steps/Step4DateTime.tsx
 'use client';
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 
-interface DaySchedule { start: string; end: string; }
+interface DaySchedule {
+  start: string;
+  end: string;
+  enabled?: boolean;
+}
+
 interface Props {
   form: { date: string; time: string };
   dateError: string;
   timeError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   getMinDate: () => string;
-  storeHours: Record<string, DaySchedule>;
+  storeSettings: {
+    order_acceptance_schedule: Record<string, DaySchedule>;
+    store_hours: Record<string, DaySchedule>;
+    order_acceptance_enabled: boolean;
+  };
   maxProductionTime: number | null;
 }
 
@@ -31,23 +39,51 @@ export default function Step4DateTime({
   timeError,
   onFormChange,
   getMinDate,
-  storeHours,
+  storeSettings,
   maxProductionTime,
 }: Props) {
-  const todayKey = new Date(form.date || Date.now())
-    .toLocaleString('en-US', { weekday: 'long' })
-    .toLowerCase();
-  const schedule = storeHours[todayKey] || { start: '09:00', end: '18:00' };
+  // Получаем текущую дату и день недели для выбранной даты
+  const selectedDate = form.date ? new Date(form.date) : new Date();
+  const todayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
 
+  // Получаем расписание приёма заказов и работы магазина
+  const orderSchedule = storeSettings.order_acceptance_schedule[todayKey] || { start: '09:00', end: '18:00', enabled: true };
+  const storeSchedule = storeSettings.store_hours[todayKey] || { start: '09:00', end: '18:00', enabled: true };
+
+  // Определяем минимальную и максимальную границы времени
+  const earliestStart = orderSchedule.enabled && storeSchedule.enabled
+    ? orderSchedule.start > storeSchedule.start ? orderSchedule.start : storeSchedule.start
+    : '00:00';
+  const latestEnd = orderSchedule.enabled && storeSchedule.enabled
+    ? orderSchedule.end < storeSchedule.end ? orderSchedule.end : storeSchedule.end
+    : '23:59';
+
+  // Вычисляем минимальное время доставки с учётом времени изготовления
   const computeMin = () => {
     const now = new Date();
-    if (maxProductionTime != null) {
-      now.setHours(now.getHours() + maxProductionTime);
+    const selected = form.date ? new Date(form.date) : now;
+
+    // Если дата доставки — сегодня, учитываем текущее время и время изготовления
+    const isToday =
+      selected.getFullYear() === now.getFullYear() &&
+      selected.getMonth() === now.getMonth() &&
+      selected.getDate() === now.getDate();
+
+    let minDateTime = isToday ? now : selected;
+
+    if (isToday && maxProductionTime != null) {
+      minDateTime.setHours(minDateTime.getHours() + maxProductionTime);
     }
-    const [h, m] = schedule.start.split(':').map(Number);
-    const earliest = new Date(now);
+
+    const [h, m] = earliestStart.split(':').map(Number);
+    const earliest = new Date(selected);
     earliest.setHours(h, m, 0, 0);
-    return now > earliest ? now : earliest;
+
+    // Если доставка сегодня и текущее время с учётом времени изготовления позже начала рабочего дня, используем его
+    if (isToday && minDateTime > earliest) {
+      return minDateTime;
+    }
+    return earliest;
   };
 
   const minDate = getMinDate();
@@ -56,20 +92,60 @@ export default function Step4DateTime({
     minTimeDate.getMinutes()
   ).padStart(2, '0')}`;
 
+  // Проверяем, попадает ли выбранная дата в рабочие дни
+  const isDateValid = () => {
+    if (!form.date) return false;
+    const date = new Date(form.date);
+    const dayKey = date.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+    const orderDaySchedule = storeSettings.order_acceptance_schedule[dayKey];
+    const storeDaySchedule = storeSettings.store_hours[dayKey];
+    return (
+      orderDaySchedule?.enabled !== false &&
+      storeDaySchedule?.enabled !== false &&
+      date >= new Date(minDate)
+    );
+  };
+
   const onDate = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (new Date(val) < new Date(minDate)) {
+    const selectedDate = new Date(val);
+    if (selectedDate < new Date(minDate)) {
       onFormChange({ target: { name: 'date', value: minDate } } as any);
-      toast.error(`Дата не раньше ${minDate}`);
-    } else {
-      onFormChange(e);
+      toast.error(`Дата не может быть раньше ${minDate}`);
+      return;
+    }
+
+    const dayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+    const orderDaySchedule = storeSettings.order_acceptance_schedule[dayKey];
+    const storeDaySchedule = storeSettings.store_hours[dayKey];
+
+    if (!orderDaySchedule?.enabled || !storeDaySchedule?.enabled) {
+      toast.error('Магазин не принимает заказы или не работает в выбранный день. Выберите другой день.');
+      onFormChange({ target: { name: 'date', value: minDate } } as any);
+      return;
+    }
+
+    onFormChange(e);
+
+    // Сбрасываем время, если оно не попадает в новое расписание
+    if (form.time) {
+      const newEarliestStart = orderDaySchedule.start > storeDaySchedule.start ? orderDaySchedule.start : storeDaySchedule.start;
+      const newLatestEnd = orderDaySchedule.end < storeDaySchedule.end ? orderDaySchedule.end : storeDaySchedule.end;
+      if (form.time < newEarliestStart || form.time > newLatestEnd) {
+        onFormChange({ target: { name: 'time', value: newEarliestStart } } as any);
+        toast(`Время доставки сброшено до ${newEarliestStart}, так как выбранный день имеет другое расписание.`);
+      }
     }
   };
 
   const onTime = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.value < minTime) {
+    const val = e.target.value;
+    if (val < minTime) {
       onFormChange({ target: { name: 'time', value: minTime } } as any);
-      toast.error(`Время не раньше ${minTime}`);
+      toast.error(`Время не может быть раньше ${minTime} с учётом времени изготовления.`);
+    } else if (val > latestEnd) {
+      onFormChange({ target: { name: 'time', value: latestEnd } } as any);
+      toast.error(`Время не может быть позже ${latestEnd} согласно графику работы магазина.`);
     } else {
       onFormChange(e);
     }
@@ -77,6 +153,18 @@ export default function Step4DateTime({
 
   return (
     <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+      {!storeSettings.order_acceptance_enabled && (
+        <motion.div
+          className="text-red-500 text-sm"
+          initial="hidden"
+          animate="visible"
+          custom={0}
+          variants={containerVariants}
+        >
+          Приём заказов временно отключён. Выберите дату и время позже, когда приём заказов будет включён.
+        </motion.div>
+      )}
+
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -102,6 +190,7 @@ export default function Step4DateTime({
               dateError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             aria-invalid={!!dateError}
+            disabled={!storeSettings.order_acceptance_enabled}
           />
         </div>
         {dateError && <p className="text-red-500 text-xs">{dateError}</p>}
@@ -128,15 +217,16 @@ export default function Step4DateTime({
             value={form.time}
             onChange={onTime}
             min={minTime}
-            max={schedule.end}
+            max={latestEnd}
             className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
               timeError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
             aria-invalid={!!timeError}
+            disabled={!storeSettings.order_acceptance_enabled || !isDateValid()}
           />
         </div>
         <p className="text-xs text-gray-500">
-          Доставка с {schedule.start} до {schedule.end}
+          Доставка с {earliestStart} до {latestEnd}
         </p>
         {timeError && <p className="text-red-500 text-xs">{timeError}</p>}
       </motion.div>

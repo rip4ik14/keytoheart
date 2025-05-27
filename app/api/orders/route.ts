@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -26,7 +27,6 @@ interface OrderRequest {
   }>;
   total: number;
   bonuses_used?: number;
-  bonus?: number;
   promo_id?: string;
   promo_discount?: number;
   delivery_instructions?: string;
@@ -79,7 +79,6 @@ export async function POST(req: Request) {
       items: cart,
       total,
       bonuses_used = 0,
-      bonus: initialBonus = 0,
       promo_id,
       promo_discount = 0,
       delivery_instructions,
@@ -140,7 +139,7 @@ export async function POST(req: Request) {
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
 
-    // Проверяем, что все product_id для основных товаров существуют в таблице products
+    // Проверяем, что все product_id для основных товаров существуют в Supabase
     const productIds = regularItems
       .map((item) => {
         const id = parseInt(item.id, 10);
@@ -156,18 +155,39 @@ export async function POST(req: Request) {
     }
 
     if (productIds.length > 0) {
-      const products: Product[] = await prisma.products.findMany({
-        where: { id: { in: productIds } },
-        select: { id: true },
-      });
-      const existingProductIds = new Set(products.map((p) => p.id));
+      const { data: products, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('id, in_stock, is_visible')
+        .in('id', productIds);
+
+      if (productError) {
+        console.error('Supabase error fetching products:', productError);
+        return NextResponse.json(
+          { error: 'Ошибка получения товаров: ' + productError.message },
+          { status: 500 }
+        );
+      }
+
       const invalidItems = regularItems.filter((item) => {
         const itemId = parseInt(item.id, 10);
-        return !isNaN(itemId) && !existingProductIds.has(itemId);
+        const product = products.find((p: any) => p.id === itemId);
+        if (!product) return true; // Товар не найден
+        if (!product.in_stock) return true; // Товар отсутствует в наличии
+        if (!product.is_visible) return true; // Товар не доступен для заказа
+        return false;
       });
+
       if (invalidItems.length > 0) {
+        const reasons = invalidItems.map((item) => {
+          const itemId = parseInt(item.id, 10);
+          const product = products.find((p: any) => p.id === itemId);
+          if (!product) return `Товар с ID ${itemId} не найден`;
+          if (!product.in_stock) return `Товар с ID ${itemId} отсутствует в наличии`;
+          if (!product.is_visible) return `Товар с ID ${itemId} не доступен для заказа`;
+          return `Товар с ID ${itemId} недоступен`;
+        });
         return NextResponse.json(
-          { error: `Товары с ID ${invalidItems.map((i) => i.id).join(', ')} не найдены` },
+          { error: reasons.join('; ') },
           { status: 400 }
         );
       }
@@ -188,7 +208,7 @@ export async function POST(req: Request) {
         payment_method: payment,
         total,
         bonuses_used,
-        bonus: 0,
+        bonus: 0, // Бонусы не начисляем при создании
         promo_id,
         promo_discount,
         status: 'pending',
@@ -225,10 +245,8 @@ export async function POST(req: Request) {
 
     // --- Побочные ошибки ловим отдельно ---
     let redeemBonusError: string | null = null;
-    let orderBonusError: string | null = null;
     let promoError: string | null = null;
     let telegramError: string | null = null;
-    let bonusAdded = 0;
 
     // Списание бонусов
     if (bonuses_used > 0) {
@@ -243,35 +261,6 @@ export async function POST(req: Request) {
         }
       } catch (e: any) {
         redeemBonusError = e.message;
-      }
-    }
-
-    // Начисление бонусов
-    try {
-      const resBonus = await fetch(`${baseUrl}/api/order-bonus`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: sanitizedPhone, order_total: total, order_id: order.id }),
-      });
-      if (resBonus.ok) {
-        const bonusResult = await resBonus.json();
-        bonusAdded = bonusResult.bonus_added || 0;
-      } else {
-        orderBonusError = await resBonus.text();
-      }
-    } catch (e: any) {
-      orderBonusError = e.message;
-    }
-
-    // Обновляем заказ с начисленным количеством бонусов
-    if (bonusAdded) {
-      try {
-        await prisma.orders.update({
-          where: { id: order.id },
-          data: { bonus: bonusAdded },
-        });
-      } catch (updateOrderError: any) {
-        console.error('[bonus update error]', updateOrderError.message);
       }
     }
 
@@ -295,7 +284,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Формируем сообщение для Telegram
+    // Формируем сообщение для Telegram (без ПДн)
     const itemsList = regularItems.length
       ? regularItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
       : 'Нет основных товаров';
@@ -306,24 +295,12 @@ export async function POST(req: Request) {
     const promoText = promo_id
       ? `<b>Промокод:</b> Применён (скидка: ${promo_discount}₽)`
       : `<b>Промокод:</b> Не применён`;
-    const anonymousText = anonymous ? 'Да' : 'Нет';
-    const whatsappText = whatsapp ? 'Да' : 'Нет';
-    const postcardTextMessage = sanitizedPostcardText || 'Не указан';
     const message = `<b>🆕 Новый заказ #${order.order_number}</b>
-<b>Имя:</b> ${escapeHtml(sanitizedName)}
-<b>Телефон:</b> ${escapeHtml(sanitizedPhone)}
-<b>Телефон получателя:</b> ${escapeHtml(sanitizedRecipientPhone)}
 <b>Сумма:</b> ${total} ₽
 <b>Бонусы списано:</b> ${bonuses_used}
-<b>Бонусы начислено:</b> ${bonusAdded}
 <b>Дата/Время:</b> ${date} ${time}
 <b>Способ доставки:</b> ${deliveryMethodText}
-<b>Адрес:</b> ${escapeHtml(sanitizedAddress || 'Не указан (самовывоз)')}
-<b>Получатель:</b> ${escapeHtml(sanitizedRecipient)}
 <b>Оплата:</b> ${payment === 'cash' ? 'Наличные' : 'Онлайн'}
-<b>Анонимный заказ:</b> ${anonymousText}
-<b>Связь через WhatsApp:</b> ${whatsappText}
-<b>Текст открытки:</b> ${escapeHtml(postcardTextMessage)}
 ${promoText}
 
 <b>Основные товары:</b>
@@ -355,7 +332,7 @@ ${upsellList}`;
       console.error('[Telegram send error]', telegramError);
     }
 
-    // Возвращаем всегда успех (даже если бонусы/telegram/промо упали)
+    // Возвращаем всегда успех (даже если telegram/промо упали)
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -366,7 +343,6 @@ ${upsellList}`;
       tracking_url: `/account/orders/${order.id}`,
       telegramError,
       redeemBonusError,
-      orderBonusError,
       promoError,
     });
   } catch (error: any) {

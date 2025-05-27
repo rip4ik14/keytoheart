@@ -1,4 +1,3 @@
-// app/admin/(protected)/customers/[id]/CustomerDetailClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -45,12 +44,32 @@ interface Props {
   } | null;
 }
 
+// Маппинг уровней для отображения в UI
+const levelDisplayMap: Record<string, { name: string; discount: string }> = {
+  bronze: { name: 'Бронзовый', discount: '2.5%' },
+  silver: { name: 'Серебряный', discount: '5%' },
+  gold: { name: 'Золотой', discount: '7.5%' },
+  platinum: { name: 'Платиновый', discount: '10%' },
+  premium: { name: 'Премиум', discount: '15%' },
+};
+
+// Список всех уровней для выпадающего списка
+const levelOptions = [
+  { value: 'bronze', label: 'Бронзовый (2.5%)' },
+  { value: 'silver', label: 'Серебряный (5%)' },
+  { value: 'gold', label: 'Золотой (7.5%)' },
+  { value: 'platinum', label: 'Платиновый (10%)' },
+  { value: 'premium', label: 'Премиум (15%)' },
+];
+
 export default function CustomerDetailClient({ customer }: Props) {
   const [editingDates, setEditingDates] = useState(false);
   const [tempDates, setTempDates] = useState<Event[]>(customer?.important_dates || []);
   const [bonusAction, setBonusAction] = useState<'add' | 'subtract' | null>(null);
   const [bonusAmount, setBonusAmount] = useState('');
   const [bonusReason, setBonusReason] = useState('');
+  const [editingLevel, setEditingLevel] = useState(false);
+  const [tempLevel, setTempLevel] = useState(customer?.bonuses.level || 'bronze');
   const router = useRouter();
 
   // Добавление нового события
@@ -81,11 +100,9 @@ export default function CustomerDetailClient({ customer }: Props) {
       return;
     }
 
-    // приводим supabase к any, чтобы TS не ругался на таблицу
     const sb = supabasePublic as any;
 
     try {
-      // Удаляем старые
       const { error: delErr } = await sb
         .from('important_dates')
         .delete()
@@ -119,36 +136,61 @@ export default function CustomerDetailClient({ customer }: Props) {
 
   // Управление бонусами
   const handleBonusAction = async () => {
-    if (!customer || !bonusAction) return;
+    if (!customer) {
+      toast.error('Клиент не найден');
+      return;
+    }
+
+    if (!customer.phone || !customer.id) {
+      toast.error('Недостаточно данных о клиенте');
+      return;
+    }
+
     const amt = parseInt(bonusAmount, 10);
     if (isNaN(amt) || amt <= 0) {
       toast.error('Сумма должна быть > 0');
       return;
     }
+
+    if (!bonusReason.trim()) {
+      toast.error('Укажите причину');
+      return;
+    }
+
     const delta = bonusAction === 'add' ? amt : -amt;
     const newBal = (customer.bonuses.bonus_balance || 0) + delta;
     if (newBal < 0) {
       toast.error('Баланс не может быть отрицательным');
       return;
     }
-    const sb = supabasePublic as any;
+
     try {
-      // обновляем баланс
-      const { error: bErr } = await sb
-        .from('bonuses')
-        .update({ bonus_balance: newBal })
-        .eq('phone', customer.phone);
-      if (bErr) throw bErr;
-      // история
-      const { error: hErr } = await sb
-        .from('bonus_history')
-        .insert({
-          user_id: customer.id,
-          amount: delta,
+      console.log('Sending bonus update request:', {
+        phone: customer.phone,
+        delta,
+        reason: bonusReason,
+        user_id: customer.id,
+      });
+
+      const response = await fetch('/api/admin/bonuses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: customer.phone,
+          delta,
           reason: bonusReason,
-          created_at: new Date().toISOString(),
-        });
-      if (hErr) throw hErr;
+          user_id: customer.id,
+        }),
+      });
+
+      const result = await response.json();
+      console.log('Bonus update response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update bonuses');
+      }
 
       toast.success(bonusAction === 'add' ? 'Начислено' : 'Списано');
       setBonusAction(null);
@@ -156,7 +198,37 @@ export default function CustomerDetailClient({ customer }: Props) {
       setBonusReason('');
       router.refresh();
     } catch (err: any) {
+      console.error('Error updating bonuses:', err);
       toast.error(err.message);
+    }
+  };
+
+  // Управление уровнем клиента
+  const handleLevelChange = async () => {
+    if (!customer) return;
+
+    try {
+      const response = await fetch('/api/admin/update-level', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: customer.phone,
+          level: tempLevel,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update customer level');
+      }
+
+      toast.success('Уровень клиента обновлён');
+      setEditingLevel(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error('Не удалось обновить уровень: ' + err.message);
     }
   };
 
@@ -168,6 +240,9 @@ export default function CustomerDetailClient({ customer }: Props) {
       </div>
     );
   }
+
+  const currentLevel = customer.bonuses.level || 'bronze';
+  const levelDisplay = levelDisplayMap[currentLevel] || levelDisplayMap.bronze;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -239,11 +314,42 @@ export default function CustomerDetailClient({ customer }: Props) {
         )}
       </section>
 
-      {/* Бонусы */}
+      {/* Бонусы и уровень */}
       <section className="border p-4 rounded space-y-2">
-        <h2 className="text-xl">Бонусы</h2>
+        <h2 className="text-xl">Бонусы и уровень</h2>
         <div>Баланс: {customer.bonuses.bonus_balance} ₽</div>
-        <div>Уровень: {customer.bonuses.level}</div>
+        <div className="flex items-center gap-2">
+          <span>Уровень:</span>
+          {!editingLevel ? (
+            <>
+              <span>{levelDisplay.name} ({levelDisplay.discount})</span>
+              <button onClick={() => setEditingLevel(true)}>Изменить</button>
+            </>
+          ) : (
+            <>
+              <select
+                value={tempLevel}
+                onChange={(e) => setTempLevel(e.target.value)}
+                className="border p-1 rounded"
+              >
+                {levelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button onClick={handleLevelChange}>Сохранить</button>
+              <button
+                onClick={() => {
+                  setEditingLevel(false);
+                  setTempLevel(customer.bonuses.level || 'bronze');
+                }}
+              >
+                Отменить
+              </button>
+            </>
+          )}
+        </div>
 
         {!bonusAction ? (
           <div className="flex gap-2">
@@ -264,7 +370,7 @@ export default function CustomerDetailClient({ customer }: Props) {
             <input
               value={bonusReason}
               onChange={(ev) => setBonusReason(ev.target.value)}
-              placeholder="Причина"
+              placeholder="Причина (обязательно)"
               className="border p-1"
             />
             <button onClick={handleBonusAction}>ОК</button>
@@ -301,5 +407,5 @@ export default function CustomerDetailClient({ customer }: Props) {
         ))}
       </section>
     </div>
-);
+  );
 }

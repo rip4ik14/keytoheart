@@ -1,5 +1,3 @@
-// ✅ Путь: app/(protected)/products/new/page.tsx
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -205,8 +203,18 @@ export default function NewProductPage() {
       if (title.trim().length < 3) throw new Error('Название должно быть ≥ 3 символов');
       const priceNum = parseFloat(price);
       if (isNaN(priceNum) || priceNum <= 0) throw new Error('Цена должна быть > 0');
-      const originalPriceNum = parseFloat(originalPrice);
-      if (isNaN(originalPriceNum) || originalPriceNum <= 0) throw new Error('Старая цена должна быть > 0');
+      
+      // Проверка для originalPrice (необязательное поле)
+      let originalPriceNum: number | undefined;
+      if (originalPrice) {
+        originalPriceNum = parseFloat(originalPrice);
+        if (isNaN(originalPriceNum) || originalPriceNum <= 0) {
+          throw new Error('Старая цена должна быть > 0, если указана');
+        }
+      } else {
+        originalPriceNum = undefined; // Если поле пустое, передаём undefined
+      }
+
       if (categoryIds.length === 0) throw new Error('Необходимо выбрать хотя бы одну категорию');
       const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
       if (discountNum < 0 || discountNum > 100) throw new Error('Скидка должна быть от 0 до 100%');
@@ -255,7 +263,7 @@ export default function NewProductPage() {
       const payload = {
         title: title.trim(),
         price: priceNum,
-        original_price: originalPriceNum,
+        original_price: originalPriceNum, // Может быть undefined
         discount_percent: discountNum,
         category: categoriesData.map(cat => cat.name).join(', '),
         category_ids: categoryIds,
@@ -394,15 +402,14 @@ export default function NewProductPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="originalPrice" className="block mb-1 font-medium text-gray-600">Старая цена (₽):</label>
+                  <label htmlFor="originalPrice" className="block mb-1 font-medium text-gray-600">Старая цена (₽, опционально):</label>
                   <input
                     id="originalPrice"
                     type="number"
                     value={originalPrice}
                     onChange={e => setOriginalPrice(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
-                    placeholder="Старая цена"
-                    required
+                    placeholder="Старая цена (необязательно)"
                     min="0.01"
                     step="0.01"
                   />

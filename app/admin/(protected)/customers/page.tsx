@@ -1,5 +1,3 @@
-// app/admin/(protected)/customers/page.tsx
-
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
@@ -79,7 +77,6 @@ export default async function CustomersPage() {
         select: { type: true, date: true, description: true },
       });
 
-      // <--- Фиксируем даты
       const important_dates: Event[] = dates.map((event: any) => ({
         ...event,
         date: event.date ? event.date.toISOString() : null,
@@ -110,16 +107,8 @@ export default async function CustomersPage() {
       const orders: Order[] = ordersRaw.map((order: any) => ({
         ...order,
         created_at: order.created_at ? order.created_at.toISOString() : null,
-        total:
-          typeof order.total === 'object' && order.total !== null && 'toNumber' in order.total
-            ? Number(order.total)
-            : order.total ?? 0,
-        bonuses_used:
-          typeof order.bonuses_used === 'object' &&
-          order.bonuses_used !== null &&
-          'toNumber' in order.bonuses_used
-            ? Number(order.bonuses_used)
-            : order.bonuses_used ?? 0,
+        total: order.total ? Number(order.total) : 0,
+        bonuses_used: order.bonuses_used ? Number(order.bonuses_used) : 0,
         order_items: order.order_items,
       }));
 
@@ -137,10 +126,7 @@ export default async function CustomersPage() {
       });
 
       const bonus_history: BonusHistoryEntry[] = bonusHistoryRaw.map((entry: any) => ({
-        amount:
-          typeof entry.amount === 'object' && entry.amount !== null && 'toNumber' in entry.amount
-            ? Number(entry.amount)
-            : entry.amount ?? 0,
+        amount: entry.amount ? Number(entry.amount) : 0,
         reason: entry.reason,
         created_at: entry.created_at ? entry.created_at.toISOString() : null,
       }));
@@ -150,9 +136,14 @@ export default async function CustomersPage() {
         phone: phone || '—',
         email: profile.email || null,
         created_at: profile.created_at ? profile.created_at.toISOString() : null,
-        important_dates, // <-- вот тут кладем уже массив строк!
+        important_dates,
         orders,
-        bonuses: bonuses || { bonus_balance: null, level: null },
+        bonuses: bonuses
+          ? {
+              bonus_balance: bonuses.bonus_balance ? Number(bonuses.bonus_balance) : null,
+              level: bonuses.level,
+            }
+          : { bonus_balance: null, level: null },
         bonus_history,
       });
     }
