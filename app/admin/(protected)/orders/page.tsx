@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyAdminJwt } from '@/lib/auth';
 
-// Расширенный интерфейс Order
+// Интерфейс заказа (можно вынести в types.ts)
 interface Order {
   id: string;
   created_at: string | null;
@@ -41,10 +41,9 @@ interface Order {
 }
 
 export default async function AdminOrdersPage() {
-  // Геттер cookies возвращает Promise
+  // Проверка и очистка cookies Supabase
   const cookieStore = await cookies();
 
-  // Удаляем все sb-куки Supabase, если есть
   for (const c of cookieStore.getAll()) {
     if (c.name.startsWith('sb-')) {
       cookieStore.delete(c.name);
@@ -90,32 +89,46 @@ export default async function AdminOrdersPage() {
       orderBy: { created_at: 'desc' },
     });
 
-    // Явно типизируем параметр o как any
+    // Приведение к нужному виду: items и upsell_details всегда массив
     orders = rows.map((o: any): Order => ({
       id: o.id,
       created_at: o.created_at ? o.created_at.toISOString() : null,
-      phone: o.phone,
-      contact_name: o.contact_name,
-      recipient: o.recipient,
-      recipient_phone: o.recipient_phone,
-      address: o.address,
-      total: o.total !== null ? Number(o.total) : null,
-      payment_method: o.payment_method,
-      status: o.status,
-      delivery_method: o.delivery_method,
-      delivery_date: o.delivery_date,
-      delivery_time: o.delivery_time,
-      anonymous: o.anonymous,
-      whatsapp: o.whatsapp,
-      postcard_text: o.postcard_text,
-      promo_id: o.promo_id,
-      promo_discount: o.promo_discount !== null ? Number(o.promo_discount) : null,
-      items: o.items,
-      upsell_details: o.upsell_details,
+      phone: o.phone ?? null,
+      contact_name: o.contact_name ?? null,
+      recipient: o.recipient ?? null,
+      recipient_phone: o.recipient_phone ?? null,
+      address: o.address ?? null,
+      total: o.total !== null && o.total !== undefined ? Number(o.total) : null,
+      payment_method: o.payment_method ?? null,
+      status: o.status ?? null,
+      delivery_method: o.delivery_method ?? null,
+      delivery_date: o.delivery_date ?? null,
+      delivery_time: o.delivery_time ?? null,
+      anonymous: o.anonymous ?? null,
+      whatsapp: o.whatsapp ?? null,
+      postcard_text: o.postcard_text ?? null,
+      promo_id: o.promo_id ?? null,
+      promo_discount: o.promo_discount !== null && o.promo_discount !== undefined ? Number(o.promo_discount) : null,
+      items:
+        Array.isArray(o.items)
+          ? o.items
+          : o.items
+            ? typeof o.items === 'string'
+              ? JSON.parse(o.items)
+              : o.items
+            : [],
+      upsell_details:
+        Array.isArray(o.upsell_details)
+          ? o.upsell_details
+          : o.upsell_details
+            ? typeof o.upsell_details === 'string'
+              ? JSON.parse(o.upsell_details)
+              : o.upsell_details
+            : [],
     }));
   } catch (err: any) {
     console.error('Error fetching orders:', err);
-    loadError = err.message || 'Ошибка загрузки заказов';
+    loadError = err?.message || 'Ошибка загрузки заказов';
   }
 
   return (
