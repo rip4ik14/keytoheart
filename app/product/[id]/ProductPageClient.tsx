@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
+import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@context/CartContext';
 import { Share2, Star } from 'lucide-react';
 import 'swiper/css';
 import 'swiper/css/navigation';
-import 'swiper/css/free-mode';
 import 'swiper/css/thumbs';
 import { Product } from '@/types/product';
 
@@ -89,11 +88,13 @@ export default function ProductPageClient({
 }) {
   const { addItem } = useCart();
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
   const [bonusPercent] = useState<number>(0.025);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
+  const mainSwiperRef = useRef<any>(null);
 
   // Загружаем настройки магазина
   useEffect(() => {
@@ -246,9 +247,12 @@ export default function ProductPageClient({
     }
   };
 
+  // Чтобы избавиться от ошибок typescript про null
+  const images: string[] = Array.isArray(product.images) ? product.images : [];
+
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -263,7 +267,8 @@ export default function ProductPageClient({
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          {/* Галерея */}
           <motion.div
             className="w-full"
             variants={containerVariants}
@@ -271,99 +276,141 @@ export default function ProductPageClient({
             animate="visible"
             aria-label="Галерея изображений товара"
           >
-            <Swiper
-              navigation={{
-                prevEl: `.customSwiperButtonPrev`,
-                nextEl: `.customSwiperButtonNext`,
-              }}
-              thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
-              modules={[FreeMode, Navigation, Thumbs]}
-              className={`customSwiper rounded-lg overflow-hidden relative`}
-              aria-label="Основной слайдер изображений"
-            >
-              {(product.images || []).map((src, i) => (
-                <SwiperSlide key={i}>
-                  <div className="relative aspect-[4/3] w-full bg-gray-100">
-                    <Image
-                      src={src}
-                      alt={`${product.title} - фото ${i + 1}`}
-                      fill
-                      className="object-cover"
-                      loading="lazy"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
-                  </div>
-                </SwiperSlide>
-              ))}
-              <div className="customSwiperButtonPrev"></div>
-              <div className="customSwiperButtonNext"></div>
-            </Swiper>
-            <Swiper
-              onSwiper={setThumbsSwiper}
-              spaceBetween={8}
-              slidesPerView={4}
-              freeMode={true}
-              watchSlidesProgress={true}
-              modules={[FreeMode, Navigation, Thumbs]}
-              className="mt-3"
-              aria-label="Миниатюры изображений"
-            >
-              {(product.images || []).map((src, i) => (
-                <SwiperSlide key={i}>
-                  <div className="relative aspect-[4/3] rounded overflow-hidden cursor-pointer shadow-sm">
-                    <Image
-                      src={src}
-                      alt={`${product.title} - миниатюра ${i + 1}`}
-                      fill
-                      className="object-cover hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                      sizes="(max-width: 768px) 25vw, 10vw"
-                    />
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
+            <div className="relative">
+              <Swiper
+                onSwiper={mainSwiper => {
+                  mainSwiperRef.current = mainSwiper;
+                }}
+                onSlideChange={swiper => setActiveIndex(swiper.activeIndex)}
+                navigation={{
+                  prevEl: '.customSwiperButtonPrev',
+                  nextEl: '.customSwiperButtonNext',
+                }}
+                thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
+                modules={[Navigation, Thumbs]}
+                className={`customSwiper rounded-2xl overflow-hidden relative`}
+                slidesPerView={1}
+                style={{ minHeight: 360 }}
+              >
+                {images.map((src, i) => (
+                  <SwiperSlide key={i}>
+                    <div className="relative aspect-[4/3] w-full bg-gray-100">
+                      <Image
+                        src={src}
+                        alt={`${product.title} - фото ${i + 1}`}
+                        fill
+                        className="object-cover"
+                        loading="lazy"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    </div>
+                  </SwiperSlide>
+                ))}
+                {/* Кастомные стрелки */}
+                <button className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
+                  <span className="text-2xl text-white">&#60;</span>
+                </button>
+                <button className="customSwiperButtonNext absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
+                  <span className="text-2xl text-white">&#62;</span>
+                </button>
+              </Swiper>
+
+              {/* Миниатюры снизу */}
+              {images.length > 1 && (
+                <Swiper
+                  onSwiper={setThumbsSwiper}
+                  spaceBetween={12}
+                  slidesPerView={Math.min(images.length, 6)}
+                  watchSlidesProgress
+                  modules={[Navigation, Thumbs]}
+                  className="mt-3"
+                  style={{ maxWidth: '100%' }}
+                  breakpoints={{
+                    320: { slidesPerView: 4 },
+                    640: { slidesPerView: 5 },
+                    1024: { slidesPerView: 6 },
+                  }}
+                >
+                  {images.map((src, i) => (
+                    <SwiperSlide key={i} className="cursor-pointer group">
+                      <div
+                        className={`relative aspect-[4/3] rounded-xl overflow-hidden border transition-all duration-200 ${activeIndex === i ? 'border-black shadow-lg' : 'border-gray-200'}`}
+                        onClick={() => {
+                          if (mainSwiperRef.current) {
+                            mainSwiperRef.current.slideTo(i);
+                          }
+                        }}
+                      >
+                        <Image
+                          src={src}
+                          alt={`Миниатюра ${i + 1}`}
+                          fill
+                          className={`object-cover group-hover:scale-105 transition-transform duration-200`}
+                          loading="lazy"
+                          sizes="(max-width: 768px) 20vw, 8vw"
+                        />
+                      </div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              )}
+            </div>
           </motion.div>
 
+          {/* Блок информации */}
           <motion.div
             className="flex flex-col space-y-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            <h1 className="text-2xl sm:text-3xl font-sans font-bold tracking-tight">
+            {/* Скидка/распродажа/популярное */}
+            <div className="flex items-center gap-3">
+              {discountPercent > 0 && (
+                <span className="px-2 py-1 text-xs font-bold rounded-md bg-black text-white">
+                  -{discountPercent}%
+                </span>
+              )}
+              {discountPercent > 0 && (
+                <span className="px-2 py-1 text-xs font-medium rounded-md bg-gray-200 text-black">
+                  РАСПРОДАЖА
+                </span>
+              )}
+            </div>
+            {/* Название */}
+            <h1 className="text-2xl sm:text-3xl font-bold font-sans uppercase tracking-tight mb-1 leading-tight">
               {product.title}
             </h1>
+            {/* Цена/скидка/бонус */}
             <div className="flex flex-col gap-2">
-              {discountPercent > 0 && (
-                <span className="text-lg font-bold text-black">
-                  {discountPercent}% скидка
-                </span>
-              )}
-              {discountPercent > 0 ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-4xl font-bold text-black">
-                    {discountedPrice} ₽
-                  </span>
-                  <span className="text-2xl text-gray-500 line-through">
-                    {product.price} ₽
-                  </span>
-                </div>
-              ) : (
-                <span className="text-4xl font-bold text-black">
-                  {product.price} ₽
-                </span>
-              )}
-              <div className="flex items-center gap-2">
-                <Image src="/icons/bonus.svg" alt="Бонус" width={20} height={20} />
-                <span className="text-base text-black font-medium">
-                  +{bonus} ₽ бонус
+              <div className="flex items-end gap-4">
+                {discountPercent > 0 ? (
+                  <>
+                    <span className="text-3xl sm:text-4xl font-bold text-black">{discountedPrice}₽</span>
+                    <span className="text-xl text-gray-500 line-through">{product.price}₽</span>
+                    <span className="px-2 py-1 text-xs font-semibold rounded bg-black text-white">
+                      -{(product.price - discountedPrice)}₽
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-3xl sm:text-4xl font-bold text-black">{product.price}₽</span>
+                )}
+                <span className="text-base sm:text-lg text-black font-medium ml-3 flex items-center gap-1">
+                  + бонус {bonus}₽
+                  <span
+                    className="ml-1 text-gray-400 cursor-pointer"
+                    title="Бонус за оплату заказа, начисляется на бонусный счёт клиента"
+                  >&#9432;</span>
                 </span>
               </div>
+            </div>
+
+            {/* Время изготовления, доставка */}
+            <div className="flex flex-col gap-2 text-base mt-2">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
                   <Image src="/icons/clock.svg" alt="Время" width={20} height={20} />
-                  <span className="text-base text-black font-medium">
+                  <span>
                     Время изготовления: {product.production_time} {product.production_time === 1 ? 'час' : 'часов'}
                   </span>
                 </div>
@@ -371,26 +418,25 @@ export default function ProductPageClient({
               {earliestDelivery && (
                 <div className="flex items-center gap-2">
                   <Image src="/icons/truck.svg" alt="Доставка" width={20} height={20} />
-                  <span className="text-base text-black font-medium">
-                    {earliestDelivery}
-                  </span>
+                  <span>{earliestDelivery}</span>
                 </div>
               )}
             </div>
 
+            {/* Кнопки */}
             <div className="flex gap-3">
               <motion.button
                 onClick={() =>
-                  handleAdd(product.id, product.title, discountedPrice, product.images?.[0] || null, product.production_time ?? null)
+                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
                 }
-                className="flex-1 py-3 bg-black text-white rounded-lg text-base font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="flex-1 py-3 bg-black text-white rounded-lg text-base font-bold hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
                 variants={buttonVariants}
                 initial="rest"
                 whileHover="hover"
                 whileTap="tap"
                 aria-label="Добавить в корзину"
               >
-                Добавить в корзину
+                ДОБАВИТЬ В КОРЗИНУ
               </motion.button>
               <motion.button
                 onClick={handleShare}
@@ -405,23 +451,29 @@ export default function ProductPageClient({
               </motion.button>
             </div>
 
-            <div className="space-y-6">
+            {/* Константный спойлер */}
+            <p className="mt-2 text-sm text-gray-600 border-t pt-3">
+              Состав букета может быть незначительно изменен. При этом стилистика и цветовая гамма останутся неизменными.
+            </p>
+
+            {/* Описание и состав */}
+            <div className="space-y-6 mt-2">
               {product.description && (
                 <div>
-                  <h2 className="font-bold text-xl text-black mb-3">
-                    Описание товара:
+                  <h2 className="font-bold text-lg text-black mb-1">
+                    О товаре:
                   </h2>
-                  <p className="text-lg text-black leading-loose whitespace-pre-line">
+                  <p className="text-base text-black leading-loose whitespace-pre-line">
                     {product.description}
                   </p>
                 </div>
               )}
               {product.composition && (
                 <div>
-                  <h2 className="font-bold text-xl text-black mb-3">
+                  <h2 className="font-bold text-lg text-black mb-1">
                     Состав:
                   </h2>
-                  <ul className="list-disc pl-5 space-y-2 text-lg text-black leading-loose">
+                  <ul className="list-disc pl-5 space-y-1 text-base text-black leading-loose">
                     {product.composition.split('\n').map((item, index) => (
                       <li key={index}>{item.trim()}</li>
                     ))}
@@ -431,8 +483,8 @@ export default function ProductPageClient({
             </div>
 
             {/* Секция отзывов */}
-            <div className="space-y-4">
-              <h2 className="font-bold text-xl text-black mb-3">
+            <div className="space-y-4 mt-2">
+              <h2 className="font-bold text-lg text-black mb-2">
                 Отзывы клиентов:
               </h2>
               <div className="space-y-4">
@@ -458,9 +510,10 @@ export default function ProductPageClient({
           </motion.div>
         </div>
 
+        {/* Рекомендуемые товары */}
         {combos.length > 0 && (
           <motion.section
-            className="mt-8 pt-8 border-t border-gray-200"
+            className="mt-12 pt-10 border-t border-gray-200"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -469,63 +522,11 @@ export default function ProductPageClient({
             <h2 className="text-2xl font-bold text-black mb-6 tracking-tight">
               Рекомендуемые товары
             </h2>
-            <div className="block sm:hidden">
-              <Swiper
-                spaceBetween={12}
-                slidesPerView={1.5}
-                freeMode
-                modules={[FreeMode]}
-                className="pb-4"
-                aria-label="Слайдер рекомендуемых товаров"
-              >
-                {combos.slice(0, 4).map((combo) => (
-                  <SwiperSlide key={combo.id}>
-                    <motion.div
-                      className="combo-card-mobile flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white h-60 transition-transform duration-200 hover:scale-105"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <div className="relative w-full h-36 bg-gray-100">
-                        <Image
-                          src={combo.image}
-                          alt={combo.title}
-                          fill
-                          className="object-cover transition-transform duration-300"
-                          loading="lazy"
-                          sizes="(max-width: 768px) 50vw, 25vw"
-                        />
-                      </div>
-                      <div className="p-3 w-full flex-1 flex flex-col justify-between">
-                        <p className="text-sm text-left">{combo.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-bold text-black">
-                            {combo.price} ₽
-                          </span>
-                        </div>
-                        <motion.button
-                          onClick={() =>
-                            handleAdd(combo.id, combo.title, combo.price, combo.image, null)
-                          }
-                          className="w-full mt-2 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
-                          variants={buttonVariants}
-                          initial="rest"
-                          whileHover="hover"
-                          whileTap="tap"
-                          aria-label={`Добавить ${combo.title} в корзину`}
-                        >
-                          Добавить
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-            <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {combos.slice(0, 4).map((combo) => (
                 <motion.div
                   key={combo.id}
-                  className="combo-card-desktop flex flex-col items-center group rounded-lg shadow-sm overflow-hidden bg-white h-80 transition-transform duration-200 hover:scale-105"
+                  className="combo-card-desktop flex flex-col items-center group rounded-xl shadow-md overflow-hidden bg-white h-80 transition-transform duration-200 hover:scale-105"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -540,9 +541,9 @@ export default function ProductPageClient({
                     />
                   </div>
                   <div className="p-3 w-full flex-1 flex flex-col justify-between">
-                    <p className="text-sm sm:text-base text-left">{combo.title}</p>
+                    <p className="text-base font-semibold text-left truncate">{combo.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm sm:text-base font-bold text-black">
+                      <span className="text-base font-bold text-black">
                         {combo.price} ₽
                       </span>
                     </div>
@@ -550,7 +551,7 @@ export default function ProductPageClient({
                       onClick={() =>
                         handleAdd(combo.id, combo.title, combo.price, combo.image, null)
                       }
-                      className="w-full mt-2 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="w-full mt-2 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
                       variants={buttonVariants}
                       initial="rest"
                       whileHover="hover"

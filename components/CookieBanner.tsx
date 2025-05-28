@@ -7,6 +7,9 @@ import { trackEvent } from '@/lib/analytics';
 
 export default function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [analyticsCookies, setAnalyticsCookies] = useState(false);
+  const [functionalCookies, setFunctionalCookies] = useState(false);
 
   useEffect(() => {
     let hasAccepted: string | null = null;
@@ -26,16 +29,18 @@ export default function CookieBanner() {
     }
   }, []);
 
-  const handleAccept = () => {
+  const handleAcceptAll = () => {
     try {
       localStorage.setItem('cookieConsent', 'accepted');
+      localStorage.setItem('analyticsCookies', 'true');
+      localStorage.setItem('functionalCookies', 'true');
     } catch (e) {
       console.error('Failed to set cookieConsent in localStorage:', e);
     }
     setIsVisible(false);
     trackEvent({
       category: 'cookie_banner',
-      action: 'cookie_accept',
+      action: 'cookie_accept_all',
       type: 'banner',
     });
     if (typeof window !== 'undefined') {
@@ -43,9 +48,31 @@ export default function CookieBanner() {
     }
   };
 
+  const handleSaveSettings = () => {
+    try {
+      localStorage.setItem('cookieConsent', 'custom');
+      localStorage.setItem('analyticsCookies', analyticsCookies ? 'true' : 'false');
+      localStorage.setItem('functionalCookies', functionalCookies ? 'true' : 'false');
+    } catch (e) {
+      console.error('Failed to set cookie settings in localStorage:', e);
+    }
+    setIsVisible(false);
+    trackEvent({
+      category: 'cookie_banner',
+      action: 'cookie_save_settings',
+      type: 'banner',
+      label: `Analytics: ${analyticsCookies}, Functional: ${functionalCookies}`, // Передаём настройки как строку в label
+    });
+    if (typeof window !== 'undefined') {
+      window.gtag?.('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
+    }
+  };
+
   const handleDecline = () => {
     try {
       localStorage.setItem('cookieConsent', 'declined');
+      localStorage.setItem('analyticsCookies', 'false');
+      localStorage.setItem('functionalCookies', 'false');
     } catch (e) {
       console.error('Failed to set cookieConsent in localStorage:', e);
     }
@@ -77,7 +104,7 @@ export default function CookieBanner() {
         Мы используем cookies
       </h2>
       <p id="cookie-banner-desc" className="text-base mb-4">
-        Мы используем cookies для улучшения работы сайта и аналитики. Необходимые cookies обеспечивают базовую функциональность и не могут быть отключены. Вы можете управлять другими cookies через этот баннер или настройки браузера. Подробнее в{' '}
+        Мы используем cookies для улучшения работы сайта и аналитики. Необходимые cookies обеспечивают базовую функциональность и не могут быть отключены. Вы можете настроить аналитические и функциональные cookies ниже или отклонить их. Подробнее в{' '}
         <Link
           href="/cookie-policy"
           className="underline hover:text-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-black"
@@ -91,24 +118,72 @@ export default function CookieBanner() {
           aria-label="Перейти к политике использования cookies"
         >
           Политике использования cookies
-        </Link>
-        .
+        </Link>.
       </p>
-      <div className="flex gap-4">
+
+      {showSettings ? (
+        <div className="mb-4">
+          <div className="flex items-center mb-2">
+            <input
+              type="checkbox"
+              id="analytics-cookies"
+              checked={analyticsCookies}
+              onChange={(e) => setAnalyticsCookies(e.target.checked)}
+              className="mr-2"
+              aria-label="Разрешить аналитические cookies"
+            />
+            <label htmlFor="analytics-cookies" className="text-sm">
+              Аналитические cookies (Google Analytics, Яндекс.Метрика)
+            </label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="functional-cookies"
+              checked={functionalCookies}
+              onChange={(e) => setFunctionalCookies(e.target.checked)}
+              className="mr-2"
+              aria-label="Разрешить функциональные cookies"
+            />
+            <label htmlFor="functional-cookies" className="text-sm">
+              Функциональные cookies (предпочтения, регион доставки)
+            </label>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex gap-4 flex-wrap">
         <button
-          onClick={handleAccept}
+          onClick={handleAcceptAll}
           className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
           aria-describedby="cookie-banner-desc"
         >
-          Принять
+          Принять все
         </button>
         <button
-          onClick={handleDecline}
+          onClick={() => setShowSettings(!showSettings)}
           className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
           aria-describedby="cookie-banner-desc"
         >
-          Отклонить
+          {showSettings ? 'Скрыть настройки' : 'Настроить'}
         </button>
+        {showSettings ? (
+          <button
+            onClick={handleSaveSettings}
+            className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+            aria-describedby="cookie-banner-desc"
+          >
+            Сохранить
+          </button>
+        ) : (
+          <button
+            onClick={handleDecline}
+            className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+            aria-describedby="cookie-banner-desc"
+          >
+            Отклонить
+          </button>
+        )}
       </div>
     </motion.div>
   );

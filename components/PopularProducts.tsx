@@ -125,8 +125,8 @@ export default function PopularProducts() {
             nextEl: '.popular-next',
             prevEl: '.popular-prev',
           }}
-          slidesPerView={1.1}
-          spaceBetween={12}
+          slidesPerView={1}
+          spaceBetween={16}
           breakpoints={{
             640: { slidesPerView: 2.2, spaceBetween: 16 },
             1024: { slidesPerView: 4, spaceBetween: 24 },
@@ -134,7 +134,7 @@ export default function PopularProducts() {
           className="group"
         >
           {products.map((p) => (
-            <SwiperSlide key={p.id}>
+            <SwiperSlide key={p.id} className="flex justify-center">
               <ProductCard product={p} />
             </SwiperSlide>
           ))}

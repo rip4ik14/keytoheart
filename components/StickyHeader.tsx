@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation'; // Добавляем useRouter
+import { usePathname, useRouter } from 'next/navigation';
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
 import SearchModal from '@components/SearchModal';
@@ -21,7 +21,7 @@ type StickyHeaderProps = {
 
 export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
-  const router = useRouter(); // Добавляем router
+  const router = useRouter();
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
   const {
     animationState,
@@ -42,6 +42,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [previousTotalItems, setPreviousTotalItems] = useState(0);
   const profileRef = useRef<HTMLDivElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const cartIconRef = useRef<HTMLImageElement>(null);
@@ -54,7 +55,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     const checkAuth = async () => {
       try {
-        // Проверяем наличие куки user_phone
         const response = await fetch('/api/auth/check-session', {
           method: 'GET',
           credentials: 'include',
@@ -86,7 +86,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               setBonus(null);
             }
           } else {
-            // Проверяем через Supabase, если кука не найдена
             const { data: { session } } = await supabase.auth.getSession();
             console.log(`${new Date().toISOString()} StickyHeader: Initial session check (Supabase)`, session?.user);
             if (session?.user) {
@@ -161,7 +160,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       }
     });
 
-    // Слушатель изменений в localStorage для синхронизации состояния
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'supabase.auth.token') {
         console.log(`${new Date().toISOString()} StickyHeader: Storage event detected`, event.newValue);
@@ -171,7 +169,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     window.addEventListener('storage', handleStorageChange);
 
-    // Слушатель кастомного события authChange
     const handleAuthChange = () => {
       console.log(`${new Date().toISOString()} StickyHeader: Auth change event received`);
       checkAuth();
@@ -187,7 +184,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
   }, []);
 
-  // Форматирование телефона
   const formatPhone = (phone: string): string => {
     let cleaned = phone.replace(/\D/g, '');
     if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
@@ -195,14 +191,17 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     return `+${cleaned.slice(0, 11)}`;
   };
 
-  // Анимация корзины
   useEffect(() => {
-    if (totalItems > 0) {
-      cartControls.start({ scale: [1, 1.2, 1], transition: { duration: 0.3, ease: 'easeInOut' } });
+    if (totalItems > 0 && previousTotalItems === 0) {
+      cartControls.start({
+        scale: [1, 1.3, 1],
+        rotate: [0, 10, -10, 0],
+        transition: { duration: 0.5, ease: 'easeInOut', repeat: 1 },
+      });
     }
-  }, [totalItems, cartControls]);
+    setPreviousTotalItems(totalItems);
+  }, [totalItems, cartControls, previousTotalItems]);
 
-  // Позиция иконки корзины
   useEffect(() => {
     const updatePos = () => {
       const el = cartIconRef.current;
@@ -220,12 +219,10 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
   }, [setCartIconPosition]);
 
-  // Полёт товара в корзину
   useEffect(() => {
     if (animationState.isAnimating) setIsFlying(true);
   }, [animationState]);
 
-  // Закрытие профиля при клике вне
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -236,12 +233,9 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Выход из аккаунта
   const handleSignOut = async () => {
     try {
-      // Очищаем сессию Supabase
       await supabase.auth.signOut();
-      // Удаляем куку user_phone через API
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
@@ -251,9 +245,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         setBonus(null);
         setOpenProfile(false);
         toast.success('Вы вышли из аккаунта');
-        // Отправляем кастомное событие после выхода
         window.dispatchEvent(new Event('authChange'));
-        // Обновляем страницу
         router.refresh();
       } else {
         throw new Error('Failed to logout');
@@ -295,7 +287,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             <BurgerMenu />
             <Link
               href="/"
-              className="text-xl md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2"
+              className="text-lg md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2 truncate"
               aria-label="Перейти на главную страницу"
             >
               Key to Heart
@@ -340,18 +332,25 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             <button
               ref={searchButtonRef}
               onClick={() => setIsSearchOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black"
+              className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5 md:hover:text-rose-500 md:focus:text-rose-500"
               title="Поиск"
               aria-controls="search-modal"
             >
-              <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} loading="lazy" />
+              <Image
+                src="/icons/search.svg"
+                alt="Поиск"
+                width={20}
+                height={20}
+                className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7"
+                loading="lazy"
+              />
             </button>
 
             {isAuthenticated ? (
               <div ref={profileRef} className="relative">
                 <button
                   onClick={() => setOpenProfile((p) => !p)}
-                  className="p-2 hover:bg-gray-100 rounded-full md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
+                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5 md:hover:text-rose-500 md:focus:text-rose-500 md:flex md:items-center md:gap-2 md:px-4 md:py-1 md:border md:rounded-full"
                   aria-expanded={openProfile}
                 >
                   <Image
@@ -359,7 +358,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     alt="Профиль"
                     width={20}
                     height={20}
-                    className="w-5 h-5 text-black md:hidden"
+                    className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
                     loading="lazy"
                   />
                   <div className="hidden md:flex items-center gap-2">
@@ -406,29 +405,45 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             ) : (
               <Link
                 href="/account"
-                className="p-2 hover:bg-gray-100 rounded-full md:px-4 md:py-1 md:border md:rounded-full focus:ring-2 focus:ring-black"
+                className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5 md:hover:text-rose-500 md:focus:text-rose-500 md:px-4 md:py-1 md:border md:rounded-full"
+                aria-label="Войти в аккаунт"
               >
-                <Image src="/icons/user.svg" alt="Вход" width={20} height={20} loading="lazy" />
+                <Image
+                  src="/icons/user.svg"
+                  alt="Вход"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
+                  loading="lazy"
+                />
                 <span className="hidden md:inline">Вход</span>
               </Link>
             )}
 
             <Link
               href="/cart"
-              className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full md:border md:px-3 md:py-1 md:rounded-full focus:ring-2 focus:ring-black"
+              className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5 md:gap-2 md:border md:px-3 md:py-1 md:rounded-full"
+              title="Корзина"
+              aria-label="Перейти в корзину"
             >
-              <motion.div animate={cartControls}>
+              <motion.div animate={cartControls} className="relative">
                 <Image
                   ref={cartIconRef}
                   src="/icons/shopping-cart.svg"
                   alt="Корзина"
                   width={20}
                   height={20}
+                  className={`w-5 h-5 fill-current md:w-7 md:h-7 ${totalItems > 0 ? 'text-rose-500' : 'text-gray-900'}`}
                   loading="lazy"
                 />
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center shadow-sm border border-white md:-top-2 md:-right-2">
+                    {totalItems}
+                  </span>
+                )}
               </motion.div>
               {cartSum > 0 && (
-                <span className="text-xs md:text-sm font-medium">{formattedCartSum}</span>
+                <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>
               )}
             </Link>
           </div>

@@ -92,6 +92,16 @@ export default function Footer() {
             >
               Публичная оферта
             </Link>
+            <Link
+              href="/terms"
+              className="hover:underline block text-gray-500"
+              onClick={() => {
+                window.gtag?.('event', 'terms_click', { event_category: 'footer' });
+                window.ym?.(12345678, 'reachGoal', 'terms_click');
+              }}
+            >
+              Пользовательское соглашение
+            </Link>
           </div>
         </div>
 

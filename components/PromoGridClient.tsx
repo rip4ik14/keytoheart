@@ -38,6 +38,7 @@ export default function PromoGridClient({
         Промо-блоки
       </h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Блок баннеров */}
         <motion.div
           className="relative overflow-hidden rounded-3xl lg:col-span-2 h-[260px] sm:h-[340px] md:h-[420px] lg:h-[480px] xl:h-[560px]"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -57,15 +58,6 @@ export default function PromoGridClient({
                   href={b.href || '#'}
                   className="relative block h-full w-full"
                   title={b.title}
-                  onClick={() => {
-                    window.gtag?.('event', 'promo_banner_click', {
-                      event_category: 'promo',
-                      banner_id: b.id,
-                    });
-                    window.ym?.(12345678, 'reachGoal', 'promo_banner_click', {
-                      banner_id: b.id,
-                    });
-                  }}
                 >
                   <Image
                     src={b.image_url}
@@ -75,34 +67,68 @@ export default function PromoGridClient({
                     priority={i === 0}
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/40" />
-                  <div className="absolute inset-0 flex flex-col justify-end items-center px-6 py-8 md:px-16 md:py-12 text-white text-center">
-                    <div className="max-w-2xl">
+                  {/* Затемнение для читабельности текста */}
+                  <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
+
+                  {/* Центровка и адаптация контента */}
+                  <div
+                    className="
+                      absolute inset-0 flex flex-col justify-center
+                      items-start sm:items-start
+                      px-4 py-4 sm:px-16 sm:py-12
+                      text-white text-left
+                    "
+                  >
+                    <div className="max-w-full w-full">
                       <motion.h2
-                        className="mb-3 line-clamp-2 text-4xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]"
+                        className="
+                          mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                          max-w-[95vw] sm:max-w-[80vw] leading-tight
+                          sm:mb-3
+                        "
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.2 }}
+                        style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                       >
                         {b.title}
                       </motion.h2>
                       {b.subtitle && (
                         <motion.p
-                          className="mb-4 line-clamp-2 text-base md:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+                          className="
+                            mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                            max-w-[95vw] sm:max-w-[80vw]
+                            sm:mb-6
+                          "
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.6, delay: 0.4 }}
+                          transition={{ duration: 0.7, delay: 0.4 }}
+                          style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                         >
                           {b.subtitle}
                         </motion.p>
                       )}
                       <motion.div
-                        className="inline-block rounded-lg bg-white px-6 py-3 text-sm font-bold text-black shadow transition md:text-base hover:scale-105 hover:shadow-xl hover:bg-white/90 hover:ring-2 hover:ring-white"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.6 }}
+                        transition={{ duration: 0.6, delay: 0.65 }}
+                        className="flex"
                       >
-                        {b.button_text || 'Подробнее'}
+                        <span
+                          className="
+                            inline-flex items-center rounded-full border border-black/70
+                            bg-white px-6 py-2 text-sm font-semibold text-black shadow transition
+                            hover:bg-black hover:text-white hover:shadow-2xl hover:border-white
+                            active:scale-95 focus:outline-none cursor-pointer select-none
+                            w-full sm:w-auto text-center justify-center
+                          "
+                          style={{
+                            boxShadow:
+                              '0 2px 12px 0 rgba(0,0,0,0.13), 0 1.5px 5px 0 rgba(0,0,0,0.07)',
+                          }}
+                        >
+                          {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                        </span>
                       </motion.div>
                     </div>
                   </div>
@@ -112,6 +138,7 @@ export default function PromoGridClient({
           </Swiper>
         </motion.div>
 
+        {/* Карточки (desktop, справа) */}
         <motion.div
           className="hidden lg:grid h-[480px] xl:h-[560px] grid-cols-2 grid-rows-2 gap-4"
           initial={{ opacity: 0, y: 30 }}
@@ -131,15 +158,6 @@ export default function PromoGridClient({
                 className="group block h-full w-full"
                 title={c.title}
                 role="button"
-                onClick={() => {
-                  window.gtag?.('event', 'promo_card_click', {
-                    event_category: 'promo',
-                    card_id: c.id,
-                  });
-                  window.ym?.(12345678, 'reachGoal', 'promo_card_click', {
-                    card_id: c.id,
-                  });
-                }}
               >
                 <Image
                   src={c.image_url}
@@ -157,6 +175,7 @@ export default function PromoGridClient({
           ))}
         </motion.div>
 
+        {/* Мобильная версия карточек */}
         <motion.div
           className="block lg:hidden"
           initial={{ opacity: 0, y: 20 }}
@@ -176,15 +195,6 @@ export default function PromoGridClient({
                     className="group relative aspect-[3/2] overflow-hidden rounded-3xl"
                     title={c.title}
                     role="button"
-                    onClick={() => {
-                      window.gtag?.('event', 'promo_card_click', {
-                        event_category: 'promo',
-                        card_id: c.id,
-                      });
-                      window.ym?.(12345678, 'reachGoal', 'promo_card_click', {
-                        card_id: c.id,
-                      });
-                    }}
                   >
                     <Image
                       src={c.image_url}
