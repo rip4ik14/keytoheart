@@ -11,7 +11,7 @@ export default function PromoFooterBlock() {
       <div className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex items-end h-full">
         <MarqueeText
   text="Ключик к сердцу Ключик к сердцу Ключик к сердцу "
-  speed={80}
+  speed={160}
   className="
     font-marquee text-marquee text-outline
     w-full
