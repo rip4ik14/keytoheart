@@ -65,8 +65,7 @@
 
 /* Базовый стиль BODY */
 body {
-  font-family: 'Berold', sans-serif;
-  @apply bg-white text-black;
+  @apply font-sans bg-white text-black; /* Используем Golos Text через font-sans */
 }
 
 /* Базовые стили заголовков */
@@ -76,8 +75,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Berold', sans-serif;
-  @apply font-bold text-black;
+  @apply font-sans font-bold text-black; /* Используем Golos Text через font-sans */
 }
 
 h1 {

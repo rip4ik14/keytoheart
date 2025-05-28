@@ -22,7 +22,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Berold', 'Arial', 'sans-serif'], // Заменили Luxia на Berold
+        sans: ['Golos Text', 'Arial', 'sans-serif'],
       },
       animation: {
         marquee: 'marquee 50s linear infinite',
