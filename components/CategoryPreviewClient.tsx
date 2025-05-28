@@ -45,7 +45,7 @@ export default function CategoryPreviewClient({
               event_category: 'navigation',
               category: categoryName,
             });
-            window.ym?.(12345678, 'reachGoal', 'see_more_category', {
+            window.ym?.(96644553, 'reachGoal', 'see_more_category', {
               category: categoryName,
             });
           }}

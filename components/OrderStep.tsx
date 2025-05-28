@@ -83,7 +83,7 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    window.ym?.(12345678, 'reachGoal', 'order_step_back', { step });
+                    window.ym?.(96644553, 'reachGoal', 'order_step_back', { step });
                   }}
                   className="mr-auto border px-4 py-2 text-sm rounded hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-black"
                   aria-label="Вернуться к предыдущему шагу"
@@ -100,7 +100,7 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    window.ym?.(12345678, 'reachGoal', 'order_step_next', { step });
+                    window.ym?.(96644553, 'reachGoal', 'order_step_next', { step });
                   }}
                   className="ml-auto bg-black text-white px-6 py-2 text-sm rounded hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
                   aria-label="Перейти к следующему шагу"

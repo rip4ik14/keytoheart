@@ -40,7 +40,7 @@ export default function AccountOrdersList({ phone }: { phone: string }) {
         event_category: 'account',
         order_id: order.id,
       });
-      window.ym?.(12345678, 'reachGoal', 'repeat_order', { order_id: order.id });
+      window.ym?.(96644553, 'reachGoal', 'repeat_order', { order_id: order.id });
     } catch {
       toast.error('Не удалось повторить заказ');
     }

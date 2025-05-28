@@ -59,7 +59,7 @@ export default function BurgerMenu() {
         onClick={() => {
           setIsOpen(true);
           window.gtag?.('event', 'open_burger_menu', { event_category: 'navigation' });
-          window.ym?.(12345678, 'reachGoal', 'open_burger_menu');
+          window.ym?.(96644553, 'reachGoal', 'open_burger_menu');
         }}
         className="p-2 hover:bg-gray-100 rounded"
         aria-label="Открыть меню навигации"
@@ -106,7 +106,7 @@ export default function BurgerMenu() {
                   event_category: 'navigation',
                   link: link.name,
                 });
-                window.ym?.(12345678, 'reachGoal', 'burger_menu_link', {
+                window.ym?.(96644553, 'reachGoal', 'burger_menu_link', {
                   link: link.name,
                 });
               }}

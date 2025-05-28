@@ -65,7 +65,7 @@ export function usePromoAndBonuses({
         event_category: 'cart',
         promo_code: promoCode,
       });
-      window.ym?.(12345678, 'reachGoal', 'apply_promo_code', { promo_code: promoCode });
+      window.ym?.(96644553, 'reachGoal', 'apply_promo_code', { promo_code: promoCode });
     } catch {
       toast.error('Ошибка при проверке промокода.');
     } finally {
@@ -78,7 +78,7 @@ export function usePromoAndBonuses({
     setPromoDiscount(null);
     toast.success('Промокод сброшен');
     window.gtag?.('event', 'reset_promo_code', { event_category: 'cart' });
-    window.ym?.(12345678, 'reachGoal', 'reset_promo_code');
+    window.ym?.(96644553, 'reachGoal', 'reset_promo_code');
   };
 
   const applyBonuses = (maxBonusUse: number) => {
@@ -94,7 +94,7 @@ export function usePromoAndBonuses({
         event_category: 'cart',
         bonuses_used: bonusesUsed,
       });
-      window.ym?.(12345678, 'reachGoal', 'apply_bonuses', { bonuses_used: bonusesUsed });
+      window.ym?.(96644553, 'reachGoal', 'apply_bonuses', { bonuses_used: bonusesUsed });
     }
   };
 
@@ -102,7 +102,7 @@ export function usePromoAndBonuses({
     setBonusesUsed(0);
     toast.success('Бонусы сброшены');
     window.gtag?.('event', 'reset_bonuses', { event_category: 'cart' });
-    window.ym?.(12345678, 'reachGoal', 'reset_bonuses');
+    window.ym?.(96644553, 'reachGoal', 'reset_bonuses');
   };
 
   return {

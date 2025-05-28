@@ -172,11 +172,14 @@ export default function PromoGridClient({
                             bg-white px-6 py-2 text-sm font-semibold text-black shadow transition
                             hover:bg-black hover:text-white hover:shadow-2xl hover:border-white
                             active:scale-95 focus:outline-none cursor-pointer select-none
-                            w-full sm:w-auto text-center justify-center
+                             text-center
+                             mx-0
                           "
                           style={{
                             boxShadow:
                               '0 2px 12px 0 rgba(0,0,0,0.13), 0 1.5px 5px 0 rgba(0,0,0,0.07)',
+                             minWidth: 'fit-content',  
+                             maxWidth: '100%',
                           }}
                         >
                           {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}

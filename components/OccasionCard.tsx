@@ -20,7 +20,7 @@ export default function OccasionCard({ occasion, index }: { occasion: Occasion; 
           event_label: occasion.title,
           value: index + 1,
         });
-        window.ym?.(12345678, 'reachGoal', 'occasion_click', {
+        window.ym?.(96644553, 'reachGoal', 'occasion_click', {
           occasion: occasion.title,
         });
       }}

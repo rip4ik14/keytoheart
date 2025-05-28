@@ -34,7 +34,7 @@ export default function ToggleStockButton({
           product_id: id,
           in_stock: !inStock,
         });
-        window.ym?.(12345678, 'reachGoal', 'toggle_stock', {
+        window.ym?.(96644553, 'reachGoal', 'toggle_stock', {
           product_id: id,
           in_stock: !inStock,
         });

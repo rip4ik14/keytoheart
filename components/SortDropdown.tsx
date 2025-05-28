@@ -30,7 +30,7 @@ export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownPr
       event_category: 'catalog',
       sort_value: value,
     });
-    window.ym?.(12345678, 'reachGoal', 'sort_change', {
+    window.ym?.(96644553, 'reachGoal', 'sort_change', {
       sort_value: value,
     });
   };

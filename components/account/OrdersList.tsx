@@ -139,7 +139,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                           event_category: 'account',
                           order_id: o.id,
                         });
-                        window.ym?.(12345678, 'reachGoal', 'repeat_order', {
+                        window.ym?.(96644553, 'reachGoal', 'repeat_order', {
                           order_id: o.id,
                         });
                       }}

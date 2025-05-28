@@ -15,7 +15,7 @@ export default function UpsellButtons({ onPostcard, onBalloons }: Props) {
         onClick={() => {
           onPostcard();
           window.gtag?.('event', 'open_postcard_modal', { event_category: 'cart' });
-          window.ym?.(12345678, 'reachGoal', 'open_postcard_modal');
+          window.ym?.(96644553, 'reachGoal', 'open_postcard_modal');
         }}
         className="w-full md:w-40 h-28 flex flex-col items-center justify-center rounded-xl bg-white shadow-sm hover:shadow-md transition hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-black"
         aria-label="Добавить открытку"
@@ -35,7 +35,7 @@ export default function UpsellButtons({ onPostcard, onBalloons }: Props) {
         onClick={() => {
           onBalloons();
           window.gtag?.('event', 'open_balloons_modal', { event_category: 'cart' });
-          window.ym?.(12345678, 'reachGoal', 'open_balloons_modal');
+          window.ym?.(96644553, 'reachGoal', 'open_balloons_modal');
         }}
         className="w-full md:w-40 h-28 flex flex-col items-center justify-center rounded-xl bg-white shadow-sm hover:shadow-md transition hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-black"
         aria-label="Добавить шары"

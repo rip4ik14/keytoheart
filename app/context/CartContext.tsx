@@ -56,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: item.id,
           quantity: existing.quantity + item.quantity,
         });
-        window.ym?.(12345678, 'reachGoal', 'update_cart_item', {
+        window.ym?.(96644553, 'reachGoal', 'update_cart_item', {
           item_id: item.id,
           quantity: existing.quantity + item.quantity,
         });
@@ -67,7 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         event_category: 'cart',
         item_id: item.id,
       });
-      window.ym?.(12345678, 'reachGoal', 'add_to_cart', { item_id: item.id });
+      window.ym?.(96644553, 'reachGoal', 'add_to_cart', { item_id: item.id });
       return [...prev, item];
     });
   };
@@ -85,7 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             item_id: newItem.id,
             quantity: updated[index].quantity,
           });
-          window.ym?.(12345678, 'reachGoal', 'update_cart_item', {
+          window.ym?.(96644553, 'reachGoal', 'update_cart_item', {
             item_id: newItem.id,
             quantity: updated[index].quantity,
           });
@@ -96,7 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: newItem.id,
           });
-          window.ym?.(12345678, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
+          window.ym?.(96644553, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
         }
       });
       return updated;
@@ -112,7 +112,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           event_category: 'cart',
           item_id: id,
         });
-        window.ym?.(12345678, 'reachGoal', 'remove_from_cart', { item_id: id });
+        window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
       }
       return prev.filter((item) => item.id !== id);
     });
@@ -128,7 +128,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: id,
           });
-          window.ym?.(12345678, 'reachGoal', 'remove_from_cart', { item_id: id });
+          window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
         }
         return prev.filter((item) => item.id !== id);
       }
@@ -142,7 +142,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: id,
           quantity,
         });
-        window.ym?.(12345678, 'reachGoal', 'update_cart_quantity', {
+        window.ym?.(96644553, 'reachGoal', 'update_cart_quantity', {
           item_id: id,
           quantity,
         });
@@ -156,7 +156,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart');
     toast.success('Корзина очищена');
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
-    window.ym?.(12345678, 'reachGoal', 'clear_cart');
+    window.ym?.(96644553, 'reachGoal', 'clear_cart');
   };
 
   const maxProductionTime = items.length > 0

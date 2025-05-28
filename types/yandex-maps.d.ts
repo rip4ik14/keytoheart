@@ -1,4 +1,5 @@
 // types/yandex-maps.d.ts
+
 declare global {
   interface Window {
     ymaps?: YandexMaps;

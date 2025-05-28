@@ -124,7 +124,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       setLoading(false);
 
       window.gtag?.('event', 'search_query', { event_category: 'search', query });
-      window.ym?.(12345678, 'reachGoal', 'search_query', { query });
+      window.ym?.(96644553, 'reachGoal', 'search_query', { query });
     };
 
     const timer = setTimeout(() => {
@@ -229,7 +229,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                       event_category: 'search',
                       product_id: p.id,
                     });
-                    window.ym?.(12345678, 'reachGoal', 'search_result_click', {
+                    window.ym?.(96644553, 'reachGoal', 'search_result_click', {
                       product_id: p.id,
                     });
                   }}

@@ -133,7 +133,7 @@ export default function CookieBanner() {
               aria-label="Разрешить аналитические cookies"
             />
             <label htmlFor="analytics-cookies" className="text-sm">
-              Аналитические cookies (Google Analytics, Яндекс.Метрика)
+              Аналитические cookies (Яндекс.Метрика)
             </label>
           </div>
           <div className="flex items-center">

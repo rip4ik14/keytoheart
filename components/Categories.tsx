@@ -19,7 +19,7 @@ export default function CategoryCard({ title, imageUrl, href }: Props) {
           event_category: 'navigation',
           category: title,
         });
-        window.ym?.(12345678, 'reachGoal', 'category_card_click', {
+        window.ym?.(96644553, 'reachGoal', 'category_card_click', {
           category: title,
         });
       }}

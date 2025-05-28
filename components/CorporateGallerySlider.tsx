@@ -31,7 +31,7 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: -320, behavior: 'smooth' });
       window.gtag?.('event', 'gallery_scroll_left', { event_category: 'corporate' });
-      window.ym?.(12345678, 'reachGoal', 'gallery_scroll_left');
+      window.ym?.(96644553, 'reachGoal', 'gallery_scroll_left');
     }
   };
 
@@ -39,7 +39,7 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: 320, behavior: 'smooth' });
       window.gtag?.('event', 'gallery_scroll_right', { event_category: 'corporate' });
-      window.ym?.(12345678, 'reachGoal', 'gallery_scroll_right');
+      window.ym?.(96644553, 'reachGoal', 'gallery_scroll_right');
     }
   };
 

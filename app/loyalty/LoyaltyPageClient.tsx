@@ -31,7 +31,7 @@ export default function LoyaltyPageClient() {
   useEffect(() => {
     // Аналитика: событие просмотра страницы лояльности
     window.gtag?.('event', 'view_loyalty', { event_category: 'loyalty', type: 'page_view' });
-    window.ym?.(12345678, 'reachGoal', 'view_loyalty', { type: 'page_view' });
+    window.ym?.(96644553, 'reachGoal', 'view_loyalty', { type: 'page_view' });
 
     const fetchUserData = async () => {
       // TODO: Заменить на российский сервис после миграции

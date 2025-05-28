@@ -16,7 +16,7 @@ export default function ContactButton() {
             event_label: 'Telegram Contact Click',
             value: 1,
           });
-          window.ym?.(12345678, 'reachGoal', 'contact_telegram', {
+          window.ym?.(96644553, 'reachGoal', 'contact_telegram', {
             source: 'payment_page',
           });
         }}
@@ -36,7 +36,7 @@ export default function ContactButton() {
             event_label: 'WhatsApp Contact Click',
             value: 1,
           });
-          window.ym?.(12345678, 'reachGoal', 'contact_whatsapp', {
+          window.ym?.(96644553, 'reachGoal', 'contact_whatsapp', {
             source: 'payment_page',
           });
         }}

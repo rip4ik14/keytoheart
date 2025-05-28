@@ -245,7 +245,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
                         event_category: 'navigation',
                         path: c.href,
                       });
-                      window.ym?.(12345678, 'reachGoal', 'breadcrumb_click', {
+                      window.ym?.(96644553, 'reachGoal', 'breadcrumb_click', {
                         path: c.href,
                       });
                     }}

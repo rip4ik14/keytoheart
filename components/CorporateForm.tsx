@@ -142,7 +142,7 @@ export default function CorporateForm() {
       setFormData({ name: '', company: '', phone: '', email: '', message: '' });
       toast.success('Заявка отправлена');
       window.gtag?.('event', 'corporate_form_submit', { event_category: 'corporate' });
-      window.ym?.(12345678, 'reachGoal', 'corporate_form_submit');
+      window.ym?.(96644553, 'reachGoal', 'corporate_form_submit');
     } catch (err: any) {
       console.error('Error submitting form:', err);
       setError(err.message || 'Произошла ошибка при отправке заявки');

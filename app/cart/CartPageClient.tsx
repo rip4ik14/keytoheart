@@ -107,7 +107,7 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 export default function CartPageClient() {
-  let cartContext;
+    let cartContext;
   try {
     cartContext = useCart();
   } catch (error) {
@@ -398,28 +398,35 @@ export default function CartPageClient() {
   }, []);
 
   const fetchAddressSuggestions = useCallback(
-    debounce(async (query: string) => {
-      if (!query.trim() || !window.ymaps) return;
-      setIsLoadingSuggestions(true);
-      try {
-        const response = await window.ymaps.suggest(query, {
+  debounce((query: string) => {
+    if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
+    setIsLoadingSuggestions(true);
+    window.ymaps.ready(() => {
+      window.ymaps!
+        .suggest(query, {
           boundedBy: [[45.0, 38.9], [45.2, 39.1]],
           strictBounds: true,
           results: 5,
+        })
+        .then((response) => {
+          setAddressSuggestions(response.map((item: any) => item.value));
+          setShowSuggestions(true);
+        })
+        .catch(() => {
+          setAddressSuggestions([]);
+          setShowSuggestions(false);
+        })
+        .finally(() => {
+          setIsLoadingSuggestions(false);
         });
-        setAddressSuggestions(response.map((item: any) => item.value));
-        setShowSuggestions(true);
-      } catch (error) {
-        setAddressSuggestions([]);
-        setShowSuggestions(false);
-      } finally {
-        setIsLoadingSuggestions(false);
-      }
-    }, 300),
-    []
-  );
+    });
+  }, 300),
+  []
+);
 
-  const handleSelectAddress = useCallback(
+
+
+      const handleSelectAddress = useCallback(
     (address: string) => {
       onFormChange({
         target: { name: 'street', value: address },

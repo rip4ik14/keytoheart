@@ -53,7 +53,7 @@ export default function FilterSection({
       filter_type: filterType,
       filter_value: value,
     });
-    window.ym?.(12345678, 'reachGoal', 'filter_change', {
+    window.ym?.(96644553, 'reachGoal', 'filter_change', {
       filter_type: filterType,
       filter_value: value,
     });

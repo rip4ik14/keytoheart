@@ -190,7 +190,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                           category: cat.name,
                           type: 'category',
                         });
-                        window.ym?.(12345678, 'reachGoal', 'category_nav_click', {
+                        window.ym?.(96644553, 'reachGoal', 'category_nav_click', {
                           category: cat.name,
                           type: 'category',
                         });
@@ -242,7 +242,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                         category: cat.name,
                         type: 'category',
                       });
-                      window.ym?.(12345678, 'reachGoal', 'category_nav_click', {
+                      window.ym?.(96644553, 'reachGoal', 'category_nav_click', {
                         category: cat.name,
                         type: 'category',
                       });
@@ -289,7 +289,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                               type: 'subcategory',
                             });
                             window.ym?.(
-                              12345678,
+                              96644553,
                               'reachGoal',
                               'subcategory_nav_click',
                               { subcategory: sub.name, type: 'subcategory' }

@@ -12,7 +12,7 @@ export default function BackToOccasionsButton({ occasionTitle }: { occasionTitle
           event_category: 'occasion_detail_page',
           event_label: occasionTitle,
         });
-        window.ym?.(12345678, 'reachGoal', 'back_to_occasions', {
+        window.ym?.(96644553, 'reachGoal', 'back_to_occasions', {
           occasion: occasionTitle,
         });
       }}

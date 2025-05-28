@@ -10,18 +10,19 @@ export default function PromoFooterBlock() {
       {/* Бегущая строка */}
       <div className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex items-end h-full">
         <MarqueeText
-          text="Ключик к сердцу Ключик к сердцу Ключик к сердцу "
-          speed={80}
-          className="
-            w-full
-            text-[80px] sm:text-[150px] md:text-[308px] 2xl:text-[392px]
-            font-black
-            text-[#efefef] // Изменяем цвет на #efefef
-            leading-[0.8]
-            whitespace-nowrap
-            tracking-tight
-          "
-        />
+  text="Ключик к сердцу Ключик к сердцу Ключик к сердцу "
+  speed={80}
+  className="
+    font-marquee text-marquee text-outline
+    w-full
+    text-[80px] sm:text-[150px] md:text-[308px] 2xl:text-[392px]
+    font-black
+    leading-[0.8]
+    whitespace-nowrap
+    tracking-tight
+  "
+/>
+
       </div>
       {/* Контент секции */}
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row py-8 sm:py-12 lg:py-16 gap-6 sm:gap-8 px-4 sm:px-6 lg:px-8">

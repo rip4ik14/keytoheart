@@ -199,7 +199,7 @@ export default function ProductPageClient({
         event_label: product.title,
         value: product.price,
       });
-      window.ym?.(12345678, 'reachGoal', 'view_item', { product_id: product.id });
+      window.ym?.(96644553, 'reachGoal', 'view_item', { product_id: product.id });
     } catch (error) {
       console.error('Analytics error:', error);
     }
@@ -225,7 +225,7 @@ export default function ProductPageClient({
         event_label: title,
         value: price,
       });
-      window.ym?.(12345678, 'reachGoal', 'add_to_cart', { product_id: id });
+      window.ym?.(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch (error) {
       console.error('Add to cart analytics error:', error);
     }

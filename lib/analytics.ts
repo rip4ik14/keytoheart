@@ -18,7 +18,7 @@ export function trackEvent({ category, action, label, value, type }: EventParams
     }
     // Яндекс.Метрика
     if (window.ym) {
-      window.ym(12345678, 'reachGoal', action, {
+      window.ym(96644553, 'reachGoal', action, {
         category,
         label,
         value,

@@ -124,7 +124,7 @@ export default function FaqClient() {
       event_label: question,
       value: openIndexes.includes(i) ? 0 : 1, // 1 = открыли, 0 = закрыли
     });
-    window.ym?.(12345678, 'reachGoal', 'faq_toggle', {
+    window.ym?.(96644553, 'reachGoal', 'faq_toggle', {
       question,
       action: openIndexes.includes(i) ? 'close' : 'open',
     });

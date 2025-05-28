@@ -6,7 +6,7 @@ export default function LogoutButton() {
     await fetch('/api/admin-logout', { method: 'POST' });
     window.location.href = '/admin/login';
     window.gtag?.('event', 'admin_logout', { event_category: 'admin' });
-    window.ym?.(12345678, 'reachGoal', 'admin_logout');
+    window.ym?.(96644553, 'reachGoal', 'admin_logout');
   };
 
   return (

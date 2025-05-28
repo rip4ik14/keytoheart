@@ -52,7 +52,7 @@ export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
           aria-label="Оставить заявку на корпоративные подарки"
           onClick={() => {
             window.gtag?.('event', 'corporate_cta_click', { event_category: 'corporate' });
-            window.ym?.(12345678, 'reachGoal', 'corporate_cta_click');
+            window.ym?.(96644553, 'reachGoal', 'corporate_cta_click');
           }}
         >
           Оставить заявку

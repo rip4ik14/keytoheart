@@ -133,7 +133,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                       item_id: item.id,
                       item_type: type,
                     });
-                    window.ym?.(12345678, 'reachGoal', 'select_upsell_item', {
+                    window.ym?.(96644553, 'reachGoal', 'select_upsell_item', {
                       item_id: item.id,
                       item_type: type,
                     });
