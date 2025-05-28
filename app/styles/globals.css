@@ -595,3 +595,8 @@ footer a {
 .customSwiper :global(.swiper-button-next) {
   display: none;
 }
+
+.swiper-wrapper,
+.swiper-slide {
+  overflow: visible !important;
+}

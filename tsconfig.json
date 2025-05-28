@@ -22,9 +22,9 @@
       "@utils/*": ["utils/*"],
       "@/lib/*": ["lib/*"],
       "@/lib/supabase/*": ["lib/supabase/*"],
-      "@/*": ["./*"] // Добавляем общее правило для @/
+      "@/*": ["./*"]
     },
-    "types": ["node", "react", "react-dom"],
+    "types": ["node", "react", "react-dom", "yandex-maps"],
     "typeRoots": [
       "./node_modules/@types",
       "./types"

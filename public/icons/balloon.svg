@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" id="Icons" version="1.1" viewBox="0 0 32 32">
+  <style>
+    .st0{fill:none;stroke:#000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10}
+  </style>
+  <ellipse cx="16" cy="11" class="st0" rx="7" ry="8"/>
+  <path d="M15.1 18.9 13 21h0c1.8 1.2 4.2 1.2 6 0h0l-2-2" class="st0"/>
+  <path d="m17 29-.4-.9c-.3-.7-.3-1.5 0-2.2v0c.3-.6.3-1.2.1-1.9l-.7-2.1" class="st0"/>
+</svg>

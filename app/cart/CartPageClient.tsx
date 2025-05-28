@@ -874,44 +874,65 @@ export default function CartPageClient() {
 
         <div className="space-y-6">
           {/* Кнопки "Открытка" и "Шары" над CartItem */}
-          <motion.div className="flex flex-wrap gap-4 md:gap-4 md:flex-row" variants={containerVariants}>
-            <motion.button
+          <div
+            className="
+              flex gap-4 mb-4 
+              md:flex-row md:gap-8
+              w-full justify-center
+            "
+          >
+            {/* Открытка */}
+            <button
               type="button"
               onClick={() => setShowPostcard(true)}
-              className="w-full md:w-32 h-32 flex flex-col items-center justify-center bg-white border border-gray-300 rounded-lg hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-black"
+              className="
+                flex flex-col items-center justify-center
+                w-36 h-36 md:w-40 md:h-40
+                rounded-2xl bg-white border border-gray-200
+                shadow-sm hover:shadow-lg
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-black
+                group
+              "
               aria-label="Добавить открытку"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
             >
               <Image
-                src="/icons/gift.svg"
-                alt="Иконка подарка"
-                width={24}
-                height={24}
-                loading="lazy"
-                className="mb-2"
+                src="/icons/postcard.svg"
+                alt="Добавить открытку"
+                width={48}
+                height={48}
+                className="mb-3 transition-transform duration-200 group-hover:scale-110"
+                priority={false}
               />
-              <span className="text-sm text-gray-700">Открытка</span>
-            </motion.button>
-            <motion.button
+              <span className="text-base md:text-lg font-medium text-gray-800">Добавить открытку</span>
+            </button>
+
+            {/* Шары */}
+            <button
               type="button"
               onClick={() => setShowBalloons(true)}
-              className="w-full md:w-32 h-32 flex flex-col items-center justify-center bg-white border border-gray-300 rounded-lg hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-black"
+              className="
+                flex flex-col items-center justify-center
+                w-36 h-36 md:w-40 md:h-40
+                rounded-2xl bg-white border border-gray-200
+                shadow-sm hover:shadow-lg
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-black
+                group
+              "
               aria-label="Добавить шары"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
             >
               <Image
-                src="/icons/gift.svg"
-                alt="Иконка подарка"
-                width={24}
-                height={24}
-                loading="lazy"
-                className="mb-2"
+                src="/icons/balloon.svg"
+                alt="Добавить         шары"
+                width={48}
+                height={48}
+                className="mb-3 transition-transform duration-200 group-hover:scale-110"
+                priority={false}
               />
-              <span className="text-sm text-gray-700">Шары</span>
-            </motion.button>
-          </motion.div>
+              <span className="text-base md:text-lg font-medium text-gray-800">Добавить<br />шары</span>
+            </button>
+          </div>
 
           {[...items, ...selectedUpsells]
             .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
@@ -954,25 +975,38 @@ export default function CartPageClient() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                      placeholder="Введите промокод"
-                      className="flex-1 py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
-                      aria-label="Введите промокод"
-                    />
-                    <motion.button
-                      onClick={handleApplyPromo}
-                      className="w-full sm:w-auto px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-gray-800 to-black rounded-md hover:bg-gradient-to-r hover:from-gray-900 hover:to-black hover:shadow-lg hover:shadow-gray-500/50 focus:outline-none focus:ring-2 focus:ring-black uppercase transition-all duration-300"
-                      aria-label="Применить промокод"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Применить
-                    </motion.button>
-                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+  <input
+    type="text"
+    value={promoCode}
+    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+    placeholder="Введите промокод"
+    className="flex-1 min-w-0 py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
+    aria-label="Введите промокод"
+  />
+  <motion.button
+    onClick={handleApplyPromo}
+    className="
+      w-full sm:w-[120px] flex-shrink-0
+      py-3 px-0
+      text-[15px] font-bold text-white
+      bg-gradient-to-r from-gray-800 to-black rounded-md
+      hover:bg-gradient-to-r hover:from-gray-900 hover:to-black
+      hover:shadow-lg hover:shadow-gray-500/50
+      focus:outline-none focus:ring-2 focus:ring-black
+      uppercase transition-all duration-300
+      text-center
+      leading-none
+      "
+    aria-label="Применить промокод"
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+  >
+    <span className="block w-full text-center tracking-wide">
+      Применить
+    </span>
+  </motion.button>
+</div>
                   {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
                   {promoDiscount !== null && (
                     <motion.p

@@ -1,6 +1,6 @@
+// app/layout.tsx
 import './styles/fonts.css';
 import './styles/globals.css';
-
 import 'react-image-gallery/styles/css/image-gallery.css';
 
 import { Metadata, Viewport } from 'next';
@@ -14,12 +14,13 @@ import StickyHeader from '@components/StickyHeader';
 import Footer from '@components/Footer';
 import CookieBanner from '@components/CookieBanner';
 import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
+import PromoFooterBlock from '@components/PromoFooterBlock';
+import MobileContactFab from '@components/MobileContactFab';
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 
 import { Category } from '@/types/category';
-import PromoFooterBlock from '@components/PromoFooterBlock';
 
 export const revalidate = 3600;
 
@@ -101,19 +102,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Загрузка категорий через REST-запрос
+  // Fetch categories once per revalidate period
   let categories: Category[] = [];
   try {
-    const response = await fetch(
+    const res = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
       {
-        headers: {
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
+        headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! },
         next: { revalidate: 3600 },
       }
     );
-    const data = await response.json();
+    const data = await res.json();
     if (Array.isArray(data)) {
       categories = data.map((cat: any) => ({
         id: cat.id,
@@ -132,7 +131,7 @@ export default async function RootLayout({
       }));
     }
   } catch (err) {
-    console.error(`${new Date().toISOString()} RootLayout: Error loading categories`, err);
+    console.error('RootLayout: could not load categories', err);
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
@@ -145,6 +144,7 @@ export default async function RootLayout({
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
         <link rel="preload" href="/og-cover.jpg" as="image" />
+
         <JsonLd<WebSite>
           item={{
             '@type': 'WebSite',
@@ -154,6 +154,7 @@ export default async function RootLayout({
               'Клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. Подарки на 8 марта, Новый год, День Победы и любой праздник!',
           }}
         />
+
         <JsonLd<LocalBusiness>
           item={{
             '@type': 'LocalBusiness',
@@ -169,12 +170,21 @@ export default async function RootLayout({
             email: 'info@keytoheart.ru',
             openingHoursSpecification: {
               '@type': 'OpeningHoursSpecification',
-              dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+              dayOfWeek: [
+                'Monday',
+                'Tuesday',
+                'Wednesday',
+                'Thursday',
+                'Friday',
+                'Saturday',
+                'Sunday',
+              ],
               opens: '08:00',
               closes: '22:00',
             },
           }}
         />
+
         <JsonLd<BreadcrumbList>
           item={{
             '@type': 'BreadcrumbList',
@@ -188,6 +198,7 @@ export default async function RootLayout({
             ],
           }}
         />
+
         {ymId && (
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`
@@ -214,6 +225,7 @@ export default async function RootLayout({
             `}
           </Script>
         )}
+
         {ymId && (
           <Script id="yandex-turbo" strategy="afterInteractive">
             {`
@@ -227,24 +239,39 @@ export default async function RootLayout({
           </Script>
         )}
       </head>
+
       <body className="bg-white font-sans">
         <CartAnimationProvider>
           <CartProvider>
+            {/* Top Navigation */}
             <TopBar />
             <StickyHeader initialCategories={categories} />
+
+            {/* Breadcrumbs */}
             <Suspense fallback={<div>Загрузка...</div>}>
               <ClientBreadcrumbs />
             </Suspense>
-            <main className="pt-12 sm:pt-14" aria-label="Основной контент">
-              {children}
-            </main>
+
+            {/* Main Content */}
+            <main className="pt-12 sm:pt-14">{children}</main>
+
+            {/* Promo block right above footer */}
             <PromoFooterBlock />
+
+            {/* Standard Footer */}
             <Footer />
+
+            {/* Cookie banner */}
             <CookieBanner />
-            {/* Скрытый текст для SEO */}
+
+            {/* Mobile “Contact Us” FAB */}
+            <MobileContactFab />
+
+            {/* Hidden SEO text */}
             <div className="sr-only" aria-hidden="true">
               <p>
-                Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар, романтические подарки Краснодар, цветы на День учителя Краснодар, цветы на День матери Краснодар, подарки на 23 февраля Краснодар, эксклюзивные подарки Краснодар, подарки на годовщину Краснодар, доставка цветов на дом Краснодар, цветы оптом Краснодар, KeyToHeart
+                Клубничные букеты Краснодар, доставка цветов Краснодар,...
+                {/* your full SEO string */}
               </p>
             </div>
           </CartProvider>
