@@ -24,7 +24,7 @@ export default function MarqueeText({
         }}
         style={{
           willChange: 'transform',
-          textShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          textShadow: '0 2px 8px rgba(54, 49, 49, 0.66)',
         }}
       >
         <span>{text}</span>

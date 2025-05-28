@@ -11,7 +11,7 @@ export default function MobileContactFab() {
     <div className="fixed bottom-4 left-4 z-50 md:hidden">
       {/* Кнопка FAB */}
       <button
-        className="w-14 h-14 rounded-full bg-black flex items-center justify-center shadow-lg"
+        className="w-14 h-14 rounded-full bg-white/80 border border-gray-300 flex items-center justify-center shadow-lg backdrop-blur hover:bg-white transition"
         onClick={() => setOpen((v) => !v)}
         aria-label="Связаться с нами"
       >

@@ -11,13 +11,12 @@ export default function PromoFooterBlock() {
       <div className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex items-end h-full">
         <MarqueeText
           text="Ключик к сердцу Ключик к сердцу Ключик к сердцу "
-          speed={80} // Увеличено с 40 до 80, чтобы замедлить прокрутку в 2 раза
+          speed={80}
           className="
             w-full
             text-[80px] sm:text-[150px] md:text-[308px] 2xl:text-[392px]
             font-black
-            text-[#bbbbbb]
-            opacity-[0.40]
+            text-[#efefef] // Изменяем цвет на #efefef
             leading-[0.8]
             whitespace-nowrap
             tracking-tight
