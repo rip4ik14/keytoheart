@@ -36,15 +36,15 @@ export default function Step1ContactDetails({
   handlePhoneChange,
 }: Props) {
   return (
-    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+    <div className="space-y-4">
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={0}
         variants={containerVariants}
       >
-        <label htmlFor="phone" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="phone" className="block text-xs text-gray-500">
           Телефон
         </label>
         <div className="relative">
@@ -57,9 +57,9 @@ export default function Step1ContactDetails({
             value={form.phone}
             onChange={e => handlePhoneChange(e.target.value)}
             placeholder="+7 (___) ___-__-__"
-            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
               phoneError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             disabled
             aria-label="Номер телефона"
             aria-invalid={!!phoneError}
@@ -69,13 +69,13 @@ export default function Step1ContactDetails({
       </motion.div>
 
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={1}
         variants={containerVariants}
       >
-        <label htmlFor="name" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="name" className="block text-xs text-gray-500">
           Ваше имя
         </label>
         <div className="relative">
@@ -88,9 +88,9 @@ export default function Step1ContactDetails({
             value={form.name}
             onChange={onFormChange}
             placeholder="Введите ваше имя"
-            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
               nameError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-label="Ваше имя"
             aria-invalid={!!nameError}
           />
@@ -99,32 +99,13 @@ export default function Step1ContactDetails({
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={2}
         variants={containerVariants}
       >
-        <input
-          type="checkbox"
-          name="whatsapp"
-          checked={form.whatsapp}
-          onChange={onFormChange}
-          className="h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
-          aria-label="Связаться через WhatsApp"
-        />
-        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={20} height={20} loading="lazy" />
-        <span className="text-sm text-gray-700">Написать в WhatsApp вместо звонка</span>
-      </motion.div>
-
-      <motion.div
-        className="space-y-2"
-        initial="hidden"
-        animate="visible"
-        custom={3}
-        variants={containerVariants}
-      >
-        <label htmlFor="email" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="email" className="block text-xs text-gray-500">
           E-mail (необязательно)
         </label>
         <div className="relative">
@@ -137,14 +118,33 @@ export default function Step1ContactDetails({
             value={form.email}
             onChange={onFormChange}
             placeholder="Введите ваш email"
-            className={`w-full pl-10 pr-3 py-3 border rounded-lg text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
               emailError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-label="Ваш email"
             aria-invalid={!!emailError}
           />
         </div>
         {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
+      </motion.div>
+
+      <motion.div
+        className="flex items-center gap-2 mt-4"
+        initial="hidden"
+        animate="visible"
+        custom={3}
+        variants={containerVariants}
+      >
+        <input
+          type="checkbox"
+          name="whatsapp"
+          checked={form.whatsapp}
+          onChange={onFormChange}
+          className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+          aria-label="Связаться через WhatsApp"
+        />
+        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="lazy" />
+        <span className="text-sm text-gray-700">Написать в WhatsApp вместо звонка</span>
       </motion.div>
 
       <motion.p

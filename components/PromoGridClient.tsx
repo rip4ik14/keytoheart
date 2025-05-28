@@ -1,6 +1,7 @@
+
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -26,6 +27,53 @@ export default function PromoGridClient({
   banners: Block[];
   cards: Block[];
 }) {
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  // Варианты анимации для элементов баннера (текущая: только прозрачность, более плавная)
+  const textVariants = {
+    hidden: { opacity: 0 },
+    visible: (i: number) => ({
+      opacity: 1,
+      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' }, // Увеличена длительность и задержка, мягкое завершение
+    }),
+  };
+
+  // Альтернативный эффект 1: Прозрачность + Легкое масштабирование
+  /*
+  const textVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: (i: number) => ({
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
+    }),
+  };
+  */
+
+  // Альтернативный эффект 2: Прозрачность + Межбуквенный интервал
+  /*
+  const textVariants = {
+    hidden: { opacity: 0, letterSpacing: '0.1em' },
+    visible: (i: number) => ({
+      opacity: 1,
+      letterSpacing: '0em',
+      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
+    }),
+  };
+  */
+
+  // Альтернативный эффект 3: Прозрачность + Размытие
+  /*
+  const textVariants = {
+    hidden: { opacity: 0, filter: 'blur(5px)' },
+    visible: (i: number) => ({
+      opacity: 1,
+      filter: 'blur(0)',
+      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
+    }),
+  };
+  */
+
   return (
     <motion.section
       className="mx-auto mt-10 max-w-7xl px-4"
@@ -51,6 +99,7 @@ export default function PromoGridClient({
             pagination={{ clickable: true }}
             loop
             className="h-full w-full"
+            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
           >
             {banners.map((b, i) => (
               <SwiperSlide key={b.id}>
@@ -86,9 +135,10 @@ export default function PromoGridClient({
                           max-w-[95vw] sm:max-w-[80vw] leading-tight
                           sm:mb-3
                         "
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
+                        variants={textVariants}
+                        initial="hidden"
+                        animate={activeSlide === i ? 'visible' : 'hidden'}
+                        custom={0} // Первая задержка (заголовок)
                         style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                       >
                         {b.title}
@@ -100,18 +150,20 @@ export default function PromoGridClient({
                             max-w-[95vw] sm:max-w-[80vw]
                             sm:mb-6
                           "
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.7, delay: 0.4 }}
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={1} // Вторая задержка (подзаголовок)
                           style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                         >
                           {b.subtitle}
                         </motion.p>
                       )}
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.65 }}
+                        variants={textVariants}
+                        initial="hidden"
+                        animate={activeSlide === i ? 'visible' : 'hidden'}
+                        custom={b.subtitle ? 2 : 1} // Третья задержка (кнопка), или вторая, если нет подзаголовка
                         className="flex"
                       >
                         <span

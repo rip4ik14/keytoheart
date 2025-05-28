@@ -36,7 +36,6 @@ export default function LoyaltyPageClient() {
     const fetchUserData = async () => {
       // TODO: Заменить на российский сервис после миграции
       // Пример: const { data: user } = await russianService.auth.getUser();
-      toast.error('Данные пользователя временно недоступны');
       setUserPhone('mock-phone'); // Заглушка
       setBonusBalance(500); // Заглушка
       setBonusHistory([
@@ -87,20 +86,6 @@ export default function LoyaltyPageClient() {
   return (
     <section className="max-w-6xl mx-auto px-4 py-16 bg-gray-50" aria-label="Программа лояльности">
       <Toaster position="top-right" />
-
-      {/* Баланс */}
-      {bonusBalance != null && (
-        <motion.div
-          className="text-right text-sm text-gray-600 mb-6"
-          variants={sectionVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Ваш бонусный баланс:{' '}
-          <span className="font-semibold">{bonusBalance} ₽</span>
-        </motion.div>
-      )}
 
       {/* Баннер */}
       <motion.div

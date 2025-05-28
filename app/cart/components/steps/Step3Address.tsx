@@ -1,4 +1,3 @@
-// ✅ Путь: components/steps/Step3Address.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -44,9 +43,9 @@ export default function Step3Address({
   };
 
   return (
-    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+    <div className="space-y-4">
       <motion.div
-        className="flex gap-6"
+        className="flex gap-6 border-b pb-4"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
@@ -84,54 +83,56 @@ export default function Step3Address({
           animate="visible"
           variants={containerVariants}
         >
-          <div className="relative">
-            <label htmlFor="street" className="block text-sm font-medium text-gray-900 mb-1">
+          <div className="space-y-1">
+            <label htmlFor="street" className="block text-xs text-gray-500">
               Улица
             </label>
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
-            </div>
-            <input
-              id="street"
-              name="street"
-              value={form.street}
-              onChange={handleAddressChange}
-              placeholder="Введите улицу"
-              className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
-                addressError ? 'border-red-500' : 'border-gray-300'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
-              aria-invalid={!!addressError}
-              aria-autocomplete="list"
-            />
-            {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
-            {showSuggestions && (
-              <ul className="absolute z-10 w-full bg-white border rounded-lg mt-1 shadow-lg max-h-48 overflow-auto">
-                {isLoadingSuggestions ? (
-                  <li className="p-2 text-gray-500 flex items-center gap-2">
-                    <Image src="/icons/spinner.svg" alt="..." width={16} height={16} className="animate-spin" />
-                    Загрузка...
-                  </li>
-                ) : addressSuggestions.length > 0 ? (
-                  addressSuggestions.map((s, i) => (
-                    <li
-                      key={i}
-                      onClick={() => handleSelectAddress(s)}
-                      className="p-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
-                    >
-                      {s}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
+              </div>
+              <input
+                id="street"
+                name="street"
+                value={form.street}
+                onChange={handleAddressChange}
+                placeholder="Введите улицу"
+                className={`w-full pl-10 pr-3 py-2 border rounded-md ${
+                  addressError ? 'border-red-500' : 'border-gray-300'
+                } focus:outline-none focus:ring-2 focus:ring-black`}
+                aria-invalid={!!addressError}
+                aria-autocomplete="list"
+              />
+              {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
+              {showSuggestions && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-sm max-h-48 overflow-auto">
+                  {isLoadingSuggestions ? (
+                    <li className="p-2 text-gray-500 flex items-center gap-2">
+                      <Image src="/icons/spinner.svg" alt="..." width={16} height={16} className="animate-spin" />
+                      Загрузка...
                     </li>
-                  ))
-                ) : (
-                  <li className="p-2 text-gray-500">Ничего не найдено</li>
-                )}
-              </ul>
-            )}
+                  ) : addressSuggestions.length > 0 ? (
+                    addressSuggestions.map((s, i) => (
+                      <li
+                        key={i}
+                        onClick={() => handleSelectAddress(s)}
+                        className="p-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
+                      >
+                        {s}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="p-2 text-gray-500">Ничего не найдено</li>
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-4">
             {['house', 'apartment', 'entrance'].map((field, i) => (
-              <div key={field} className="flex-1">
-                <label htmlFor={field} className="block text-sm font-medium text-gray-900 mb-1">
+              <div key={field} className="flex-1 space-y-1">
+                <label htmlFor={field} className="block text-xs text-gray-500">
                   {field === 'house' ? 'Дом' : field === 'apartment' ? 'Квартира' : 'Подъезд'}
                 </label>
                 <input
@@ -140,14 +141,14 @@ export default function Step3Address({
                   value={(form as any)[field]}
                   onChange={onFormChange}
                   placeholder={field === 'house' ? 'Дом' : field === 'apartment' ? 'Кв.' : 'Подъезд'}
-                  className="w-full pl-3 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                  className="w-full pl-3 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
             ))}
           </div>
 
-          <div>
-            <label htmlFor="deliveryInstructions" className="block text-sm font-medium text-gray-900 mb-1">
+          <div className="space-y-1">
+            <label htmlFor="deliveryInstructions" className="block text-xs text-gray-500">
               Инструкции для доставки
             </label>
             <textarea
@@ -156,7 +157,7 @@ export default function Step3Address({
               value={form.deliveryInstructions}
               onChange={handleInstr}
               placeholder="Например: позвонить за 30 минут"
-              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black min-h-[80px]"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px]"
             />
           </div>
         </motion.div>

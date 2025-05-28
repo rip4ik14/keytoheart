@@ -1,9 +1,8 @@
-// ✅ Путь: components/steps/Step2RecipientDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { UpsellItem } from '../../types';  // поправил путь импорта
+import { UpsellItem } from '../../types';
 
 interface Props {
   form: {
@@ -16,7 +15,7 @@ interface Props {
   recipientError: string;
   recipientPhoneError: string;
   postcardText: string;
-  selectedUpsells: UpsellItem[];  // теперь полное определение типа
+  selectedUpsells: UpsellItem[];
   onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   setPostcardText: (text: string) => void;
 }
@@ -57,9 +56,9 @@ export default function Step2RecipientDetails({
   };
 
   return (
-    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+    <div className="space-y-4">
       <motion.label
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 mt-4"
         initial="hidden"
         animate="visible"
         custom={0}
@@ -84,13 +83,13 @@ export default function Step2RecipientDetails({
       </motion.label>
 
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={1}
         variants={containerVariants}
       >
-        <label htmlFor="recipient" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="recipient" className="block text-xs text-gray-500">
           Имя получателя <span className="text-red-500">*</span>
         </label>
         <div className="relative">
@@ -103,9 +102,9 @@ export default function Step2RecipientDetails({
             value={form.recipient}
             onChange={onFormChange}
             placeholder="Имя получателя"
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
               recipientError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!recipientError}
             required
           />
@@ -114,13 +113,13 @@ export default function Step2RecipientDetails({
       </motion.div>
 
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={2}
         variants={containerVariants}
       >
-        <label htmlFor="recipientPhone" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="recipientPhone" className="block text-xs text-gray-500">
           Телефон получателя <span className="text-red-500">*</span>
         </label>
         <div className="relative flex items-center">
@@ -131,9 +130,9 @@ export default function Step2RecipientDetails({
             value={displayPhone(form.recipientPhone)}
             onChange={e => handlePhone(e.target.value)}
             placeholder="(xxx) xxx-xx-xx"
-            className={`w-full pl-12 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-12 pr-3 py-2 border rounded-md ${
               recipientPhoneError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!recipientPhoneError}
             required
           />
@@ -143,13 +142,13 @@ export default function Step2RecipientDetails({
 
       {selectedUpsells.some(u => u.category === 'postcard') && (
         <motion.div
-          className="space-y-2"
+          className="space-y-1"
           initial="hidden"
           animate="visible"
           custom={3}
           variants={containerVariants}
         >
-          <label htmlFor="postcardText" className="block text-sm font-medium text-gray-900">
+          <label htmlFor="postcardText" className="block text-xs text-gray-500">
             Текст открытки
           </label>
           <textarea
@@ -157,14 +156,14 @@ export default function Step2RecipientDetails({
             value={postcardText}
             onChange={e => setPostcardText(e.target.value)}
             placeholder="Напишите ваше поздравление"
-            className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black min-h-[80px]"
+            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px]"
             aria-label="Текст открытки"
           />
         </motion.div>
       )}
 
       <motion.label
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 mt-4"
         initial="hidden"
         animate="visible"
         custom={4}

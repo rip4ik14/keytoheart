@@ -181,7 +181,6 @@ export default function CartPageClient() {
     validateStep3,
     validateStep4,
     validateStep5,
-    validateAllSteps,
     getMinDate,
     resetForm,
   } = useCheckoutForm();
@@ -238,7 +237,6 @@ export default function CartPageClient() {
             }
           });
 
-          // Обновляем корзину
           clearCart();
           addMultipleItems(updatedItems);
         }
@@ -269,11 +267,6 @@ export default function CartPageClient() {
           if (isMounted && bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.data.bonus_balance || 0);
           }
-          console.log('Form state after session check (sensitive data omitted):', {
-            phone: '***' + form.phone?.slice(-4),
-            email: form.email ? '***@' + form.email.split('@')[1] : null,
-            name: '***',
-          });
           setStep(1);
         } else if (isMounted) {
           setStep(0);
@@ -287,26 +280,12 @@ export default function CartPageClient() {
     return () => {
       isMounted = false;
     };
-  }, []); // Убрали onFormChange из зависимостей
+  }, []);
 
   // Добавляем отладку для nextStep
   const handleNextStep = useCallback(() => {
-    console.log('handleNextStep called. Current step:', step);
-    console.log('Form state (sensitive data omitted):', {
-      phone: form.phone ? '***' + form.phone.slice(-4) : null,
-      email: form.email ? '***@' + form.email.split('@')[1] : null,
-      name: '***',
-      recipient: '***',
-      recipientPhone: form.recipientPhone ? '***' + form.recipientPhone.slice(-4) : null,
-      street: form.street ? '***' : null,
-      date: form.date,
-      time: form.time,
-    });
-    console.log('Validation errors:', { phoneError, emailError, nameError, dateError, timeError });
-
     if (step === 1) {
       const isValid = validateStep1();
-      console.log('Step 1 validation result:', isValid);
       if (isValid) {
         nextStep();
       } else {
@@ -314,7 +293,6 @@ export default function CartPageClient() {
       }
     } else if (step === 4) {
       const isValid = validateStep4();
-      console.log('Step 4 validation result:', isValid);
       if (isValid) {
         nextStep();
       } else {
@@ -323,7 +301,7 @@ export default function CartPageClient() {
     } else {
       nextStep();
     }
-  }, [step, validateStep1, validateStep4, nextStep, form, phoneError, emailError, nameError, dateError, timeError]);
+  }, [step, validateStep1, validateStep4, nextStep]);
 
   // Вычисления для заказа
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
@@ -378,13 +356,12 @@ export default function CartPageClient() {
 
   // Доступность оформления заказа
   const canPlaceOrder = useMemo(() => {
-    // Проверяем только, включён ли приём заказов
     if (!storeSettings || isStoreSettingsLoading) return true;
     if (!storeSettings.order_acceptance_enabled) {
       toast.error('Магазин временно не принимает заказы. Попробуйте позже.');
       return false;
     }
-    return true; // Убираем проверку текущего времени
+    return true;
   }, [storeSettings, isStoreSettingsLoading]);
 
   const currentDaySchedule = useMemo(() => {
@@ -550,14 +527,12 @@ export default function CartPageClient() {
       .filter((item: { id: number }) => !isNaN(item.id));
     if (itemsToValidate.length === 0) return true;
     try {
-      console.log('Sending validation request:', { items: itemsToValidate });
       const res = await fetch('/api/products/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: itemsToValidate }),
       });
       const json = await res.json();
-      console.log('Validation response:', json);
       if (!res.ok || !json.valid) {
         const errorMessage = json.invalidItems?.length > 0
           ? `Некоторые товары недоступны: ${json.invalidItems
@@ -569,117 +544,69 @@ export default function CartPageClient() {
       }
       return true;
     } catch (error: any) {
-      console.error('Error validating items:', error);
       toast.error('Ошибка проверки товаров: ' + error.message);
       return false;
     }
-  }, [items, clearCart, addMultipleItems]);
+  }, [items]);
 
   // Отправка заказа
   const submitOrder = useCallback(async () => {
-    console.log('submitOrder called. Step:', step);
-    console.log('Form state (sensitive data omitted):', {
-      phone: form.phone ? '***' + form.phone.slice(-4) : null,
-      email: form.email ? '***@' + form.email.split('@')[1] : null,
-      name: '***',
-      recipient: '***',
-      recipientPhone: form.recipientPhone ? '***' + form.recipientPhone.slice(-4) : null,
-      street: form.street ? '***' : null,
-      date: form.date,
-      time: form.time,
-    });
-    console.log('Can place order:', canPlaceOrder);
-    console.log('Items in cart:', items);
-    console.log('Selected upsells:', selectedUpsells);
-    console.log('Store settings:', storeSettings);
-
-    // Проверка согласия с условиями
     if (!validateStep5(agreed)) {
-      console.log('Step 5 validation failed');
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
       return;
     }
 
-    // Проверка заполнения всех полей
-    if (!validateAllSteps()) {
-      console.log('All steps validation failed');
+    const isFormValid = validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(agreed);
+    if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
 
-    // Проверка возможности оформления заказа
     if (!canPlaceOrder) {
-      console.log('Cannot place order due to store settings');
-      toast.error(
-        'Магазин временно не принимает заказы. Попробуйте позже или свяжитесь с поддержкой.'
-      );
+      toast.error('Магазин временно не принимает заказы. Попробуйте позже или свяжитесь с поддержкой.');
       return;
     }
 
-    // Проверка наличия товаров в корзине
     if (items.length === 0 && selectedUpsells.length === 0) {
-      console.log('Cart is empty');
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
 
-    // Проверка валидности товаров
     if (!(await checkItems())) {
-      console.log('Items validation failed');
       toast.error('Некоторые товары недоступны. Пожалуйста, обновите корзину и попробуйте снова.');
       return;
     }
 
-    // Проверка телефона
     if (!phone) {
-      console.log('Phone is missing');
       setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
       setIsAuthenticated(false);
       setStep(0);
       return;
     }
 
-    // Проверка выбранного времени доставки
     if (form.date && form.time && storeSettings) {
       const deliveryDate = new Date(form.date);
       const dayKey = deliveryDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-
-      // Проверяем окно приёма заказов
       const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
       if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) {
-        console.log('Delivery time not available for order acceptance');
-        toast.error(
-          `Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату на шаге "Дата и время".`
-        );
+        toast.error(`Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату.`);
         return;
       }
       if (form.time < orderSchedule.start || form.time > orderSchedule.end) {
-        console.log('Delivery time outside order acceptance schedule');
-        toast.error(
-          `Выбранное время доставки (${form.time}) не попадает в окно приёма заказов (${orderSchedule.start} - ${orderSchedule.end}). Пожалуйста, выберите другое время на шаге "Дата и время".`
-        );
+        toast.error(`Выбранное время доставки (${form.time}) не попадает в окно приёма заказов (${orderSchedule.start} - ${orderSchedule.end}). Пожалуйста, выберите другое время.`);
         return;
       }
-
-      // Проверяем график работы магазина
       const storeSchedule = storeSettings.store_hours[dayKey];
       if (!storeSchedule || !storeSchedule.start || !storeSchedule.end || storeSchedule.enabled === false) {
-        console.log('Delivery time not available for store hours');
-        toast.error(
-          `Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату на шаге "Дата и время".`
-        );
+        toast.error(`Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату.`);
         return;
       }
       if (form.time < storeSchedule.start || form.time > storeSchedule.end) {
-        console.log('Delivery time outside store hours');
-        toast.error(
-          `Выбранное время доставки (${form.time}) не попадает в график работы магазина (${storeSchedule.start} - ${storeSchedule.end}). Пожалуйста, выберите другое время на шаге "Дата и время".`
-        );
+        toast.error(`Выбранное время доставки (${form.time}) не попадает в график работы магазина (${storeSchedule.start} - ${storeSchedule.end}). Пожалуйста, выберите другое время.`);
         return;
       }
     } else {
-      console.log('Date or time missing in form');
-      toast.error('Пожалуйста, выберите дату и время доставки на шаге "Дата и время".');
+      toast.error('Пожалуйста, выберите дату и время доставки.');
       return;
     }
 
@@ -722,16 +649,13 @@ export default function CartPageClient() {
         anonymous: form.anonymous,
         whatsapp: form.whatsapp,
       };
-      console.log('Submitting order with payload (sensitive data omitted)');
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      console.log('Order response:', json);
       if (!res.ok || !json.success) {
-        console.log('Order submission failed:', json.error);
         setErrorModal(json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
         return;
       }
@@ -747,14 +671,12 @@ export default function CartPageClient() {
             }),
           });
           const bonusJson = await bonusRes.json();
-          console.log('Bonus redemption response:', bonusJson);
           if (bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.new_balance || 0);
           } else {
             toast.error('Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.');
           }
         } catch (error: any) {
-          console.error('Error redeeming bonuses:', error);
           toast.error('Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.');
         }
       }
@@ -775,7 +697,6 @@ export default function CartPageClient() {
       setUseBonuses(false);
       setBonusesUsed(0);
     } catch (error: any) {
-      console.error('Error submitting order:', error);
       setErrorModal('Произошла неизвестная ошибка при оформлении заказа: ' + error.message + '. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
     } finally {
       setIsSubmittingOrder(false);
@@ -783,7 +704,10 @@ export default function CartPageClient() {
   }, [
     validateStep5,
     agreed,
-    validateAllSteps,
+    validateStep1,
+    validateStep2,
+    validateStep3,
+    validateStep4,
     canPlaceOrder,
     checkItems,
     form,
@@ -808,7 +732,7 @@ export default function CartPageClient() {
     <div className="mx-auto max-w-7xl px-4 py-12 pb-[80px] md:pb-12">
       <StoreBanner />
       <motion.h1
-        className="mb-10 text-center text-3xl font-bold tracking-tight sm:text-4xl"
+        className="mb-10 text-center text-4xl sm:text-5xl font-bold tracking-tight uppercase"
         initial={{ opacity: 0, y: -25 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -826,7 +750,7 @@ export default function CartPageClient() {
       )}
 
       <motion.div
-        className="mb-6 flex items-center justify-between sticky top-0 z-30 bg-white py-2 md:static"
+        className="mb-6 flex items-center justify-center gap-2 sticky top-0 z-30 bg-white py-2 md:static"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -834,7 +758,7 @@ export default function CartPageClient() {
         {[0, 1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
-              className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium sm:w-8 sm:h-8 sm:text-sm ${
+              className={`flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-medium ${
                 step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
               }`}
               initial={{ scale: 0.8 }}
@@ -846,7 +770,7 @@ export default function CartPageClient() {
             </motion.div>
             {s < 5 && (
               <motion.div
-                className={`w-6 h-1 mx-1 sm:w-10 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
+                className={`w-6 h-1 mx-1 sm:w-8 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
                 initial={{ width: '0%', opacity: 0 }}
                 animate={{ width: step > s ? '100%' : '0%', opacity: 1 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -857,161 +781,138 @@ export default function CartPageClient() {
       </motion.div>
 
       <motion.div
-        className="grid gap-6 mt-6 md:grid-cols-3 md:gap-10"
+        className="flex flex-wrap gap-4 mt-6 md:grid md:grid-cols-3 md:gap-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            variants={stepVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="space-y-6 md:col-span-2"
-          >
-            {step === 0 && (
-              <OrderStep step={0} currentStep={step} title="Авторизация">
-                <AuthWithCall
-                  onSuccess={(phone: string) => {
-                    setIsAuthenticated(true);
-                    setPhone(normalizePhone(phone));
-                    setStep(1);
-                    onFormChange({
-                      target: { name: 'phone', value: normalizePhone(phone) },
-                    } as React.ChangeEvent<HTMLInputElement>);
-                  }}
-                />
-              </OrderStep>
-            )}
-            {step === 1 && (
-              <OrderStep step={1} currentStep={step} title="Ваши контакты" onNext={handleNextStep}>
-                <Step1ContactDetails
-                  form={form}
-                  phoneError={phoneError}
-                  emailError={emailError}
-                  nameError={nameError}
-                  onFormChange={onFormChange}
-                  handlePhoneChange={handlePhoneChange}
-                />
-                <motion.div className="flex flex-wrap gap-2 mt-4" variants={containerVariants}>
-                  {isUpsellLoading ? (
-                    <motion.div
-                      className="flex justify-center w-full py-4"
-                      variants={containerVariants}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <Image
-                        src="/icons/spinner.svg"
-                        alt="Иконка загрузки"
-                        width={24}
-                        height={24}
-                        loading="lazy"
-                        className="animate-spin"
-                      />
-                    </motion.div>
-                  ) : (
-                    <>
-                      <motion.button
-                        type="button"
-                        onClick={() => setShowPostcard(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                        aria-label="Добавить открытку"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Image
-                          src="/icons/gift.svg"
-                          alt="Иконка подарка"
-                          width={16}
-                          height={16}
-                          loading="lazy"
-                          className="text-gray-600"
-                        />
-                        <span>Добавить открытку</span>
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        onClick={() => setShowBalloons(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-300 sm:px-4 sm:py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-                        aria-label="Добавить шары"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Image
-                          src="/icons/gift.svg"
-                          alt="Иконка подарка"
-                          width={16}
-                          height={16}
-                          loading="lazy"
-                          className="text-gray-600"
-                        />
-                        <span>Добавить шары</span>
-                      </motion.button>
-                    </>
-                  )}
-                </motion.div>
-              </OrderStep>
-            )}
-            {step === 2 && (
-              <OrderStep step={2} currentStep={step} title="Данные получателя" onNext={nextStep} onBack={prevStep}>
-                <Step2RecipientDetails
-                  form={form}
-                  name={form.name}
-                  userPhone={form.phone}
-                  recipientError={recipientError}
-                  recipientPhoneError={recipientPhoneError}
-                  postcardText={postcardText}
-                  selectedUpsells={selectedUpsells}
-                  onFormChange={onFormChange}
-                  setPostcardText={setPostcardText}
-                />
-              </OrderStep>
-            )}
-            {step === 3 && (
-              <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
-                <Step3Address
-                  form={form}
-                  addressError={addressError}
-                  showSuggestions={showSuggestions}
-                  isLoadingSuggestions={isLoadingSuggestions}
-                  addressSuggestions={addressSuggestions}
-                  onFormChange={onFormChange}
-                  handleAddressChange={handleAddressChange}
-                  handleSelectAddress={handleSelectAddress}
-                />
-              </OrderStep>
-            )}
-            {step === 4 && (
-              <OrderStep step={4} currentStep={step} title="Дата и время" onNext={handleNextStep} onBack={prevStep}>
-                <Step4DateTime
-                  form={form}
-                  dateError={dateError}
-                  timeError={timeError}
-                  onFormChange={onFormChange}
-                  getMinDate={getMinDate}
-                  storeSettings={
-                    storeSettings || {
-                      order_acceptance_enabled: false,
-                      order_acceptance_schedule: {},
-                      store_hours: {},
+        <div className="w-full md:col-span-2 space-y-6">
+          <AnimatePresence mode="wait">
+            <motion.div key={step} variants={stepVariants} initial="initial" animate="animate" exit="exit">
+              {step === 0 && (
+                <OrderStep step={0} currentStep={step} title="Авторизация">
+                  <AuthWithCall
+                    onSuccess={(phone: string) => {
+                      setIsAuthenticated(true);
+                      setPhone(normalizePhone(phone));
+                      setStep(1);
+                      onFormChange({
+                        target: { name: 'phone', value: normalizePhone(phone) },
+                      } as React.ChangeEvent<HTMLInputElement>);
+                    }}
+                  />
+                </OrderStep>
+              )}
+              {step === 1 && (
+                <OrderStep step={1} currentStep={step} title="Ваши контакты" onNext={handleNextStep}>
+                  <Step1ContactDetails
+                    form={form}
+                    phoneError={phoneError}
+                    emailError={emailError}
+                    nameError={nameError}
+                    onFormChange={onFormChange}
+                    handlePhoneChange={handlePhoneChange}
+                  />
+                </OrderStep>
+              )}
+              {step === 2 && (
+                <OrderStep step={2} currentStep={step} title="Данные получателя" onNext={nextStep} onBack={prevStep}>
+                  <Step2RecipientDetails
+                    form={form}
+                    name={form.name}
+                    userPhone={form.phone}
+                    recipientError={recipientError}
+                    recipientPhoneError={recipientPhoneError}
+                    postcardText={postcardText}
+                    selectedUpsells={selectedUpsells}
+                    onFormChange={onFormChange}
+                    setPostcardText={setPostcardText}
+                  />
+                </OrderStep>
+              )}
+              {step === 3 && (
+                <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
+                  <Step3Address
+                    form={form}
+                    addressError={addressError}
+                    showSuggestions={showSuggestions}
+                    isLoadingSuggestions={isLoadingSuggestions}
+                    addressSuggestions={addressSuggestions}
+                    onFormChange={onFormChange}
+                    handleAddressChange={handleAddressChange}
+                    handleSelectAddress={handleSelectAddress}
+                  />
+                </OrderStep>
+              )}
+              {step === 4 && (
+                <OrderStep step={4} currentStep={step} title="Дата и время" onNext={handleNextStep} onBack={prevStep}>
+                  <Step4DateTime
+                    form={form}
+                    dateError={dateError}
+                    timeError={timeError}
+                    onFormChange={onFormChange}
+                    getMinDate={getMinDate}
+                    storeSettings={
+                      storeSettings || {
+                        order_acceptance_enabled: false,
+                        order_acceptance_schedule: {},
+                        store_hours: {},
+                      }
                     }
-                  }
-                  maxProductionTime={maxProductionTime}
-                />
-              </OrderStep>
-            )}
-            {step === 5 && (
-              <OrderStep step={5} currentStep={step} title="Способ оплаты" onNext={submitOrder} onBack={prevStep}>
-                <Step5Payment agreed={agreed} setAgreed={setAgreed} />
-              </OrderStep>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                    maxProductionTime={maxProductionTime}
+                  />
+                </OrderStep>
+              )}
+              {step === 5 && (
+                <OrderStep step={5} currentStep={step} title="Способ оплаты" onNext={submitOrder} onBack={prevStep}>
+                  <Step5Payment agreed={agreed} setAgreed={setAgreed} />
+                </OrderStep>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
         <div className="space-y-6">
+          {/* Кнопки "Открытка" и "Шары" над CartItem */}
+          <motion.div className="flex flex-wrap gap-4 md:gap-4 md:flex-row" variants={containerVariants}>
+            <motion.button
+              type="button"
+              onClick={() => setShowPostcard(true)}
+              className="w-full md:w-32 h-32 flex flex-col items-center justify-center bg-white border border-gray-300 rounded-lg hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-black"
+              aria-label="Добавить открытку"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Image
+                src="/icons/gift.svg"
+                alt="Иконка подарка"
+                width={24}
+                height={24}
+                loading="lazy"
+                className="mb-2"
+              />
+              <span className="text-sm text-gray-700">Открытка</span>
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={() => setShowBalloons(true)}
+              className="w-full md:w-32 h-32 flex flex-col items-center justify-center bg-white border border-gray-300 rounded-lg hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-black"
+              aria-label="Добавить шары"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Image
+                src="/icons/gift.svg"
+                alt="Иконка подарка"
+                width={24}
+                height={24}
+                loading="lazy"
+                className="mb-2"
+              />
+              <span className="text-sm text-gray-700">Шары</span>
+            </motion.button>
+          </motion.div>
+
           {[...items, ...selectedUpsells]
             .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
             .map((item, idx) => {
@@ -1025,7 +926,7 @@ export default function CartPageClient() {
                 />
               );
             })}
-          <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6">
+          <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <motion.button
               onClick={() => setShowPromoField(!showPromoField)}
               className="flex items-center w-full gap-1 text-sm text-gray-500 underline focus:outline-none focus:ring-2 focus:ring-black"
@@ -1047,24 +948,24 @@ export default function CartPageClient() {
               {showPromoField && (
                 <motion.div
                   id="promo-field"
-                  className="mt-2 space-y-2"
+                  className="mt-3 p-4 bg-gray-50 rounded-lg shadow-sm"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Введите промокод"
-                      className="flex-1 p-2 text-black border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+                      className="flex-1 py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
                       aria-label="Введите промокод"
                     />
                     <motion.button
                       onClick={handleApplyPromo}
-                      className="px-4 py-2 font-medium text-white bg-black rounded-lg hover:bg-gray-800 transition-all sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                      className="w-full sm:w-auto px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-gray-800 to-black rounded-md hover:bg-gradient-to-r hover:from-gray-900 hover:to-black hover:shadow-lg hover:shadow-gray-500/50 focus:outline-none focus:ring-2 focus:ring-black uppercase transition-all duration-300"
                       aria-label="Применить промокод"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -1072,10 +973,10 @@ export default function CartPageClient() {
                       Применить
                     </motion.button>
                   </div>
-                  {promoError && <p className="mt-1 text-xs text-red-500">{promoError}</p>}
+                  {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
                   {promoDiscount !== null && (
                     <motion.p
-                      className="mt-1 text-xs text-green-500"
+                      className="mt-2 text-xs text-green-600"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}

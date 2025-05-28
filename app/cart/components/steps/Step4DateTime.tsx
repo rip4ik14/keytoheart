@@ -42,15 +42,12 @@ export default function Step4DateTime({
   storeSettings,
   maxProductionTime,
 }: Props) {
-  // Получаем текущую дату и день недели для выбранной даты
   const selectedDate = form.date ? new Date(form.date) : new Date();
   const todayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
 
-  // Получаем расписание приёма заказов и работы магазина
   const orderSchedule = storeSettings.order_acceptance_schedule[todayKey] || { start: '09:00', end: '18:00', enabled: true };
   const storeSchedule = storeSettings.store_hours[todayKey] || { start: '09:00', end: '18:00', enabled: true };
 
-  // Определяем минимальную и максимальную границы времени
   const earliestStart = orderSchedule.enabled && storeSchedule.enabled
     ? orderSchedule.start > storeSchedule.start ? orderSchedule.start : storeSchedule.start
     : '00:00';
@@ -58,18 +55,16 @@ export default function Step4DateTime({
     ? orderSchedule.end < storeSchedule.end ? orderSchedule.end : storeSchedule.end
     : '23:59';
 
-  // Вычисляем минимальное время доставки с учётом времени изготовления
   const computeMin = () => {
     const now = new Date();
     const selected = form.date ? new Date(form.date) : now;
 
-    // Если дата доставки — сегодня, учитываем текущее время и время изготовления
     const isToday =
       selected.getFullYear() === now.getFullYear() &&
       selected.getMonth() === now.getMonth() &&
       selected.getDate() === now.getDate();
 
-    let minDateTime = isToday ? now : selected;
+    let minDateTime = isToday ? new Date(now) : selected;
 
     if (isToday && maxProductionTime != null) {
       minDateTime.setHours(minDateTime.getHours() + maxProductionTime);
@@ -79,20 +74,25 @@ export default function Step4DateTime({
     const earliest = new Date(selected);
     earliest.setHours(h, m, 0, 0);
 
-    // Если доставка сегодня и текущее время с учётом времени изготовления позже начала рабочего дня, используем его
-    if (isToday && minDateTime > earliest) {
-      return minDateTime;
+    // Проверяем, возможно ли доставить заказ сегодня
+    const [endH, endM] = latestEnd.split(':').map(Number);
+    const latest = new Date(now);
+    latest.setHours(endH, endM, 0, 0);
+
+    if (isToday && minDateTime <= latest) {
+      return minDateTime > earliest ? minDateTime : earliest;
     }
+
     return earliest;
   };
 
-  const minDate = getMinDate();
+  const now = new Date();
+  const minDate = now.toISOString().split('T')[0]; // Устанавливаем минимальную дату как текущую
   const minTimeDate = computeMin();
   const minTime = `${String(minTimeDate.getHours()).padStart(2, '0')}:${String(
     minTimeDate.getMinutes()
   ).padStart(2, '0')}`;
 
-  // Проверяем, попадает ли выбранная дата в рабочие дни
   const isDateValid = () => {
     if (!form.date) return false;
     const date = new Date(form.date);
@@ -127,7 +127,6 @@ export default function Step4DateTime({
 
     onFormChange(e);
 
-    // Сбрасываем время, если оно не попадает в новое расписание
     if (form.time) {
       const newEarliestStart = orderDaySchedule.start > storeDaySchedule.start ? orderDaySchedule.start : storeDaySchedule.start;
       const newLatestEnd = orderDaySchedule.end < storeDaySchedule.end ? orderDaySchedule.end : storeDaySchedule.end;
@@ -152,10 +151,10 @@ export default function Step4DateTime({
   };
 
   return (
-    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+    <div className="space-y-4">
       {!storeSettings.order_acceptance_enabled && (
         <motion.div
-          className="text-red-500 text-sm"
+          className="text-red-500 text-xs"
           initial="hidden"
           animate="visible"
           custom={0}
@@ -166,13 +165,13 @@ export default function Step4DateTime({
       )}
 
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={0}
         variants={containerVariants}
       >
-        <label htmlFor="date" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="date" className="block text-xs text-gray-500">
           Дата
         </label>
         <div className="relative">
@@ -186,9 +185,9 @@ export default function Step4DateTime({
             value={form.date}
             onChange={onDate}
             min={minDate}
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
               dateError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!dateError}
             disabled={!storeSettings.order_acceptance_enabled}
           />
@@ -197,13 +196,13 @@ export default function Step4DateTime({
       </motion.div>
 
       <motion.div
-        className="space-y-2"
+        className="space-y-1"
         initial="hidden"
         animate="visible"
         custom={1}
         variants={containerVariants}
       >
-        <label htmlFor="time" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="time" className="block text-xs text-gray-500">
           Время
         </label>
         <div className="relative">
@@ -218,9 +217,9 @@ export default function Step4DateTime({
             onChange={onTime}
             min={minTime}
             max={latestEnd}
-            className={`w-full pl-10 pr-3 py-2 border rounded-lg ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
               timeError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black`}
+            } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!timeError}
             disabled={!storeSettings.order_acceptance_enabled || !isDateValid()}
           />

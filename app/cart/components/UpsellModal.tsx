@@ -21,8 +21,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
     const fetchItems = async () => {
       setIsLoading(true);
       try {
-        // Изменяем subcategory, чтобы соответствовать значениям в базе
-        const subcategory = type; // 'postcard' или 'balloon'
+        const subcategory = type;
         const res = await fetch(
           `/api/upsell/categories?category=podarki&subcategories=${subcategory}`
         );
@@ -30,20 +29,16 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
         const { success, data, error } = await res.json();
-        console.log('UpsellModal fetched data:', { success, data, error });
         if (!success) {
-          console.error('UpsellModal fetch error:', error);
           toast.error(error || 'Ошибка загрузки товаров');
           return;
         }
-        // Добавляем category к каждому элементу, так как он ожидается в CartSummary
         const itemsWithCategory = (data || []).map((item: UpsellItem) => ({
           ...item,
           category: type as 'postcard' | 'balloon',
         }));
         setItems(itemsWithCategory);
       } catch (err: any) {
-        console.error('UpsellModal fetch error:', err);
         toast.error(err.message || 'Ошибка загрузки товаров');
       } finally {
         setIsLoading(false);
@@ -75,12 +70,12 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
         aria-labelledby="upsell-modal-title"
       >
         <motion.div
-          className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xl relative"
+          className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl relative border border-gray-300"
           variants={containerVariants}
         >
           <motion.button
             onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+            className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Закрыть модальное окно"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -91,7 +86,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
             <motion.div whileHover={{ scale: 1.1 }}>
               <Image src="/icons/gift.svg" alt="Подарок" width={20} height={20} />
             </motion.div>
-            <h2 id="upsell-modal-title" className="text-center text-xl font-bold tracking-tight">
+            <h2 id="upsell-modal-title" className="text-center text-lg font-bold tracking-tight uppercase">
               {type === 'postcard' ? 'Выберите открытку' : 'Выберите шары'}
             </h2>
           </div>
@@ -143,7 +138,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                       item_type: type,
                     });
                   }}
-                  className={`rounded-xl border border-gray-200 p-2 cursor-pointer hover:shadow-md transition-all duration-300 ${
+                  className={`rounded-md border border-gray-300 p-2 cursor-pointer hover:shadow-md transition-all duration-300 ${
                     selectedId === item.id ? 'ring-2 ring-black' : ''
                   }`}
                   variants={itemVariants}
@@ -155,7 +150,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                     alt={item.title}
                     width={300}
                     height={300}
-                    className="w-full h-36 object-cover rounded mb-2"
+                    className="w-full h-24 object-cover rounded-md mb-2"
                     placeholder="blur"
                     blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8/+F9PQAI/ANr6JCSbQAAAABJRU5ErkJggg=="
                     sizes="(max-width: 640px) 50vw, 33vw"

@@ -20,7 +20,7 @@ const containerVariants = {
 
 export default function Step5Payment({ agreed, setAgreed }: Props) {
   return (
-    <div className="space-y-6 bg-white p-6 rounded-3xl shadow-lg">
+    <div className="space-y-4">
       <motion.div
         className="flex items-center gap-2"
         initial="hidden"
@@ -28,7 +28,7 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
         custom={0}
         variants={containerVariants}
       >
-        <Image src="/icons/credit-card.svg" alt="Оплата" width={20} height={20} loading="lazy" />
+        <Image src="/icons/credit-card.svg" alt="Оплата" width={16} height={16} loading="lazy" />
         <span className="text-sm text-gray-700">Оплата после подтверждения заказа</span>
       </motion.div>
 
@@ -43,7 +43,7 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
           type="checkbox"
           checked={agreed}
           onChange={e => setAgreed(e.target.checked)}
-          className="mt-1 h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
+          className="mt-1 h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           required
           aria-label="Согласен с политикой"
         />

@@ -38,24 +38,15 @@ export default function CartSummary({
   const upsellTotal = selectedUpsells.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
 
-  // Отладка пропсов
-  console.log('CartSummary props:', {
-    isAuthenticated,
-    bonusBalance,
-    useBonuses,
-    bonusesUsed,
-    totalBeforeDiscounts,
-  });
-
   return (
     <motion.aside
       aria-label="Сумма заказа"
-      className="w-full p-6 bg-white rounded-3xl shadow-lg border border-gray-200"
+      className="w-full p-6 bg-white border border-gray-300 rounded-lg shadow-sm"
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="mb-4 text-xl font-bold text-gray-900">Итого</h2>
+      <h2 className="mb-4 text-lg font-bold text-gray-900">Итого</h2>
 
       {items.length + selectedUpsells.length === 0 ? (
         <p className="text-center text-gray-500">Корзина пуста</p>
@@ -88,13 +79,13 @@ export default function CartSummary({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-900">
+              <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-900">
                   <motion.input
                     type="checkbox"
                     checked={useBonuses}
                     onChange={(e) => setUseBonuses(e.target.checked)}
-                    className="h-5 w-5 text-black border-gray-300 rounded focus:ring-black"
+                    className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
                     aria-label="Списать бонусы"
                     disabled={bonusBalance <= 0 || totalBeforeDiscounts <= 0}
                     whileHover={{ scale: 1.1 }}
@@ -104,7 +95,7 @@ export default function CartSummary({
                 </label>
                 {useBonuses && bonusesUsed > 0 && (
                   <motion.span
-                    className="text-lg font-semibold text-green-600"
+                    className="text-sm font-semibold text-green-600"
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.2 }}
@@ -126,7 +117,7 @@ export default function CartSummary({
             </motion.div>
           )}
 
-          <div className="flex justify-between items-center pt-4 text-xs text-gray-400">
+          <div className="flex justify-between items-center pt-4 text-xs text-gray-500 border-t">
             <span>+ начислим {bonusAccrual} бонусов</span>
             <Image
               src="/icons/info-circle.svg"
@@ -137,7 +128,7 @@ export default function CartSummary({
             />
           </div>
 
-          <div className="mt-6 flex justify-between items-center text-lg font-bold text-gray-900">
+          <div className="mt-6 flex justify-between items-center text-xl font-bold text-gray-900 border-t pt-4">
             <span>Итого</span>
             <span>{finalTotal} ₽</span>
           </div>
