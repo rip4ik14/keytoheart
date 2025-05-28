@@ -62,7 +62,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
       <table className="w-full border-separate border-spacing-y-2 text-sm">
         <thead>
           <tr className="text-left text-gray-500 uppercase text-xs">
-            <th className="px-4 py-2">Номер заказа</th>
+            <th className="px-4 py-2">№</th>
             <th className="px-4 py-2">Получатель</th>
             <th className="px-4 py-2">Статус оплаты</th>
             <th className="px-4 py-2">Статус заказа</th>
@@ -72,7 +72,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
           </tr>
         </thead>
         <tbody>
-          {orders.map((o) => {
+          {orders.map((o, idx) => {
             // Собираем единый список товаров + доп. товары
             const draftItems = [
               ...o.items.map((it) => ({
@@ -101,7 +101,10 @@ export default function OrdersList({ orders }: OrdersListProps) {
                   className="bg-white hover:shadow-md transition-all duration-200 border border-gray-200 rounded-lg"
                   variants={rowVariants}
                 >
-                  <td className="px-4 py-3 font-medium">#{o.id}</td>
+                  {/* Порядковый номер: самый свежий заказ = №1 */}
+                  <td className="px-4 py-3 font-medium">
+                    {orders.length - idx}
+                  </td>
                   <td className="px-4 py-3">{o.recipient || 'Не указан'}</td>
                   <td className="px-4 py-3">
                     {o.payment_method === 'cash' ? 'Наличные' : 'Оплачено'}
