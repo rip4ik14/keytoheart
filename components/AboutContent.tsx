@@ -23,7 +23,7 @@ export default function AboutContent() {
               transition={{ duration: 0.8 }}
             >
               <Image
-                src="/about-main.jpg"
+                src="/images/about-main.jpg" // Изменили путь на локальный
                 alt="О нас - KeyToHeart"
                 fill
                 className="object-cover"

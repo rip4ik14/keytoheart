@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { JsonLd, Organization } from 'react-schemaorg'; // Исправляем импорт
+import { JsonLd, Organization } from 'react-schemaorg';
 import AboutContent from '@components/AboutContent';
 import Link from 'next/link';
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'KeyToHeart',
     images: [
       {
-        url: 'https://keytoheart.ru/images/about-banner.jpg',
+        url: '/images/about-banner.jpg', // Изменили на локальный путь
         width: 1200,
         height: 600,
         alt: 'KeyToHeart — клубника в шоколаде и цветочные букеты',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'О нас | KeyToHeart',
     description: 'История KeyToHeart — студия сладких эмоций в Краснодаре.',
-    images: ['https://keytoheart.ru/images/about-banner.jpg'],
+    images: ['/images/about-banner.jpg'], // Изменили на локальный путь
   },
   alternates: { canonical: 'https://keytoheart.ru/about' },
 };
