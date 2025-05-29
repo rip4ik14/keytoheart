@@ -5,22 +5,12 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
-// Функция для проверки валидности URL
-const isValidUrl = (url: string): boolean => {
-  try {
-    new URL(url);
-    return true;
-  } catch (err) {
-    return false;
-  }
-};
-
 type CustomerStory = {
   id: number;
-  photo_url: string;
   review: string;
   customer_name: string;
   date: string;
+  // photo_url: string; // больше не нужен
 };
 
 export default function CustomerStories() {
@@ -28,37 +18,40 @@ export default function CustomerStories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Загружаем истории клиентов
+  // Массив локальных картинок
+  const localImages = [
+    '/images/rewie1.jpg',
+    '/images/rewie2.jpg',
+    '/images/rewie3.jpg',
+    '/images/rewie1.jpg',
+    '/images/rewie2.jpg',
+    '/images/rewie3.jpg',
+  ];
+
   useEffect(() => {
     const fetchStories = async () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
           .from('customer_stories')
-          .select('id, photo_url, review, customer_name, date')
+          .select('id, review, customer_name, date')
           .eq('is_visible', true)
           .order('date', { ascending: false })
-          .limit(6);
+          .limit(localImages.length);
 
         if (error) {
           throw new Error(`Ошибка загрузки историй: ${error.message}`);
         }
-
         setStories(data || []);
       } catch (err: any) {
-        console.error('Ошибка загрузки историй клиентов:', err);
-        setError(err.message.includes('relation "public.customer_stories" does not exist')
-          ? 'Таблица историй клиентов не найдена. Пожалуйста, обратитесь к администратору.'
-          : 'Не удалось загрузить истории клиентов. Попробуйте позже.');
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchStories();
   }, []);
 
-  // Анимации для карточек
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({
@@ -71,7 +64,7 @@ export default function CustomerStories() {
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: localImages.length }).map((_, i) => (
           <div key={i} className="animate-pulse">
             <div className="w-full h-48 bg-gray-200 rounded-lg" />
             <div className="mt-2 h-4 bg-gray-200 rounded w-3/4" />
@@ -97,10 +90,8 @@ export default function CustomerStories() {
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {stories.map((story, index) => {
-          // Проверяем валидность URL и подставляем запасной, если нужно
-          const imageSrc = story.photo_url && isValidUrl(story.photo_url)
-            ? story.photo_url
-            : 'https://via.placeholder.com/150';
+          // Всегда тянем локальную картинку по индексу!
+          const imageSrc = localImages[index % localImages.length];
 
           return (
             <motion.div
