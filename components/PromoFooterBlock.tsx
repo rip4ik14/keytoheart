@@ -2,29 +2,50 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import MarqueeText from '@components/MarqueeText';
+import { motion } from 'framer-motion';
 
 export default function PromoFooterBlock() {
+  // Увеличиваем количество повторений текста для плавного цикла
+  const marqueeText = 'КЛЮЧИК К СЕРДЦУ КЛЮЧИК К СЕРДЦУ КЛЮЧИК К СЕРДЦУ КЛЮЧИК К СЕРДЦУ КЛЮЧИК К СЕРДЦУ КЛЮЧИК К СЕРДЦУ ';
+
   return (
     <section className="relative w-full border-t border-[#eaeaea] bg-white overflow-hidden">
-      {/* Бегущая строка */}
-      <div className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex items-end h-full">
-        <MarqueeText
-  text="Ключик к сердцу Ключик к сердцу Ключик к сердцу "
-  speed={160}
-  className="
-    font-marquee text-marquee text-outline
-    w-full
-    text-[80px] sm:text-[150px] md:text-[308px] 2xl:text-[392px]
-    font-black
-    leading-[0.8]
-    whitespace-nowrap
-    tracking-tight
-  "
-/>
+      {/* ——— Бегущая серая строка ——— */}
+      <motion.div
+        className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex w-max"
+        initial={{ x: 0 }}
+        animate={{ x: -1500 * 2 }} // Увеличиваем дистанцию для плавного цикла
+        transition={{ repeat: Infinity, duration: 150, ease: 'linear' }} // Увеличиваем длительность для плавности
+      >
+        <span
+          className="
+            font-marquee text-marquee text-gray-200 opacity-30
+            whitespace-nowrap
+            font-black uppercase
+            tracking-tight
+            leading-none
+            text-[60px] sm:text-[100px] md:text-[200px] 2xl:text-[250px]
+          "
+          aria-hidden="true"
+        >
+          {marqueeText}
+        </span>
+        <span
+          className="
+            font-marquee text-marquee text-gray-200 opacity-30
+            whitespace-nowrap
+            font-black uppercase
+            tracking-tight
+            leading-none
+            text-[60px] sm:text-[100px] md:text-[200px] 2xl:text-[250px]
+          "
+          aria-hidden="true"
+        >
+          {marqueeText}
+        </span>
+      </motion.div>
 
-      </div>
-      {/* Контент секции */}
+      {/* ——— Контент секции ——— */}
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row py-8 sm:py-12 lg:py-16 gap-6 sm:gap-8 px-4 sm:px-6 lg:px-8">
         {/* Левая колонка */}
         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start md:pr-6">
@@ -42,6 +63,10 @@ export default function PromoFooterBlock() {
                 bg-white text-[#535353] transition-all duration-200 shadow-sm
                 hover:bg-[#535353] hover:text-white active:scale-[.96]
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+              onClick={() => {
+                window.gtag?.('event', 'click_loyalty_link', { event_category: 'PromoFooter', event_label: 'Loyalty Program' });
+                window.ym?.(12345678, 'reachGoal', 'click_loyalty_link');
+              }}
             >
               Программа лояльности
             </Link>
@@ -51,6 +76,10 @@ export default function PromoFooterBlock() {
                 bg-white text-[#535353] transition-all duration-200 shadow-sm
                 hover:bg-[#535353] hover:text-white active:scale-[.96]
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+              onClick={() => {
+                window.gtag?.('event', 'click_corporate_link', { event_category: 'PromoFooter', event_label: 'Corporate Clients' });
+                window.ym?.(12345678, 'reachGoal', 'click_corporate_link');
+              }}
             >
               Для юрлиц
             </Link>
@@ -58,10 +87,11 @@ export default function PromoFooterBlock() {
           <div className="w-full max-w-[300px] sm:max-w-[340px] aspect-square rounded-[20px] sm:rounded-[30px] overflow-hidden shadow-sm border border-[#ececec] bg-white">
             <Image
               src="/images/promo-loyalty.jpg"
-              alt="Программа лояльности"
+              alt="Программа лояльности KeyToHeart"
               width={340}
               height={340}
               className="object-cover w-full h-full"
+              loading="lazy"
             />
           </div>
         </div>
@@ -84,6 +114,10 @@ export default function PromoFooterBlock() {
                 transition-all duration-200 shadow-sm
                 hover:bg-[#222] hover:text-white active:scale-[.96]
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+              onClick={() => {
+                window.gtag?.('event', 'click_instagram_link', { event_category: 'PromoFooter', event_label: 'Instagram' });
+                window.ym?.(12345678, 'reachGoal', 'click_instagram_link');
+              }}
             >
               @Keytoheart
             </a>
@@ -95,47 +129,27 @@ export default function PromoFooterBlock() {
                 bg-white text-[#535353] transition-all duration-200 shadow-sm
                 hover:bg-[#535353] hover:text-white active:scale-[.96]
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+              onClick={() => {
+                window.gtag?.('event', 'click_vk_link', { event_category: 'PromoFooter', event_label: 'VK' });
+                window.ym?.(12345678, 'reachGoal', 'click_vk_link');
+              }}
             >
               VK
             </a>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-5 w-full max-w-[300px] sm:max-w-[340px]">
-            <div className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
-              <Image
-                src="/images/promo-insta-1.jpg"
-                alt="Insta 1"
-                width={155}
-                height={155}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
-              <Image
-                src="/images/promo-insta-2.jpg"
-                alt="Insta 2"
-                width={155}
-                height={155}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
-              <Image
-                src="/images/promo-insta-3.jpg"
-                alt="Insta 3"
-                width={155}
-                height={155}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
-              <Image
-                src="/images/promo-insta-4.jpg"
-                alt="Insta 4"
-                width={155}
-                height={155}
-                className="object-cover w-full h-full"
-              />
-            </div>
+            {['promo-insta-1.jpg', 'promo-insta-2.jpg', 'promo-insta-3.jpg', 'promo-insta-4.jpg'].map((file, i) => (
+              <div key={i} className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
+                <Image
+                  src={`/images/${file}`}
+                  alt={`Instagram пост KeyToHeart ${i + 1}`}
+                  width={155}
+                  height={155}
+                  className="object-cover w-full h-full"
+                  loading="lazy"
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

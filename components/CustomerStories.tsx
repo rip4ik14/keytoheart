@@ -3,14 +3,12 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 
 type CustomerStory = {
   id: number;
   review: string;
   customer_name: string;
   date: string;
-  // photo_url: string; // больше не нужен
 };
 
 export default function CustomerStories() {
@@ -18,7 +16,6 @@ export default function CustomerStories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Массив локальных картинок
   const localImages = [
     '/images/rewie1.jpg',
     '/images/rewie2.jpg',
@@ -29,27 +26,48 @@ export default function CustomerStories() {
   ];
 
   useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('customer_stories')
-          .select('id, review, customer_name, date')
-          .eq('is_visible', true)
-          .order('date', { ascending: false })
-          .limit(localImages.length);
+    // Захардкодим данные
+    const hardcodedStories: CustomerStory[] = [
+      {
+        id: 1,
+        review: 'Заказала букет из клубники в шоколаде для подруги на день рождения — она в восторге! Всё свежее, красиво упаковано, доставили вовремя. Спасибо, KeyToHeart!',
+        customer_name: 'Анна',
+        date: '2025-05-01',
+      },
+      {
+        id: 2,
+        review: 'Очень понравился букет! Цветы свежие, а клубника просто тает во рту. Отличный сервис, буду заказывать ещё!',
+        customer_name: 'Иван',
+        date: '2025-04-15',
+      },
+      {
+        id: 3,
+        review: 'Спасибо за эмоции! Заказывала подарок маме, всё сделали на высшем уровне. Доставка в срок, всё аккуратно и красиво.',
+        customer_name: 'Мария',
+        date: '2025-03-20',
+      },
+      {
+        id: 4,
+        review: 'Клубника в шоколаде — это что-то невероятное! Заказал для девушки, она была в восторге. Отличное качество и сервис.',
+        customer_name: 'Алексей',
+        date: '2025-02-14',
+      },
+      {
+        id: 5,
+        review: 'Букет был просто шикарный! Цветы и клубника выглядели идеально, доставка быстрая. Рекомендую всем!',
+        customer_name: 'Екатерина',
+        date: '2025-01-10',
+      },
+      {
+        id: 6,
+        review: 'Заказывала на годовщину свадьбы, всё прошло идеально. Спасибо за ваш труд и внимание к деталям!',
+        customer_name: 'Ольга',
+        date: '2024-12-25',
+      },
+    ];
 
-        if (error) {
-          throw new Error(`Ошибка загрузки историй: ${error.message}`);
-        }
-        setStories(data || []);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStories();
+    setStories(hardcodedStories.slice(0, localImages.length));
+    setLoading(false);
   }, []);
 
   const cardVariants = {
@@ -90,7 +108,6 @@ export default function CustomerStories() {
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {stories.map((story, index) => {
-          // Всегда тянем локальную картинку по индексу!
           const imageSrc = localImages[index % localImages.length];
 
           return (

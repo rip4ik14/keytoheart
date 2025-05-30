@@ -4,45 +4,56 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import AnimatedSection from '@components/AnimatedSection';
-import CustomerStories from '@components/CustomerStories';
+import WhyUsMarquee from '@components/WhyUsMarquee';
+import Link from 'next/link';
 
-const TypeAnimation = dynamic(() => import('react-type-animation').then((mod) => mod.TypeAnimation), {
-  ssr: false,
-});
+const TypeAnimation = dynamic(
+  () => import('react-type-animation').then((mod) => mod.TypeAnimation),
+  { ssr: false }
+);
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.3 },
+  }),
+};
 
 export default function AboutContent() {
   return (
     <>
+      {/* Заголовочная секция */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <motion.div
-              className="relative w-full h-[300px] sm:h-[400px] md:h-[500px] rounded-xl overflow-hidden shadow-lg"
+              className="relative w-full h-[250px] sm:h-[350px] md:h-[450px] rounded-lg overflow-hidden shadow-lg"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8 }}
             >
               <Image
-                src="/images/about-main.jpg" // Изменили путь на локальный
-                alt="О нас - KeyToHeart"
+                src="/images/about-main.jpg"
+                alt="KeyToHeart — клубничные букеты и цветы"
                 fill
                 className="object-cover"
                 priority
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             </motion.div>
-            <div className="space-y-4">
+            {/* Блок справа с правильным расположением кнопки */}
+            <div className="flex flex-col gap-4">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-black tracking-tight">
-                О нас
+                О KeyToHeart
               </h1>
-              <div className="text-lg sm:text-xl text-gray-700 leading-relaxed">
+              <div className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
                 <TypeAnimation
                   sequence={[
-                    'KeyToHeart — это про эмоции, которые можно подарить через цветы и клубнику в шоколаде.',
+                    'KeyToHeart — клубничные букеты и цветы, которые создают настроение.',
                     1000,
-                    'KeyToHeart — это про любовь к деталям и качеству.',
-                    1000,
-                    'KeyToHeart — это про Краснодар и доставку в день заказа.',
+                    'KeyToHeart — доставляем эмоции в каждый уголок Краснодара.',
                     1000,
                   ]}
                   wrapper="span"
@@ -53,127 +64,176 @@ export default function AboutContent() {
                   style={{ display: 'inline-block' }}
                 />
               </div>
-              <p className="text-gray-600">
-                Мы создаём букеты и подарочные наборы, которые становятся частью ваших самых тёплых моментов.
+              <Link
+                href="/catalog"
+                className="inline-block w-max border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                onClick={() => {
+                  window.gtag?.('event', 'click_cta_about', { event_category: 'CTA', event_label: 'Order Bouquet' });
+                  window.ym?.(96644553, 'reachGoal', 'click_cta_about');
+                }}
+              >
+                Заказать букет
+              </Link>
+              <p className="text-gray-600 text-sm sm:text-base mt-2">
+                Дарить тепло через вкус и красоту. Каждый букет — это маленький праздник, собранный с заботой для вас и ваших близких.
               </p>
             </div>
           </div>
         </section>
       </AnimatedSection>
 
+      {/* Как всё начиналось */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12 text-black">
-            Почему выбирают нас
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              <motion.div
-                className="mb-4"
-                whileHover={{ scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
-              >
-                <Image
-                  src="/icons/seedling.svg"
-                  alt="Свежие цветы"
-                  width={40}
-                  height={40}
-                  className="text-black"
-                />
-              </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Свежие цветы</h3>
-              <p className="text-gray-600">
-                Мы работаем только со свежими цветами, чтобы ваш букет радовал как можно дольше.
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-black">
+                Как всё начиналось
+              </h2>
+              <p className="text-gray-600 text-sm sm:text-base">
+                KeyToHeart родился в 2022 году из мечты создавать подарки, которые запоминаются. С домашней кухни мы выросли до собственной мастерской, но сохранили главное — любовь к деталям. Основательница бренда лично отбирает ягоды и цветы, чтобы каждый заказ был идеальным.
               </p>
-            </motion.div>
-
+            </div>
             <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              className="relative w-full h-[250px] sm:h-[350px] md:h-[400px] rounded-lg overflow-hidden shadow-lg"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8 }}
             >
-              <motion.div
-                className="mb-4"
-                whileHover={{ scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
-              >
-                <Image
-                  src="/icons/chocolate-bar.svg"
-                  alt="Бельгийский шоколад"
-                  width={40}
-                  height={40}
-                  className="text-black"
-                />
-              </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Бельгийский шоколад</h3>
-              <p className="text-gray-600">
-                Используем только премиальный шоколад Callebaut и Sicao для клубники.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            >
-              <motion.div
-                className="mb-4"
-                whileHover={{ scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
-              >
-                <Image
-                  src="/icons/strawberry.svg"
-                  alt="Отборная клубника"
-                  width={40}
-                  height={40}
-                  className="text-black"
-                />
-              </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Отборная клубника</h3>
-              <p className="text-gray-600">
-                Каждая ягода проходит строгий отбор, чтобы соответствовать нашим стандартам.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              <motion.div
-                className="mb-4"
-                whileHover={{ scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
-              >
-                <Image
-                  src="/icons/heart.svg"
-                  alt="С любовью"
-                  width={40}
-                  height={40}
-                  className="text-black"
-                />
-              </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">С любовью</h3>
-              <p className="text-gray-600">
-                Каждый букет собирается с заботой, чтобы подарить вам эмоции.
-              </p>
+              <Image
+                src="/images/about-founder.jpg"
+                alt="Основательница KeyToHeart за работой"
+                fill
+                className="object-cover"
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
             </motion.div>
           </div>
         </section>
       </AnimatedSection>
 
+      {/* Почему клубника и цветы */}
+      <AnimatedSection animation="slideInUp">
+        <section className="container mx-auto px-4 py-12 md:py-16">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <motion.div
+              className="relative w-full h-[250px] sm:h-[350px] md:h-[400px] rounded-lg overflow-hidden shadow-lg order-2 md:order-1"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8 }}
+            >
+              <Image
+                src="/images/strawberry-flowers.jpg"
+                alt="Клубника в шоколаде и цветы"
+                fill
+                className="object-cover"
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+            </motion.div>
+            <div className="space-y-4 order-1 md:order-2">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-black">
+                Почему клубника и цветы?
+              </h2>
+              <p className="text-gray-600 text-sm sm:text-base">
+                Клубника в бельгийском шоколаде — это нежность и страсть. Цветы — это эстетика и свежесть. Вместе они создают магию, которая делает любой момент особенным.
+              </p>
+            </div>
+          </div>
+        </section>
+      </AnimatedSection>
+
+      {/* Что мы создаём */}
+      <AnimatedSection animation="slideInUp">
+        <section className="container mx-auto px-4 py-12 md:py-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12 text-black">
+            Что мы создаём
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <motion.div
+              className="flex items-start gap-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={0}
+            >
+              <motion.div
+                className="flex-shrink-0"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
+                <Image
+                  src="/icons/strawberry.svg"
+                  alt="Клубничные букеты"
+                  width={40}
+                  height={40}
+                />
+              </motion.div>
+              <div>
+                <h3 className="text-lg font-semibold text-black mb-2">Клубничные букеты</h3>
+                <p className="text-gray-600 text-sm">
+                  В премиальном шоколаде Callebaut — для ярких эмоций.
+                </p>
+              </div>
+            </motion.div>
+            <motion.div
+              className="flex items-start gap-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={1}
+            >
+              <motion.div
+                className="flex-shrink-0"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
+                <Image
+                  src="/icons/seedling.svg"
+                  alt="Цветочные композиции"
+                  width={40}
+                  height={40}
+                />
+              </motion.div>
+              <div>
+                <h3 className="text-lg font-semibold text-black mb-2">Цветочные композиции</h3>
+                <p className="text-gray-600 text-sm">
+                  Свежие цветы для любого повода.
+                </p>
+              </div>
+            </motion.div>
+            <motion.div
+              className="flex items-start gap-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={2}
+            >
+              <motion.div
+                className="flex-shrink-0"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
+                <Image
+                  src="/icons/gift.svg"
+                  alt="Комбо-наборы"
+                  width={40}
+                  height={40}
+                />
+              </motion.div>
+              <div>
+                <h3 className="text-lg font-semibold text-black mb-2">Комбо-наборы</h3>
+                <p className="text-gray-600 text-sm">
+                  С открытками, шарами и игрушками.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      </AnimatedSection>
+
+      {/* Наши ценности */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12 text-black">
@@ -181,114 +241,134 @@ export default function AboutContent() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex flex-col items-center text-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={0}
             >
               <motion.div
                 className="mb-4"
                 whileHover={{ scale: 1.1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
               >
                 <Image
-                  src="/icons/store.svg"
-                  alt="Магазин"
+                  src="/icons/seedling.svg"
+                  alt="Свежесть"
                   width={40}
                   height={40}
-                  className="text-black"
                 />
               </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Магазин</h3>
-              <p className="text-gray-600">
-                Собственный магазин в Краснодаре для самовывоза.
+              <h3 className="text-lg font-semibold text-black mb-2">Свежесть</h3>
+              <p className="text-gray-600 text-sm">
+                Ягоды и цветы отбираются вручную.
               </p>
             </motion.div>
-
             <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-col items-center text-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={1}
             >
               <motion.div
                 className="mb-4"
                 whileHover={{ scale: 1.1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
+              >
+                <Image
+                  src="/icons/chocolate-bar.svg"
+                  alt="Качество"
+                  width={40}
+                  height={40}
+                />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-black mb-2">Качество</h3>
+              <p className="text-gray-600 text-sm">
+                Премиальный шоколад Callebaut.
+              </p>
+            </motion.div>
+            <motion.div
+              className="flex flex-col items-center text-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={2}
+            >
+              <motion.div
+                className="mb-4"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               >
                 <Image
                   src="/icons/truck.svg"
-                  alt="Быстрая доставка"
+                  alt="Скорость"
                   width={40}
                   height={40}
-                  className="text-black"
                 />
               </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Быстрая доставка</h3>
-              <p className="text-gray-600">
-                Доставка в день заказа по Краснодару и ближайшим районам.
+              <h3 className="text-lg font-semibold text-black mb-2">Скорость</h3>
+              <p className="text-gray-600 text-sm">
+                Доставка в день заказа.
               </p>
             </motion.div>
-
             <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              className="flex flex-col items-center text-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={3}
             >
               <motion.div
                 className="mb-4"
                 whileHover={{ scale: 1.1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
-              >
-                <Image
-                  src="/icons/leaf.svg"
-                  alt="Экологичность"
-                  width={40}
-                  height={40}
-                  className="text-black"
-                />
-              </motion.div>
-              <h3 className="text-lg font-semibold text-black mb-2">Экологичность</h3>
-              <p className="text-gray-600">
-                Используем экологичные материалы для упаковки.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              <motion.div
-                className="mb-4"
-                whileHover={{ scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                aria-hidden="true"
               >
                 <Image
                   src="/icons/hands.svg"
                   alt="Индивидуальность"
                   width={40}
                   height={40}
-                  className="text-black"
                 />
               </motion.div>
               <h3 className="text-lg font-semibold text-black mb-2">Индивидуальность</h3>
-              <p className="text-gray-600">
-                Каждый заказ собирается с учётом ваших пожеланий.
+              <p className="text-gray-600 text-sm">
+                Учтём все ваши пожелания.
               </p>
             </motion.div>
           </div>
         </section>
       </AnimatedSection>
 
+      {/* Почему нам доверяют важные моменты */}
       <AnimatedSection animation="slideInUp">
-        <CustomerStories />
+        <section className="py-12 md:py-16">
+          <div className="container mx-auto px-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-10 text-neutral-800">
+              ПОЧЕМУ НАМ ДОВЕРЯЮТ ВАЖНЫЕ МОМЕНТЫ?
+            </h2>
+          </div>
+          <WhyUsMarquee />
+        </section>
+      </AnimatedSection>
+
+      {/* CTA-блок */}
+      <AnimatedSection animation="slideInUp">
+        <section className="container mx-auto px-4 py-12 md:py-16 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-black">
+            KeyToHeart — эмоции, которые можно подарить
+          </h2>
+          <Link
+            href="/catalog"
+            className="border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+            onClick={() => {
+              window.gtag?.('event', 'click_cta_footer', { event_category: 'CTA', event_label: 'Order Bouquet Footer' });
+              window.ym?.(96644553, 'reachGoal', 'click_cta_footer');
+            }}
+          >
+            Заказать букет
+          </Link>
+        </section>
       </AnimatedSection>
     </>
   );

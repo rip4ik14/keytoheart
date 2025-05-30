@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -34,45 +33,9 @@ export default function PromoGridClient({
     hidden: { opacity: 0 },
     visible: (i: number) => ({
       opacity: 1,
-      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' }, // Увеличена длительность и задержка, мягкое завершение
-    }),
-  };
-
-  // Альтернативный эффект 1: Прозрачность + Легкое масштабирование
-  /*
-  const textVariants = {
-    hidden: { opacity: 0, scale: 0.95 },
-    visible: (i: number) => ({
-      opacity: 1,
-      scale: 1,
       transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
     }),
   };
-  */
-
-  // Альтернативный эффект 2: Прозрачность + Межбуквенный интервал
-  /*
-  const textVariants = {
-    hidden: { opacity: 0, letterSpacing: '0.1em' },
-    visible: (i: number) => ({
-      opacity: 1,
-      letterSpacing: '0em',
-      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
-    }),
-  };
-  */
-
-  // Альтернативный эффект 3: Прозрачность + Размытие
-  /*
-  const textVariants = {
-    hidden: { opacity: 0, filter: 'blur(5px)' },
-    visible: (i: number) => ({
-      opacity: 1,
-      filter: 'blur(0)',
-      transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
-    }),
-  };
-  */
 
   return (
     <motion.section
@@ -138,7 +101,7 @@ export default function PromoGridClient({
                         variants={textVariants}
                         initial="hidden"
                         animate={activeSlide === i ? 'visible' : 'hidden'}
-                        custom={0} // Первая задержка (заголовок)
+                        custom={0}
                         style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                       >
                         {b.title}
@@ -153,7 +116,7 @@ export default function PromoGridClient({
                           variants={textVariants}
                           initial="hidden"
                           animate={activeSlide === i ? 'visible' : 'hidden'}
-                          custom={1} // Вторая задержка (подзаголовок)
+                          custom={1}
                           style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                         >
                           {b.subtitle}
@@ -163,23 +126,26 @@ export default function PromoGridClient({
                         variants={textVariants}
                         initial="hidden"
                         animate={activeSlide === i ? 'visible' : 'hidden'}
-                        custom={b.subtitle ? 2 : 1} // Третья задержка (кнопка), или вторая, если нет подзаголовка
+                        custom={b.subtitle ? 2 : 1}
                         className="flex"
                       >
                         <span
                           className="
-                            inline-flex items-center rounded-full border border-black/70
-                            bg-white px-6 py-2 text-sm font-semibold text-black shadow transition
-                            hover:bg-black hover:text-white hover:shadow-2xl hover:border-white
-                            active:scale-95 focus:outline-none cursor-pointer select-none
-                             text-center
-                             mx-0
-                          "
+                            inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                            bg-white text-[#535353] transition-all duration-200 shadow-sm
+                            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                           style={{
-                            boxShadow:
-                              '0 2px 12px 0 rgba(0,0,0,0.13), 0 1.5px 5px 0 rgba(0,0,0,0.07)',
-                             minWidth: 'fit-content',  
-                             maxWidth: '100%',
+                            minWidth: 'fit-content',
+                            maxWidth: '100%',
+                          }}
+                          onClick={() => {
+                            window.gtag?.('event', 'click_banner_cta', {
+                              event_category: 'PromoGrid',
+                              event_label: b.title,
+                            });
+                            window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                              banner: b.title,
+                            });
                           }}
                         >
                           {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}

@@ -83,31 +83,40 @@ export default function LoyaltyPageClient() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
   };
 
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.3 },
+    }),
+  };
+
   return (
-    <section className="max-w-6xl mx-auto px-4 py-16 bg-gray-50" aria-label="Программа лояльности">
+    <section className="max-w-6xl mx-auto px-4 py-12 md:py-16" aria-label="Программа лояльности">
       <Toaster position="top-right" />
 
       {/* Баннер */}
       <motion.div
-        className="relative rounded-2xl overflow-hidden mb-12 h-72 bg-black text-white flex items-center justify-center text-center"
+        className="relative rounded-lg overflow-hidden mb-12 h-64 bg-black text-white flex items-center justify-center text-center"
         variants={sectionVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
       >
         <Image
-          src="/banner-loyalty.jpg"
-          alt="Баннер программы лояльности"
+          src="/images/banner-loyalty.jpg"
+          alt="Баннер программы лояльности KeyToHeart"
           fill
           className="object-cover opacity-50"
           priority
           quality={75}
         />
         <div className="relative z-10 space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold uppercase">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold uppercase">
             Вернём до 15% бонусами!
           </h1>
-          <p className="text-base md:text-lg">
+          <p className="text-sm sm:text-base md:text-lg">
             Получайте кешбэк за каждый заказ и оплачивайте до 15% покупок
           </p>
         </div>
@@ -115,85 +124,105 @@ export default function LoyaltyPageClient() {
 
       {/* Как работает кешбэк */}
       <motion.section
-        className="mb-16 text-center"
+        className="mb-12 md:mb-16 text-center"
         variants={sectionVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
       >
-        <h2 className="text-3xl font-bold mb-8 text-gray-800 uppercase">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-gray-900 uppercase">
           Как работает кешбэк
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
             {
-              title: 'Шаг кешбэка 1',
+              icon: '/icons/cart.svg',
               text: 'Совершите покупку на сайте на любую сумму',
-              img: '/images/loyalty-step-1.jpg',
+              alt: 'Иконка корзины',
             },
             {
-              title: 'Шаг кешбэка 2',
-              text: 'С каждой покупки мы начислим кешбэк от 2.5% до 15%',
-              img: '/images/loyalty-step-2.jpg',
+              icon: '/icons/coin-stack.svg',
+              text: 'С каждой покупки мы начислим кешбэк от 2.5% до 15% в течение 24 часов',
+              alt: 'Иконка монет',
             },
             {
-              title: 'Шаг кешбэка 3',
+              icon: '/icons/wallet.svg',
               text: 'Полученными бонусами можно оплатить до 15% от суммы заказа',
-              img: '/images/loyalty-step-3.jpg',
+              alt: 'Иконка кошелька',
             },
           ].map((step, idx) => (
-            <div
+            <motion.div
               key={idx}
-              className="relative bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition-shadow"
+              className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center text-center"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              custom={idx}
+              whileHover={{ scale: 1.03 }}
             >
-              <div className="absolute inset-0">
+              <motion.div
+                className="mb-4"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
                 <Image
-                  src={step.img}
-                  alt={`Шаг кешбэка ${idx + 1}`}
-                  fill
-                  className="object-cover opacity-10 rounded-2xl"
-                  loading="lazy"
-                  quality={50}
+                  src={step.icon}
+                  alt={step.alt}
+                  width={48}
+                  height={48}
+                  className="text-gray-800"
                 />
-              </div>
-              <div className="relative z-10">
-                <h3 className="text-lg font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                  <Image src="/icons/star.svg" alt="Иконка звезды" width={20} height={20} className="text-green-500" aria-hidden="true" />
-                  {step.title}
-                </h3>
-                <p className="text-gray-600">{step.text}</p>
-              </div>
-            </div>
+              </motion.div>
+              <p className="text-gray-600 text-sm sm:text-base">{step.text}</p>
+            </motion.div>
           ))}
+        </div>
+      </motion.section>
+
+      {/* Как получить */}
+      <motion.section
+        className="mb-12 md:mb-16 text-center"
+        variants={sectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+      >
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-gray-900 uppercase">
+          Как получить
+        </h2>
+        <div className="max-w-2xl mx-auto">
+          <p className="text-gray-600 text-sm sm:text-base">
+            Станьте участником программы лояльности автоматически при первом заказе. Совершайте покупки на сайте, и мы начислим кешбэк на ваш счёт в течение 24 часов. Используйте бонусы для оплаты до 15% суммы следующего заказа!
+          </p>
         </div>
       </motion.section>
 
       {/* Уровни кешбэка */}
       <motion.section
-        className="mb-16"
+        className="mb-12 md:mb-16"
         variants={sectionVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
       >
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800 uppercase">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-center text-gray-900 uppercase">
           Уровни кешбэка
         </h2>
-        <div className="overflow-x-auto bg-white rounded-xl border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table
             className="w-full text-sm text-gray-700"
             role="grid"
-            aria-label="Уровни кешбэка программы лояльности"
+            aria-label="Уровни кешбэка программы лояльности KeyToHeart"
           >
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-3 text-left font-medium text-gray-600" scope="col">
+                <th className="p-4 text-left font-medium text-gray-600 uppercase text-xs sm:text-sm" scope="col">
                   Название уровня
                 </th>
-                <th className="p-3 text-left font-medium text-gray-600" scope="col">
+                <th className="p-4 text-left font-medium text-gray-600 uppercase text-xs sm:text-sm" scope="col">
                   Процент
                 </th>
-                <th className="p-3 text-left font-medium text-gray-600" scope="col">
+                <th className="p-4 text-left font-medium text-gray-600 uppercase text-xs sm:text-sm" scope="col">
                   Сумма заказов
                 </th>
               </tr>
@@ -204,9 +233,9 @@ export default function LoyaltyPageClient() {
                   key={idx}
                   className="border-t hover:bg-gray-50 transition-colors"
                 >
-                  <td className="p-3">{lvl.name}</td>
-                  <td className="p-3">{lvl.percent}</td>
-                  <td className="p-3">{lvl.threshold}</td>
+                  <td className="p-4 text-gray-800 text-sm">{lvl.name}</td>
+                  <td className="p-4 text-gray-800 text-sm">{lvl.percent}</td>
+                  <td className="p-4 text-gray-800 text-sm">{lvl.threshold}</td>
                 </tr>
               ))}
             </tbody>
@@ -216,21 +245,25 @@ export default function LoyaltyPageClient() {
 
       {/* FAQ */}
       <motion.section
-        className="mb-16"
+        className="mb-12 md:mb-16"
         variants={sectionVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
       >
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800 uppercase">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-center text-gray-900 uppercase">
           Популярные вопросы
         </h2>
-        <div className="space-y-3 max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-4">
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="border-b border-gray-200 py-3 cursor-pointer"
-              onClick={() => setFaqOpen(faqOpen === idx ? null : idx)}
+              className="border-b border-gray-200 py-4 cursor-pointer"
+              onClick={() => {
+                setFaqOpen(faqOpen === idx ? null : idx);
+                window.gtag?.('event', 'click_faq', { event_category: 'FAQ', event_label: faq.question });
+                window.ym?.(96644553, 'reachGoal', 'click_faq', { question: faq.question });
+              }}
               role="button"
               tabIndex={0}
               onKeyDown={(e) =>
@@ -241,21 +274,30 @@ export default function LoyaltyPageClient() {
               aria-controls={`faq-answer-${idx}`}
             >
               <div className="flex justify-between items-center">
-                <h3 className="font-medium text-lg text-gray-800">
+                <h3 className="font-medium text-base sm:text-lg text-gray-800">
                   {faq.question}
                 </h3>
-                <span className="text-xl text-gray-500">
-                  {faqOpen === idx ? '−' : '+'}
-                </span>
+                <motion.span
+                  className="text-xl text-gray-500"
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: faqOpen === idx ? 45 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  +
+                </motion.span>
               </div>
-              <div
+              <motion.div
                 id={`faq-answer-${idx}`}
-                className={`overflow-hidden transition-all duration-300 ${
-                  faqOpen === idx ? 'max-h-40 mt-2' : 'max-h-0'
-                }`}
+                className="overflow-hidden"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{
+                  height: faqOpen === idx ? 'auto' : 0,
+                  opacity: faqOpen === idx ? 1 : 0,
+                }}
+                transition={{ duration: 0.3 }}
               >
-                <p className="text-sm text-gray-600">{faq.answer}</p>
-              </div>
+                <p className="text-sm text-gray-600 mt-2">{faq.answer}</p>
+              </motion.div>
             </div>
           ))}
         </div>

@@ -101,7 +101,7 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
 
           <motion.div className="flex justify-center mb-4" variants={iconVariants}>
             <Image
-              src="/thank-you.svg"
+              src="/icons/thank-you.svg"
               alt="Спасибо за заказ"
               width={80}
               height={80}

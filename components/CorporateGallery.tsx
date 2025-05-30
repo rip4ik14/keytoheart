@@ -1,9 +1,10 @@
-// ✅ Путь: components/CorporateGallery.tsx
 'use client';
 
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
-const images = [
+// Тип для массива изображений
+const images: string[] = [
   '/placeholders/case1.jpg',
   '/placeholders/case2.jpg',
   '/placeholders/case3.jpg',
@@ -12,38 +13,54 @@ const images = [
   '/placeholders/case6.jpg',
 ];
 
+// Анимация для элементов галереи
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.3 },
+  }),
+};
+
 export default function CorporateGallery() {
   return (
     <section
       className="py-20 px-4 md:px-8 bg-white text-black"
       aria-labelledby="corporate-gallery-title"
     >
-      <h2
+      <motion.h2
         id="corporate-gallery-title"
         className="text-2xl md:text-3xl font-semibold text-center mb-10"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
       >
         Примеры наших работ
-      </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-6xl mx-auto">
+      </motion.h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
         {images.map((src, i) => (
-          <div
+          <motion.div
             key={i}
-            className="aspect-square overflow-hidden rounded-xl shadow"
-            role="img"
-            aria-label={`Пример работы ${i + 1}`}
+            className="aspect-square overflow-hidden rounded-xl shadow hover:shadow-md transition-shadow duration-300"
+            role="figure"
+            aria-label={`Пример корпоративного букета KeyToHeart ${i + 1}`}
+            variants={cardVariants}
+            initial="hidden"
+            whileInView="visible"
+            custom={i}
+            viewport={{ once: true }}
           >
             <Image
               src={src}
-              alt={`Пример ${i + 1}`}
-              width={600}
-              height={600}
+              alt={`Пример корпоративного букета KeyToHeart ${i + 1}`}
+              fill
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-              placeholder="blur"
-              blurDataURL="/blur-placeholder.png"
               loading="lazy"
-              sizes="(max-width: 640px) 50vw, 33vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>

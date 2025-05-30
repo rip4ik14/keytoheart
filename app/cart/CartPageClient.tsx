@@ -107,7 +107,7 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 export default function CartPageClient() {
-    let cartContext;
+  let cartContext;
   try {
     cartContext = useCart();
   } catch (error) {
@@ -398,35 +398,33 @@ export default function CartPageClient() {
   }, []);
 
   const fetchAddressSuggestions = useCallback(
-  debounce((query: string) => {
-    if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
-    setIsLoadingSuggestions(true);
-    window.ymaps.ready(() => {
-      window.ymaps!
-        .suggest(query, {
-          boundedBy: [[45.0, 38.9], [45.2, 39.1]],
-          strictBounds: true,
-          results: 5,
-        })
-        .then((response) => {
-          setAddressSuggestions(response.map((item: any) => item.value));
-          setShowSuggestions(true);
-        })
-        .catch(() => {
-          setAddressSuggestions([]);
-          setShowSuggestions(false);
-        })
-        .finally(() => {
-          setIsLoadingSuggestions(false);
-        });
-    });
-  }, 300),
-  []
-);
+    debounce((query: string) => {
+      if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
+      setIsLoadingSuggestions(true);
+      window.ymaps.ready(() => {
+        window.ymaps!
+          .suggest(query, {
+            boundedBy: [[45.0, 38.9], [45.2, 39.1]],
+            strictBounds: true,
+            results: 5,
+          })
+          .then((response) => {
+            setAddressSuggestions(response.map((item: any) => item.value));
+            setShowSuggestions(true);
+          })
+          .catch(() => {
+            setAddressSuggestions([]);
+            setShowSuggestions(false);
+          })
+          .finally(() => {
+            setIsLoadingSuggestions(false);
+          });
+      });
+    }, 300),
+    []
+  );
 
-
-
-      const handleSelectAddress = useCallback(
+  const handleSelectAddress = useCallback(
     (address: string) => {
       onFormChange({
         target: { name: 'street', value: address },
@@ -765,7 +763,7 @@ export default function CartPageClient() {
         {[0, 1, 2, 3, 4, 5].map((s) => (
           <motion.div key={s} className="flex items-center" variants={containerVariants}>
             <motion.div
-              className={`flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-medium ${
+              className={`flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-medium hover:scale-105 transition-transform duration-200 ${
                 step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
               }`}
               initial={{ scale: 0.8 }}
@@ -889,56 +887,54 @@ export default function CartPageClient() {
             "
           >
             {/* Открытка */}
-            <button
+            <motion.button
               type="button"
               onClick={() => setShowPostcard(true)}
               className="
-                flex flex-col items-center justify-center
-                w-36 h-36 md:w-40 md:h-40
-                rounded-2xl bg-white border border-gray-200
-                shadow-sm hover:shadow-lg
-                transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-black
-                group
+                inline-flex items-center justify-center gap-2
+                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
               "
               aria-label="Добавить открытку"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
               <Image
                 src="/icons/postcard.svg"
-                alt="Добавить открытку"
-                width={48}
-                height={48}
-                className="mb-3 transition-transform duration-200 group-hover:scale-110"
+                alt=""
+                width={20}
+                height={20}
+                className="transition-transform duration-200"
                 priority={false}
               />
-              <span className="text-base md:text-lg font-medium text-gray-800">Добавить открытку</span>
-            </button>
+              <span>Добавить открытку</span>
+            </motion.button>
 
             {/* Шары */}
-            <button
+            <motion.button
               type="button"
               onClick={() => setShowBalloons(true)}
               className="
-                flex flex-col items-center justify-center
-                w-36 h-36 md:w-40 md:h-40
-                rounded-2xl bg-white border border-gray-200
-                shadow-sm hover:shadow-lg
-                transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-black
-                group
+                inline-flex items-center justify-center gap-2
+                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
               "
               aria-label="Добавить шары"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
               <Image
                 src="/icons/balloon.svg"
-                alt="Добавить         шары"
-                width={48}
-                height={48}
-                className="mb-3 transition-transform duration-200 group-hover:scale-110"
+                alt=""
+                width={20}
+                height={20}
+                className="transition-transform duration-200"
                 priority={false}
               />
-              <span className="text-base md:text-lg font-medium text-gray-800">Добавить<br />шары</span>
-            </button>
+              <span>Добавить шары</span>
+            </motion.button>
           </div>
 
           {[...items, ...selectedUpsells]
@@ -957,7 +953,12 @@ export default function CartPageClient() {
           <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <motion.button
               onClick={() => setShowPromoField(!showPromoField)}
-              className="flex items-center w-full gap-1 text-sm text-gray-500 underline focus:outline-none focus:ring-2 focus:ring-black"
+              className="
+                inline-flex items-center gap-1
+                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+              "
               aria-expanded={showPromoField}
               aria-controls="promo-field"
               whileHover={{ scale: 1.02 }}
@@ -982,29 +983,23 @@ export default function CartPageClient() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                  <div className="flex flex-col sm:flex-row gap-2 min-w-0 w-full">
   <input
     type="text"
     value={promoCode}
     onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
     placeholder="Введите промокод"
-    className="flex-1 min-w-0 py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
+    className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
     aria-label="Введите промокод"
   />
   <motion.button
     onClick={handleApplyPromo}
     className="
-      w-full sm:w-[120px] flex-shrink-0
-      py-3 px-0
-      text-[15px] font-bold text-white
-      bg-gradient-to-r from-gray-800 to-black rounded-md
-      hover:bg-gradient-to-r hover:from-gray-900 hover:to-black
-      hover:shadow-lg hover:shadow-gray-500/50
-      focus:outline-none focus:ring-2 focus:ring-black
-      uppercase transition-all duration-300
-      text-center
-      leading-none
-      "
+      w-full sm:w-[130px] flex-shrink-0
+      border border-[#bdbdbd] rounded-[10px] px-4 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+      bg-white text-[#535353] transition-all duration-200 shadow-sm
+      hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+    "
     aria-label="Применить промокод"
     whileHover={{ scale: 1.02 }}
     whileTap={{ scale: 0.98 }}

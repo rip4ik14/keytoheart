@@ -1,4 +1,3 @@
-// ✅ Путь: components/OrderStep.tsx
 'use client';
 
 import { ReactNode, useState, useEffect } from 'react';
@@ -73,9 +72,9 @@ export default function OrderStep({
             transition={{ duration: 0.3 }}
           >
             {children}
-            <div className="flex mt-6">
+            <div className="flex mt-6 gap-3">
               {onBack && (
-                <button
+                <motion.button
                   type="button"
                   onClick={() => {
                     onBack();
@@ -85,14 +84,20 @@ export default function OrderStep({
                     });
                     window.ym?.(96644553, 'reachGoal', 'order_step_back', { step });
                   }}
-                  className="mr-auto border px-4 py-2 text-sm rounded hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  className="
+                    mr-auto border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                    bg-white text-[#535353] transition-all duration-200 shadow-sm
+                    hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+                  "
                   aria-label="Вернуться к предыдущему шагу"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Назад
-                </button>
+                </motion.button>
               )}
               {onNext && (
-                <button
+                <motion.button
                   type="button"
                   onClick={() => {
                     onNext();
@@ -102,11 +107,17 @@ export default function OrderStep({
                     });
                     window.ym?.(96644553, 'reachGoal', 'order_step_next', { step });
                   }}
-                  className="ml-auto bg-black text-white px-6 py-2 text-sm rounded hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  className="
+                    ml-auto border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                    bg-white text-[#535353] transition-all duration-200 shadow-sm
+                    hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+                  "
                   aria-label="Перейти к следующему шагу"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Продолжить
-                </button>
+                </motion.button>
               )}
             </div>
           </motion.div>

@@ -338,11 +338,13 @@ export default function CorporateForm() {
           <motion.button
             type="submit"
             disabled={loading}
-            className={`w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black ${
-              loading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className={`w-full border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+              bg-white text-[#535353] transition-all duration-200 shadow-sm
+              hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            whileHover={loading ? {} : { scale: 1.02 }}
+            whileTap={loading ? {} : { scale: 0.98 }}
             aria-label="Отправить заявку"
           >
             {loading ? 'Отправка...' : 'Отправить заявку'}

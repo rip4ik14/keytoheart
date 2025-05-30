@@ -1,4 +1,3 @@
-// ✅ Путь: components/CorporateGallerySlider.tsx
 'use client';
 
 import { useState, useRef } from 'react';
@@ -88,26 +87,34 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
             </motion.figure>
           ))}
         </div>
-        <button
+        <motion.button
           onClick={scrollLeft}
           disabled={!canScrollLeft}
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md focus:outline-none focus:ring-2 focus:ring-black ${
-            canScrollLeft ? 'opacity-100' : 'opacity-50 cursor-not-allowed'
-          }`}
+          className={`absolute left-0 top-1/2 transform -translate-y-1/2 border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+            bg-white text-[#535353] transition-all duration-200 shadow-sm
+            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] ${
+              canScrollLeft ? 'opacity-100' : 'opacity-50 cursor-not-allowed'
+            }`}
+          whileHover={canScrollLeft ? { scale: 1.02 } : {}}
+          whileTap={canScrollLeft ? { scale: 0.98 } : {}}
           aria-label="Прокрутить галерею влево"
         >
           ←
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={scrollRight}
           disabled={!canScrollRight}
-          className={`absolute right-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md focus:outline-none focus:ring-2 focus:ring-black ${
-            canScrollRight ? 'opacity-100' : 'opacity-50 cursor-not-allowed'
-          }`}
+          className={`absolute right-0 top-1/2 transform -translate-y-1/2 border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+            bg-white text-[#535353] transition-all duration-200 shadow-sm
+            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] ${
+              canScrollRight ? 'opacity-100' : 'opacity-50 cursor-not-allowed'
+            }`}
+          whileHover={canScrollRight ? { scale: 1.02 } : {}}
+          whileTap={canScrollRight ? { scale: 0.98 } : {}}
           aria-label="Прокрутить галерею вправо"
         >
           →
-        </button>
+        </motion.button>
       </div>
     </section>
   );

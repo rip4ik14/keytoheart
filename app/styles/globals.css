@@ -611,16 +611,96 @@ footer a {
 
 .font-marquee {
   font-family: 'MontserratMarquee', 'Arial', sans-serif !important;
+  text-rendering: geometricPrecision; /* Улучшает четкость текста */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .text-marquee {
-  color: #B0B0B0;
+  color: #d3d0d0;
 }
 
 .text-outline {
-  text-shadow:
-    0 1px 0 #8a8a8a,
-    0 -1px 0 #8a8a8a,
-    1px 0 0 #8a8a8a,
-    -1px 0 0 #8a8a8a;
+  /* Упрощаем обводку для четкости */
+  -webkit-text-stroke: 0.5px lab(89.36% 2.38 0.84); /* Для WebKit-браузеров */
+  text-shadow: 0 1px 0 hsla(0, 0%, 67%, 0.596), 0 -1px 0 #d1cdcd; /* Минимизируем тени */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE и Edge */
+  scrollbar-width: none;     /* Firefox */
+  overflow: hidden !important; /* Принудительно скрыть любые скроллы */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;             /* Safari и Chrome */
+}
+
+/* globals.css */
+/* ===== Бесконечные бегущие строки  ===== */
+@keyframes marquee      { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+@keyframes marquee-rev  { 0%{transform:translateX(0)} 100%{transform:translateX( 50%)} }
+
+.marquee       { display:inline-flex; animation:marquee      40s linear infinite; }
+.marquee.reverse{ display:inline-flex; animation:marquee-rev 50s linear infinite; }
+
+.marquee-text-top {
+  font-family: var(--font-marquee);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.8;
+  letter-spacing: -0.02em;
+  font-size: clamp(60px, 11vw, 200px);
+  color: rgb(209 213 219 / 0.9);   /* #d1d5db */
+}
+.marquee-text-bottom {
+  composes: marquee-text-top;
+  opacity: 0.7;
+}
+
+/* скрываем возможные скроллбары */
+body, .marquee { -ms-overflow-style:none; scrollbar-width:none; }
+.marquee::-webkit-scrollbar { display:none; }
+
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/fonts/golos-text_regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/fonts/golos-text_medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/fonts/golos-text_demibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/fonts/golos-text_bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/fonts/golos-text_black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
 }

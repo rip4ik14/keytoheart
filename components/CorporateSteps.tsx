@@ -1,7 +1,7 @@
-// ✅ Путь: components/CorporateSteps.tsx
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 interface Step {
   number: string;
@@ -61,6 +61,7 @@ export default function CorporateSteps({}: CorporateStepsProps) {
             transition={{ delay: index * 0.2, duration: 0.6 }}
             role="region"
             aria-labelledby={`step-title-${index}`}
+            aria-describedby={`step-desc-${index}`}
           >
             <div className="text-5xl font-bold text-gray-300">{step.number}</div>
             <div>
@@ -70,11 +71,36 @@ export default function CorporateSteps({}: CorporateStepsProps) {
               >
                 {step.title}
               </h3>
-              <p className="text-gray-600">{step.description}</p>
+              <p id={`step-desc-${index}`} className="text-gray-600">
+                {step.description}
+              </p>
             </div>
           </motion.article>
         ))}
       </div>
+      <motion.div
+        className="text-center mt-12"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.8, duration: 0.6 }}
+      >
+        <Link
+          href="/form"
+          className="inline-block border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+            bg-white text-[#535353] transition-all duration-200 shadow-sm
+            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+          onClick={() => {
+            window.gtag?.('event', 'click_steps_cta', {
+              event_category: 'CorporateSteps',
+              event_label: 'Leave Request',
+            });
+            window.ym?.(96644553, 'reachGoal', 'click_steps_cta');
+          }}
+        >
+          Оставить заявку
+        </Link>
+      </motion.div>
     </section>
   );
 }

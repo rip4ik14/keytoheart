@@ -170,18 +170,18 @@ export default function ProductCard({ product }: { product: Product }) {
                   -{discountAmount}₽
                 </span>
               </div>
-              <span className="text-2xl font-extrabold text-black">
+              <span className="text-2xl font-bold text-black">
                 {discountedPrice}₽
               </span>
             </div>
           ) : originalPrice > product.price ? (
             <div className="flex flex-col items-center mt-1">
               <span className="text-base text-gray-400 line-through">{originalPrice}₽</span>
-              <span className="text-2xl font-extrabold text-black">{product.price}₽</span>
+              <span className="text-2xl font-bold text-black">{product.price}₽</span>
             </div>
           ) : (
             <div className="flex justify-center mt-1">
-              <span className="text-2xl font-extrabold text-black">{product.price}₽</span>
+              <span className="text-2xl font-bold text-black">{product.price}₽</span>
             </div>
           )
         ) : discountAmount > 0 ? (
@@ -204,12 +204,13 @@ export default function ProductCard({ product }: { product: Product }) {
             <motion.button
               ref={buttonRef}
               onClick={handleAddToCart}
-              className={`
-                mt-auto bg-black text-white text-sm sm:text-[16px] font-bold
-                px-6 sm:px-3 py-2 sm:py-1.5 rounded-md sm:rounded-2xl
-                shadow transition hover:bg-gray-800 sm:hover:bg-gray-900
-                focus:outline-none focus:ring-2 focus:ring-black w-full
-              `}
+              className="
+                mt-auto flex items-center justify-center gap-2
+                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+                w-full
+              "
               initial={isMobile ? 'hidden' : 'hiddenDesktop'}
               animate={isMobile ? 'visible' : 'visibleDesktop'}
               exit={isMobile ? 'hidden' : 'hiddenDesktop'}

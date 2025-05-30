@@ -2,7 +2,7 @@
 
 import ProductCard from '@components/ProductCard';
 import Link from 'next/link';
-import { Product } from '@/types/product'; // Импортируем тип Product
+import { Product } from '@/types/product';
 
 export default function CategoryPreviewClient({
   categoryName,
@@ -17,7 +17,7 @@ export default function CategoryPreviewClient({
     .filter((product) => product.in_stock !== false)
     .map((product) => ({
       ...product,
-      images: product.images || [], // Гарантируем, что images всегда массив
+      images: product.images || [],
     }));
 
   return (
@@ -27,7 +27,7 @@ export default function CategoryPreviewClient({
     >
       <h2
         id="category-preview-title"
-        className="text-2xl md:text-3xl font-bold text-center mb-8"
+        className="text-2xl md:text-3xl font-bold text-center mb-8 font-sans uppercase"
       >
         {categoryName}
       </h2>
@@ -39,7 +39,7 @@ export default function CategoryPreviewClient({
       <div className="text-center mt-6">
         <Link
           href={`/category/${seeMoreLink}`}
-          className="text-black hover:underline font-medium"
+          className="text-black hover:underline font-medium font-sans uppercase"
           onClick={() => {
             window.gtag?.('event', 'see_more_category', {
               event_category: 'navigation',
@@ -51,7 +51,7 @@ export default function CategoryPreviewClient({
           }}
           aria-label={`Посмотреть больше товаров в категории ${categoryName}`}
         >
-          Показать ещё
+          —ПОКАЗАТЬ ЕЩЕ—
         </Link>
       </div>
     </section>
