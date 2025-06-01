@@ -416,7 +416,7 @@ footer a {
 }
 
 .animate-marquee {
-  animation: marquee 1000s linear infinite;
+  animation: marquee 600s linear infinite;
 }
 
 /* Промо-баннер (PromoBanner) */

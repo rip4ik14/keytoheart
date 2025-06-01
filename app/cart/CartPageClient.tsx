@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -152,6 +153,8 @@ export default function CartPageClient() {
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
   const [showPromoField, setShowPromoField] = useState<boolean>(false);
+  const [isStep4Valid, setIsStep4Valid] = useState<boolean>(true);
+  const [step4ErrorMessage, setStep4ErrorMessage] = useState<string>('');
 
   const {
     step,
@@ -184,6 +187,11 @@ export default function CartPageClient() {
     getMinDate,
     resetForm,
   } = useCheckoutForm();
+
+  const handleStep4ValidationChange = useCallback((isValid: boolean, errorMessage: string) => {
+    setIsStep4Valid(isValid);
+    setStep4ErrorMessage(errorMessage);
+  }, []);
 
   // Обработчик изменения телефона
   const handlePhoneChange = useCallback(
@@ -293,15 +301,19 @@ export default function CartPageClient() {
       }
     } else if (step === 4) {
       const isValid = validateStep4();
-      if (isValid) {
-        nextStep();
-      } else {
+      if (!isValid) {
         toast.error('Пожалуйста, выберите корректные дату и время доставки');
+        return;
       }
+      if (!isStep4Valid) {
+        toast.error(step4ErrorMessage);
+        return;
+      }
+      nextStep();
     } else {
       nextStep();
     }
-  }, [step, validateStep1, validateStep4, nextStep]);
+  }, [step, validateStep1, validateStep4, isStep4Valid, step4ErrorMessage, nextStep]);
 
   // Вычисления для заказа
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
@@ -589,32 +601,6 @@ export default function CartPageClient() {
       return;
     }
 
-    if (form.date && form.time && storeSettings) {
-      const deliveryDate = new Date(form.date);
-      const dayKey = deliveryDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-      const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
-      if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) {
-        toast.error(`Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату.`);
-        return;
-      }
-      if (form.time < orderSchedule.start || form.time > orderSchedule.end) {
-        toast.error(`Выбранное время доставки (${form.time}) не попадает в окно приёма заказов (${orderSchedule.start} - ${orderSchedule.end}). Пожалуйста, выберите другое время.`);
-        return;
-      }
-      const storeSchedule = storeSettings.store_hours[dayKey];
-      if (!storeSchedule || !storeSchedule.start || !storeSchedule.end || storeSchedule.enabled === false) {
-        toast.error(`Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату.`);
-        return;
-      }
-      if (form.time < storeSchedule.start || form.time > storeSchedule.end) {
-        toast.error(`Выбранное время доставки (${form.time}) не попадает в график работы магазина (${storeSchedule.start} - ${storeSchedule.end}). Пожалуйста, выберите другое время.`);
-        return;
-      }
-    } else {
-      toast.error('Пожалуйста, выберите дату и время доставки.');
-      return;
-    }
-
     setIsSubmittingOrder(true);
     try {
       const cartItems = items.map((item: CartItemType) => ({
@@ -865,6 +851,7 @@ export default function CartPageClient() {
                       }
                     }
                     maxProductionTime={maxProductionTime}
+                    onValidationChange={handleStep4ValidationChange}
                   />
                 </OrderStep>
               )}
@@ -984,31 +971,31 @@ export default function CartPageClient() {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="flex flex-col sm:flex-row gap-2 min-w-0 w-full">
-  <input
-    type="text"
-    value={promoCode}
-    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-    placeholder="Введите промокод"
-    className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
-    aria-label="Введите промокод"
-  />
-  <motion.button
-    onClick={handleApplyPromo}
-    className="
-      w-full sm:w-[130px] flex-shrink-0
-      border border-[#bdbdbd] rounded-[10px] px-4 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-      bg-white text-[#535353] transition-all duration-200 shadow-sm
-      hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-    "
-    aria-label="Применить промокод"
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
-  >
-    <span className="block w-full text-center tracking-wide">
-      Применить
-    </span>
-  </motion.button>
-</div>
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="Введите промокод"
+                      className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
+                      aria-label="Введите промокод"
+                    />
+                    <motion.button
+                      onClick={handleApplyPromo}
+                      className="
+                        w-full sm:w-[130px] flex-shrink-0
+                        border border-[#bdbdbd] rounded-[10px] px-4 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                        bg-white text-[#535353] transition-all duration-200 shadow-sm
+                        hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+                      "
+                      aria-label="Применить промокод"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span className="block w-full text-center tracking-wide">
+                        Применить
+                      </span>
+                    </motion.button>
+                  </div>
                   {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
                   {promoDiscount !== null && (
                     <motion.p

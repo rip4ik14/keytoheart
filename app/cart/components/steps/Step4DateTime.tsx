@@ -1,8 +1,10 @@
+// ✅ Путь: app/cart/components/steps/Step4DateTime.tsx
 'use client';
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { useState, useEffect, useCallback } from 'react';
 
 interface DaySchedule {
   start: string;
@@ -22,6 +24,7 @@ interface Props {
     order_acceptance_enabled: boolean;
   };
   maxProductionTime: number | null;
+  onValidationChange: (isValid: boolean, errorMessage: string) => void;
 }
 
 const containerVariants = {
@@ -41,7 +44,11 @@ export default function Step4DateTime({
   getMinDate,
   storeSettings,
   maxProductionTime,
+  onValidationChange,
 }: Props) {
+  const [validationError, setValidationError] = useState<string>('');
+  const [isTimeValid, setIsTimeValid] = useState<boolean>(true);
+
   const selectedDate = form.date ? new Date(form.date) : new Date();
   const todayKey = selectedDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
 
@@ -74,9 +81,8 @@ export default function Step4DateTime({
     const earliest = new Date(selected);
     earliest.setHours(h, m, 0, 0);
 
-    // Проверяем, возможно ли доставить заказ сегодня
     const [endH, endM] = latestEnd.split(':').map(Number);
-    const latest = new Date(now);
+    const latest = new Date(selected);
     latest.setHours(endH, endM, 0, 0);
 
     if (isToday && minDateTime <= latest) {
@@ -87,7 +93,7 @@ export default function Step4DateTime({
   };
 
   const now = new Date();
-  const minDate = now.toISOString().split('T')[0]; // Устанавливаем минимальную дату как текущую
+  const minDate = getMinDate();
   const minTimeDate = computeMin();
   const minTime = `${String(minTimeDate.getHours()).padStart(2, '0')}:${String(
     minTimeDate.getMinutes()
@@ -105,6 +111,112 @@ export default function Step4DateTime({
       date >= new Date(minDate)
     );
   };
+
+  const validateDeliveryTime = useCallback(() => {
+    if (!form.date || !form.time || !storeSettings) {
+      setValidationError('Пожалуйста, выберите дату и время доставки.');
+      onValidationChange(false, 'Пожалуйста, выберите дату и время доставки.');
+      setIsTimeValid(false);
+      return;
+    }
+
+    const deliveryDate = new Date(form.date);
+    const dayKey = deliveryDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+
+    const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
+    if (!orderSchedule || !orderSchedule.start || !orderSchedule.end || orderSchedule.enabled === false) {
+      setValidationError(
+        `Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату.`
+      );
+      onValidationChange(
+        false,
+        `Выбранная дата доставки (${form.date}) недоступна для приёма заказов. Пожалуйста, выберите другую дату.`
+      );
+      setIsTimeValid(false);
+      return;
+    }
+
+    const storeSchedule = storeSettings.store_hours[dayKey];
+    if (!storeSchedule || !storeSchedule.start || !storeSchedule.end || storeSchedule.enabled === false) {
+      setValidationError(
+        `Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату.`
+      );
+      onValidationChange(
+        false,
+        `Выбранная дата доставки (${form.date}) недоступна для доставки. Пожалуйста, выберите другую дату.`
+      );
+      setIsTimeValid(false);
+      return;
+    }
+
+    const earliestStartTime = orderSchedule.start > storeSchedule.start ? orderSchedule.start : storeSchedule.start;
+    const latestEndTime = orderSchedule.end < storeSchedule.end ? orderSchedule.end : storeSchedule.end;
+
+    const now = new Date();
+    const selected = new Date(form.date);
+    const isToday =
+      selected.getFullYear() === now.getFullYear() &&
+      selected.getMonth() === now.getMonth() &&
+      selected.getDate() === now.getDate();
+
+    if (isToday && maxProductionTime != null) {
+      const minDeliveryTime = new Date(now);
+      minDeliveryTime.setHours(minDeliveryTime.getHours() + maxProductionTime);
+      const minDeliveryTimeStr = `${String(minDeliveryTime.getHours()).padStart(2, '0')}:${String(
+        minDeliveryTime.getMinutes()
+      ).padStart(2, '0')}`;
+
+      if (minDeliveryTimeStr > latestEndTime) {
+        setValidationError(
+          `Сегодня заказы на выбранное время (${form.time}) больше не принимаются, так как минимальное время доставки (${minDeliveryTimeStr}) превышает график работы магазина (${latestEndTime}). Пожалуйста, выберите другую дату.`
+        );
+        onValidationChange(
+          false,
+          `Сегодня заказы на выбранное время (${form.time}) больше не принимаются, так как минимальное время доставки (${minDeliveryTimeStr}) превышает график работы магазина (${latestEndTime}). Пожалуйста, выберите другую дату.`
+        );
+        setIsTimeValid(false);
+        return;
+      }
+
+      if (form.time < minDeliveryTimeStr) {
+        setValidationError(
+          `Сегодня заказы на выбранное время (${form.time}) больше не принимаются, так как минимальное время доставки с учётом времени изготовления — ${minDeliveryTimeStr}. Пожалуйста, выберите время с ${minDeliveryTimeStr} до ${latestEndTime} или другую дату.`
+        );
+        onValidationChange(
+          false,
+          `Сегодня заказы на выбранное время (${form.time}) больше не принимаются, так как минимальное время доставки с учётом времени изготовления — ${minDeliveryTimeStr}. Пожалуйста, выберите время с ${minDeliveryTimeStr} до ${latestEndTime} или другую дату.`
+        );
+        setIsTimeValid(false);
+        return;
+      }
+    }
+
+    if (form.time < earliestStartTime) {
+      onFormChange({ target: { name: 'time', value: earliestStartTime } } as any);
+      toast(`Время доставки изменено на ${earliestStartTime}, так как магазин начинает работу с ${earliestStartTime}.`);
+      setValidationError('');
+      onValidationChange(true, '');
+      setIsTimeValid(true);
+      return;
+    }
+
+    if (form.time > latestEndTime) {
+      onFormChange({ target: { name: 'time', value: latestEndTime } } as any);
+      toast(`Время доставки изменено на ${latestEndTime}, так как магазин работает до ${latestEndTime}.`);
+      setValidationError('');
+      onValidationChange(true, '');
+      setIsTimeValid(true);
+      return;
+    }
+
+    setValidationError('');
+    onValidationChange(true, '');
+    setIsTimeValid(true);
+  }, [form.date, form.time, storeSettings, maxProductionTime, onValidationChange, onFormChange]);
+
+  useEffect(() => {
+    validateDeliveryTime();
+  }, [validateDeliveryTime]);
 
   const onDate = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -126,28 +238,12 @@ export default function Step4DateTime({
     }
 
     onFormChange(e);
-
-    if (form.time) {
-      const newEarliestStart = orderDaySchedule.start > storeDaySchedule.start ? orderDaySchedule.start : storeDaySchedule.start;
-      const newLatestEnd = orderDaySchedule.end < storeDaySchedule.end ? orderDaySchedule.end : storeDaySchedule.end;
-      if (form.time < newEarliestStart || form.time > newLatestEnd) {
-        onFormChange({ target: { name: 'time', value: newEarliestStart } } as any);
-        toast(`Время доставки сброшено до ${newEarliestStart}, так как выбранный день имеет другое расписание.`);
-      }
-    }
+    validateDeliveryTime();
   };
 
   const onTime = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val < minTime) {
-      onFormChange({ target: { name: 'time', value: minTime } } as any);
-      toast.error(`Время не может быть раньше ${minTime} с учётом времени изготовления.`);
-    } else if (val > latestEnd) {
-      onFormChange({ target: { name: 'time', value: latestEnd } } as any);
-      toast.error(`Время не может быть позже ${latestEnd} согласно графику работы магазина.`);
-    } else {
-      onFormChange(e);
-    }
+    onFormChange(e);
+    validateDeliveryTime();
   };
 
   return (
@@ -186,9 +282,9 @@ export default function Step4DateTime({
             onChange={onDate}
             min={minDate}
             className={`w-full pl-10 pr-3 py-2 border rounded-md ${
-              dateError ? 'border-red-500' : 'border-gray-300'
+              dateError || validationError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
-            aria-invalid={!!dateError}
+            aria-invalid={!!dateError || !!validationError}
             disabled={!storeSettings.order_acceptance_enabled}
           />
         </div>
@@ -218,9 +314,9 @@ export default function Step4DateTime({
             min={minTime}
             max={latestEnd}
             className={`w-full pl-10 pr-3 py-2 border rounded-md ${
-              timeError ? 'border-red-500' : 'border-gray-300'
+              timeError || !isTimeValid ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
-            aria-invalid={!!timeError}
+            aria-invalid={!!timeError || !isTimeValid}
             disabled={!storeSettings.order_acceptance_enabled || !isDateValid()}
           />
         </div>
@@ -228,6 +324,7 @@ export default function Step4DateTime({
           Доставка с {earliestStart} до {latestEnd}
         </p>
         {timeError && <p className="text-red-500 text-xs">{timeError}</p>}
+        {validationError && <p className="text-red-500 text-xs">{validationError}</p>}
       </motion.div>
     </div>
   );

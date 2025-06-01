@@ -11,6 +11,7 @@ interface OrderStepProps {
   children: ReactNode;
   onNext?: () => void;
   onBack?: () => void;
+  isNextDisabled?: boolean;
 }
 
 const variants = {
@@ -25,6 +26,7 @@ export default function OrderStep({
   children,
   onNext,
   onBack,
+  isNextDisabled = false,
 }: OrderStepProps) {
   const isActive = currentStep === step;
   const [open, setOpen] = useState(isActive);
@@ -33,6 +35,13 @@ export default function OrderStep({
     if (isActive && !open) setOpen(true);
     if (!isActive && open) setOpen(false);
   }, [isActive, open]);
+
+  const buttonStyle = `
+    border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+    transition-all duration-200 shadow-sm
+    hover:bg-[#535353] hover:text-white active:scale-[.96]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+  `;
 
   return (
     <div
@@ -90,7 +99,7 @@ export default function OrderStep({
                     });
                     window.ym?.(12345678, 'reachGoal', 'order_step_back', { step });
                   }}
-                  className="flex-1 border border-gray-300 px-3 py-2 sm:px-4 sm:py-2 text-sm rounded-lg hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  className={`${buttonStyle} flex-1 bg-gray-200 text-[#535353] hover:bg-gray-300 hover:text-[#535353]`}
                   aria-label="Вернуться к предыдущему шагу"
                 >
                   Назад
@@ -100,6 +109,7 @@ export default function OrderStep({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isNextDisabled) return;
                     onNext();
                     window.gtag?.('event', 'order_step_next', {
                       event_category: 'order',
@@ -107,8 +117,11 @@ export default function OrderStep({
                     });
                     window.ym?.(12345678, 'reachGoal', 'order_step_next', { step });
                   }}
-                  className="flex-1 bg-black text-white px-3 py-3 sm:px-6 sm:py-3 text-sm rounded-lg hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
+                  className={`${buttonStyle} flex-1 bg-white text-[#535353] ${
+                    isNextDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   aria-label="Перейти к следующему шагу"
+                  disabled={isNextDisabled}
                 >
                   Продолжить
                 </button>
