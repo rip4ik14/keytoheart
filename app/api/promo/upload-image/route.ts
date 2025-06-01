@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
-import { randomBytes } from 'crypto';
+import { unlink } from 'fs/promises';
+import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,31 +21,34 @@ export async function POST(req: NextRequest) {
     const oldImageUrl = formData.get('oldImageUrl') as string | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'Файл обязателен' }, { status: 400 });
+      return NextResponse.json({ error: 'Файл не предоставлен' }, { status: 400 });
     }
 
-    // Генерируем уникальное имя файла
-    const ext = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`;
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'promo');
-    const uploadPath = join(uploadDir, fileName);
-
-    // Читаем файл как ArrayBuffer
     const buffer = Buffer.from(await file.arrayBuffer());
-    // Сохраняем файл
-    await writeFile(uploadPath, buffer);
 
-    const publicUrl = `/uploads/promo/${fileName}`;
+    // Оптимизация изображения с помощью Sharp
+    const optimizedImage = await sharp(buffer)
+      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true }) // Уменьшаем размер
+      .webp({ quality: 80 }) // Конвертируем в WebP
+      .toBuffer();
 
-    // Удаляем старое изображение, если указано
+    const filename = `${uuidv4()}.webp`;
+    const filepath = join(process.cwd(), 'public/uploads/promo', filename);
+    await sharp(optimizedImage).toFile(filepath);
+
+    const image_url = `/uploads/promo/${filename}`;
+
+    // Удаляем старое изображение, если оно есть
     if (oldImageUrl && oldImageUrl.startsWith('/uploads/promo/')) {
-      const oldFilePath = join(process.cwd(), 'public', oldImageUrl);
-      try { await unlink(oldFilePath); } catch {}
-
-      // Если файл не найден — ничего страшного, пропускаем ошибку
+      const oldPath = join(process.cwd(), 'public', oldImageUrl);
+      try {
+        await unlink(oldPath);
+      } catch (e) {
+        console.warn(`Не удалось удалить старое изображение ${oldPath}:`, e);
+      }
     }
 
-    return NextResponse.json({ image_url: publicUrl });
+    return NextResponse.json({ image_url });
   } catch (err: any) {
     console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -28,7 +28,7 @@ export default function PromoGridClient({
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
-  // Варианты анимации для элементов баннера (текущая: только прозрачность, более плавная)
+  // Варианты анимации для элементов баннера
   const textVariants = {
     hidden: { opacity: 0 },
     visible: (i: number) => ({
@@ -36,6 +36,9 @@ export default function PromoGridClient({
       transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
     }),
   };
+
+  // Объединяем баннеры и карточки в один массив для мобильной версии
+  const mobileItems = [...banners, ...cards];
 
   return (
     <motion.section
@@ -49,117 +52,228 @@ export default function PromoGridClient({
         Промо-блоки
       </h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Блок баннеров */}
+        {/* Баннеры и карточки для десктопа */}
         <motion.div
           className="relative overflow-hidden rounded-3xl lg:col-span-2 h-[260px] sm:h-[340px] md:h-[420px] lg:h-[480px] xl:h-[560px]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          <Swiper
-            modules={[Autoplay, Pagination]}
-            autoplay={{ delay: 5000 }}
-            pagination={{ clickable: true }}
-            loop
-            className="h-full w-full"
-            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
-          >
-            {banners.map((b, i) => (
-              <SwiperSlide key={b.id}>
-                <Link
-                  href={b.href || '#'}
-                  className="relative block h-full w-full"
-                  title={b.title}
-                >
-                  <Image
-                    src={b.image_url}
-                    alt={b.title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 66vw"
-                    priority={i === 0}
-                    className="object-cover"
-                  />
-                  {/* Затемнение для читабельности текста */}
-                  <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
-
-                  {/* Центровка и адаптация контента */}
-                  <div
-                    className="
-                      absolute inset-0 flex flex-col justify-center
-                      items-start sm:items-start
-                      px-4 py-4 sm:px-16 sm:py-12
-                      text-white text-left
-                    "
+          {/* Десктоп: баннеры через Swiper */}
+          <div className="hidden lg:block h-full w-full">
+            <Swiper
+              modules={[Autoplay, Pagination]}
+              autoplay={{ delay: 5000 }}
+              pagination={{ clickable: true }}
+              loop
+              className="h-full w-full"
+              onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+            >
+              {banners.map((b, i) => (
+                <SwiperSlide key={b.id}>
+                  <Link
+                    href={b.href || '#'}
+                    className="relative block h-full w-full"
+                    title={b.title}
                   >
-                    <div className="max-w-full w-full">
-                      <motion.h2
-                        className="
-                          mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                          max-w-[95vw] sm:max-w-[80vw] leading-tight
-                          sm:mb-3
-                        "
-                        variants={textVariants}
-                        initial="hidden"
-                        animate={activeSlide === i ? 'visible' : 'hidden'}
-                        custom={0}
-                        style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                      >
-                        {b.title}
-                      </motion.h2>
-                      {b.subtitle && (
-                        <motion.p
+                    <Image
+                      src={b.image_url}
+                      alt={b.title}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 66vw"
+                      priority={i === 0}
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
+                    <div
+                      className="
+                        absolute inset-0 flex flex-col justify-center
+                        items-start sm:items-start
+                        px-4 py-4 sm:px-16 sm:py-12
+                        text-white text-left
+                      "
+                    >
+                      <div className="max-w-full w-full">
+                        <motion.h2
                           className="
-                            mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
-                            max-w-[95vw] sm:max-w-[80vw]
-                            sm:mb-6
+                            mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                            max-w-[95vw] sm:max-w-[80vw] leading-tight
+                            sm:mb-3
                           "
                           variants={textVariants}
                           initial="hidden"
                           animate={activeSlide === i ? 'visible' : 'hidden'}
-                          custom={1}
+                          custom={0}
                           style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                         >
-                          {b.subtitle}
-                        </motion.p>
-                      )}
-                      <motion.div
-                        variants={textVariants}
-                        initial="hidden"
-                        animate={activeSlide === i ? 'visible' : 'hidden'}
-                        custom={b.subtitle ? 2 : 1}
-                        className="flex"
-                      >
-                        <span
-                          className="
-                            inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                            bg-white text-[#535353] transition-all duration-200 shadow-sm
-                            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                          style={{
-                            minWidth: 'fit-content',
-                            maxWidth: '100%',
-                          }}
-                          onClick={() => {
-                            window.gtag?.('event', 'click_banner_cta', {
-                              event_category: 'PromoGrid',
-                              event_label: b.title,
-                            });
-                            window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                              banner: b.title,
-                            });
-                          }}
+                          {b.title}
+                        </motion.h2>
+                        {b.subtitle && (
+                          <motion.p
+                            className="
+                              mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                              max-w-[95vw] sm:max-w-[80vw]
+                              sm:mb-6
+                            "
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={1}
+                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                          >
+                            {b.subtitle}
+                          </motion.p>
+                        )}
+                        <motion.div
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={b.subtitle ? 2 : 1}
+                          className="flex"
                         >
-                          {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                        </span>
-                      </motion.div>
+                          <span
+                            className="
+                              inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                              bg-white text-[#535353] transition-all duration-200 shadow-sm
+                              hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                            style={{
+                              minWidth: 'fit-content',
+                              maxWidth: '100%',
+                            }}
+                            onClick={() => {
+                              window.gtag?.('event', 'click_banner_cta', {
+                                event_category: 'PromoGrid',
+                                event_label: b.title,
+                              });
+                              window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                banner: b.title,
+                              });
+                            }}
+                          >
+                            {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                          </span>
+                        </motion.div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              </SwiperSlide>
-            ))}
-          </Swiper>
+                  </Link>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+
+          {/* Мобильная версия: один Swiper для баннеров и карточек */}
+          <div className="block lg:hidden h-full w-full">
+            <Swiper
+              modules={[Autoplay, Pagination]}
+              autoplay={{ delay: 5000 }}
+              pagination={{ clickable: true }}
+              loop
+              spaceBetween={12}
+              slidesPerView={1}
+              className="h-full w-full"
+              onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+            >
+              {mobileItems.map((item, i) => (
+                <SwiperSlide key={item.id}>
+                  <Link
+                    href={item.href || '#'}
+                    className="relative block h-full w-full"
+                    title={item.title}
+                  >
+                    <Image
+                      src={item.image_url}
+                      alt={item.title}
+                      fill
+                      sizes="100vw"
+                      priority={i === 0}
+                      className="object-cover rounded-3xl"
+                    />
+                    <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
+                    <div
+                      className="
+                        absolute inset-0 flex flex-col justify-center
+                        items-start sm:items-start
+                        px-4 py-4 sm:px-16 sm:py-12
+                        text-white text-left
+                      "
+                    >
+                      <div className="max-w-full w-full">
+                        <motion.h2
+                          className="
+                            mb-2 text-xl xs:text-2xl sm:text-4xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                            max-w-[95vw] sm:max-w-[80vw] leading-tight
+                            sm:mb-3
+                          "
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={0}
+                          style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                        >
+                          {item.title}
+                        </motion.h2>
+                        {item.subtitle && item.type === 'banner' && (
+                          <motion.p
+                            className="
+                              mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                              max-w-[95vw] sm:max-w-[80vw]
+                              sm:mb-6
+                            "
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={1}
+                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                          >
+                            {item.subtitle}
+                          </motion.p>
+                        )}
+                        {item.type === 'banner' && (
+                          <motion.div
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={item.subtitle ? 2 : 1}
+                            className="flex"
+                          >
+                            <span
+                              className="
+                                inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                              style={{
+                                minWidth: 'fit-content',
+                                maxWidth: '100%',
+                              }}
+                              onClick={() => {
+                                window.gtag?.('event', 'click_banner_cta', {
+                                  event_category: 'PromoGrid',
+                                  event_label: item.title,
+                                });
+                                window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                  banner: item.title,
+                                });
+                              }}
+                            >
+                              {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                            </span>
+                          </motion.div>
+                        )}
+                        {item.type === 'card' && (
+                          <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
+                            {item.title}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
         </motion.div>
 
-        {/* Карточки (desktop, справа) */}
+        {/* Карточки для десктопа (справа) */}
         <motion.div
           className="hidden lg:grid h-[480px] xl:h-[560px] grid-cols-2 grid-rows-2 gap-4"
           initial={{ opacity: 0, y: 30 }}
@@ -194,45 +308,6 @@ export default function PromoGridClient({
               </Link>
             </motion.div>
           ))}
-        </motion.div>
-
-        {/* Мобильная версия карточек */}
-        <motion.div
-          className="block lg:hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <Swiper spaceBetween={12} slidesPerView={1.2} className="mt-4 pb-6">
-            {cards.map((c, i) => (
-              <SwiperSlide key={c.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 + i * 0.1 }}
-                >
-                  <Link
-                    href={c.href}
-                    className="group relative aspect-[3/2] overflow-hidden rounded-3xl"
-                    title={c.title}
-                    role="button"
-                  >
-                    <Image
-                      src={c.image_url}
-                      alt={c.title}
-                      fill
-                      sizes="90vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/20 transition-all group-hover:bg-black/30" />
-                    <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
-                      {c.title}
-                    </span>
-                  </Link>
-                </motion.div>
-              </SwiperSlide>
-            ))}
-          </Swiper>
         </motion.div>
       </div>
     </motion.section>

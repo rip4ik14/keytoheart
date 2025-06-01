@@ -1,3 +1,4 @@
+// ✅ Путь: components/OrderStep.tsx
 'use client';
 
 import { ReactNode, useState, useEffect } from 'react';
@@ -14,7 +15,7 @@ interface OrderStepProps {
 
 const variants = {
   hidden: { height: 0, opacity: 0 },
-  visible: { height: 'auto', opacity: 1 },
+  visible: { height: 'auto', opacity: 1, transition: { duration: 0.3 } },
 };
 
 export default function OrderStep({
@@ -35,27 +36,32 @@ export default function OrderStep({
 
   return (
     <div
-      className={`rounded-2xl border shadow-md overflow-hidden transition-colors ${
-        isActive ? 'bg-white border-gray-200' : 'bg-white border-gray-100 opacity-90'
-      }`}
+      className={`
+        rounded-lg border border-gray-200 shadow-sm
+        overflow-hidden transition-colors
+        ${isActive ? 'bg-white' : 'bg-gray-50 opacity-90'}
+      `}
       role="region"
       aria-labelledby={`order-step-${step}-title`}
     >
       <div
-        className={`flex items-center px-5 py-4 cursor-pointer ${
-          isActive ? 'text-black' : 'text-gray-400'
-        }`}
+        className={`
+          flex items-center px-4 py-3 sm:px-5 sm:py-4 cursor-pointer
+          ${isActive ? 'text-black' : 'text-gray-400'}
+        `}
         onClick={() => setOpen(!open)}
       >
         <div
-          className={`w-8 h-8 rounded-full border flex items-center justify-center mr-3 text-sm font-bold ${
-            isActive ? 'border-black' : 'border-gray-300'
-          }`}
+          className={`
+            w-8 h-8 rounded-full border flex items-center justify-center mr-2 sm:mr-3
+            text-sm font-bold
+            ${isActive ? 'border-black' : 'border-gray-300'}
+          `}
           aria-hidden="true"
         >
           {step}
         </div>
-        <h2 id={`order-step-${step}-title`} className="text-lg font-semibold">
+        <h2 id={`order-step-${step}-title`} className="text-base sm:text-lg font-semibold">
           {title}
         </h2>
       </div>
@@ -63,7 +69,7 @@ export default function OrderStep({
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            className="px-6 pb-6"
+            className="px-4 pb-4 sm:px-6 sm:pb-6"
             key="content"
             variants={variants}
             initial="hidden"
@@ -72,9 +78,9 @@ export default function OrderStep({
             transition={{ duration: 0.3 }}
           >
             {children}
-            <div className="flex mt-6 gap-3">
+            <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
               {onBack && (
-                <motion.button
+                <button
                   type="button"
                   onClick={() => {
                     onBack();
@@ -82,22 +88,16 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    window.ym?.(96644553, 'reachGoal', 'order_step_back', { step });
+                    window.ym?.(12345678, 'reachGoal', 'order_step_back', { step });
                   }}
-                  className="
-                    mr-auto border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                    bg-white text-[#535353] transition-all duration-200 shadow-sm
-                    hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-                  "
+                  className="flex-1 border border-gray-300 px-3 py-2 sm:px-4 sm:py-2 text-sm rounded-lg hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-black"
                   aria-label="Вернуться к предыдущему шагу"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Назад
-                </motion.button>
+                </button>
               )}
               {onNext && (
-                <motion.button
+                <button
                   type="button"
                   onClick={() => {
                     onNext();
@@ -105,19 +105,13 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    window.ym?.(96644553, 'reachGoal', 'order_step_next', { step });
+                    window.ym?.(12345678, 'reachGoal', 'order_step_next', { step });
                   }}
-                  className="
-                    ml-auto border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                    bg-white text-[#535353] transition-all duration-200 shadow-sm
-                    hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-                  "
+                  className="flex-1 bg-black text-white px-3 py-3 sm:px-6 sm:py-3 text-sm rounded-lg hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
                   aria-label="Перейти к следующему шагу"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Продолжить
-                </motion.button>
+                </button>
               )}
             </div>
           </motion.div>

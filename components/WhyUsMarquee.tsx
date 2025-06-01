@@ -11,26 +11,36 @@ export default function WhyUsMarquee() {
 
   return (
     <section className="relative py-16 bg-white overflow-x-hidden w-full select-none no-scrollbar">
-  {/* Верхняя бегущая строка — ещё выше */}
+  {/* Верхняя бегущая строка */}
   <MarqueeText
     text="SWEET FEELING SWEET FEELING SWEET FEELING"
-    fontSize="text-[14vw]"
-    opacity="opacity-90"
-    duration={80}
+    fontSize="text-[20vw] sm:text-[18vw] md:text-[14vw] lg:text-[12vw]" // Мобильный размер чуть меньше, десктоп как было
+    opacity="opacity-70"
+    duration={40}
     direction="left"
-    className="absolute left-0 w-full top-[-5%] -translate-y-1/2 pointer-events-none z-0"
+    className="
+      absolute left-0 w-full
+      top-[6vw] sm:top-[5vw] md:top-[-5%]  // На мобилках ниже, на десктопе как было
+      pointer-events-none z-0
+    "
     colorClass="text-[#f5f5f5] font-bold"
   />
+
   {/* Нижняя бегущая строка */}
   <MarqueeText
     text="FEELING SWEET FEELING SWEET FEELING"
-    fontSize="text-[14vw]"
-    opacity="opacity-90"
-    duration={100}
+    fontSize="text-[20vw] sm:text-[18vw] md:text-[14vw] lg:text-[12vw]"
+    opacity="opacity-70"
+    duration={60}
     direction="right"
-    className="absolute left-0 w-full top-[55%] -translate-y-1/2 pointer-events-none z-0"
+    className="
+      absolute left-0 w-full
+      bottom-[4vw] sm:bottom-[3vw] md:bottom-auto md:top-[55%] // На мобилках - bottom, на десктопе top-55%
+      pointer-events-none z-0
+    "
     colorClass="text-[#f5f5f5] font-bold"
   />
+
   <div className="relative z-10">
     <MarqueeCards duration={16}>
       {data.map((item, idx) => (
@@ -39,6 +49,5 @@ export default function WhyUsMarquee() {
     </MarqueeCards>
   </div>
 </section>
-
   );
 }

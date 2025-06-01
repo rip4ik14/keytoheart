@@ -10,7 +10,7 @@ interface MarqueeCardsProps {
 
 export default function MarqueeCards({
   children = [],
-  duration = 16,
+  duration = 14,
 }: MarqueeCardsProps) {
   const MARQUEE_REPEAT = 3;
   const extended = Array(MARQUEE_REPEAT).fill(children).flat();
