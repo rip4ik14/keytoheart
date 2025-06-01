@@ -203,6 +203,61 @@ export default function CartPageClient() {
     [onFormChange, setPhoneError]
   );
 
+  // Проверка корзины и удаление невалидных товаров
+  useEffect(() => {
+    const validateAndCleanCart = async () => {
+      if (items.length === 0) return;
+
+      try {
+        const productIds = items
+          .filter((item: CartItemType) => !item.isUpsell)
+          .map((item: CartItemType) => parseInt(item.id, 10))
+          .filter((id: number) => !isNaN(id));
+
+        if (productIds.length === 0) return;
+
+        const res = await fetch('/api/products/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              id: parseInt(item.id, 10),
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          }),
+        });
+        const json = await res.json();
+
+        if (!json.valid) {
+          const invalidItems = json.invalidItems || [];
+          const itemsToRemove = invalidItems
+            .filter((invalidItem: { id: number; reason: string }) =>
+              invalidItem.reason === 'Товар не найден' ||
+              invalidItem.reason === 'Товар отсутствует в наличии' ||
+              invalidItem.reason === 'Товар не доступен для заказа'
+            )
+            .map((invalidItem: { id: number }) => invalidItem.id.toString());
+
+          if (itemsToRemove.length > 0) {
+            // Удаляем невалидные товары из корзины
+            const updatedItems = items.filter((item: CartItemType) => !itemsToRemove.includes(item.id));
+            clearCart();
+            if (updatedItems.length > 0) {
+              addMultipleItems(updatedItems);
+            }
+            toast.error('Некоторые товары в вашей корзине больше не доступны и были удалены.');
+          }
+        }
+      } catch (error) {
+        console.error('Error validating cart items:', error);
+        toast.error('Не удалось проверить товары в корзине.');
+      }
+    };
+
+    validateAndCleanCart();
+  }, [items, clearCart, addMultipleItems]);
+
   // Синхронизация цен в корзине с базой данных
   useEffect(() => {
     const syncCartPrices = async () => {
@@ -923,6 +978,28 @@ export default function CartPageClient() {
               <span>Добавить шары</span>
             </motion.button>
           </div>
+
+          {/* Кнопка "Очистить корзину" */}
+          {items.length > 0 && (
+            <motion.button
+              type="button"
+              onClick={() => {
+                clearCart();
+                toast.success('Корзина очищена');
+              }}
+              className="
+                inline-flex items-center justify-center gap-2
+                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                bg-red-500 text-white transition-all duration-200 shadow-sm
+                hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] mb-4 w-full
+              "
+              aria-label="Очистить корзину"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Очистить корзину
+            </motion.button>
+          )}
 
           {[...items, ...selectedUpsells]
             .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
