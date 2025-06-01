@@ -168,6 +168,7 @@ export default function CartPageClient() {
     addressError,
     dateError,
     timeError,
+    agreedToTermsError,
     setPhoneError,
     setEmailError,
     setNameError,
@@ -240,13 +241,19 @@ export default function CartPageClient() {
             .map((invalidItem: { id: number }) => invalidItem.id.toString());
 
           if (itemsToRemove.length > 0) {
+            // Получаем названия удалённых товаров
+            const removedTitles = items
+              .filter((item: CartItemType) => itemsToRemove.includes(item.id))
+              .map((item: CartItemType) => item.title)
+              .join(', ');
+
             // Удаляем невалидные товары из корзины
             const updatedItems = items.filter((item: CartItemType) => !itemsToRemove.includes(item.id));
             clearCart();
             if (updatedItems.length > 0) {
               addMultipleItems(updatedItems);
             }
-            toast.error('Некоторые товары в вашей корзине больше не доступны и были удалены.');
+            toast.error(`Следующие товары больше не доступны и были удалены из корзины: ${removedTitles}`);
           }
         }
       } catch (error) {
@@ -349,11 +356,11 @@ export default function CartPageClient() {
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       const isValid = validateStep1();
-      if (isValid) {
-        nextStep();
-      } else {
-        toast.error('Пожалуйста, заполните все обязательные поля на шаге 1');
+      if (!isValid) {
+        // Ошибка уже отобразится через toast.error в validateStep1
+        return;
       }
+      nextStep();
     } else if (step === 4) {
       const isValid = validateStep4();
       if (!isValid) {
@@ -856,6 +863,7 @@ export default function CartPageClient() {
                     phoneError={phoneError}
                     emailError={emailError}
                     nameError={nameError}
+                    agreedToTermsError={agreedToTermsError}
                     onFormChange={onFormChange}
                     handlePhoneChange={handlePhoneChange}
                   />
@@ -978,28 +986,6 @@ export default function CartPageClient() {
               <span>Добавить шары</span>
             </motion.button>
           </div>
-
-          {/* Кнопка "Очистить корзину" */}
-          {items.length > 0 && (
-            <motion.button
-              type="button"
-              onClick={() => {
-                clearCart();
-                toast.success('Корзина очищена');
-              }}
-              className="
-                inline-flex items-center justify-center gap-2
-                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                bg-red-500 text-white transition-all duration-200 shadow-sm
-                hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] mb-4 w-full
-              "
-              aria-label="Очистить корзину"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Очистить корзину
-            </motion.button>
-          )}
 
           {[...items, ...selectedUpsells]
             .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))

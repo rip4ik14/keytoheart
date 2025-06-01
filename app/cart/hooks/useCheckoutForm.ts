@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,6 +21,7 @@ interface FormState {
   deliveryInstructions: string;
   anonymous: boolean;
   whatsapp: boolean;
+  agreedToTerms: boolean;
 }
 
 const initialFormState: FormState = {
@@ -39,6 +41,7 @@ const initialFormState: FormState = {
   deliveryInstructions: '',
   anonymous: false,
   whatsapp: false,
+  agreedToTerms: false,
 };
 
 // Функция для нормализации телефона
@@ -65,6 +68,7 @@ export default function useCheckoutForm() {
   const [addressError, setAddressError] = useState<string>('');
   const [dateError, setDateError] = useState<string>('');
   const [timeError, setTimeError] = useState<string>('');
+  const [agreedToTermsError, setAgreedToTermsError] = useState<string>(''); // Добавляем состояние для ошибки согласия
 
   useEffect(() => {
     const savedForm = localStorage.getItem('checkoutForm');
@@ -83,6 +87,7 @@ export default function useCheckoutForm() {
           time: '',
           phone: prev.phone || normalizePhone(parsedForm.phone || ''),
           recipientPhone: formattedRecipientPhone,
+          agreedToTerms: false, // Сбрасываем согласие при загрузке
         }));
       } catch (error) {
         console.error('Error parsing saved form:', error);
@@ -100,6 +105,9 @@ export default function useCheckoutForm() {
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setForm((prev) => ({ ...prev, [name]: checked }));
+      if (name === 'agreedToTerms' && checked) {
+        setAgreedToTermsError(''); // Сбрасываем ошибку, если чекбокс отмечен
+      }
     } else {
       // Нормализуем телефонные номера
       const newValue = name === 'phone' || name === 'recipientPhone' ? normalizePhone(value) : value;
@@ -135,6 +143,14 @@ export default function useCheckoutForm() {
       isValid = false;
     } else {
       setEmailError('');
+    }
+
+    if (!form.agreedToTerms) {
+      setAgreedToTermsError('Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности');
+      toast.error('Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности');
+      isValid = false;
+    } else {
+      setAgreedToTermsError('');
     }
 
     return isValid;
@@ -282,6 +298,7 @@ export default function useCheckoutForm() {
     setAddressError('');
     setDateError('');
     setTimeError('');
+    setAgreedToTermsError(''); // Сбрасываем ошибку
     setStep(0); // Возвращаем на шаг авторизации
     localStorage.removeItem('checkoutForm');
   };
@@ -298,6 +315,7 @@ export default function useCheckoutForm() {
     addressError,
     dateError,
     timeError,
+    agreedToTermsError, // Добавляем в возвращаемые значения
     setPhoneError,
     setEmailError,
     setNameError,
@@ -306,6 +324,7 @@ export default function useCheckoutForm() {
     setAddressError,
     setDateError,
     setTimeError,
+    setAgreedToTermsError, // Добавляем сеттер для ошибки
     onFormChange,
     nextStep,
     prevStep,

@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -10,10 +11,12 @@ interface Props {
     whatsapp: boolean;
     email: string;
     name: string;
+    agreedToTerms?: boolean;
   };
   phoneError: string;
   emailError: string;
   nameError: string;
+  agreedToTermsError: string; // Добавляем проп для ошибки согласия
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handlePhoneChange: (value: string) => void;
 }
@@ -32,6 +35,7 @@ export default function Step1ContactDetails({
   phoneError,
   emailError,
   nameError,
+  agreedToTermsError,
   onFormChange,
   handlePhoneChange,
 }: Props) {
@@ -147,36 +151,58 @@ export default function Step1ContactDetails({
         <span className="text-sm text-gray-700">Написать в WhatsApp вместо звонка</span>
       </motion.div>
 
-      <motion.p
-        className="text-xs text-gray-500 text-center"
+      {/* Обязательный чекбокс для согласия */}
+      <motion.div
+        className={`flex items-center gap-2 mt-4 ${agreedToTermsError ? 'text-red-500' : 'text-gray-700'}`}
         initial="hidden"
         animate="visible"
         custom={4}
         variants={containerVariants}
       >
-        Нажимая «Продолжить», вы подтверждаете согласие с{' '}
-        <TrackedLink
-          href="/policy"
-          ariaLabel="Политика конфиденциальности"
-          category="Cart"
-          action="Open Policy"
-          label="Step1 Policy"
-          className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+        <input
+          type="checkbox"
+          name="agreedToTerms"
+          checked={form.agreedToTerms || false}
+          onChange={onFormChange}
+          className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+          aria-label="Согласие с пользовательским соглашением и политикой конфиденциальности"
+          required
+        />
+        <span className="text-xs">
+          Я принимаю{' '}
+          <TrackedLink
+            href="/terms"
+            ariaLabel="Пользовательское соглашение"
+            category="Cart"
+            action="Open Terms"
+            label="Step1 Terms"
+            className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            пользовательское соглашение
+          </TrackedLink>{' '}
+          и{' '}
+          <TrackedLink
+            href="/policy"
+            ariaLabel="Политика конфиденциальности"
+            category="Cart"
+            action="Open Policy"
+            label="Step1 Policy"
+            className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            политику обработки персональных данных
+          </TrackedLink>
+        </span>
+      </motion.div>
+      {agreedToTermsError && (
+        <motion.p
+          className="text-red-500 text-xs"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
         >
-          политикой обработки персональных данных
-        </TrackedLink>{' '}
-        и{' '}
-        <TrackedLink
-          href="/terms"
-          ariaLabel="Пользовательское соглашение"
-          category="Cart"
-          action="Open Terms"
-          label="Step1 Terms"
-          className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
-        >
-          пользовательским соглашением
-        </TrackedLink>
-      </motion.p>
+          {agreedToTermsError}
+        </motion.p>
+      )}
     </div>
   );
 }
