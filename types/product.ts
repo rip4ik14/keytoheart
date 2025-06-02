@@ -1,3 +1,4 @@
+// types/product.ts
 import type { Database } from '@/lib/supabase/types_new';
 
 // Определяем интерфейс Product на основе типа products из Supabase
@@ -21,7 +22,7 @@ export interface Product {
   composition?: string | null;
   is_popular?: boolean | null;
   is_visible?: boolean | null;
-  category_id?: number | null;
+  category_ids: number[]; // Заменяем category_id на category_ids
   production_time?: number | null; // Время изготовления в часах
 }
 
