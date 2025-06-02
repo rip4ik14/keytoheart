@@ -1,4 +1,3 @@
-// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -29,7 +28,7 @@ export default function PromoGridClient({
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
-  // Варианты анимации для элементов баннера
+  // Анимация текста
   const textVariants = {
     hidden: { opacity: 0 },
     visible: (i: number) => ({
@@ -38,11 +37,8 @@ export default function PromoGridClient({
     }),
   };
 
-  // Объединяем баннеры и карточки в один массив для мобильной версии
+  // Для мобилки: баннеры + карточки в один список
   const mobileItems = [...banners, ...cards];
-
-  // --- Новый блок: Первый баннер — SSR/priority (для LCP) ---
-  const firstBanner = banners[0];
 
   return (
     <motion.section
@@ -56,140 +52,119 @@ export default function PromoGridClient({
         Промо-блоки
       </h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Блок главного баннера + swiper */}
+        {/* Баннеры/карточки для десктопа */}
         <motion.div
-          className="relative overflow-hidden rounded-3xl lg:col-span-2 h-[260px] sm:h-[340px] md:h-[420px] lg:h-[480px] xl:h-[560px]"
+          className="relative overflow-hidden rounded-3xl lg:col-span-2"
+          style={{ aspectRatio: '3 / 2' }}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          {/* 1️⃣ Первый баннер — всегда priority, без Swiper */}
-          <Link
-            href={firstBanner.href || '#'}
-            className="absolute inset-0 block h-full w-full z-10"
-            title={firstBanner.title}
-            tabIndex={0}
-          >
-            <Image
-              src={firstBanner.image_url}
-              alt={firstBanner.title}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 66vw"
-              className="object-cover rounded-3xl"
-              style={{ zIndex: 1 }}
-            />
-            <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
-            <div
-              className="
-                absolute inset-0 flex flex-col justify-center
-                items-start sm:items-start
-                px-4 py-4 sm:px-16 sm:py-12
-                text-white text-left
-                z-20
-              "
+          {/* Десктоп: только баннеры */}
+          <div className="hidden lg:block h-full w-full">
+            <Swiper
+              modules={[Autoplay, Pagination]}
+              autoplay={{ delay: 5000 }}
+              pagination={{ clickable: true }}
+              loop
+              className="h-full w-full"
+              onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
-              <div className="max-w-full w-full">
-                <motion.h2
-                  className="
-                    mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                    max-w-[95vw] sm:max-w-[80vw] leading-tight
-                    sm:mb-3
-                  "
-                  variants={textVariants}
-                  initial="hidden"
-                  animate="visible"
-                  custom={0}
-                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                >
-                  {firstBanner.title}
-                </motion.h2>
-                {firstBanner.subtitle && (
-                  <motion.p
-                    className="
-                      mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
-                      max-w-[95vw] sm:max-w-[80vw]
-                      sm:mb-6
-                    "
-                    variants={textVariants}
-                    initial="hidden"
-                    animate="visible"
-                    custom={1}
-                    style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+              {banners.map((b, i) => (
+                <SwiperSlide key={b.id}>
+                  <Link
+                    href={b.href || '#'}
+                    className="relative block h-full w-full"
+                    title={b.title}
                   >
-                    {firstBanner.subtitle}
-                  </motion.p>
-                )}
-                <motion.div
-                  variants={textVariants}
-                  initial="hidden"
-                  animate="visible"
-                  custom={firstBanner.subtitle ? 2 : 1}
-                  className="flex"
-                >
-                  <span
-                    className="
-                      inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                      bg-white text-[#535353] transition-all duration-200 shadow-sm
-                      hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                    style={{
-                      minWidth: 'fit-content',
-                      maxWidth: '100%',
-                    }}
-                    onClick={() => {
-                      window.gtag?.('event', 'click_banner_cta', {
-                        event_category: 'PromoGrid',
-                        event_label: firstBanner.title,
-                      });
-                      window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                        banner: firstBanner.title,
-                      });
-                    }}
-                  >
-                    {firstBanner.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                  </span>
-                </motion.div>
-              </div>
-            </div>
-          </Link>
-
-          {/* 2️⃣ Остальные баннеры — Swiper (начиная со второго) */}
-          {banners.length > 1 && (
-            <div className="hidden lg:block absolute inset-0 w-full h-full z-0">
-              <Swiper
-                modules={[Autoplay, Pagination]}
-                autoplay={{ delay: 5000 }}
-                pagination={{ clickable: true }}
-                loop
-                className="h-full w-full"
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
-                initialSlide={1} // Swiper начнёт со 2 баннера, чтобы не дублировать первый
-              >
-                {banners.slice(1).map((b, i) => (
-                  <SwiperSlide key={b.id}>
-                    <Link
-                      href={b.href || '#'}
-                      className="relative block h-full w-full"
-                      title={b.title}
-                    >
+                    <div className="relative w-full h-full aspect-[3/2]">
                       <Image
                         src={b.image_url}
                         alt={b.title}
                         fill
                         sizes="(max-width: 1024px) 100vw, 66vw"
-                        priority={false}
+                        priority={i === 0}
                         className="object-cover rounded-3xl"
+                        style={{ aspectRatio: '3 / 2' }}
                       />
-                      <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
-                      {/* ...аналогично блоку выше... */}
-                    </Link>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-          )}
-
-          {/* 3️⃣ Mobile: Swiper для всех баннеров и карточек, но первый priority */}
+                      <div className="absolute inset-0 bg-black/40 transition-all duration-500 rounded-3xl" />
+                      <div
+                        className="
+                          absolute inset-0 flex flex-col justify-center
+                          items-start sm:items-start
+                          px-4 py-4 sm:px-16 sm:py-12
+                          text-white text-left
+                        "
+                      >
+                        <div className="max-w-full w-full">
+                          <motion.h2
+                            className="
+                              mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                              max-w-[95vw] sm:max-w-[80vw] leading-tight
+                              sm:mb-3
+                            "
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={0}
+                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                          >
+                            {b.title}
+                          </motion.h2>
+                          {b.subtitle && (
+                            <motion.p
+                              className="
+                                mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                                max-w-[95vw] sm:max-w-[80vw]
+                                sm:mb-6
+                              "
+                              variants={textVariants}
+                              initial="hidden"
+                              animate={activeSlide === i ? 'visible' : 'hidden'}
+                              custom={1}
+                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                            >
+                              {b.subtitle}
+                            </motion.p>
+                          )}
+                          <motion.div
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={b.subtitle ? 2 : 1}
+                            className="flex"
+                          >
+                            <span
+                              className="
+                                inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                                bg-white text-[#535353] transition-all duration-200 shadow-sm
+                                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                              style={{
+                                minWidth: 'fit-content',
+                                maxWidth: '100%',
+                              }}
+                              onClick={() => {
+                                window.gtag?.('event', 'click_banner_cta', {
+                                  event_category: 'PromoGrid',
+                                  event_label: b.title,
+                                });
+                                window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                  banner: b.title,
+                                });
+                              }}
+                            >
+                              {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                            </span>
+                          </motion.div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+          {/* Мобильная версия: Swiper с баннерами и карточками */}
           <div className="block lg:hidden h-full w-full">
             <Swiper
               modules={[Autoplay, Pagination]}
@@ -208,90 +183,93 @@ export default function PromoGridClient({
                     className="relative block h-full w-full"
                     title={item.title}
                   >
-                    <Image
-                      src={item.image_url}
-                      alt={item.title}
-                      fill
-                      sizes="100vw"
-                      priority={i === 0}
-                      className="object-cover rounded-3xl"
-                    />
-                    <div className="absolute inset-0 bg-black/40 transition-all duration-500" />
-                    <div
-                      className="
-                        absolute inset-0 flex flex-col justify-center
-                        items-start sm:items-start
-                        px-4 py-4 sm:px-16 sm:py-12
-                        text-white text-left
-                      "
-                    >
-                      <div className="max-w-full w-full">
-                        <motion.h2
-                          className="
-                            mb-2 text-xl xs:text-2xl sm:text-4xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                            max-w-[95vw] sm:max-w-[80vw] leading-tight
-                            sm:mb-3
-                          "
-                          variants={textVariants}
-                          initial="hidden"
-                          animate={activeSlide === i ? 'visible' : 'hidden'}
-                          custom={0}
-                          style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                        >
-                          {item.title}
-                        </motion.h2>
-                        {item.subtitle && item.type === 'banner' && (
-                          <motion.p
+                    <div className="relative w-full h-full aspect-[3/2]">
+                      <Image
+                        src={item.image_url}
+                        alt={item.title}
+                        fill
+                        sizes="100vw"
+                        priority={i === 0}
+                        className="object-cover rounded-3xl"
+                        style={{ aspectRatio: '3 / 2' }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 transition-all duration-500 rounded-3xl" />
+                      <div
+                        className="
+                          absolute inset-0 flex flex-col justify-center
+                          items-start sm:items-start
+                          px-4 py-4 sm:px-16 sm:py-12
+                          text-white text-left
+                        "
+                      >
+                        <div className="max-w-full w-full">
+                          <motion.h2
                             className="
-                              mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
-                              max-w-[95vw] sm:max-w-[80vw]
-                              sm:mb-6
+                              mb-2 text-xl xs:text-2xl sm:text-4xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                              max-w-[95vw] sm:max-w-[80vw] leading-tight
+                              sm:mb-3
                             "
                             variants={textVariants}
                             initial="hidden"
                             animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={1}
+                            custom={0}
                             style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                           >
-                            {item.subtitle}
-                          </motion.p>
-                        )}
-                        {item.type === 'banner' && (
-                          <motion.div
-                            variants={textVariants}
-                            initial="hidden"
-                            animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={item.subtitle ? 2 : 1}
-                            className="flex"
-                          >
-                            <span
-                              className="
-                                inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                                bg-white text-[#535353] transition-all duration-200 shadow-sm
-                                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                              style={{
-                                minWidth: 'fit-content',
-                                maxWidth: '100%',
-                              }}
-                              onClick={() => {
-                                window.gtag?.('event', 'click_banner_cta', {
-                                  event_category: 'PromoGrid',
-                                  event_label: item.title,
-                                });
-                                window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                  banner: item.title,
-                                });
-                              }}
-                            >
-                              {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                            </span>
-                          </motion.div>
-                        )}
-                        {item.type === 'card' && (
-                          <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
                             {item.title}
-                          </span>
-                        )}
+                          </motion.h2>
+                          {item.subtitle && item.type === 'banner' && (
+                            <motion.p
+                              className="
+                                mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                                max-w-[95vw] sm:max-w-[80vw]
+                                sm:mb-6
+                              "
+                              variants={textVariants}
+                              initial="hidden"
+                              animate={activeSlide === i ? 'visible' : 'hidden'}
+                              custom={1}
+                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                            >
+                              {item.subtitle}
+                            </motion.p>
+                          )}
+                          {item.type === 'banner' && (
+                            <motion.div
+                              variants={textVariants}
+                              initial="hidden"
+                              animate={activeSlide === i ? 'visible' : 'hidden'}
+                              custom={item.subtitle ? 2 : 1}
+                              className="flex"
+                            >
+                              <span
+                                className="
+                                  inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                                  bg-white text-[#535353] transition-all duration-200 shadow-sm
+                                  hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                                style={{
+                                  minWidth: 'fit-content',
+                                  maxWidth: '100%',
+                                }}
+                                onClick={() => {
+                                  window.gtag?.('event', 'click_banner_cta', {
+                                    event_category: 'PromoGrid',
+                                    event_label: item.title,
+                                  });
+                                  window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                    banner: item.title,
+                                  });
+                                }}
+                              >
+                                {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                              </span>
+                            </motion.div>
+                          )}
+                          {item.type === 'card' && (
+                            <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
+                              {item.title}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -303,7 +281,7 @@ export default function PromoGridClient({
 
         {/* Карточки для десктопа (справа) */}
         <motion.div
-          className="hidden lg:grid h-[480px] xl:h-[560px] grid-cols-2 grid-rows-2 gap-4"
+          className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-4"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
@@ -314,7 +292,7 @@ export default function PromoGridClient({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
-              className="relative h-full w-full overflow-hidden rounded-3xl"
+              className="relative w-full h-full overflow-hidden rounded-3xl aspect-[3/2]"
             >
               <Link
                 href={c.href}
@@ -327,9 +305,10 @@ export default function PromoGridClient({
                   alt={c.title}
                   fill
                   sizes="50vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-3xl"
+                  style={{ aspectRatio: '3 / 2' }}
                 />
-                <div className="absolute inset-0 bg-black/20 transition-all group-hover:bg-black/30" />
+                <div className="absolute inset-0 bg-black/20 transition-all group-hover:bg-black/30 rounded-3xl" />
                 <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
                   {c.title}
                 </span>

@@ -1,34 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { mkdirSync, existsSync } from 'fs';
+import { writeFile, unlink } from 'fs/promises';
+import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 
 export const runtime = 'nodejs';
+
+// Поддержка: WebP, JPEG, PNG
+const SUPPORTED_MIME = ['image/webp', 'image/jpeg', 'image/png'];
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;
+    const oldImageUrl = formData.get('oldImageUrl') as string | null;
+
     if (!file) {
-      return NextResponse.json({ error: 'Файл не получен' }, { status: 400 });
+      return NextResponse.json({ error: 'Файл не предоставлен' }, { status: 400 });
+    }
+    if (!SUPPORTED_MIME.includes(file.type)) {
+      return NextResponse.json({ error: 'Неподдерживаемый тип файла' }, { status: 415 });
     }
 
-    // Создаём папку, если нет
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
-    mkdirSync(uploadsDir, { recursive: true });
+    // Читаем файл
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Уникальное имя
-    const ext = file.name.split('.').pop();
-    const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const filePath = join(uploadsDir, filename);
+    // Оптимизация: ресайз и перекодировка в webp
+    const optimizedBuffer = await sharp(buffer)
+      .resize({
+        width: 1200,
+        height: 800,
+        fit: 'cover',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    // Генерируем имя файла
+    const filename = `${uuidv4()}.webp`;
+    const uploadsDir = join(process.cwd(), 'public', 'uploads');
+    const savePath = join(uploadsDir, filename);
+
+    // Создаем директорию, если нет
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+    }
 
     // Сохраняем файл
-    const buffer = Buffer.from(await file.arrayBuffer());
-    writeFileSync(filePath, buffer);
+    await writeFile(savePath, optimizedBuffer);
 
-    // URL для public
-    const url = `/uploads/${filename}`;
-    return NextResponse.json({ url }, { status: 201 });
+    // Удаляем старое изображение, если есть
+    if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
+      const oldPath = join(process.cwd(), 'public', oldImageUrl);
+      try {
+        await unlink(oldPath);
+      } catch (e) {
+        // ничего, если файла нет
+      }
+    }
+
+    // URL для клиента (начинается с /uploads/...)
+    const image_url = `/uploads/${filename}`;
+
+    return NextResponse.json({ image_url });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Ошибка загрузки: ' + err.message }, { status: 500 });
+    console.error('Ошибка загрузки изображения:', err);
+    return NextResponse.json({ error: 'Ошибка сервера: ' + err.message }, { status: 500 });
   }
 }

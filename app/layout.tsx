@@ -144,7 +144,14 @@ export default async function RootLayout({
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
         <link rel="preload" href="/og-cover.jpg" as="image" />
+        {/* === Preconnect для ускорения загрузки Supabase CDN === */}
+        <link
+          rel="preconnect"
+          href="https://gwbeabfkknhewwoesqax.supabase.co"
+          crossOrigin=""
+        />
 
+        {/* SEO разметка */}
         <JsonLd<WebSite>
           item={{
             '@type': 'WebSite',
@@ -154,7 +161,6 @@ export default async function RootLayout({
               'Клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. Подарки на 8 марта, Новый год, День Победы и любой праздник!',
           }}
         />
-
         <JsonLd<LocalBusiness>
           item={{
             '@type': 'LocalBusiness',
@@ -184,7 +190,6 @@ export default async function RootLayout({
             },
           }}
         />
-
         <JsonLd<BreadcrumbList>
           item={{
             '@type': 'BreadcrumbList',
@@ -199,6 +204,7 @@ export default async function RootLayout({
           }}
         />
 
+        {/* Яндекс Метрика */}
         {ymId && (
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`
@@ -226,6 +232,7 @@ export default async function RootLayout({
           </Script>
         )}
 
+        {/* Яндекс Турбо */}
         {ymId && (
           <Script id="yandex-turbo" strategy="afterInteractive">
             {`
@@ -270,8 +277,7 @@ export default async function RootLayout({
             {/* Hidden SEO text */}
             <div className="sr-only" aria-hidden="true">
               <p>
-                Клубничные букеты Краснодар, доставка цветов Краснодар,...
-                {/* your full SEO string */}
+                Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар
               </p>
             </div>
           </CartProvider>
