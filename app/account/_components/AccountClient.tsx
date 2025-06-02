@@ -58,8 +58,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         credentials: 'include',
       });
       const sessionData = await response.json();
-      console.log(`${new Date().toISOString()} AccountClient: Check session response`, sessionData);
-
+      
       if (sessionData.isAuthenticated) {
         setIsAuthenticated(true);
         setPhone(sessionData.phone || '');
@@ -81,8 +80,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   // Подписка на событие authChange
   useEffect(() => {
     const handleAuthChange = () => {
-      console.log(`${new Date().toISOString()} AccountClient: Auth change event received`);
-      checkAuth();
+     checkAuth();
     };
 
     window.addEventListener('authChange', handleAuthChange);

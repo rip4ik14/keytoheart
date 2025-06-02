@@ -1,3 +1,4 @@
+// app/product/[id]/ProductPageClient.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,15 +11,7 @@ import { Share2, Star } from 'lucide-react';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
-import { Product } from '@/types/product';
-
-// Тип для рекомендованных товаров
-export type ComboItem = {
-  id: number;
-  title: string;
-  price: number;
-  image: string;
-};
+import { Product, ComboItem } from './types';
 
 // Тип для настроек магазина
 interface DaySchedule {
@@ -79,21 +72,18 @@ const notificationVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.3 } },
 };
 
-export default function ProductPageClient({
-  product,
-  combos,
-}: {
-  product: Product;
-  combos: ComboItem[];
-}) {
+export default function ProductPageClient({ product, combos }: { product: Product; combos: ComboItem[] }) {
   const { addItem } = useCart();
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
+  const [comboNotifications, setComboNotifications] = useState<{ [key: number]: boolean }>({});
   const [bonusPercent] = useState<number>(0.025);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
+  const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
 
   // Загружаем настройки магазина
@@ -111,13 +101,73 @@ export default function ProductPageClient({
           });
         }
       } catch (error) {
-        console.error('Error fetching store settings:', error);
+        // Лог удалён
       } finally {
         setIsStoreSettingsLoading(false);
       }
     };
     fetchStoreSettings();
   }, []);
+
+  // Загружаем рекомендованные товары из подкатегорий "Шары" и "Открытки" с кэшированием
+  useEffect(() => {
+    const fetchRecommendedItems = async () => {
+      const cacheKey = 'recommended_items_podarki';
+      const cacheTimestampKey = 'recommended_items_podarki_timestamp';
+
+      const cached = localStorage.getItem(cacheKey);
+      const timestamp = localStorage.getItem(cacheTimestampKey);
+      if (cached && timestamp && Date.now() - parseInt(timestamp) < 3600000) {
+        setRecommendedItems(JSON.parse(cached));
+        setIsLoadingRecommended(false);
+        return;
+      }
+
+      if (timestamp && Date.now() - parseInt(timestamp) >= 3600000) {
+        localStorage.removeItem(cacheKey);
+        localStorage.removeItem(cacheTimestampKey);
+      }
+
+      setIsLoadingRecommended(true);
+      try {
+        const subcategoryIds = [171, 173]; // cards, balloons
+        const fetchPromises = subcategoryIds.map(async (subcategoryId) => {
+          const res = await fetch(
+            `/api/upsell/products?category_id=8&subcategory_id=${subcategoryId}`
+          );
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          const { success, data, error } = await res.json();
+          if (!success) {
+            throw new Error(error || 'Ошибка загрузки товаров');
+          }
+          return data || [];
+        });
+
+        const results = await Promise.all(fetchPromises);
+        const items: ComboItem[] = results
+          .flat()
+          .filter((item: any) => item.id !== product.id.toString())
+          .map((item: any) => ({
+            id: parseInt(item.id, 10),
+            title: item.title,
+            price: item.price,
+            image: item.image_url || '/placeholder.jpg',
+          }));
+
+        setRecommendedItems(items);
+        localStorage.setItem(cacheKey, JSON.stringify(items));
+        localStorage.setItem(cacheTimestampKey, Date.now().toString());
+      } catch (err: any) {
+        setRecommendedItems([]);
+      } finally {
+        setIsLoadingRecommended(false);
+      }
+    };
+
+    fetchRecommendedItems();
+  }, [product.id]);
 
   // Вычисляем ближайшее возможное время доставки
   useEffect(() => {
@@ -137,14 +187,13 @@ export default function ProductPageClient({
 
     let earliestDate = now;
     let attempts = 0;
-    const maxAttempts = 7; // Проверяем максимум 7 дней вперёд
+    const maxAttempts = 7;
 
     while (attempts < maxAttempts) {
       const dayKey = earliestDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
       const orderSchedule = storeSettings.order_acceptance_schedule[dayKey];
       const storeSchedule = storeSettings.store_hours[dayKey];
 
-      // Проверяем, работает ли магазин в этот день
       if (
         orderSchedule?.enabled !== false &&
         storeSchedule?.enabled !== false &&
@@ -169,7 +218,6 @@ export default function ProductPageClient({
         latestTime.setHours(endH, endM, 0, 0);
 
         if (earliestDate <= latestTime) {
-          // Найдено подходящее время
           const formattedDate = earliestDate.toLocaleDateString('ru-RU', {
             day: '2-digit',
             month: '2-digit',
@@ -183,7 +231,6 @@ export default function ProductPageClient({
         }
       }
 
-      // Если день не подходит, переходим к следующему
       earliestDate = new Date(earliestDate);
       earliestDate.setDate(earliestDate.getDate() + 1);
       attempts++;
@@ -201,7 +248,7 @@ export default function ProductPageClient({
       });
       window.ym?.(96644553, 'reachGoal', 'view_item', { product_id: product.id });
     } catch (error) {
-      console.error('Analytics error:', error);
+      // Лог удалён
     }
   }, [product.id, product.title, product.price]);
 
@@ -214,11 +261,19 @@ export default function ProductPageClient({
     title: string,
     price: number,
     img: string | null,
-    productionTime: number | null
+    productionTime: number | null,
+    isCombo: boolean = false
   ) => {
     addItem({ id: `${id}`, title, price, quantity: 1, imageUrl: img || '', production_time: productionTime });
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 2000);
+    if (isCombo) {
+      setComboNotifications(prev => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setComboNotifications(prev => ({ ...prev, [id]: false }));
+      }, 2000);
+    } else {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2000);
+    }
     try {
       window.gtag?.('event', 'add_to_cart', {
         event_category: 'ecommerce',
@@ -227,7 +282,7 @@ export default function ProductPageClient({
       });
       window.ym?.(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch (error) {
-      console.error('Add to cart analytics error:', error);
+      // Лог удалён
     }
   };
 
@@ -239,7 +294,9 @@ export default function ProductPageClient({
           text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
           url: window.location.href,
         })
-        .catch((error) => console.error('Share error:', error));
+        .catch((error) => {
+          // Лог удалён
+        });
     } else {
       navigator.clipboard.writeText(window.location.href).then(() => {
         alert('Ссылка скопирована в буфер обмена!');
@@ -247,7 +304,6 @@ export default function ProductPageClient({
     }
   };
 
-  // Чтобы избавиться от ошибок typescript про null
   const images: string[] = Array.isArray(product.images) ? product.images : [];
 
   return (
@@ -264,6 +320,20 @@ export default function ProductPageClient({
             >
               Добавлено в корзину!
             </motion.div>
+          )}
+          {Object.entries(comboNotifications).map(([id, isVisible]) =>
+            isVisible ? (
+              <motion.div
+                key={id}
+                className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
+                variants={notificationVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                Добавлено в корзину!
+              </motion.div>
+            ) : null
           )}
         </AnimatePresence>
 
@@ -287,17 +357,33 @@ export default function ProductPageClient({
                   nextEl: '.customSwiperButtonNext',
                 }}
                 thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
+                loop={false}
                 modules={[Navigation, Thumbs]}
                 className={`customSwiper rounded-2xl overflow-hidden relative`}
                 slidesPerView={1}
                 style={{ minHeight: 360 }}
               >
-                {images.map((src, i) => (
-                  <SwiperSlide key={i}>
+                {images.length > 0 ? (
+                  images.map((src, i) => (
+                    <SwiperSlide key={i}>
+                      <div className="relative aspect-[4/3] w-full bg-gray-100">
+                        <Image
+                          src={src}
+                          alt={`${product.title} - фото ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          loading="lazy"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                        />
+                      </div>
+                    </SwiperSlide>
+                  ))
+                ) : (
+                  <SwiperSlide>
                     <div className="relative aspect-[4/3] w-full bg-gray-100">
                       <Image
-                        src={src}
-                        alt={`${product.title} - фото ${i + 1}`}
+                        src="/placeholder.jpg"
+                        alt="Изображение отсутствует"
                         fill
                         className="object-cover"
                         loading="lazy"
@@ -305,13 +391,13 @@ export default function ProductPageClient({
                       />
                     </div>
                   </SwiperSlide>
-                ))}
+                )}
                 {/* Кастомные стрелки */}
                 <button className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
-                  <span className="text-2xl text-white">&#60;</span>
+                  <span className="text-2xl text-white">&lt;</span>
                 </button>
                 <button className="customSwiperButtonNext absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
-                  <span className="text-2xl text-white">&#62;</span>
+                  <span className="text-2xl text-white">&gt;</span>
                 </button>
               </Swiper>
 
@@ -400,7 +486,7 @@ export default function ProductPageClient({
                   <span
                     className="ml-1 text-gray-400 cursor-pointer"
                     title="Бонус за оплату заказа, начисляется на бонусный счёт клиента"
-                  >&#9432;</span>
+                  >ⓘ</span>
                 </span>
               </div>
             </div>
@@ -510,8 +596,8 @@ export default function ProductPageClient({
           </motion.div>
         </div>
 
-        {/* Рекомендуемые товары */}
-        {combos.length > 0 && (
+        {/* Рекомендуемые товары (Карусель) */}
+        {recommendedItems.length > 0 && (
           <motion.section
             className="mt-12 pt-10 border-t border-gray-200"
             variants={containerVariants}
@@ -522,48 +608,75 @@ export default function ProductPageClient({
             <h2 className="text-2xl font-bold text-black mb-6 tracking-tight">
               Рекомендуемые товары
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              {combos.slice(0, 4).map((combo) => (
-                <motion.div
-                  key={combo.id}
-                  className="combo-card-desktop flex flex-col items-center group rounded-xl shadow-md overflow-hidden bg-white h-80 transition-transform duration-200 hover:scale-105"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
+            {isLoadingRecommended ? (
+              <p className="text-gray-500">Загрузка...</p>
+            ) : (
+              <div className="relative">
+                <Swiper
+                  navigation={{
+                    prevEl: '.recommendSwiperButtonPrev',
+                    nextEl: '.recommendSwiperButtonNext',
+                  }}
+                  loop={recommendedItems.length >= 2}
+                  modules={[Navigation]}
+                  spaceBetween={16}
+                  slidesPerView={2}
+                  breakpoints={{
+                    320: { slidesPerView: 2, spaceBetween: 16 },
+                    640: { slidesPerView: 3, spaceBetween: 20 },
+                    1024: { slidesPerView: 4, spaceBetween: 24 },
+                  }}
+                  className="recommendSwiper"
                 >
-                  <div className="relative w-full h-44 bg-gray-100">
-                    <Image
-                      src={combo.image}
-                      alt={combo.title}
-                      fill
-                      className="object-cover transition-transform duration-300"
-                      loading="lazy"
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                    />
-                  </div>
-                  <div className="p-3 w-full flex-1 flex flex-col justify-between">
-                    <p className="text-base font-semibold text-left truncate">{combo.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-base font-bold text-black">
-                        {combo.price} ₽
-                      </span>
-                    </div>
-                    <motion.button
-                      onClick={() =>
-                        handleAdd(combo.id, combo.title, combo.price, combo.image, null)
-                      }
-                      className="w-full mt-2 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
-                      variants={buttonVariants}
-                      initial="rest"
-                      whileHover="hover"
-                      whileTap="tap"
-                      aria-label={`Добавить ${combo.title} в корзину`}
-                    >
-                      Добавить
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  {recommendedItems.map((combo) => (
+                    <SwiperSlide key={combo.id}>
+                      <motion.div
+                        className="flex flex-col rounded-xl shadow-md overflow-hidden bg-white transition-all duration-300 hover:shadow-lg"
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="relative w-full aspect-[4/3] bg-gray-100">
+                          <Image
+                            src={combo.image}
+                            alt={combo.title}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          />
+                        </div>
+                        <div className="p-4 flex flex-col flex-1 space-y-2">
+                          <p className="text-base font-semibold text-black line-clamp-2 h-12">{combo.title}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-black">{`${combo.price} ₽`}</span>
+                          </div>
+                          <motion.button
+                            onClick={() =>
+                              handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)
+                            }
+                            className="w-full py-3 bg-black text-white rounded-lg text-base font-bold hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-black"
+                            variants={buttonVariants}
+                            initial="rest"
+                            whileHover="hover"
+                            whileTap="tap"
+                            aria-label={`Добавить ${combo.title} в корзину`}
+                          >
+                            ДОБАВИТЬ В КОРЗИНУ
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+                {/* Кастомные стрелки для карусели */}
+                <button className="recommendSwiperButtonPrev absolute left-0 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
+                  <span className="text-2xl text-white">&lt;</span>
+                </button>
+                <button className="recommendSwiperButtonNext absolute right-0 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
+                  <span className="text-2xl text-white">&gt;</span>
+                </button>
+              </div>
+            )}
           </motion.section>
         )}
       </div>

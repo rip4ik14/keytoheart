@@ -1,3 +1,4 @@
+// app/product/[id]/page.tsx
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { JsonLd } from 'react-schemaorg';
@@ -7,27 +8,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
-
-// Product type
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  original_price?: number | null;
-  discount_percent: number | null;
-  images: string[];
-  description: string;
-  composition: string;
-  production_time: number | null;
-  category_ids: number[];
-}
-
-type ComboItem = {
-  id: number;
-  title: string;
-  price: number;
-  image: string;
-};
+import { Product, ComboItem } from './types'; // Импортируем типы
 
 const supabaseAnon = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,9 +25,9 @@ export async function generateStaticParams(): Promise<{ id: string }[]> {
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { id } = params;
+  const { id } = await params;
   const numericId = parseInt(id, 10);
   const { data: product, error } = await supabaseAnon
     .from('products')
@@ -76,8 +57,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const numericId = parseInt(id, 10);
 
   // Получение продукта

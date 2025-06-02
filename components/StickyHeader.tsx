@@ -60,8 +60,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           credentials: 'include',
         });
         const sessionData = await response.json();
-        console.log(`${new Date().toISOString()} StickyHeader: Check session response`, sessionData);
-
+        
         if (isMounted) {
           if (sessionData.isAuthenticated) {
             const phone = sessionData.phone;
@@ -71,7 +70,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               try {
                 const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
                 const bonusJson = await bonusRes.json();
-                console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch response`, bonusJson);
                 if (bonusRes.ok && bonusJson.success) {
                   setBonus(bonusJson.data.bonus_balance ?? 0);
                 } else {
@@ -290,7 +288,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               className="text-lg md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2 truncate"
               aria-label="Перейти на главную страницу"
             >
-              Key to Heart
+              KEY TO HEART
             </Link>
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>

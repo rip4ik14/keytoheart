@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/UpsellModal.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -19,11 +20,18 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
 
   useEffect(() => {
     const fetchItems = async () => {
+      const cacheKey = `upsell_${type}_items`;
+      const cacheTimestampKey = `upsell_${type}_items_timestamp`;
+
+      // Очищаем кэш принудительно для отладки
+      localStorage.removeItem(cacheKey);
+      localStorage.removeItem(cacheTimestampKey);
+
       setIsLoading(true);
       try {
-        const subcategory = type;
+        const subcategoryId = type === 'postcard' ? 171 : 173;
         const res = await fetch(
-          `/api/upsell/categories?category=podarki&subcategories=${subcategory}`
+          `/api/upsell/products?category_id=8&subcategory_id=${subcategoryId}`
         );
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
@@ -38,6 +46,8 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
           category: type as 'postcard' | 'balloon',
         }));
         setItems(itemsWithCategory);
+        localStorage.setItem(cacheKey, JSON.stringify(itemsWithCategory));
+        localStorage.setItem(cacheTimestampKey, Date.now().toString());
       } catch (err: any) {
         toast.error(err.message || 'Ошибка загрузки товаров');
       } finally {
@@ -72,6 +82,9 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
         <motion.div
           className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl relative border border-gray-300"
           variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
         >
           <motion.button
             onClick={onClose}
@@ -116,10 +129,8 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
               Товары не найдены
             </motion.p>
           ) : (
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6"
-              variants={containerVariants}
-            >
+            // ✅ Исправление: grid больше НЕ имеет variants (и не меняет opacity)
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               {items.map((item) => (
                 <motion.div
                   key={item.id}
@@ -142,6 +153,9 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                     selectedId === item.id ? 'ring-2 ring-black' : ''
                   }`}
                   variants={itemVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
                   role="button"
                   aria-label={`Выбрать ${item.title}`}
                 >
@@ -160,7 +174,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                   <p className="text-xs text-center text-gray-500">{item.price} ₽</p>
                 </motion.div>
               ))}
-            </motion.div>
+            </div>
           )}
         </motion.div>
       </motion.div>
