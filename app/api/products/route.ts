@@ -1,3 +1,4 @@
+// ✅ Путь: app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
@@ -75,6 +76,7 @@ const generateUniqueSlug = async (title: string): Promise<string> => {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('Starting POST /api/products');
     const sessionRes = await fetch(new URL('/api/admin-session', req.url), {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
@@ -89,21 +91,27 @@ export async function POST(req: NextRequest) {
 
     // Валидация входных данных
     if (!body.title || body.title.trim().length < 3) {
+      console.log('Invalid title:', body.title);
       return NextResponse.json({ error: 'Название должно быть ≥ 3 символов' }, { status: 400 });
     }
     if (!body.price || body.price <= 0) {
+      console.log('Invalid price:', body.price);
       return NextResponse.json({ error: 'Цена должна быть > 0' }, { status: 400 });
     }
     if (body.original_price !== undefined && body.original_price <= 0) {
+      console.log('Invalid original_price:', body.original_price);
       return NextResponse.json({ error: 'Старая цена должна быть > 0, если указана' }, { status: 400 });
     }
     if (!body.category_ids || !Array.isArray(body.category_ids) || body.category_ids.length === 0) {
+      console.log('Invalid category_ids:', body.category_ids);
       return NextResponse.json({ error: 'Необходимо указать хотя бы одну категорию' }, { status: 400 });
     }
     if (body.discount_percent && (body.discount_percent < 0 || body.discount_percent > 100 || !Number.isInteger(body.discount_percent))) {
+      console.log('Invalid discount_percent:', body.discount_percent);
       return NextResponse.json({ error: 'Скидка должна быть целым числом от 0 до 100%' }, { status: 400 });
     }
 
+    console.log('Validating categories');
     const { data: categoriesData, error: categoriesError } = await supabaseAdmin
       .from('categories')
       .select('id')
@@ -116,6 +124,7 @@ export async function POST(req: NextRequest) {
 
     let finalSubcategoryIds: number[] = [];
     if (body.subcategory_ids && body.subcategory_ids.length > 0) {
+      console.log('Validating subcategories');
       const { data: subcategoriesData, error: subcategoriesError } = await supabaseAdmin
         .from('subcategories')
         .select('id, category_id')
@@ -128,12 +137,14 @@ export async function POST(req: NextRequest) {
 
       for (const subcategory of subcategoriesData) {
         if (subcategory.category_id === null) {
+          console.log('Subcategory missing category_id:', subcategory.id);
           return NextResponse.json(
             { error: `Подкатегория ${subcategory.id} не имеет связанной категории` },
             { status: 400 }
           );
         }
         if (!body.category_ids.includes(subcategory.category_id)) {
+          console.log('Subcategory does not match category:', subcategory.id);
           return NextResponse.json(
             { error: `Подкатегория ${subcategory.id} не соответствует ни одной из выбранных категорий` },
             { status: 400 }
@@ -149,6 +160,7 @@ export async function POST(req: NextRequest) {
     const sanitizedDescription = sanitize(body.description);
     const sanitizedComposition = sanitize(body.composition);
 
+    console.log('Generating slug');
     const uniqueSlug = await generateUniqueSlug(sanitizedTitle);
 
     console.log('Inserting product into Supabase:', {

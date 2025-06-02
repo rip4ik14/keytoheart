@@ -13,19 +13,19 @@ export async function middleware(req: NextRequest) {
   // CSP только для не-API
   if (!pathname.startsWith('/api')) {
     const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://cdn.turbo.yandex.ru",
-      "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co https://mc.yandex.com https://mc.yandex.ru https://www.google-analytics.com https://api-maps.yandex.ru",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com",
-      "font-src 'self' data:",
-      "frame-src 'self' https://mc.yandex.com https://yandex.ru https://*.yandex.ru",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "worker-src 'self'",
-    ].join('; ');
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://cdn.turbo.yandex.ru https://yastatic.net https://*.yastatic.net",
+  "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://yastatic.net",
+  "style-src 'self' 'unsafe-inline' https://yastatic.net https://*.yastatic.net",
+  "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com https://yastatic.net https://*.yastatic.net",
+  "font-src 'self' data: https://yastatic.net https://*.yastatic.net",
+  "frame-src 'self' https://mc.yandex.com https://yandex.ru https://*.yandex.ru",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "worker-src 'self'",
+].join('; ');
     const response = NextResponse.next();
     response.headers.set('Content-Security-Policy', csp);
 
