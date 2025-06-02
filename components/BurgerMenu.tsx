@@ -119,7 +119,7 @@ export default function BurgerMenu() {
 
         <div className="mt-auto p-4 flex gap-4 text-xl text-black">
           <a
-            href="https://vk.com/keytoheart"
+            href="https://vk.com/key_to_heart_store"
             target="_blank"
             rel="noopener noreferrer"
             title="ВКонтакте"
