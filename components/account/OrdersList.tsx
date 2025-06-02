@@ -1,3 +1,4 @@
+// account/component/OrdersList.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -64,7 +65,6 @@ export default function OrdersList({ orders }: OrdersListProps) {
           <tr className="text-left text-gray-500 uppercase text-xs">
             <th className="px-4 py-2">№</th>
             <th className="px-4 py-2">Получатель</th>
-            <th className="px-4 py-2">Статус оплаты</th>
             <th className="px-4 py-2">Статус заказа</th>
             <th className="px-4 py-2">Дата заказа</th>
             <th className="px-4 py-2">Сумма</th>
@@ -106,9 +106,6 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     {orders.length - idx}
                   </td>
                   <td className="px-4 py-3">{o.recipient || 'Не указан'}</td>
-                  <td className="px-4 py-3">
-                    {o.payment_method === 'cash' ? 'Наличные' : 'Оплачено'}
-                  </td>
                   <td className="px-4 py-3 capitalize">{o.status}</td>
                   <td className="px-4 py-3">
                     {new Date(o.created_at).toLocaleDateString('ru-RU', {
@@ -152,11 +149,11 @@ export default function OrdersList({ orders }: OrdersListProps) {
                   </td>
                 </motion.tr>
                 <tr>
-                  <td colSpan={7} className="p-0">
+                  <td colSpan={6} className="p-0">
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.td
-                          colSpan={7}
+                          colSpan={6} // Обновлено: было 7, теперь 6 колонок
                           className="p-4 bg-gray-50 border-t border-gray-200"
                           variants={detailsVariants}
                           initial="hidden"
