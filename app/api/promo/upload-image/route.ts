@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { join } from 'path';
-import { unlink } from 'fs/promises';
-import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
   try {
-    // Универсально определяем базовый url (локалка/прод)
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.NODE_ENV === 'production'
-        ? 'https://keytoheart.ru'
-        : 'http://localhost:3000');
-
-    // Проверка сессии (через правильный url)
+    // Проверка сессии (оставь как есть)
+    const baseUrl = new URL(req.url).origin;
     const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
@@ -30,27 +23,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Файл не предоставлен' }, { status: 400 });
     }
 
+    // Оптимизация изображения
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    // Оптимизация изображения с помощью Sharp
     const optimizedImage = await sharp(buffer)
-      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true }) // Уменьшаем размер
-      .webp({ quality: 80 }) // Конвертируем в WebP
+      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true })
+      .webp({ quality: 80 })
       .toBuffer();
 
+    // Генерируем уникальное имя
     const filename = `${uuidv4()}.webp`;
-    const filepath = join(process.cwd(), 'public/uploads/promo', filename);
-    await sharp(optimizedImage).toFile(filepath);
 
-    const image_url = `/uploads/promo/${filename}`;
+    // ---- ИНИЦИАЛИЗИРУЕМ КЛИЕНТ SUPABASE ----
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
 
-    // Удаляем старое изображение, если оно есть
-    if (oldImageUrl && oldImageUrl.startsWith('/uploads/promo/')) {
-      const oldPath = join(process.cwd(), 'public', oldImageUrl);
-      try {
-        await unlink(oldPath);
-      } catch (e) {
-        console.warn(`Не удалось удалить старое изображение ${oldPath}:`, e);
+    // Загружаем в Supabase Storage
+    const { error } = await supabase.storage
+      .from('product-image')
+      .upload(filename, optimizedImage, {
+        contentType: 'image/webp',
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Ошибка загрузки в Supabase Storage:', error);
+      return NextResponse.json({ error: 'Ошибка загрузки файла в Supabase' }, { status: 500 });
+    }
+
+    // Формируем публичный URL
+    const image_url = `${supabaseUrl}/storage/v1/object/public/product-image/${filename}`;
+
+    // Удаляем старое изображение если оно на Supabase
+    if (oldImageUrl && oldImageUrl.includes('product-image/')) {
+      const parts = oldImageUrl.split('product-image/');
+      const oldFile = parts[1];
+      if (oldFile) {
+        await supabase.storage.from('product-image').remove([oldFile]);
       }
     }
 
