@@ -1,8 +1,10 @@
+// ✅ Путь: app/page.tsx
+import React from 'react'; // <-- обязательно для <React.Fragment>
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import PromoGrid from '@components/PromoGrid';
-import AdvantagesServer from '@components/AdvantagesServer';
+import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
 import PopularProducts from '@components/PopularProducts';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
@@ -131,12 +133,12 @@ export default async function Home() {
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы': 'klubnichnye-boksy',
-    Цветы: 'flowers',
+    'Цветы': 'flowers',
     'Комбо-наборы': 'combo',
-    Premium: 'premium',
-    Коллекции: 'kollekcii',
-    Повод: 'povod',
-    Подарки: 'podarki',
+    'Premium': 'premium',
+    'Коллекции': 'kollekcii',
+    'Повод': 'povod',
+    'Подарки': 'podarki',
   };
 
   // Фильтруем категории, исключая "Подарки"
@@ -187,9 +189,7 @@ export default async function Home() {
       <section>
         <PopularProducts />
       </section>
-      <section>
-        <AdvantagesServer />
-      </section>
+      {/* AdvantagesServer убираем если используем AdvantagesClient */}
       <section aria-label="Категории товаров">
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
@@ -198,19 +198,22 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categories.map((category) => {
+          categories.map((category, idx) => {
             const slug = slugMap[category] || '';
             const items = products
               .filter((p) => p.category_ids.some(id => categoryMap.get(id)?.name === category))
               .slice(0, 8);
 
             return (
-              <CategoryPreviewServer
-                key={category}
-                categoryName={category}
-                products={items}
-                seeMoreLink={slug}
-              />
+              <React.Fragment key={category}>
+                <CategoryPreviewServer
+                  categoryName={category}
+                  products={items}
+                  seeMoreLink={slug}
+                />
+                {/* Преимущества после первой категории */}
+                {idx === 0 && <AdvantagesClient />}
+              </React.Fragment>
             );
           })
         )}
