@@ -87,7 +87,7 @@ export default function PromoGridClient({
                         className="object-cover rounded-3xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
-                      <div className="absolute inset-0 bg-black/40 transition-all duration-500 rounded-3xl" />
+                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-3xl" />
                       <div
                         className="
                           absolute inset-0 flex flex-col justify-center
@@ -193,7 +193,7 @@ export default function PromoGridClient({
                         className="object-cover rounded-3xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
-                      <div className="absolute inset-0 bg-black/40 transition-all duration-500 rounded-3xl" />
+                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-3xl" />
                       <div
                         className="
                           absolute inset-0 flex flex-col justify-center
@@ -308,7 +308,7 @@ export default function PromoGridClient({
                   className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-3xl"
                   style={{ aspectRatio: '3 / 2' }}
                 />
-                <div className="absolute inset-0 bg-black/20 transition-all group-hover:bg-black/30 rounded-3xl" />
+                <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-3xl" />
                 <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
                   {c.title}
                 </span>
