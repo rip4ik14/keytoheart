@@ -1,8 +1,9 @@
+// ✅ Путь: app/api/revalidate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidateTag } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
-  // Не забудь поправить абсолютный url!
+  // Проверка авторизации
   const baseUrl = new URL(req.url).origin;
   const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
     headers: { cookie: req.headers.get('cookie') || '' },
@@ -12,11 +13,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Доступ запрещён' }, { status: 403 });
   }
 
-  const { tag } = await req.json();
-  if (!tag) {
-    return NextResponse.json({ error: 'Тег обязателен' }, { status: 400 });
+  const { path } = await req.json();
+  if (!path) {
+    return NextResponse.json({ error: 'Путь обязателен' }, { status: 400 });
   }
 
-  revalidateTag(tag);
-  return NextResponse.json({ success: true, revalidated: tag });
+  revalidatePath(path);
+  return NextResponse.json({ success: true, revalidated: path });
 }

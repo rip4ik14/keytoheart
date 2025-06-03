@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/promo/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -142,6 +143,17 @@ export default function PromoAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка удаления блока');
 
+      // Очищаем кэш главной страницы после удаления
+      const revalidateRes = await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/' }),
+      });
+
+      if (!revalidateRes.ok) {
+        console.warn('Не удалось очистить кэш главной страницы:', await revalidateRes.json());
+      }
+
       toast.success('Блок удалён');
       fetchBlocks();
     } catch (err: any) {
@@ -216,6 +228,17 @@ export default function PromoAdminPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Ошибка добавления блока');
         toast.success('Блок добавлен');
+      }
+
+      // Очищаем кэш главной страницы после создания/обновления
+      const revalidateRes = await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/' }),
+      });
+
+      if (!revalidateRes.ok) {
+        console.warn('Не удалось очистить кэш главной страницы:', await revalidateRes.json());
       }
 
       setForm({ type: 'card', order_index: 0 });
