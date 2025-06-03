@@ -1,16 +1,8 @@
-// ✅ Путь: app/api/promo/upload-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { join } from 'path';
+import { unlink } from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const BUCKET = 'promo-blocks';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,40 +28,27 @@ export async function POST(req: NextRequest) {
 
     // Оптимизация изображения с помощью Sharp
     const optimizedImage = await sharp(buffer)
-      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true })
-      .webp({ quality: 80 })
+      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true }) // Уменьшаем размер
+      .webp({ quality: 80 }) // Конвертируем в WebP
       .toBuffer();
 
-    // Имя файла — uuid.webp
     const filename = `${uuidv4()}.webp`;
+    const filepath = join(process.cwd(), 'public/uploads/promo', filename);
+    await sharp(optimizedImage).toFile(filepath);
 
-    // Загрузка в Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .upload(filename, optimizedImage, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: 'image/webp',
-      });
+    const image_url = `/uploads/promo/${filename}`;
 
-    if (error) {
-      console.error('Ошибка загрузки в Supabase Storage:', error);
-      return NextResponse.json({ error: 'Ошибка загрузки в Storage' }, { status: 500 });
-    }
-
-    // Удаляем старую картинку, если есть (по ссылке из Storage)
-    if (oldImageUrl && oldImageUrl.includes(`/${BUCKET}/`)) {
-      // Обрезаем полный URL до пути внутри бакета
-      const parts = oldImageUrl.split(`/${BUCKET}/`);
-      if (parts[1]) {
-        await supabase.storage.from(BUCKET).remove([parts[1]]);
+    // Удаляем старое изображение, если оно есть
+    if (oldImageUrl && oldImageUrl.startsWith('/uploads/promo/')) {
+      const oldPath = join(process.cwd(), 'public', oldImageUrl);
+      try {
+        await unlink(oldPath);
+      } catch (e) {
+        console.warn(`Не удалось удалить старое изображение ${oldPath}:`, e);
       }
     }
 
-    // Генерируем публичный URL
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/${BUCKET}/${filename}`;
-
-    return NextResponse.json({ image_url: publicUrl });
+    return NextResponse.json({ image_url });
   } catch (err: any) {
     console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
