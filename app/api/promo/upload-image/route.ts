@@ -6,8 +6,14 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
   try {
-    // Проверка сессии
-    const baseUrl = new URL(req.url).origin;
+    // Универсально определяем базовый url (локалка/прод)
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://keytoheart.ru'
+        : 'http://localhost:3000');
+
+    // Проверка сессии (через правильный url)
     const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
