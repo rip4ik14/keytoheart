@@ -11,10 +11,10 @@ export default function TopBar() {
 
   return (
     <div className="bg-black text-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-2">
         <div className="relative">
           <div
-            className="animate-marquee flex w-max whitespace-nowrap text-sm py-1"
+            className="animate-сflex w-max whitespace-nowrap text-sm py-2"
             role="marquee"
             aria-label="Информационная панель"
           >

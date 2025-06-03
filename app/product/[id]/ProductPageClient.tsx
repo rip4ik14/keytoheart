@@ -13,7 +13,6 @@ import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
 import { Product, ComboItem } from './types';
 
-// Тип для настроек магазина
 interface DaySchedule {
   start: string;
   end: string;
@@ -27,7 +26,9 @@ interface StoreSettings {
 }
 
 const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
-  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const daysOfWeek = [
+    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+  ];
   const result: Record<string, DaySchedule> = daysOfWeek.reduce(
     (acc, day) => {
       acc[day] = { start: '09:00', end: '18:00', enabled: true };
@@ -86,7 +87,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
 
-  // Загружаем настройки магазина
   useEffect(() => {
     const fetchStoreSettings = async () => {
       setIsStoreSettingsLoading(true);
@@ -100,16 +100,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
             store_hours: transformSchedule(json.data.store_hours),
           });
         }
-      } catch (error) {
-        // Лог удалён
-      } finally {
+      } catch (error) {} finally {
         setIsStoreSettingsLoading(false);
       }
     };
     fetchStoreSettings();
   }, []);
 
-  // Загружаем рекомендованные товары из подкатегорий "Шары" и "Открытки" с кэшированием
   useEffect(() => {
     const fetchRecommendedItems = async () => {
       const cacheKey = 'recommended_items_podarki';
@@ -130,18 +127,14 @@ export default function ProductPageClient({ product, combos }: { product: Produc
 
       setIsLoadingRecommended(true);
       try {
-        const subcategoryIds = [171, 173]; // cards, balloons
+        const subcategoryIds = [171, 173];
         const fetchPromises = subcategoryIds.map(async (subcategoryId) => {
           const res = await fetch(
             `/api/upsell/products?category_id=8&subcategory_id=${subcategoryId}`
           );
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-          }
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           const { success, data, error } = await res.json();
-          if (!success) {
-            throw new Error(error || 'Ошибка загрузки товаров');
-          }
+          if (!success) throw new Error(error || 'Ошибка загрузки товаров');
           return data || [];
         });
 
@@ -169,7 +162,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
     fetchRecommendedItems();
   }, [product.id]);
 
-  // Вычисляем ближайшее возможное время доставки
   useEffect(() => {
     if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
       setEarliestDelivery(null);
@@ -247,9 +239,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         value: product.price,
       });
       window.ym?.(96644553, 'reachGoal', 'view_item', { product_id: product.id });
-    } catch (error) {
-      // Лог удалён
-    }
+    } catch (error) {}
   }, [product.id, product.title, product.price]);
 
   const discountPercent = product.discount_percent ?? 0;
@@ -281,9 +271,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         value: price,
       });
       window.ym?.(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
-    } catch (error) {
-      // Лог удалён
-    }
+    } catch (error) {}
   };
 
   const handleShare = () => {
@@ -294,9 +282,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
           url: window.location.href,
         })
-        .catch((error) => {
-          // Лог удалён
-        });
+        .catch(() => {});
     } else {
       navigator.clipboard.writeText(window.location.href).then(() => {
         alert('Ссылка скопирована в буфер обмена!');
@@ -308,7 +294,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
 
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -337,15 +323,10 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+        {/* Основной grid: плотнее на мобилке */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
           {/* Галерея */}
-          <motion.div
-            className="w-full"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            aria-label="Галерея изображений товара"
-          >
+          <motion.div className="w-full mb-2 sm:mb-0" variants={containerVariants} initial="hidden" animate="visible" aria-label="Галерея изображений товара">
             <div className="relative">
               <Swiper
                 onSwiper={mainSwiper => {
@@ -359,9 +340,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
                 loop={false}
                 modules={[Navigation, Thumbs]}
-                className={`customSwiper rounded-2xl overflow-hidden relative`}
+                className="customSwiper rounded-2xl overflow-hidden relative"
                 slidesPerView={1}
-                style={{ minHeight: 360 }}
+                style={{ minHeight: 320 }}
               >
                 {images.length > 0 ? (
                   images.map((src, i) => (
@@ -392,7 +373,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                     </div>
                   </SwiperSlide>
                 )}
-                {/* Кастомные стрелки */}
                 <button className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
                   <span className="text-2xl text-white">&lt;</span>
                 </button>
@@ -401,15 +381,15 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </button>
               </Swiper>
 
-              {/* Миниатюры снизу */}
+              {/* Миниатюры снизу, mt-1 для мобилки */}
               {images.length > 1 && (
                 <Swiper
                   onSwiper={setThumbsSwiper}
-                  spaceBetween={12}
+                  spaceBetween={8}
                   slidesPerView={Math.min(images.length, 6)}
                   watchSlidesProgress
                   modules={[Navigation, Thumbs]}
-                  className="mt-3"
+                  className="mt-1 sm:mt-3"
                   style={{ maxWidth: '100%' }}
                   breakpoints={{
                     320: { slidesPerView: 4 },
@@ -431,7 +411,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                           src={src}
                           alt={`Миниатюра ${i + 1}`}
                           fill
-                          className={`object-cover group-hover:scale-105 transition-transform duration-200`}
+                          className="object-cover group-hover:scale-105 transition-transform duration-200"
                           loading="lazy"
                           sizes="(max-width: 768px) 20vw, 8vw"
                         />
@@ -444,13 +424,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           </motion.div>
 
           {/* Блок информации */}
-          <motion.div
-            className="flex flex-col space-y-6"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {/* Скидка/распродажа/популярное */}
+          <motion.div className="flex flex-col space-y-4 sm:space-y-6" variants={containerVariants} initial="hidden" animate="visible">
             <div className="flex items-center gap-3">
               {discountPercent > 0 && (
                 <span className="px-2 py-1 text-xs font-bold rounded-md bg-black text-white">
@@ -463,11 +437,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </span>
               )}
             </div>
-            {/* Название */}
             <h1 className="text-2xl sm:text-3xl font-bold font-sans uppercase tracking-tight mb-1 leading-tight">
               {product.title}
             </h1>
-            {/* Цена/скидка/бонус */}
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-4">
                 {discountPercent > 0 ? (
@@ -490,9 +462,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </span>
               </div>
             </div>
-
-            {/* Время изготовления, доставка */}
-            <div className="flex flex-col gap-2 text-base mt-2">
+            <div className="flex flex-col gap-2 text-base mt-1">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
                   <Image src="/icons/clock.svg" alt="Время" width={20} height={20} />
@@ -508,8 +478,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </div>
               )}
             </div>
-
-            {/* Кнопки */}
             <div className="flex gap-3">
               <motion.button
                 onClick={() =>
@@ -536,14 +504,10 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 <Share2 size={20} />
               </motion.button>
             </div>
-
-            {/* Константный спойлер */}
-            <p className="mt-2 text-sm text-gray-600 border-t pt-3">
+            <p className="mt-1 text-sm text-gray-600 border-t pt-3">
               Состав букета может быть незначительно изменен. При этом стилистика и цветовая гамма останутся неизменными.
             </p>
-
-            {/* Описание и состав */}
-            <div className="space-y-6 mt-2">
+            <div className="space-y-4 mt-2">
               {product.description && (
                 <div>
                   <h2 className="font-bold text-lg text-black mb-1">
@@ -567,8 +531,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </div>
               )}
             </div>
-
-            {/* Секция отзывов */}
             <div className="space-y-4 mt-2">
               <h2 className="font-bold text-lg text-black mb-2">
                 Отзывы клиентов:
@@ -596,10 +558,10 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           </motion.div>
         </div>
 
-        {/* Рекомендуемые товары (Карусель) */}
+        {/* Рекомендуемые товары: плотнее для мобилки */}
         {recommendedItems.length > 0 && (
           <motion.section
-            className="mt-12 pt-10 border-t border-gray-200"
+            className="mt-4 pt-4 sm:mt-10 sm:pt-10 border-t border-gray-200"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -619,10 +581,10 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                   }}
                   loop={recommendedItems.length >= 2}
                   modules={[Navigation]}
-                  spaceBetween={16}
+                  spaceBetween={12}
                   slidesPerView={2}
                   breakpoints={{
-                    320: { slidesPerView: 2, spaceBetween: 16 },
+                    320: { slidesPerView: 2, spaceBetween: 12 },
                     640: { slidesPerView: 3, spaceBetween: 20 },
                     1024: { slidesPerView: 4, spaceBetween: 24 },
                   }}
@@ -668,7 +630,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                     </SwiperSlide>
                   ))}
                 </Swiper>
-                {/* Кастомные стрелки для карусели */}
                 <button className="recommendSwiperButtonPrev absolute left-0 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-all duration-200 focus:outline-none">
                   <span className="text-2xl text-white">&lt;</span>
                 </button>

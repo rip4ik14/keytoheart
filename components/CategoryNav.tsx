@@ -43,7 +43,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         setLoading(false);
         return;
       }
-
       setLoading(true);
       const start = Date.now();
       const { data, error } = await supabase
@@ -57,11 +56,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         `)
         .eq('is_visible', true)
         .order('id', { ascending: true });
-      console.log('Supabase query duration for categories in CategoryNav:', Date.now() - start, 'ms');
-      console.log('Fetched categories:', data);
-
       if (error) throw error;
-
       const updatedData: Category[] = data.map((cat: any) => {
         const subcategories = cat.subcategories
           ? cat.subcategories
@@ -79,11 +74,9 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           subcategories,
         };
       });
-
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
-      console.error('Ошибка загрузки категорий в CategoryNav:', err);
       setError('Не удалось загрузить категории');
     } finally {
       setLoading(false);
@@ -114,14 +107,12 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
     } else {
       fetchCategories();
     }
-
     const channel = supabase
       .channel('categories-subcategories-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
-        (payload) => {
-          console.log('Categories change detected:', payload);
+        () => {
           categoryCache = null;
           fetchCategories();
         }
@@ -129,14 +120,12 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'subcategories' },
-        (payload) => {
-          console.log('Subcategories change detected:', payload);
+        () => {
           categoryCache = null;
           fetchCategories();
         }
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -147,6 +136,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
       aria-label="Навигация по категориям"
     >
+      {/* Мобильная версия */}
       <div className="sm:hidden relative">
         <div className="overflow-x-auto no-scrollbar" ref={scrollRef}>
           <ul className="flex gap-2 px-4 py-4">
@@ -207,7 +197,8 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         </div>
       </div>
 
-      <ul className="hidden sm:flex gap-12 px-4 py-4 justify-center relative">
+      {/* Десктоп */}
+      <ul className="hidden sm:flex px-4 py-4 justify-center relative">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <li key={i}>
@@ -224,10 +215,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
             const isActive = pathname.startsWith(href);
 
             return (
-              <li
-                key={cat.id}
-                className={`relative flex items-center ${index < categories.length - 1 ? 'after:content-["·"] after:absolute after:left-full after:top-1/2 after:-translate-y-1/2 after:text-gray-400 after:ml-6' : ''}`}
-              >
+              <li key={cat.id} className="flex items-center">
                 <div className="group inline-block">
                   <Link
                     href={href}
@@ -308,6 +296,15 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                     </div>
                   )}
                 </div>
+                {/* Разделитель — только если не последний элемент */}
+                {index < categories.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className="mx-4 text-gray-300 select-none font-bold text-lg"
+                  >
+                    ·
+                  </span>
+                )}
               </li>
             );
           })
