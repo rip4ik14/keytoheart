@@ -11,7 +11,13 @@ import toast from 'react-hot-toast';
 import { Star, ShoppingCart } from 'lucide-react';
 import type { Product } from '@/types/product';
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
   const [hovered, setHovered] = useState(false);
@@ -31,8 +37,7 @@ export default function ProductCard({ product }: { product: Product }) {
       : product.price;
   const discountAmount =
     discountPercent > 0
-      ? (originalPrice > product.price ? originalPrice : product.price) -
-        discountedPrice
+      ? (originalPrice > product.price ? originalPrice : product.price) - discountedPrice
       : 0;
   const isPopular = product.is_popular;
 
@@ -94,8 +99,9 @@ export default function ProductCard({ product }: { product: Product }) {
         overflow-hidden
         shadow-sm hover:shadow-md
         transition-all duration-200
-        focus-within:ring-2 focus-within:ring-black
         h-auto sm:h-[400px]
+        outline-none  // <-- Убирает черную рамку при focus
+        focus-within:ring-0 focus-within:ring-transparent
       `}
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
@@ -136,15 +142,14 @@ export default function ProductCard({ product }: { product: Product }) {
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
           sizes="(max-width: 640px) 100vw, 280px"
           loading="lazy"
+          priority={priority}
         />
         {!isMobile && images.length > 1 && (
           <div className="absolute left-1/2 bottom-2 -translate-x-1/2 flex gap-1 z-10">
             {images.map((_, idx) => (
               <span
                 key={idx}
-                className={`w-1.5 h-1.5 rounded-full ${
-                  idx === 0 ? 'bg-black' : 'bg-black/20'
-                }`}
+                className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-black' : 'bg-black/20'}`}
               />
             ))}
           </div>
@@ -201,7 +206,7 @@ export default function ProductCard({ product }: { product: Product }) {
                 mt-2 sm:mt-auto flex items-center justify-center gap-1.5 sm:gap-2
                 border border-gray-300 rounded-lg px-4 py-3 font-bold text-sm uppercase tracking-tight text-center 
                 bg-white text-black transition-all duration-200
-                hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black
+                hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-transparent
                 active:scale-95
                 w-full
               "

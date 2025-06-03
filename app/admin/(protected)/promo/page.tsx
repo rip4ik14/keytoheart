@@ -137,7 +137,7 @@ export default function PromoAdminPage() {
       const res = await fetch('/api/promo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, image_url: block.image_url }),
+        body: JSON.stringify({ id }),
       });
 
       const data = await res.json();

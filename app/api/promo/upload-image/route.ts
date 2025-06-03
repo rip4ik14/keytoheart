@@ -1,10 +1,16 @@
 // ✅ Путь: app/api/promo/upload-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { join } from 'path';
-import { mkdirSync, existsSync } from 'fs';
-import { writeFile, unlink } from 'fs/promises';
+import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import type { Database } from '@/lib/supabase/types_new';
+
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY! // Только server-side!
+);
+
+const BUCKET = 'promo-blocks'; // Название твоего бакета в Supabase Storage
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,39 +31,48 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'Файл не предоставлен' }, { status: 400 });
     }
-    if (!['image/webp', 'image/jpeg', 'image/png'].includes(file.type)) {
-      return NextResponse.json({ error: 'Неподдерживаемый тип файла' }, { status: 415 });
-    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Оптимизация изображения с помощью Sharp
     const optimizedImage = await sharp(buffer)
-      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true }) // Уменьшаем размер
-      .webp({ quality: 80 }) // Конвертируем в WebP
+      .resize({ width: 1200, height: 800, fit: 'cover', withoutEnlargement: true })
+      .webp({ quality: 80 })
       .toBuffer();
 
+    // Имя файла — uuid.webp
     const filename = `${uuidv4()}.webp`;
-    const uploadsDir = join(process.cwd(), 'public/uploads/promo');
-    if (!existsSync(uploadsDir)) {
-      mkdirSync(uploadsDir, { recursive: true });
+
+    // Загрузка в Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .upload(filename, optimizedImage, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'image/webp',
+      });
+
+    if (error) {
+      console.error('Ошибка загрузки в Supabase Storage:', error);
+      return NextResponse.json({ error: 'Ошибка загрузки в Storage' }, { status: 500 });
     }
-    const filepath = join(uploadsDir, filename);
-    await writeFile(filepath, optimizedImage);
 
-    const image_url = `/uploads/promo/${filename}`;
-
-    // Удаляем старое изображение, если оно есть
-    if (oldImageUrl && oldImageUrl.startsWith('/uploads/promo/')) {
-      const oldPath = join(process.cwd(), 'public', oldImageUrl);
-      try {
-        await unlink(oldPath);
-      } catch (e) {
-        console.warn(`Не удалось удалить старое изображение ${oldPath}:`, e);
+    // Удаляем старую картинку, если есть (по ссылке из Storage)
+    if (oldImageUrl && oldImageUrl.includes(`/${BUCKET}/`)) {
+      // Обрезаем полный URL до пути внутри бакета
+      const parts = oldImageUrl.split(`/${BUCKET}/`);
+      if (parts[1]) {
+        await supabase.storage.from(BUCKET).remove([parts[1]]);
       }
     }
 
-    return NextResponse.json({ image_url });
+    // Генерируем публичный URL
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(
+      '.co',
+      '.co'
+    )}/storage/v1/object/public/${BUCKET}/${filename}`;
+
+    return NextResponse.json({ image_url: publicUrl });
   } catch (err: any) {
     console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
