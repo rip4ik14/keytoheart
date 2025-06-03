@@ -7,10 +7,10 @@ import type { Database } from '@/lib/supabase/types_new';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY! // Только server-side!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const BUCKET = 'promo-blocks'; // Название твоего бакета в Supabase Storage
+const BUCKET = 'promo-blocks';
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,10 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Генерируем публичный URL
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(
-      '.co',
-      '.co'
-    )}/storage/v1/object/public/${BUCKET}/${filename}`;
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/${BUCKET}/${filename}`;
 
     return NextResponse.json({ image_url: publicUrl });
   } catch (err: any) {

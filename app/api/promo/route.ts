@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Инициализация клиента Supabase
+// Только сервер: не используем NEXT_PUBLIC_ для Service Role!
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY! // !! Для записи нужен Service Role Key
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // Получить все промо-блоки
