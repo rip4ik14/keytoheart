@@ -1,6 +1,8 @@
+// ✅ Путь: app/api/promo/upload-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { join } from 'path';
-import { unlink } from 'fs/promises';
+import { mkdirSync, existsSync } from 'fs';
+import { writeFile, unlink } from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -23,6 +25,9 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'Файл не предоставлен' }, { status: 400 });
     }
+    if (!['image/webp', 'image/jpeg', 'image/png'].includes(file.type)) {
+      return NextResponse.json({ error: 'Неподдерживаемый тип файла' }, { status: 415 });
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -33,8 +38,12 @@ export async function POST(req: NextRequest) {
       .toBuffer();
 
     const filename = `${uuidv4()}.webp`;
-    const filepath = join(process.cwd(), 'public/uploads/promo', filename);
-    await sharp(optimizedImage).toFile(filepath);
+    const uploadsDir = join(process.cwd(), 'public/uploads/promo');
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+    }
+    const filepath = join(uploadsDir, filename);
+    await writeFile(filepath, optimizedImage);
 
     const image_url = `/uploads/promo/${filename}`;
 

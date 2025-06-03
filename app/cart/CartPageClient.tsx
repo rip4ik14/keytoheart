@@ -241,13 +241,11 @@ export default function CartPageClient() {
             .map((invalidItem: { id: number }) => invalidItem.id.toString());
 
           if (itemsToRemove.length > 0) {
-            // Получаем названия удалённых товаров
             const removedTitles = items
               .filter((item: CartItemType) => itemsToRemove.includes(item.id))
               .map((item: CartItemType) => item.title)
               .join(', ');
 
-            // Удаляем невалидные товары из корзины
             const updatedItems = items.filter((item: CartItemType) => !itemsToRemove.includes(item.id));
             clearCart();
             if (updatedItems.length > 0) {
@@ -387,7 +385,14 @@ export default function CartPageClient() {
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
-    return promoType === 'percentage' ? (totalBeforeDiscounts * promoDiscount) / 100 : promoDiscount;
+    const amount = promoType === 'percentage' ? (totalBeforeDiscounts * promoDiscount) / 100 : promoDiscount;
+    console.log('Calculating discountAmount:', {
+      promoDiscount,
+      promoType,
+      totalBeforeDiscounts,
+      amount,
+    });
+    return amount;
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
@@ -583,12 +588,20 @@ export default function CartPageClient() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
+      
+      console.log('handleApplyPromo: Result from API:', result);
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
       setPromoId(result.promoId);
       setPromoError(null);
+      console.log('handleApplyPromo: State updated:', {
+        promoDiscount: result.discount,
+        promoType: result.discountType,
+        promoId: result.promoId,
+      });
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
     } catch (error: any) {
+      console.error('handleApplyPromo: Error:', error);
       setPromoError(error.message);
       toast.error(error.message);
     }
@@ -1039,7 +1052,7 @@ export default function CartPageClient() {
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Введите промокод"
-                      className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm"
+                      className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-sm sm:text-base"
                       aria-label="Введите промокод"
                     />
                     <motion.button

@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/promo-codes/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ import { motion } from 'framer-motion';
 import CSRFToken from '@components/CSRFToken';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale/ru'; // Исправляем импорт локали
+import { ru } from 'date-fns/locale/ru';
 
 interface PromoCode {
   id: number;
@@ -76,7 +77,7 @@ export default function PromoCodesAdminPage() {
           ? name === 'is_active'
             ? value === 'true'
             : Number(value)
-          : value,
+          : value || null, // Преобразуем пустую строку в null для expires_at
     }));
   }
 
@@ -84,8 +85,15 @@ export default function PromoCodesAdminPage() {
     try {
       if (!form.code?.trim()) throw new Error('Код обязателен');
       if (form.discount_value == null || form.discount_value <= 0) throw new Error('Скидка должна быть больше 0');
-      if (form.expires_at && new Date(form.expires_at) < new Date()) {
-        throw new Error('Дата истечения должна быть в будущем');
+      
+      // Проверяем и преобразуем expires_at
+      let expiresAt: string | null = null;
+      if (form.expires_at) {
+        const date = new Date(form.expires_at);
+        if (date < new Date()) {
+          throw new Error('Дата истечения должна быть в будущем');
+        }
+        expiresAt = date.toISOString(); // Преобразуем в ISO-8601 формат
       }
 
       const sanitizedCode = DOMPurify.sanitize(form.code.trim()).toUpperCase();
@@ -106,7 +114,7 @@ export default function PromoCodesAdminPage() {
         code: sanitizedCode,
         discount_value: form.discount_value,
         discount_type: form.discount_type || 'percentage',
-        expires_at: form.expires_at || null,
+        expires_at: expiresAt, // Используем преобразованное значение
         is_active: form.is_active ?? true,
       };
 
@@ -167,7 +175,10 @@ export default function PromoCodesAdminPage() {
   }
 
   function handleEdit(promoCode: PromoCode) {
-    setForm(promoCode);
+    setForm({
+      ...promoCode,
+      expires_at: promoCode.expires_at ? promoCode.expires_at.split('T')[0] : null, // Преобразуем ISO-8601 обратно в YYYY-MM-DD для input
+    });
     setEditingId(promoCode.id);
   }
 

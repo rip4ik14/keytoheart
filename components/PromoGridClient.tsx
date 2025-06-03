@@ -1,3 +1,4 @@
+// ✅ Путь: app/components/PromoGridClient.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -42,7 +43,7 @@ export default function PromoGridClient({
 
   return (
     <motion.section
-      className="mx-auto mt-10 max-w-7xl px-4"
+      className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8"
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -51,10 +52,10 @@ export default function PromoGridClient({
       <h2 id="promo-grid-title" className="sr-only">
         Промо-блоки
       </h2>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Баннеры/карточки для десктопа */}
         <motion.div
-          className="relative overflow-hidden rounded-3xl lg:col-span-2"
+          className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
           style={{ aspectRatio: '3 / 2' }}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -83,25 +84,25 @@ export default function PromoGridClient({
                         alt={b.title}
                         fill
                         sizes="(max-width: 1024px) 100vw, 66vw"
-                        priority={i === 0}
-                        className="object-cover rounded-3xl"
+                        priority={i === 0} // Приоритет для первого баннера
+                        className="object-cover rounded-2xl lg:rounded-3xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
-                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-3xl" />
+                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
                       <div
                         className="
                           absolute inset-0 flex flex-col justify-center
-                          items-start sm:items-start
-                          px-4 py-4 sm:px-16 sm:py-12
+                          items-start
+                          px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12
                           text-white text-left
                         "
                       >
                         <div className="max-w-full w-full">
                           <motion.h2
                             className="
-                              mb-2 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                              mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
                               max-w-[95vw] sm:max-w-[80vw] leading-tight
-                              sm:mb-3
+                              sm:mb-3 lg:mb-4
                             "
                             variants={textVariants}
                             initial="hidden"
@@ -114,9 +115,9 @@ export default function PromoGridClient({
                           {b.subtitle && (
                             <motion.p
                               className="
-                                mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                                mb-3 text-sm xs:text-base sm:text-lg lg:text-xl text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
                                 max-w-[95vw] sm:max-w-[80vw]
-                                sm:mb-6
+                                sm:mb-4 lg:mb-6
                               "
                               variants={textVariants}
                               initial="hidden"
@@ -136,7 +137,7 @@ export default function PromoGridClient({
                           >
                             <span
                               className="
-                                inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                                inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center 
                                 bg-white text-[#535353] transition-all duration-200 shadow-sm
                                 hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                               style={{
@@ -189,23 +190,23 @@ export default function PromoGridClient({
                         alt={item.title}
                         fill
                         sizes="100vw"
-                        priority={i === 0}
-                        className="object-cover rounded-3xl"
+                        priority={i === 0} // Приоритет для первого элемента
+                        className="object-cover rounded-2xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
-                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-3xl" />
+                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
                       <div
                         className="
                           absolute inset-0 flex flex-col justify-center
-                          items-start sm:items-start
-                          px-4 py-4 sm:px-16 sm:py-12
+                          items-start
+                          px-4 py-4 sm:px-12 sm:py-8
                           text-white text-left
                         "
                       >
                         <div className="max-w-full w-full">
                           <motion.h2
                             className="
-                              mb-2 text-xl xs:text-2xl sm:text-4xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                              mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
                               max-w-[95vw] sm:max-w-[80vw] leading-tight
                               sm:mb-3
                             "
@@ -220,9 +221,9 @@ export default function PromoGridClient({
                           {item.subtitle && item.type === 'banner' && (
                             <motion.p
                               className="
-                                mb-3 text-base xs:text-lg sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
+                                mb-3 text-sm xs:text-base sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
                                 max-w-[95vw] sm:max-w-[80vw]
-                                sm:mb-6
+                                sm:mb-4
                               "
                               variants={textVariants}
                               initial="hidden"
@@ -243,7 +244,7 @@ export default function PromoGridClient({
                             >
                               <span
                                 className="
-                                  inline-flex items-center border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
+                                  inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
                                   bg-white text-[#535353] transition-all duration-200 shadow-sm
                                   hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                                 style={{
@@ -265,7 +266,7 @@ export default function PromoGridClient({
                             </motion.div>
                           )}
                           {item.type === 'card' && (
-                            <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
+                            <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
                               {item.title}
                             </span>
                           )}
@@ -292,7 +293,7 @@ export default function PromoGridClient({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
-              className="relative w-full h-full overflow-hidden rounded-3xl aspect-[3/2]"
+              className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2]"
             >
               <Link
                 href={c.href}
@@ -304,12 +305,12 @@ export default function PromoGridClient({
                   src={c.image_url}
                   alt={c.title}
                   fill
-                  sizes="50vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-3xl"
+                  sizes="(max-width: 1024px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
                   style={{ aspectRatio: '3 / 2' }}
                 />
-                <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-3xl" />
-                <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-3 py-1 text-sm font-semibold text-black shadow-sm line-clamp-1">
+                <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
+                <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
                   {c.title}
                 </span>
               </Link>

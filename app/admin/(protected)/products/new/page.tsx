@@ -1,3 +1,4 @@
+// components/NewProductPage.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -15,11 +16,13 @@ interface Category {
   name: string;
   slug: string;
 }
+
 interface Subcategory {
   id: number;
   name: string;
   category_id: number | null;
 }
+
 interface ImageFile {
   id: string;
   file: File;
@@ -43,7 +46,7 @@ export default function NewProductPage() {
   const [shortDesc, setShortDesc] = useState('');
   const [description, setDescription] = useState('');
   const [composition, setComposition] = useState('');
-  const [bonus, setBonus] = useState('');
+  const [bonus, setBonus] = useState('0'); // Начальное значение
   const [images, setImages] = useState<ImageFile[]>([]);
   const [inStock, setInStock] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
@@ -53,12 +56,25 @@ export default function NewProductPage() {
 
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // Вычисляем бонус автоматически (2.5% от цены)
+  const calcBonus = (val: string): string => {
+    const priceNum = parseFloat(val);
+    return priceNum && priceNum > 0 ? (Math.round(priceNum * 2.5) / 100).toString() : '0';
+  };
+
+  // Обновляем бонус при изменении цены
+  useEffect(() => {
+    const calculatedBonus = calcBonus(price);
+    setBonus(calculatedBonus);
+  }, [price]);
+
   // Мультитач чекбоксы (категории/подкатегории)
   const handleCategoryChange = (id: number, checked: boolean) => {
     setCategoryIds(prev =>
       checked ? [...prev, id] : prev.filter(cid => cid !== id)
     );
   };
+
   const handleSubcategoryChange = (id: number, checked: boolean) => {
     setSubcategoryIds(prev =>
       checked ? [...prev, id] : prev.filter(sid => sid !== id)
@@ -151,6 +167,7 @@ export default function NewProductPage() {
     }));
     setImages(prev => [...prev, ...newImages]);
   };
+
   const handleRemoveImage = (id: string) => {
     setImages(prev => prev.filter(img => img.id !== id));
   };
@@ -167,7 +184,7 @@ export default function NewProductPage() {
     setShortDesc('');
     setDescription('');
     setComposition('');
-    setBonus('');
+    setBonus('0'); // Сбрасываем бонус
     setImages([]);
     setInStock(true);
     setIsVisible(true);
@@ -222,8 +239,8 @@ export default function NewProductPage() {
       if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
         throw new Error('Время изготовления должно быть ≥ 0');
       }
-      const bonusNum = bonus ? parseFloat(bonus) : 0;
-      if (bonus && (isNaN(bonusNum) || bonusNum < 0)) {
+      const bonusNum = parseFloat(bonus);
+      if (isNaN(bonusNum) || bonusNum < 0) {
         throw new Error('Бонус должен быть ≥ 0');
       }
 
@@ -431,16 +448,13 @@ export default function NewProductPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-4">
                 <div>
-                  <label htmlFor="bonus" className="block mb-1 font-medium text-gray-600">Бонус (₽):</label>
+                  <label htmlFor="bonus" className="block mb-1 font-medium text-gray-600">Бонус (2,5%):</label>
                   <input
                     id="bonus"
                     type="number"
                     value={bonus}
-                    onChange={e => setBonus(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
-                    placeholder="Бонус"
-                    min="0"
-                    step="0.01"
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                    disabled
                   />
                 </div>
                 <div>

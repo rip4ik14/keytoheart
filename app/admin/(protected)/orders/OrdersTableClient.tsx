@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/orders/OrdersTableClient.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -146,25 +147,34 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   });
 
   if (error) {
-    return <p className="text-red-600">Ошибка: {error}</p>;
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+        <p className="text-red-600 text-sm sm:text-base">Ошибка: {error}</p>
+      </div>
+    );
   }
   if (!visibleOrders.length) {
-    return <p className="text-gray-500">Заказы не найдены</p>;
+    return (
+      <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 text-center">
+        <p className="text-gray-500 text-sm sm:text-base">Заказы не найдены</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       <Toaster position="top-center" />
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <label htmlFor="statusFilter" className="block mb-1 text-sm">
+      {/* Фильтры */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="statusFilter" className="block mb-1 text-sm font-medium text-gray-700">
             Фильтр по статусу:
           </label>
           <select
             id="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base"
           >
             <option value="">Все</option>
             <option value="Ожидает подтверждения">Ожидает подтверждения</option>
@@ -174,8 +184,8 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             <option value="Отменён">Отменён</option>
           </select>
         </div>
-        <div className="flex-1">
-          <label htmlFor="searchPhone" className="block mb-1 text-sm">
+        <div>
+          <label htmlFor="searchPhone" className="block mb-1 text-sm font-medium text-gray-700">
             Поиск по телефону:
           </label>
           <input
@@ -183,15 +193,16 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             type="text"
             value={searchPhone}
             onChange={(e) => setSearchPhone(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base"
             placeholder="+7..."
           />
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
+      {/* Таблица для десктопа */}
+      <div className="hidden lg:block overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
         <table className="w-full text-sm text-left border-collapse">
-          <thead className="bg-gray-100 text-gray-600">
+          <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
             <tr>
               <th className="p-3 border-b">Дата</th>
               <th className="p-3 border-b">Имя</th>
@@ -220,7 +231,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.2 }}
-                className="border-t hover:bg-gray-50"
+                className="border-t hover:bg-gray-50 text-sm"
               >
                 <td className="p-3">
                   {order.created_at
@@ -233,12 +244,8 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 <td className="p-3">{order.recipient_phone || '-'}</td>
                 <td className="p-3">{order.address || '-'}</td>
                 <td className="p-3 font-medium">{order.total?.toLocaleString() ?? '0'} ₽</td>
-                <td className="p-3">
-                  {order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}
-                </td>
-                <td className="p-3">
-                  {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}
-                </td>
+                <td className="p-3">{order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</td>
+                <td className="p-3">{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</td>
                 <td className="p-3">
                   {order.delivery_date && order.delivery_time
                     ? `${order.delivery_date} ${order.delivery_time}`
@@ -282,7 +289,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <motion.select
                     value={displayStatusMap[order.status ?? 'pending'] || 'Ожидает подтверждения'}
                     onChange={(e) => updateStatus(order.id, e.target.value)}
-                    className="border rounded p-1 text-sm"
+                    className="border border-gray-300 rounded-lg p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
                     whileHover={{ scale: 1.05 }}
                   >
                     <option>Ожидает подтверждения</option>
@@ -299,7 +306,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         deleteOrder(order.id);
                       }
                     }}
-                    className="text-red-600 hover:underline text-sm"
+                    className="text-red-600 hover:underline text-sm font-medium transition-colors duration-200"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -310,6 +317,151 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Мобильный вид (карточки) */}
+      <div className="lg:hidden space-y-4">
+        {visibleOrders.map((order: Order) => (
+          <motion.div
+            key={order.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Заказ #{order.id}
+              </h3>
+              <motion.select
+                value={displayStatusMap[order.status ?? 'pending'] || 'Ожидает подтверждения'}
+                onChange={(e) => updateStatus(order.id, e.target.value)}
+                className="border border-gray-300 rounded-lg p-1 text-xs focus:outline-none focus:ring-2 focus:ring-black"
+                whileHover={{ scale: 1.05 }}
+              >
+                <option>Ожидает подтверждения</option>
+                <option>В сборке</option>
+                <option>Доставляется</option>
+                <option>Доставлен</option>
+                <option>Отменён</option>
+              </motion.select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+              <div>
+                <p className="font-medium">Дата:</p>
+                <p>
+                  {order.created_at
+                    ? format(new Date(order.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Имя:</p>
+                <p>{order.contact_name || '-'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Телефон:</p>
+                <p>{order.phone || '-'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Получатель:</p>
+                <p>{order.recipient || '-'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Телефон получателя:</p>
+                <p>{order.recipient_phone || '-'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="font-medium">Адрес:</p>
+                <p>{order.address || '-'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Сумма:</p>
+                <p className="font-medium">{order.total?.toLocaleString() ?? '0'} ₽</p>
+              </div>
+              <div>
+                <p className="font-medium">Оплата:</p>
+                <p>{order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Доставка:</p>
+                <p>{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Дата/Время:</p>
+                <p>
+                  {order.delivery_date && order.delivery_time
+                    ? `${order.delivery_date} ${order.delivery_time}`
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Анонимность:</p>
+                <p>{order.anonymous ? 'Да' : 'Нет'}</p>
+              </div>
+              <div>
+                <p className="font-medium">WhatsApp:</p>
+                <p>{order.whatsapp ? 'Да' : 'Нет'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="font-medium">Текст открытки:</p>
+                <p>{order.postcard_text || '-'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="font-medium">Промокод:</p>
+                <p>
+                  {order.promo_id
+                    ? `Применён (${order.promo_discount?.toLocaleString() ?? 0} ₽)`
+                    : 'Не применён'}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="font-medium">Товары:</p>
+                {order.items.length > 0 ? (
+                  <ul className="list-disc pl-4 text-xs">
+                    {order.items.map((item, idx) => (
+                      <li key={idx}>
+                        {item.title} ×{item.quantity} — {item.price * item.quantity} ₽
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Нет товаров</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <p className="font-medium">Дополнения:</p>
+                {order.upsell_details.length > 0 ? (
+                  <ul className="list-disc pl-4 text-xs">
+                    {order.upsell_details.map((item, idx) => (
+                      <li key={idx}>
+                        {item.title} ({item.category}) ×{item.quantity} — {item.price} ₽
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Нет дополнений</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <motion.button
+                onClick={() => {
+                  if (confirm(`Вы уверены, что хотите удалить заказ #${order.id}?`)) {
+                    deleteOrder(order.id);
+                  }
+                }}
+                className="text-red-600 hover:underline text-xs font-medium transition-colors duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Удалить
+              </motion.button>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </div>
   );

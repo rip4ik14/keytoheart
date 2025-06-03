@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/orders/page.tsx
 import React from 'react';
 import OrdersTableClient from './OrdersTableClient';
 import { prisma } from '@/lib/prisma';
@@ -138,9 +139,13 @@ export default async function AdminOrdersPage() {
   }
 
   return (
-    <div className="p-10">
-      <h1 className="text-2xl font-bold mb-6">Управление заказами</h1>
-      <OrdersTableClient initialOrders={orders} loadError={loadError} />
-    </div>
+    <main className="min-h-screen bg-gray-50">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 tracking-tight">
+          Управление заказами
+        </h1>
+        <OrdersTableClient initialOrders={orders} loadError={loadError} />
+      </section>
+    </main>
   );
 }

@@ -1,3 +1,4 @@
+// ✅ Путь: app/components/PromoGrid.tsx
 import { supabaseAdmin } from '@/lib/supabase/server';
 import PromoGridWrapper from '@components/PromoGridWrapper';
 
@@ -21,7 +22,7 @@ export default async function PromoGrid() {
       button_text: b.button_text ?? undefined,
       order_index: b.order_index ?? undefined,
       subtitle: b.subtitle ?? undefined,
-      type: b.type as 'banner', // Утверждаем, что type — это 'banner'
+      type: b.type as 'banner',
     }));
 
   const cards = data
@@ -31,7 +32,7 @@ export default async function PromoGrid() {
       button_text: b.button_text ?? undefined,
       order_index: b.order_index ?? undefined,
       subtitle: b.subtitle ?? undefined,
-      type: b.type as 'card', // Утверждаем, что type — это 'card'
+      type: b.type as 'card',
     }));
 
   if (!banners.length && !cards.length) return null;
