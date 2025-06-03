@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
   try {
-    // Проверка сессии (оставь как есть)
-    const baseUrl = new URL(req.url).origin;
+    // Проверка сессии (вместо fetch — с BASE_URL из .env, если нужен)
+    const baseUrl = process.env.BASE_URL || 'https://keytoheart.ru';
     const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
@@ -33,9 +33,12 @@ export async function POST(req: NextRequest) {
     // Генерируем уникальное имя
     const filename = `${uuidv4()}.webp`;
 
-    // ---- ИНИЦИАЛИЗИРУЕМ КЛИЕНТ SUPABASE ----
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    // ИНИЦИАЛИЗИРУЕМ КЛИЕНТ SUPABASE
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase credentials are missing in .env');
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false }
     });
