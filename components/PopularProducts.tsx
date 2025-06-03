@@ -114,7 +114,7 @@ export default function PopularProducts() {
         id="popular-products-title"
         className="text-center text-2xl md:text-3xl font-sans font-bold mb-8 text-black"
       >
-        Популярное
+        ПОПУЛЯРНОЕ
       </h2>
       <div className="relative">
         <Swiper
