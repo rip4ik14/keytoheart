@@ -353,7 +353,8 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                           alt={`${product.title} - фото ${i + 1}`}
                           fill
                           className="object-cover"
-                          loading="lazy"
+                          priority={i === 0}
+                          loading={i === 0 ? 'eager' : 'lazy'}
                           sizes="(max-width: 768px) 100vw, 50vw"
                         />
                       </div>
@@ -367,7 +368,8 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                         alt="Изображение отсутствует"
                         fill
                         className="object-cover"
-                        loading="lazy"
+                        priority
+                        loading="eager"
                         sizes="(max-width: 768px) 100vw, 50vw"
                       />
                     </div>
