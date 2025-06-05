@@ -1,17 +1,14 @@
-// components/PopularProducts.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import ProductCard from '@components/ProductCard';
-import { supabasePublic } from '@/lib/supabase/public';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { Product } from '@/types/product'; // Импортируем тип Product из types/product.ts
-
-// Swiper
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
+import ProductCard from '@components/ProductCard';
+import { supabasePublic } from '@/lib/supabase/public';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { Product } from '@/types/product';
 import Image from 'next/image';
 
 export default function PopularProducts() {
@@ -36,11 +33,10 @@ export default function PopularProducts() {
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Неверный формат данных');
 
-      // Проверяем, что данные соответствуют типу Product
       setProducts(
         data.map((item: any) => ({
           ...item,
-          category_ids: item.category_ids || [], // Добавляем category_ids, если его нет
+          category_ids: item.category_ids || [],
         }))
       );
     } catch (err: any) {

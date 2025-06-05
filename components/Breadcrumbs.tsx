@@ -80,10 +80,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
         .eq('is_visible', true)
         .order('id', { ascending: true });
 
-      console.log('Supabase query duration for categories in Breadcrumbs:', Date.now() - start, 'ms');
-      console.log('Fetched categories for Breadcrumbs:', data);
-
-      if (error) throw error;
+          if (error) throw error;
 
       const updatedData: Category[] = data.map((cat: any) => {
         const subcategories = cat.subcategories

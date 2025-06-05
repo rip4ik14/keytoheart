@@ -24,8 +24,7 @@
            fetchSession();
 
            const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-             console.log('AuthStatus: Auth state changed, session:', session);
-             setSession(session);
+                          setSession(session);
            });
 
            return () => {

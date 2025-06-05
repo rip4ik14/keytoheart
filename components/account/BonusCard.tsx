@@ -6,8 +6,7 @@ interface BonusCardProps {
 }
 
 export default function BonusCard({ balance, level }: BonusCardProps) {
-  // Отладка пропсов
-  console.log('BonusCard props:', { balance, level });
+  
 
   // Определяем процент кешбэка на основе уровня
   const cashbackPercentage = level === 'bronze' ? 2.5 : level === 'silver' ? 5 : level === 'gold' ? 7.5 : level === 'platinum' ? 10 : 15;

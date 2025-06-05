@@ -22,9 +22,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Golos Text', 'Arial', 'sans-serif'],
+        sans: ['var(--font-golos)', 'Arial', 'sans-serif'],
         // Добавь свой кастомный шрифт для бегущей строки:
-        marquee: ['MontserratMarquee', 'sans-serif'],
+        marquee: ['var(--font-marquee)', 'sans-serif'],
       },
       animation: {
         marquee: 'marquee 50s linear infinite',

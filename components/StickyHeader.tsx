@@ -85,7 +85,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             }
           } else {
             const { data: { session } } = await supabase.auth.getSession();
-            console.log(`${new Date().toISOString()} StickyHeader: Initial session check (Supabase)`, session?.user);
+            
             if (session?.user) {
               const phone = session.user.user_metadata?.phone as string | undefined;
               if (phone) {
@@ -94,7 +94,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 try {
                   const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
                   const bonusJson = await bonusRes.json();
-                  console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch response (Supabase)`, bonusJson);
+                  
                   if (bonusRes.ok && bonusJson.success) {
                     setBonus(bonusJson.data.bonus_balance ?? 0);
                   } else {
@@ -126,7 +126,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`${new Date().toISOString()} StickyHeader: Auth state changed`, event, session?.user);
+      
       if (isMounted) {
         if (session?.user) {
           const phone = session.user.user_metadata?.phone as string | undefined;
@@ -136,7 +136,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`)
               .then((res) => res.json())
               .then((bonusJson) => {
-                console.log(`${new Date().toISOString()} StickyHeader: Bonus fetch after auth change`, bonusJson);
+                
                 if (isMounted && bonusJson.success) {
                   setBonus(bonusJson.data.bonus_balance ?? 0);
                 } else if (isMounted) {
@@ -160,7 +160,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'supabase.auth.token') {
-        console.log(`${new Date().toISOString()} StickyHeader: Storage event detected`, event.newValue);
+        
         checkAuth();
       }
     };
@@ -168,7 +168,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     window.addEventListener('storage', handleStorageChange);
 
     const handleAuthChange = () => {
-      console.log(`${new Date().toISOString()} StickyHeader: Auth change event received`);
+      
       checkAuth();
     };
 

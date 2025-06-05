@@ -1,7 +1,25 @@
 // app/layout.tsx
-import './styles/fonts.css';
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
+import localFont from 'next/font/local';
+
+const golosText = localFont({
+  variable: '--font-golos',
+  src: [
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
+  ],
+  display: 'swap',
+});
+
+const marqueeFont = localFont({
+  variable: '--font-marquee',
+  src: '../public/fonts/MontserratMarquee.woff2',
+  display: 'swap',
+});
 
 import { Metadata, Viewport } from 'next';
 import Script from 'next/script';
@@ -137,7 +155,7 @@ export default async function RootLayout({
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
 
   return (
-    <html lang="ru">
+    <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
         <meta name="yandex-verification" content="2d95e0ee66415497" />
         <meta name="geo.region" content="RU-KDA" />
@@ -266,7 +284,7 @@ export default async function RootLayout({
             <PromoFooterBlock />
 
             {/* Standard Footer */}
-            <Footer />
+            <Footer categories={categories} />
 
             {/* Cookie banner */}
             <CookieBanner />

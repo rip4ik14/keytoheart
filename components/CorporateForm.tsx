@@ -124,7 +124,7 @@ export default function CorporateForm() {
     }
 
     try {
-      console.log('Submitting corporate request:', formData);
+      
       const response = await fetch('/api/corporate-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
