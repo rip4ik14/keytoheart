@@ -44,7 +44,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
           throw new Error(data.error || 'Ошибка загрузки дат');
         }
       } catch (error) {
-        console.error('Error fetching important dates:', error);
+        process.env.NODE_ENV !== "production" && console.error('Error fetching important dates:', error);
         toast.error('Не удалось загрузить важные даты');
       }
     };
@@ -92,7 +92,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
       toast.success('Даты успешно обновлены!');
       onUpdate();
     } catch (error: any) {
-      console.error('Error saving important dates:', error);
+      process.env.NODE_ENV !== "production" && console.error('Error saving important dates:', error);
       toast.error(`Ошибка: ${error.message || 'Не удалось сохранить даты'}`);
     } finally {
       setIsLoading(false);

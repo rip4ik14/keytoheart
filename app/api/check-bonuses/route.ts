@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { phone } = await request.json();
 
     if (!phone || !/^\+7\d{10}$/.test(phone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${phone}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${phone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный номер телефона' },
         { status: 400 }
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       select: { bonus_balance: true, level: true },
     });
 
-    console.log(`[${new Date().toISOString()}] Bonuses check result:`, bonuses);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Bonuses check result:`, bonuses);
 
     if (!bonuses) {
       return NextResponse.json(
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       level: bonuses.level ?? 'basic',
     });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in checkbonuses:`, error.message);
+    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in checkbonuses:`, error.message);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

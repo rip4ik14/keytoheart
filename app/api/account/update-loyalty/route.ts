@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       select: { total: true, status: true },
     });
 
-    console.log(`[${new Date().toISOString()}] Orders fetched for phone ${sanitizedPhone}:`, orders);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Orders fetched for phone ${sanitizedPhone}:`, orders);
 
     // Суммируем total, безопасно обрабатывая строки и null
     const totalSpent = orders?.reduce(
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       0
     ) || 0;
 
-    console.log(`[${new Date().toISOString()}] Total spent (delivered orders) for phone ${sanitizedPhone}: ${totalSpent}`);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Total spent (delivered orders) for phone ${sanitizedPhone}: ${totalSpent}`);
 
     // Определяем уровень
     let level: string;
@@ -50,11 +50,11 @@ export async function POST(request: Request) {
       data: { level, updated_at: new Date().toISOString() },
     });
 
-    console.log(`[${new Date().toISOString()}] Updated loyalty level to ${level} for phone ${sanitizedPhone}`);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Updated loyalty level to ${level} for phone ${sanitizedPhone}`);
 
     return NextResponse.json({ success: true, level });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in update-loyalty:`, error);
+    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in update-loyalty:`, error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

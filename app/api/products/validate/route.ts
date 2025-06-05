@@ -15,7 +15,7 @@ interface ProductValidationResult {
 export async function POST(req: NextRequest) {
   try {
     const body: { items: CartItem[] } = await req.json();
-    console.log('Received payload for validation:', body);
+    process.env.NODE_ENV !== "production" && console.log('Received payload for validation:', body);
 
     const { items } = body;
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       .in('id', productIds);
 
     if (productError) {
-      console.error('Supabase error fetching products:', productError);
+      process.env.NODE_ENV !== "production" && console.error('Supabase error fetching products:', productError);
       return NextResponse.json({ error: 'Ошибка получения товаров: ' + productError.message, valid: false, invalidItems: [] }, { status: 500 });
     }
 
@@ -73,10 +73,10 @@ export async function POST(req: NextRequest) {
       invalidItems,
     };
 
-    console.log('Validation result:', result);
+    process.env.NODE_ENV !== "production" && console.log('Validation result:', result);
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Error in validate API:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error in validate API:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message, valid: false, invalidItems: [] }, { status: 500 });
   }
 }

@@ -18,7 +18,7 @@ export default function SendSMSPage() {
     });
 
     if (error) {
-      console.error('Ошибка отправки OTP:', error.message);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка отправки OTP:', error.message);
       setStatus('Ошибка: ' + error.message);
     } else {
       setStatus('Код отправлен — проверь SMS!');

@@ -4,7 +4,7 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
-  console.log(`${new Date().toISOString()} Middleware: Processing ${pathname}`, {
+  process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Middleware: Processing ${pathname}`, {
     cookies: req.cookies.getAll(),
     url: url.toString(),
     nodeEnv: process.env.NODE_ENV,
@@ -32,14 +32,14 @@ export async function middleware(req: NextRequest) {
     // --- ADMIN GUARD ---
     if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
       const token = req.cookies.get('admin_session')?.value;
-      console.log(`${new Date().toISOString()} Middleware: Admin session check`, { token });
+      process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Middleware: Admin session check`, { token });
 
       if (!token) {
         const login = url.clone();
         login.pathname = '/admin/login';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'no-session');
-        console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
+        process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
           error: 'no-session',
         });
         return NextResponse.redirect(login);
@@ -54,25 +54,25 @@ export async function middleware(req: NextRequest) {
           },
         });
         const sessionData = await sessionRes.json();
-        console.log(`${new Date().toISOString()} Middleware: Admin session verification response`, sessionData);
+        process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Middleware: Admin session verification response`, sessionData);
 
         if (!sessionRes.ok || !sessionData.success) {
           const login = url.clone();
           login.pathname = '/admin/login';
           login.searchParams.set('from', pathname);
           login.searchParams.set('error', 'invalid-session');
-          console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
+          process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
             error: 'invalid-session',
           });
           return NextResponse.redirect(login);
         }
       } catch (err) {
-        console.error(`${new Date().toISOString()} Middleware: Error verifying admin session`, err);
+        process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} Middleware: Error verifying admin session`, err);
         const login = url.clone();
         login.pathname = '/admin/login';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'invalid-session');
-        console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
+        process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} Middleware: Redirecting to /admin/login`, {
           error: 'invalid-session',
         });
         return NextResponse.redirect(login);
@@ -82,14 +82,14 @@ export async function middleware(req: NextRequest) {
     // --- USER GUARD (Supabase) ---
     if ((pathname.startsWith('/account') || pathname.startsWith('/checkout')) && pathname !== '/account') {
       const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value;
-      console.log(`${new Date().toISOString()} Middleware: User session check`, { token });
+      process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Middleware: User session check`, { token });
 
       if (!token) {
         const login = url.clone();
         login.pathname = '/account';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'no-session');
-        console.warn(`${new Date().toISOString()} Middleware: Redirecting to /account`, {
+        process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} Middleware: Redirecting to /account`, {
           error: 'no-session',
         });
         return NextResponse.redirect(login);
@@ -109,7 +109,7 @@ export async function middleware(req: NextRequest) {
         login.pathname = '/account';
         login.searchParams.set('from', pathname);
         login.searchParams.set('error', 'invalid-session');
-        console.warn(`${new Date().toISOString()} Middleware: Redirecting to /account`, {
+        process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} Middleware: Redirecting to /account`, {
           error: 'invalid-session',
         });
         return NextResponse.redirect(login);

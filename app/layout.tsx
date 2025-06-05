@@ -149,7 +149,7 @@ export default async function RootLayout({
       }));
     }
   } catch (err) {
-    console.error('RootLayout: could not load categories', err);
+    process.env.NODE_ENV !== "production" && console.error('RootLayout: could not load categories', err);
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;

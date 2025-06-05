@@ -92,7 +92,7 @@ export async function GET(req: Request) {
     return response;
 
   } catch (e: any) {
-    console.error('status/route.ts ошибка:', e);
+    process.env.NODE_ENV !== "production" && console.error('status/route.ts ошибка:', e);
     return NextResponse.json({ success: false, error: e.message || 'Серверная ошибка' }, { status: 500 });
   }
 }

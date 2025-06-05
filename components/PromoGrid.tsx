@@ -37,12 +37,12 @@ export default async function PromoGrid() {
     data = result.data;
     error = result.error;
   } catch (err: any) {
-    console.error('Error fetching promo blocks:', err.message);
+    process.env.NODE_ENV !== "production" && console.error('Error fetching promo blocks:', err.message);
     error = err;
   }
 
   if (error || !data) {
-    console.error('PromoGrid failed to load data:', error?.message || 'No data');
+    process.env.NODE_ENV !== "production" && console.error('PromoGrid failed to load data:', error?.message || 'No data');
     return null;
   }
 

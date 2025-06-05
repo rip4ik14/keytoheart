@@ -25,16 +25,16 @@ export default async function CategoriesPage() {
 
   // Проверяем admin_session токен
   const token = cookieStore.get('admin_session')?.value;
-  console.log('Admin session token:', token);
+  process.env.NODE_ENV !== "production" && console.log('Admin session token:', token);
   if (!token) {
-    console.error('No admin session token found');
+    process.env.NODE_ENV !== "production" && console.error('No admin session token found');
     redirect('/admin/login?error=no-session');
   }
 
   const isValidToken = await verifyAdminJwt(token);
-  console.log('Token verification result:', isValidToken);
+  process.env.NODE_ENV !== "production" && console.log('Token verification result:', isValidToken);
   if (!isValidToken) {
-    console.error('Invalid admin session token');
+    process.env.NODE_ENV !== "production" && console.error('Invalid admin session token');
     redirect('/admin/login?error=invalid-session');
   }
 
@@ -56,7 +56,7 @@ export default async function CategoriesPage() {
 
     categories = (data || []) as Category[];
   } catch (error: any) {
-    console.error('Error fetching categories:', error.message);
+    process.env.NODE_ENV !== "production" && console.error('Error fetching categories:', error.message);
   }
 
   return <CategoriesClient categories={categories} />;

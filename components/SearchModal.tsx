@@ -61,7 +61,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         .abortSignal(controller.signal);
 
       if (productsError) {
-        console.error('Error fetching products:', productsError);
+        process.env.NODE_ENV !== "production" && console.error('Error fetching products:', productsError);
         setResults([]);
         setLoading(false);
         return;
@@ -81,7 +81,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         .in('product_id', productIds);
 
       if (categoryError) {
-        console.error('Error fetching product categories:', categoryError);
+        process.env.NODE_ENV !== "production" && console.error('Error fetching product categories:', categoryError);
         setResults([]);
         setLoading(false);
         return;
@@ -102,7 +102,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         .in('id', allCategoryIds);
 
       if (categoriesError) {
-        console.error('Error fetching categories:', categoriesError);
+        process.env.NODE_ENV !== "production" && console.error('Error fetching categories:', categoriesError);
         setResults([]);
         setLoading(false);
         return;
@@ -129,7 +129,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
 
     const timer = setTimeout(() => {
       fetchProducts().catch((err) => {
-        if (err.name !== 'AbortError') console.error(err);
+        if (err.name !== 'AbortError') process.env.NODE_ENV !== "production" && console.error(err);
       });
     }, 300);
 

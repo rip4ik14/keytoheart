@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     });
 
     if (recentActivity) {
-      console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
+      process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
       return NextResponse.json({ success: true, expired: 0, new_balance: bonusRow.bonus_balance });
     }
 

@@ -65,7 +65,7 @@ export function AuthProvider({
                   setBonus(null);
                 }
               } catch (error) {
-                console.error('Ошибка загрузки бонусов:', error);
+                process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки бонусов:', error);
                 setBonus(null);
               }
             } else {
@@ -80,7 +80,7 @@ export function AuthProvider({
           }
         }
       } catch (error) {
-        console.error('Ошибка проверки сессии:', error);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка проверки сессии:', error);
         if (isMounted) {
           setIsAuthenticated(false);
           setPhone(null);
@@ -143,7 +143,7 @@ export function AuthProvider({
         setBonus(null);
       }
     } catch (error) {
-      console.error('Ошибка загрузки бонусов:', error);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки бонусов:', error);
       setBonus(null);
     }
   };
@@ -155,7 +155,7 @@ export function AuthProvider({
       setPhone(null);
       setBonus(null);
     } catch (error) {
-      console.error('Ошибка при выходе:', error);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка при выходе:', error);
     }
   };
 

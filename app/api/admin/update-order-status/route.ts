@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       message: 'Order status updated successfully',
     });
   } catch (err: any) {
-    console.error('Error updating order status:', err);
+    process.env.NODE_ENV !== "production" && console.error('Error updating order status:', err);
     return NextResponse.json(
       { error: 'Server error: ' + err.message },
       { status: 500 }

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, balance: newBalance });
   } catch (err: any) {
-    console.error('Error in /api/bonuses/update:', err);
+    process.env.NODE_ENV !== "production" && console.error('Error in /api/bonuses/update:', err);
     return NextResponse.json(
       { success: false, error: 'Серверная ошибка: ' + err.message },
       { status: 500 }

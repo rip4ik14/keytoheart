@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (error) {
-      console.error('Ошибка загрузки в Supabase Storage:', error);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки в Supabase Storage:', error);
       return NextResponse.json({ error: 'Ошибка загрузки файла в Supabase' }, { status: 500 });
     }
 
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ image_url });
   } catch (err: any) {
-    console.error('Unexpected error in /api/promo/upload-image:', err);
+    process.env.NODE_ENV !== "production" && console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

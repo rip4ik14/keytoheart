@@ -90,7 +90,7 @@ export default function useCheckoutForm() {
           agreedToTerms: false, // Сбрасываем согласие при загрузке
         }));
       } catch (error) {
-        console.error('Error parsing saved form:', error);
+        process.env.NODE_ENV !== "production" && console.error('Error parsing saved form:', error);
       }
     }
   }, []);

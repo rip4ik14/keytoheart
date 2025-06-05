@@ -79,7 +79,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (e: any) {
-    console.error('Ошибка в verify-sms:', e);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка в verify-sms:', e);
     return NextResponse.json(
       { success: false, error: 'Серверная ошибка' },
       { status: 500 }

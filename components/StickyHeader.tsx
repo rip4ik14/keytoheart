@@ -76,7 +76,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   setBonus(null);
                 }
               } catch (error) {
-                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses`, error);
+                process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses`, error);
                 setBonus(null);
               }
             } else {
@@ -101,7 +101,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     setBonus(null);
                   }
                 } catch (error) {
-                  console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses (Supabase)`, error);
+                  process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses (Supabase)`, error);
                   setBonus(null);
                 }
               } else {
@@ -115,7 +115,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           }
         }
       } catch (error) {
-        console.error(`${new Date().toISOString()} StickyHeader: Error checking session`, error);
+        process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} StickyHeader: Error checking session`, error);
         if (isMounted) {
           setIsAuthenticated(false);
           setBonus(null);
@@ -144,7 +144,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 }
               })
               .catch((error) => {
-                console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses after auth change`, error);
+                process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} StickyHeader: Error loading bonuses after auth change`, error);
                 if (isMounted) setBonus(null);
               });
           } else {
@@ -249,7 +249,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         throw new Error('Failed to logout');
       }
     } catch (error) {
-      console.error(`${new Date().toISOString()} StickyHeader: Error signing out`, error);
+      process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} StickyHeader: Error signing out`, error);
       toast.error('Не удалось выйти из аккаунта');
     }
   };

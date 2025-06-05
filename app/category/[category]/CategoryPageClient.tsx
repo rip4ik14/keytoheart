@@ -58,7 +58,7 @@ export default function CategoryPageClient({
       sortedProducts.sort((a, b) => b.id - a.id);
     }
 
-    console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
+    process.env.NODE_ENV !== "production" && console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
     setFilteredProducts(sortedProducts);
   }, [sort, subcategory, products, subcategories]);
 

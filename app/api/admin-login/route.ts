@@ -4,10 +4,10 @@ import { signAdminJwt } from '@/lib/auth';
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
 
-  console.log(`${new Date().toISOString()} /api/admin-login: Received request`, { password });
+  process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} /api/admin-login: Received request`, { password });
 
   if (!password || password !== process.env.ADMIN_PASSWORD) {
-    console.warn(`${new Date().toISOString()} /api/admin-login: Invalid password`, {
+    process.env.NODE_ENV !== "production" && console.warn(`${new Date().toISOString()} /api/admin-login: Invalid password`, {
       expected: process.env.ADMIN_PASSWORD,
       received: password,
     });
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const token = await signAdminJwt();
-    console.log(`${new Date().toISOString()} /api/admin-login: JWT generated`, { token });
+    process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} /api/admin-login: JWT generated`, { token });
 
     const res = NextResponse.json({ success: true });
     res.cookies.set('admin_session', token, {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 8,
     });
 
-    console.log(`${new Date().toISOString()} /api/admin-login: Cookie admin_session set`, {
+    process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} /api/admin-login: Cookie admin_session set`, {
       cookie: res.cookies.get('admin_session'),
       setCookieHeader: res.headers.get('set-cookie'),
       nodeEnv: process.env.NODE_ENV,
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (error: any) {
-    console.error(`${new Date().toISOString()} /api/admin-login: Error`, error.message);
+    process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} /api/admin-login: Error`, error.message);
     return NextResponse.json({ error: 'SERVER', message: 'Ошибка сервера' }, { status: 500 });
   }
 }

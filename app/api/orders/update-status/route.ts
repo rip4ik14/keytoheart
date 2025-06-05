@@ -35,13 +35,13 @@ export async function POST(req: NextRequest) {
     if (status === 'delivered' && updatedOrder.bonus === 0) {
       // Проверяем, что phone не null
       if (!updatedOrder.phone) {
-        console.error('Order phone is null for order:', orderId);
+        process.env.NODE_ENV !== "production" && console.error('Order phone is null for order:', orderId);
         return NextResponse.json({ error: 'Телефон заказа не указан' }, { status: 400 });
       }
 
       // Проверяем, что total не null
       if (updatedOrder.total === null) {
-        console.error('Order total is null for order:', orderId);
+        process.env.NODE_ENV !== "production" && console.error('Order total is null for order:', orderId);
         return NextResponse.json({ error: 'Сумма заказа не указана' }, { status: 400 });
       }
 
@@ -97,12 +97,12 @@ export async function POST(req: NextRequest) {
         data: { bonus: bonusAccrual },
       });
 
-      console.log(`Начислено ${bonusAccrual} бонусов за заказ #${orderId} на уровне ${currentLevel}`);
+      process.env.NODE_ENV !== "production" && console.log(`Начислено ${bonusAccrual} бонусов за заказ #${orderId} на уровне ${currentLevel}`);
     }
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: any) {
-    console.error('Error updating order status:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error updating order status:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }

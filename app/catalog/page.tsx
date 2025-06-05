@@ -31,7 +31,7 @@ export default async function CatalogPage() {
 
       return data || [];
     } catch (err) {
-      console.error('Ошибка загрузки sitePages:', err);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки sitePages:', err);
       return [];
     }
   };
@@ -55,7 +55,7 @@ export default async function CatalogPage() {
         is_visible: category.is_visible ?? true, // Приводим к boolean
       })) || [];
     } catch (err) {
-      console.error('Ошибка загрузки категорий:', err);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', err);
       return [];
     }
   };
@@ -79,7 +79,7 @@ export default async function CatalogPage() {
         is_visible: subcategory.is_visible ?? true, // Приводим к boolean
       })) || [];
     } catch (err) {
-      console.error('Ошибка загрузки подкатегорий:', err);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки подкатегорий:', err);
       return [];
     }
   };
@@ -158,15 +158,15 @@ export default async function CatalogPage() {
         `)
         .order('id', { ascending: true });
 
-      console.log('Supabase query duration for products:', Date.now() - start, 'ms');
-      console.log('Supabase fetch result:', { data, error });
+      process.env.NODE_ENV !== "production" && console.log('Supabase query duration for products:', Date.now() - start, 'ms');
+      process.env.NODE_ENV !== "production" && console.log('Supabase fetch result:', { data, error });
 
       if (error) {
         throw new Error(`Supabase error: ${error.message || 'Неизвестная ошибка'} (code: ${error.code || 'N/A'}, details: ${error.details || 'N/A'}, hint: ${error.hint || 'N/A'})`);
       }
 
       if (!data || data.length === 0) {
-        console.warn('Товары не найдены в таблице products');
+        process.env.NODE_ENV !== "production" && console.warn('Товары не найдены в таблице products');
         return [];
       }
 
@@ -197,7 +197,7 @@ export default async function CatalogPage() {
         };
       });
     } catch (err: any) {
-      console.error('Ошибка загрузки товаров:', {
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товаров:', {
         message: err.message || 'Неизвестная ошибка',
         stack: err.stack || 'Нет стека',
         details: err.details || 'Нет деталей',

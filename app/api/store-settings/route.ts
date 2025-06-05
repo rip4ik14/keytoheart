@@ -15,7 +15,7 @@ export async function GET() {
       .single();
 
     if (error) {
-      console.error('Supabase error in store-settings:', error);
+      process.env.NODE_ENV !== "production" && console.error('Supabase error in store-settings:', error);
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
@@ -34,7 +34,7 @@ export async function GET() {
       },
     });
   } catch (error: any) {
-    console.error('Error in store-settings API:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error in store-settings API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

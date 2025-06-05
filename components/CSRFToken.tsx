@@ -18,10 +18,10 @@ export default function CSRFToken({ children }: { children: (token: string) => J
         if (res.ok && data.csrfToken) {
           setToken(data.csrfToken);
         } else {
-          console.error('Failed to fetch CSRF token');
+          process.env.NODE_ENV !== "production" && console.error('Failed to fetch CSRF token');
         }
       } catch (err) {
-        console.error('Error fetching CSRF token:', err);
+        process.env.NODE_ENV !== "production" && console.error('Error fetching CSRF token:', err);
       }
     };
 

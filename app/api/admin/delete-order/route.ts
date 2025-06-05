@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (order.bonus && order.bonus > 0) {
       // Проверяем, что phone не null
       if (!order.phone) {
-        console.error('Order phone is null for order:', id);
+        process.env.NODE_ENV !== "production" && console.error('Order phone is null for order:', id);
         return NextResponse.json({ error: 'Телефон заказа не указан' }, { status: 400 });
       }
 
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting order:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error deleting order:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }

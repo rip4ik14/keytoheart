@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const { phone, check_id, code } = await request.json();
 
     if (!phone || !check_id || !code) {
-      console.error('Missing parameters:', { phone, check_id, code });
+      process.env.NODE_ENV !== "production" && console.error('Missing parameters:', { phone, check_id, code });
       return NextResponse.json({ success: false, error: 'phone, check_id, and code required' }, { status: 400 });
     }
 
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error: any) {
-    console.error('Ошибка в verify-call:', error);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка в verify-call:', error);
     return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }

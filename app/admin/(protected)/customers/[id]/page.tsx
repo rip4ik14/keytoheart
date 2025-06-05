@@ -128,7 +128,7 @@ export default async function CustomerPage({ params }: PageProps) {
       };
     }
   } catch (error: any) {
-    console.error('Error fetching customer:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error fetching customer:', error);
   }
 
   return <CustomerDetailClient customer={customer} />;

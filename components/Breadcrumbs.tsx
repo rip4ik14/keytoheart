@@ -103,7 +103,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
-      console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
         (payload) => {
-          console.log('Categories change detected in Breadcrumbs:', payload);
+          process.env.NODE_ENV !== "production" && console.log('Categories change detected in Breadcrumbs:', payload);
           categoryCache = null;
           fetchCategories();
         }
@@ -127,7 +127,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'subcategories' },
         (payload) => {
-          console.log('Subcategories change detected in Breadcrumbs:', payload);
+          process.env.NODE_ENV !== "production" && console.log('Subcategories change detected in Breadcrumbs:', payload);
           categoryCache = null;
           fetchCategories();
         }

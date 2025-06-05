@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       phone: null,
     });
   } catch (error: any) {
-    console.error(`${new Date().toISOString()} CheckSession: Error`, error);
+    process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} CheckSession: Error`, error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

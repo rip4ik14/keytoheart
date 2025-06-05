@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, level: updatedBonus.level });
   } catch (error: any) {
-    console.error('Error updating customer level:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error updating customer level:', error);
     return NextResponse.json(
       { error: 'Failed to update customer level: ' + error.message },
       { status: 500 }

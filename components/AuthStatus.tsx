@@ -16,7 +16,7 @@
            const fetchSession = async () => {
              const { data: { session }, error } = await supabase.auth.getSession();
              if (error) {
-               console.error('AuthStatus: getSession error:', error.message);
+               process.env.NODE_ENV !== "production" && console.error('AuthStatus: getSession error:', error.message);
              }
              setSession(session);
            };

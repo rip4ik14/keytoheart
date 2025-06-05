@@ -111,7 +111,7 @@ export default async function Home() {
         }))
       : [];
   } catch (err) {
-    console.error('Ошибка загрузки товаров:', err);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товаров:', err);
   }
 
   // Получаем названия категорий
@@ -122,7 +122,7 @@ export default async function Home() {
     .in('id', categoryIds.length > 0 ? categoryIds : [0]); // Избегаем пустого IN
 
   if (categoriesError) {
-    console.error('Ошибка загрузки категорий:', categoriesError);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', categoriesError);
   }
 
   const categoryMap = new Map<number, { name: string; slug: string }>();
