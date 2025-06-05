@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import WebpImage from '@components/WebpImage';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
@@ -104,7 +105,7 @@ export default function LoyaltyPageClient() {
         whileInView="visible"
         viewport={{ once: true }}
       >
-        <Image
+        <WebpImage
           src="/images/banner-loyalty.jpg"
           alt="Баннер программы лояльности KeyToHeart"
           fill

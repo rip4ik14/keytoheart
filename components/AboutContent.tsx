@@ -2,6 +2,7 @@
 'use client';
 
 import Image from 'next/image';
+import WebpImage from './WebpImage';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import AnimatedSection from '@components/AnimatedSection';
@@ -26,7 +27,7 @@ export default function AboutContent() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8 }}
             >
-              <Image
+              <WebpImage
                 src="/images/about-main.jpg"
                 alt="KeyToHeart — клубничные букеты и цветы"
                 fill
@@ -92,7 +93,7 @@ export default function AboutContent() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8 }}
             >
-              <Image
+              <WebpImage
                 src="/images/about-founder.jpg"
                 alt="Основательница KeyToHeart за работой"
                 fill
@@ -115,7 +116,7 @@ export default function AboutContent() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8 }}
             >
-              <Image
+              <WebpImage
                 src="/images/strawberry-flowers.jpg"
                 alt="Клубника в шоколаде и цветы"
                 fill

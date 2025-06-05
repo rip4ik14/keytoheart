@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import WebpImage from './WebpImage';
 import { motion } from 'framer-motion';
 
 type CustomerStory = {
@@ -120,7 +121,7 @@ export default function CustomerStories() {
               custom={index}
             >
               <div className="relative w-full h-48">
-                <Image
+                <WebpImage
                   src={imageSrc}
                   alt={`История от ${story.customer_name}`}
                   fill

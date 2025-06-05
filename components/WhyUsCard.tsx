@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import WebpImage from './WebpImage';
 
 export default function WhyUsCard({
   item,
@@ -19,7 +20,7 @@ export default function WhyUsCard({
         transition-all duration-300 ${marginClass}
       `}
     >
-      <Image
+       <WebpImage
         src={item.image}
         alt={item.title}
         fill

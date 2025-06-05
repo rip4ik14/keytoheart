@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import WebpImage from './WebpImage';
 
 interface CorporateGallerySliderProps {}
 
@@ -74,7 +75,7 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
             >
-              <Image
+              <WebpImage
                 src={src}
                 alt={`Корпоративный подарок ${index + 1}`}
                 width={320}

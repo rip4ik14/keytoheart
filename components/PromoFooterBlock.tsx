@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import WebpImage from './WebpImage';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -85,7 +86,7 @@ export default function PromoFooterBlock() {
             </Link>
           </div>
           <div className="w-full max-w-[300px] sm:max-w-[340px] aspect-square rounded-[20px] sm:rounded-[30px] overflow-hidden shadow-sm border border-[#ececec] bg-white">
-            <Image
+            <WebpImage
               src="/images/promo-loyalty.jpg"
               alt="Программа лояльности KeyToHeart"
               width={340}
@@ -140,7 +141,7 @@ export default function PromoFooterBlock() {
           <div className="grid grid-cols-2 gap-3 sm:gap-5 w-full max-w-[300px] sm:max-w-[340px]">
             {['promo-insta-1.jpg', 'promo-insta-2.jpg', 'promo-insta-3.jpg', 'promo-insta-4.jpg'].map((file, i) => (
               <div key={i} className="w-full aspect-square max-w-[140px] sm:max-w-[155px] rounded-[16px] sm:rounded-[22px] overflow-hidden border border-[#ececec] bg-white">
-                <Image
+                <WebpImage
                   src={`/images/${file}`}
                   alt={`Instagram пост KeyToHeart ${i + 1}`}
                   width={155}
