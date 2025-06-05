@@ -224,7 +224,7 @@ export default async function RootLayout({
 
         {/* Яндекс Метрика */}
         {ymId && (
-          <Script id="yandex-metrika" strategy="afterInteractive">
+          <Script id="yandex-metrika" strategy="lazyOnload">
             {`
               (function(m,e,t,r,i,k,a){
                 m[i]=m[i]||function(){
@@ -252,7 +252,7 @@ export default async function RootLayout({
 
         {/* Яндекс Турбо */}
         {ymId && (
-          <Script id="yandex-turbo" strategy="afterInteractive">
+          <Script id="yandex-turbo" strategy="lazyOnload">
             {`
               (function() {
                 var turboScript = document.createElement('script');
