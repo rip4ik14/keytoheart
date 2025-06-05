@@ -3,10 +3,25 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://gwbeabfkknhewwoesqax.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3YmVhYmZra25oZXd3b2Vz';
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+// We require SUPABASE_SERVICE_ROLE_KEY at runtime. If it's missing, the handler
+// will return an error response instead of using a fallback token.
+function getSupabase() {
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseKey) {
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export async function GET(req: Request) {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return NextResponse.json(
+      { success: false, error: 'SUPABASE_SERVICE_ROLE_KEY is not defined' },
+      { status: 500 }
+    );
+  }
   process.env.NODE_ENV !== "production" && console.log('GET /api/upsell/products: Request received');
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get('category_id');
