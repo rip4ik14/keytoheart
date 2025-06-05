@@ -213,7 +213,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     window.addEventListener('scroll', updatePos, { passive: true });
     return () => {
       window.removeEventListener('resize', updatePos);
-      window.removeEventListener('scroll', updatePos, { passive: true });
+      window.removeEventListener('scroll', updatePos);
     };
   }, [setCartIconPosition]);
 
