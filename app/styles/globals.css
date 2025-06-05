@@ -65,7 +65,7 @@
 
 /* Базовый стиль BODY */
 body {
-  font-family: 'Berold', sans-serif;
+  
   @apply bg-white text-black;
 }
 
@@ -76,7 +76,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Berold', sans-serif;
+  
   @apply font-bold text-black;
 }
 
@@ -602,12 +602,7 @@ footer a {
 }
 
 /* globals.css */
-@font-face {
-  font-family: 'MontserratMarquee';
-  src: url('/fonts/MontserratMarquee.woff2') format('woff2');
-  font-weight: 400 900;
-  font-display: swap;
-}
+
 
 .font-marquee {
   font-family: 'MontserratMarquee', 'Arial', sans-serif !important;
@@ -669,38 +664,3 @@ footer a {
 body, .marquee { -ms-overflow-style:none; scrollbar-width:none; }
 .marquee::-webkit-scrollbar { display:none; }
 
-@font-face {
-  font-family: 'Golos Text';
-  src: url('/fonts/golos-text_regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Golos Text';
-  src: url('/fonts/golos-text_medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Golos Text';
-  src: url('/fonts/golos-text_demibold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Golos Text';
-  src: url('/fonts/golos-text_bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Golos Text';
-  src: url('/fonts/golos-text_black.woff2') format('woff2');
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}

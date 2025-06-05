@@ -13,7 +13,11 @@ export async function GET(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+<<<<<<< HEAD
       process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+=======
+       process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+>>>>>>> d253a58 (Мои локальные правки перед pull)
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -62,8 +66,12 @@ export async function POST(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+<<<<<<< HEAD
       process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
+=======
+process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);      return NextResponse.json(
+>>>>>>> d253a58 (Мои локальные правки перед pull)
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
       );
@@ -91,8 +99,12 @@ export async function POST(request: Request) {
     }
 
     if (recentBonusActivity) {
+<<<<<<< HEAD
       process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Recent bonus activity found for phone ${sanitizedPhone}, skipping expiration`);
       return NextResponse.json({ success: true, expired: 0 });
+=======
+process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Recent bonus activity found for phone ${sanitizedPhone}, skipping expiration`);      return NextResponse.json({ success: true, expired: 0 });
+>>>>>>> d253a58 (Мои локальные правки перед pull)
     }
 
     const lastOrder = await prisma.orders.findFirst({
@@ -127,15 +139,23 @@ export async function POST(request: Request) {
             },
           });
 
+<<<<<<< HEAD
           process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Expired ${expired} bonuses for phone ${sanitizedPhone}`);
         }
+=======
+process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Expired ${expired} bonuses for phone ${sanitizedPhone}`);        }
+>>>>>>> d253a58 (Мои локальные правки перед pull)
       }
     }
 
     return NextResponse.json({ success: true, expired });
   } catch (error: any) {
+<<<<<<< HEAD
     process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in expire-bonuses:`, error);
     return NextResponse.json(
+=======
+process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in expire-bonuses:`, error);    return NextResponse.json(
+>>>>>>> d253a58 (Мои локальные правки перед pull)
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
     );

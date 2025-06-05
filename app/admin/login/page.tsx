@@ -16,7 +16,11 @@ function LoginContent() {
   const error = params.get('error');
 
   useEffect(() => {
+<<<<<<< HEAD
     process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} AdminLoginPage: Loaded with params`, {
+=======
+     process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} AdminLoginPage: Loaded with params`, {
+>>>>>>> d253a58 (Мои локальные правки перед pull)
       error,
       redirectTo,
     });
@@ -67,7 +71,11 @@ function LoginContent() {
     try {
       // Очищаем старую куку перед новым логином
       document.cookie = 'admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+<<<<<<< HEAD
       process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} AdminLoginPage: Cleared admin_session cookie before login`);
+=======
+       process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} AdminLoginPage: Cleared admin_session cookie before login`);
+>>>>>>> d253a58 (Мои локальные правки перед pull)
 
       const res = await fetch('/api/admin-login', {
         method: 'POST',

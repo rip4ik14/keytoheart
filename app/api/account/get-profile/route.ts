@@ -38,8 +38,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, name: userProfile.name || null });
   } catch (error: any) {
+<<<<<<< HEAD
     process.env.NODE_ENV !== "production" && console.error('Ошибка в get-profile:', error);
     return NextResponse.json(
+=======
+process.env.NODE_ENV !== "production" && console.error('Ошибка в get-profile:', error);    return NextResponse.json(
+>>>>>>> d253a58 (Мои локальные правки перед pull)
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
     );

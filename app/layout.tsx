@@ -265,7 +265,7 @@ export default async function RootLayout({
         )}
       </head>
 
-      <body className="bg-white font-sans">
+      <body className="font-sans">
         <CartAnimationProvider>
           <CartProvider>
             {/* Top Navigation */}
