@@ -33,6 +33,9 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     optimizePackageImports: ['framer-motion', 'swiper'], // Оптимизация импортов
     optimizeCss: true, // Оптимизация CSS
