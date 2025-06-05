@@ -549,14 +549,23 @@ export default function CartPageClient() {
     const fetchUpsellItems = async () => {
       setIsUpsellLoading(true);
       try {
-        const res = await fetch(`/api/upsell/categories?category=podarki&subcategories=balloons,cards`);
-        const { success, data, error } = await res.json();
-        if (isMounted && !success) throw new Error(error || 'Не удалось загрузить дополнительные товары');
+        const categoryId = 8;
+        const subcategoryIds = [173, 171];
+        const fetchPromises = subcategoryIds.map(async (subcategoryId) => {
+          const res = await fetch(`/api/upsell/products?category_id=${categoryId}&subcategory_id=${subcategoryId}`);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          const { success, data, error } = await res.json();
+          if (!success) throw new Error(error || 'Не удалось загрузить дополнительные товары');
+          return data || [];
+        });
+        const results = await Promise.all(fetchPromises);
         if (isMounted) {
-          const upsellWithQuantity = (data || []).map((item: Omit<UpsellItem, 'quantity'>) => ({
-            ...item,
-            quantity: 1,
-          }));
+          const upsellWithQuantity = results
+            .flat()
+            .map((item: Omit<UpsellItem, 'quantity'>) => ({
+              ...item,
+              quantity: 1,
+            }));
           setUpsellItems(upsellWithQuantity);
         }
       } catch (err: any) {
