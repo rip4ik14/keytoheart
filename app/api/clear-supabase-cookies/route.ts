@@ -15,7 +15,7 @@ export async function POST() {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error clearing Supabase cookies:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error clearing Supabase cookies:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

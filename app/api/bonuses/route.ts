@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    console.error('API /bonuses error:', error);
+    process.env.NODE_ENV !== "production" && console.error('API /bonuses error:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

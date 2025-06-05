@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     });
 
     if (!profile) {
-      console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Профиль с таким телефоном не найден' },
         { status: 404 }
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Проверяем, что events — массив
     if (!Array.isArray(events)) {
-      console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
       return NextResponse.json(
         { success: false, error: 'События должны быть переданы в виде массива' },
         { status: 400 }
@@ -62,10 +62,10 @@ export async function POST(request: Request) {
       await prisma.important_dates.createMany({ data: sanitizedEvents });
     }
 
-    console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
+    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       data: data || [],
     });
   } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
+    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

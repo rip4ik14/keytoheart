@@ -112,7 +112,7 @@ export default function CartPageClient() {
   try {
     cartContext = useCart();
   } catch (error) {
-    console.error('Cart context error:', error);
+    process.env.NODE_ENV !== "production" && console.error('Cart context error:', error);
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-red-500">Ошибка: Корзина недоступна. Пожалуйста, обновите страницу.</p>
@@ -255,7 +255,7 @@ export default function CartPageClient() {
           }
         }
       } catch (error) {
-        console.error('Error validating cart items:', error);
+        process.env.NODE_ENV !== "production" && console.error('Error validating cart items:', error);
         toast.error('Не удалось проверить товары в корзине.');
       }
     };
@@ -309,7 +309,7 @@ export default function CartPageClient() {
           addMultipleItems(updatedItems);
         }
       } catch (error) {
-        console.error('Error syncing cart prices:', error);
+        process.env.NODE_ENV !== "production" && console.error('Error syncing cart prices:', error);
         toast.error('Не удалось синхронизировать цены корзины');
       }
     };
@@ -340,7 +340,7 @@ export default function CartPageClient() {
           setStep(0);
         }
       } catch (err) {
-        console.error('Ошибка проверки сессии:', err);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка проверки сессии:', err);
         if (isMounted) setStep(0);
       }
     };
@@ -386,7 +386,7 @@ export default function CartPageClient() {
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
     const amount = promoType === 'percentage' ? (totalBeforeDiscounts * promoDiscount) / 100 : promoDiscount;
-    console.log('Calculating discountAmount:', {
+    process.env.NODE_ENV !== "production" && console.log('Calculating discountAmount:', {
       promoDiscount,
       promoType,
       totalBeforeDiscounts,
@@ -463,7 +463,7 @@ export default function CartPageClient() {
       script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
       script.onload = () => {
-        if (isMounted) console.log('Яндекс.Карты загружены');
+        if (isMounted) process.env.NODE_ENV !== "production" && console.log('Яндекс.Карты загружены');
       };
       script.onerror = () => {
         if (isMounted) toast.error('Не удалось загрузить автодополнение адресов');
@@ -589,19 +589,19 @@ export default function CartPageClient() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
       
-      console.log('handleApplyPromo: Result from API:', result);
+      process.env.NODE_ENV !== "production" && console.log('handleApplyPromo: Result from API:', result);
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
       setPromoId(result.promoId);
       setPromoError(null);
-      console.log('handleApplyPromo: State updated:', {
+      process.env.NODE_ENV !== "production" && console.log('handleApplyPromo: State updated:', {
         promoDiscount: result.discount,
         promoType: result.discountType,
         promoId: result.promoId,
       });
       toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
     } catch (error: any) {
-      console.error('handleApplyPromo: Error:', error);
+      process.env.NODE_ENV !== "production" && console.error('handleApplyPromo: Error:', error);
       setPromoError(error.message);
       toast.error(error.message);
     }

@@ -33,11 +33,11 @@ async function exportSlugMap() {
   }
 
   // 🔹 Вывод
-  console.log('\nconst RU_TITLES: Record<string, string> = {');
+  process.env.NODE_ENV !== "production" && console.log('\nconst RU_TITLES: Record<string, string> = {');
   Object.entries(result).forEach(([slug, name]) => {
-    console.log(`  '${slug}': '${name}',`);
+    process.env.NODE_ENV !== "production" && console.log(`  '${slug}': '${name}',`);
   });
-  console.log('};\n');
+  process.env.NODE_ENV !== "production" && console.log('};\n');
 }
 
 exportSlugMap();

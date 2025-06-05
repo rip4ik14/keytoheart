@@ -161,7 +161,7 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productError) {
-        console.error('Supabase error fetching products:', productError);
+        process.env.NODE_ENV !== "production" && console.error('Supabase error fetching products:', productError);
         return NextResponse.json(
           { error: 'Ошибка получения товаров: ' + productError.message },
           { status: 500 }
@@ -237,7 +237,7 @@ export async function POST(req: Request) {
           data: orderItems,
         });
       } catch (itemError: any) {
-        console.error('[order_items error]', itemError.message);
+        process.env.NODE_ENV !== "production" && console.error('[order_items error]', itemError.message);
       }
     }
 
@@ -325,11 +325,11 @@ ${upsellList}`;
       );
       if (!telegramResponse.ok) {
         telegramError = await telegramResponse.text();
-        console.error('[Telegram error]', telegramError);
+        process.env.NODE_ENV !== "production" && console.error('[Telegram error]', telegramError);
       }
     } catch (e: any) {
       telegramError = e.message;
-      console.error('[Telegram send error]', telegramError);
+      process.env.NODE_ENV !== "production" && console.error('[Telegram send error]', telegramError);
     }
 
     // Возвращаем всегда успех (даже если telegram/промо упали)
@@ -346,7 +346,7 @@ ${upsellList}`;
       promoError,
     });
   } catch (error: any) {
-    console.error('[ORDER API ERROR]', error, error?.stack);
+    process.env.NODE_ENV !== "production" && console.error('[ORDER API ERROR]', error, error?.stack);
     return NextResponse.json(
       { error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

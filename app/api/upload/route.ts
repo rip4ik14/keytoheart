@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ image_url });
   } catch (err: any) {
-    console.error('Ошибка загрузки изображения:', err);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки изображения:', err);
     return NextResponse.json({ error: 'Ошибка сервера: ' + err.message }, { status: 500 });
   }
 }

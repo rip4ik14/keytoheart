@@ -144,7 +144,7 @@ export default function CorporateForm() {
       window.gtag?.('event', 'corporate_form_submit', { event_category: 'corporate' });
       window.ym?.(96644553, 'reachGoal', 'corporate_form_submit');
     } catch (err: any) {
-      console.error('Error submitting form:', err);
+      process.env.NODE_ENV !== "production" && console.error('Error submitting form:', err);
       setError(err.message || 'Произошла ошибка при отправке заявки');
       toast.error(err.message || 'Ошибка отправки заявки');
     } finally {

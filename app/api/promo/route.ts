@@ -17,7 +17,7 @@ export async function GET() {
     .order('order_index');
 
   if (error) {
-    console.error('Supabase promo_blocks GET error:', error);
+    process.env.NODE_ENV !== "production" && console.error('Supabase promo_blocks GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('Supabase promo_blocks POST error:', err);
+    process.env.NODE_ENV !== "production" && console.error('Supabase promo_blocks POST error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('Supabase promo_blocks PATCH error:', err);
+    process.env.NODE_ENV !== "production" && console.error('Supabase promo_blocks PATCH error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -77,7 +77,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error('Supabase promo_blocks DELETE error:', err);
+    process.env.NODE_ENV !== "production" && console.error('Supabase promo_blocks DELETE error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -107,7 +107,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       );
       toast.success(`Статус заказа #${id} обновлён на «${newStatus}»`);
     } catch (e: any) {
-      console.error('Error updating status:', e);
+      process.env.NODE_ENV !== "production" && console.error('Error updating status:', e);
       setError(e.message);
       toast.error(e.message);
       if (/Unauthorized/i.test(e.message)) {
@@ -130,7 +130,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       setOrders((prev) => prev.filter((o) => o.id !== id));
       toast.success(`Заказ #${id} удалён`);
     } catch (e: any) {
-      console.error('Error deleting order:', e);
+      process.env.NODE_ENV !== "production" && console.error('Error deleting order:', e);
       setError(e.message);
       toast.error(e.message);
       if (/Unauthorized/i.test(e.message)) {

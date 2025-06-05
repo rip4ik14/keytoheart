@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const token = req.cookies.get('admin_session')?.value;
     if (!token) {
-      console.log('No session token provided');
+      process.env.NODE_ENV !== "production" && console.log('No session token provided');
       return NextResponse.json(
         { error: 'No session token provided' },
         { status: 401 }
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const isValidToken = await verifyAdminJwt(token);
     if (!isValidToken) {
-      console.log('Invalid session token');
+      process.env.NODE_ENV !== "production" && console.log('Invalid session token');
       return NextResponse.json(
         { error: 'Invalid session token' },
         { status: 401 }
@@ -23,12 +23,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    console.log('Received bonus update request body:', body);
+    process.env.NODE_ENV !== "production" && console.log('Received bonus update request body:', body);
 
     const { phone, delta, reason, user_id } = body;
 
     if (!phone || !delta || !reason || !user_id) {
-      console.log('Missing required fields:', { phone, delta, reason, user_id });
+      process.env.NODE_ENV !== "production" && console.log('Missing required fields:', { phone, delta, reason, user_id });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!currentBonus) {
-      console.log(`Bonuses not found for phone: ${phone}, creating new record`);
+      process.env.NODE_ENV !== "production" && console.log(`Bonuses not found for phone: ${phone}, creating new record`);
       await prisma.bonuses.create({
         data: {
           phone,
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const newBal = (currentBonus.bonus_balance || 0) + delta;
     if (newBal < 0) {
-      console.log('Balance cannot be negative:', newBal);
+      process.env.NODE_ENV !== "production" && console.log('Balance cannot be negative:', newBal);
       return NextResponse.json(
         { error: 'Balance cannot be negative' },
         { status: 400 }
@@ -79,10 +79,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log(`Successfully updated bonuses for phone: ${phone}, new balance: ${newBal}`);
+    process.env.NODE_ENV !== "production" && console.log(`Successfully updated bonuses for phone: ${phone}, new balance: ${newBal}`);
     return NextResponse.json({ success: true, newBalance: newBal });
   } catch (error: any) {
-    console.error('Error updating bonuses:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error updating bonuses:', error);
     return NextResponse.json(
       { error: 'Failed to update bonuses: ' + error.message },
       { status: 500 }

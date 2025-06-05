@@ -165,13 +165,13 @@ export default async function OccasionDetailPage({
       .eq("in_stock", true);
 
     if (error) {
-      console.error('Ошибка загрузки продуктов:', error.message || error);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки продуктов:', error.message || error);
       throw new Error('Ошибка загрузки продуктов из Supabase');
     }
 
     products = data;
   } catch (err) {
-    console.error('Не удалось загрузить продукты:', err);
+    process.env.NODE_ENV !== "production" && console.error('Не удалось загрузить продукты:', err);
     products = [];
   }
 

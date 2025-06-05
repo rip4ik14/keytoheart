@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       .gte('created_at', since);
 
     if (e1) {
-      console.error('Ошибка при проверке auth_logs:', e1);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка при проверке auth_logs:', e1);
     }
     if (Array.isArray(recent) && recent.length >= MAX) {
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
@@ -53,12 +53,12 @@ export async function POST(request: Request) {
     try {
       apiJson = JSON.parse(text);
     } catch {
-      console.error('Невалидный ответ SMS.ru:', text);
+      process.env.NODE_ENV !== "production" && console.error('Невалидный ответ SMS.ru:', text);
       return NextResponse.json({ success: false, error: 'Ошибка ответа от SMS-сервиса' }, { status: 500 });
     }
 
     if (apiJson.status !== 'OK') {
-      console.error('Ошибка SMS.ru:', apiJson);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка SMS.ru:', apiJson);
       return NextResponse.json({ success: false, error: 'Ошибка отправки SMS' }, { status: 500 });
     }
 
@@ -73,12 +73,12 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       });
     if (e2) {
-      console.error('Ошибка записи в auth_logs:', e2);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка записи в auth_logs:', e2);
     }
 
     return NextResponse.json({ success: true, check_id: apiJson.check_id || null });
   } catch (err: any) {
-    console.error('send-sms error:', err);
+    process.env.NODE_ENV !== "production" && console.error('send-sms error:', err);
     return NextResponse.json({ success: false, error: 'Серверная ошибка' }, { status: 500 });
   }
 }

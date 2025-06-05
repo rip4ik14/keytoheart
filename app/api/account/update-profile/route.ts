@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
   } catch (error: any) {
-    console.error('Ошибка в update-profile:', error);
+    process.env.NODE_ENV !== "production" && console.error('Ошибка в update-profile:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

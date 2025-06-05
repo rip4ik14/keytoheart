@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: products });
   } catch (error: any) {
-    console.error('Error validating products:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error validating products:', error);
     return NextResponse.json({ success: false, error: 'Ошибка проверки товаров' }, { status: 500 });
   }
 }

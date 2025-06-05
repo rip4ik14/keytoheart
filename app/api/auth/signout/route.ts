@@ -8,7 +8,7 @@ export async function POST() {
     response.cookies.delete('admin_session'); // Добавил также очистку admin_session, если такая есть
     return response;
   } catch (e: any) {
-    console.error('Server error:', e);
+    process.env.NODE_ENV !== "production" && console.error('Server error:', e);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

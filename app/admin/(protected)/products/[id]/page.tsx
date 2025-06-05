@@ -222,7 +222,7 @@ export default function EditProductPage() {
         .single();
 
       if (productError) {
-        console.error('Ошибка загрузки товара:', productError);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товара:', productError);
         toast.error('Ошибка загрузки товара: ' + productError.message);
         router.push('/admin/products');
         return;
@@ -241,7 +241,7 @@ export default function EditProductPage() {
         .eq('product_id', productId);
 
       if (categoryError) {
-        console.error('Ошибка загрузки категорий:', categoryError);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', categoryError);
         toast.error('Ошибка загрузки категорий: ' + categoryError.message);
         router.push('/admin/products');
         return;
@@ -256,7 +256,7 @@ export default function EditProductPage() {
         .eq('product_id', productId);
 
       if (subcategoryError) {
-        console.error('Ошибка загрузки подкатегорий:', subcategoryError);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки подкатегорий:', subcategoryError);
         toast.error('Ошибка загрузки подкатегорий: ' + subcategoryError.message);
         router.push('/admin/products');
         return;
@@ -402,7 +402,7 @@ export default function EditProductPage() {
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
-      console.log('Starting compression for file:', file.name, 'Size:', file.size, 'Type:', file.type);
+      process.env.NODE_ENV !== "production" && console.log('Starting compression for file:', file.name, 'Size:', file.size, 'Type:', file.type);
       new Compressor(file, {
         quality: 0.8,
         maxWidth: 1200,
@@ -410,11 +410,11 @@ export default function EditProductPage() {
         mimeType: 'image/webp',
         success(result) {
           const resultName = result instanceof File ? result.name : 'compressed-image.webp';
-          console.log('Compression successful:', resultName, 'Size:', result.size);
+          process.env.NODE_ENV !== "production" && console.log('Compression successful:', resultName, 'Size:', result.size);
           resolve(result as File);
         },
         error(err) {
-          console.error('Compression error:', err.message);
+          process.env.NODE_ENV !== "production" && console.error('Compression error:', err.message);
           reject(new Error('Ошибка сжатия изображения: ' + err.message));
         },
       });
@@ -482,10 +482,10 @@ export default function EditProductPage() {
       let imageUrls = [...existingImages];
       if (images.length > 0) {
         for (const image of images) {
-          console.log('Compressing image:', image.file.name);
+          process.env.NODE_ENV !== "production" && console.log('Compressing image:', image.file.name);
           const compressedImage = await compressImage(image.file);
           const fileName = `${uuidv4()}-${compressedImage.name}`;
-          console.log('Uploading image to Supabase:', fileName);
+          process.env.NODE_ENV !== "production" && console.log('Uploading image to Supabase:', fileName);
           const { data, error } = await supabase.storage
             .from('product-image')
             .upload(fileName, compressedImage);
@@ -500,7 +500,7 @@ export default function EditProductPage() {
 
           if (publicData?.publicUrl) {
             imageUrls.push(publicData.publicUrl);
-            console.log('Image uploaded:', publicData.publicUrl);
+            process.env.NODE_ENV !== "production" && console.log('Image uploaded:', publicData.publicUrl);
           } else {
             throw new Error('Не удалось получить публичный URL изображения');
           }
@@ -524,7 +524,7 @@ export default function EditProductPage() {
         order_index: product?.order_index ?? 0,
       };
 
-      console.log('Updating product with payload:', updatedProduct);
+      process.env.NODE_ENV !== "production" && console.log('Updating product with payload:', updatedProduct);
 
       const res = await fetch('/api/products', {
         method: 'PATCH',
@@ -546,11 +546,11 @@ export default function EditProductPage() {
         throw new Error(json.error || 'Ошибка обновления товара');
       }
 
-      console.log('Product updated successfully:', json);
+      process.env.NODE_ENV !== "production" && console.log('Product updated successfully:', json);
       toast.success('Товар успешно обновлён. Изменения в разделе "Популярное" появятся в течение 30 секунд.');
       router.push('/admin/products');
     } catch (err: any) {
-      console.error('Error updating product:', err);
+      process.env.NODE_ENV !== "production" && console.error('Error updating product:', err);
       toast.error('Ошибка: ' + err.message);
     } finally {
       setLoading(false);

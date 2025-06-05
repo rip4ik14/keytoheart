@@ -49,7 +49,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
         }
       } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
+        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки данных:', error);
         setError('Не удалось загрузить данные');
         toast.error('Не удалось загрузить данные');
       } finally {
@@ -122,7 +122,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
       window.ym?.(96644553, 'reachGoal', 'update_profile', { name: trimmedName });
     } catch (error: any) {
-      console.error('Ошибка обновления профиля:', error);
+      process.env.NODE_ENV !== "production" && console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');
       toast.error(error.message || 'Ошибка обновления данных');
     } finally {

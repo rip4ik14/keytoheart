@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, balance: newBalance });
   } catch (err: any) {
-    console.error('Error redeeming bonuses:', err);
+    process.env.NODE_ENV !== "production" && console.error('Error redeeming bonuses:', err);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + err.message },
       { status: 500 }

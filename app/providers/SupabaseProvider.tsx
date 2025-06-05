@@ -33,7 +33,7 @@ export default function SupabaseProvider({ children, initialUser }: SupabaseProv
       // Сессия должна быть уже установлена в браузере через cookies.
       client.auth.getSession().then(({ data: { session } }) => {
         if (!session) {
-          console.log(`[${new Date().toISOString()}] No active session for user:`, initialUser.id);
+          process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] No active session for user:`, initialUser.id);
         }
       });
     }

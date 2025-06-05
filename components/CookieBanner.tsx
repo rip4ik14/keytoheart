@@ -16,7 +16,7 @@ export default function CookieBanner() {
     try {
       hasAccepted = localStorage.getItem('cookieConsent');
     } catch (e) {
-      console.error('localStorage is not available:', e);
+      process.env.NODE_ENV !== "production" && console.error('localStorage is not available:', e);
     }
 
     if (!hasAccepted) {
@@ -35,7 +35,7 @@ export default function CookieBanner() {
       localStorage.setItem('analyticsCookies', 'true');
       localStorage.setItem('functionalCookies', 'true');
     } catch (e) {
-      console.error('Failed to set cookieConsent in localStorage:', e);
+      process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
     }
     setIsVisible(false);
     trackEvent({
@@ -54,7 +54,7 @@ export default function CookieBanner() {
       localStorage.setItem('analyticsCookies', analyticsCookies ? 'true' : 'false');
       localStorage.setItem('functionalCookies', functionalCookies ? 'true' : 'false');
     } catch (e) {
-      console.error('Failed to set cookie settings in localStorage:', e);
+      process.env.NODE_ENV !== "production" && console.error('Failed to set cookie settings in localStorage:', e);
     }
     setIsVisible(false);
     trackEvent({
@@ -74,7 +74,7 @@ export default function CookieBanner() {
       localStorage.setItem('analyticsCookies', 'false');
       localStorage.setItem('functionalCookies', 'false');
     } catch (e) {
-      console.error('Failed to set cookieConsent in localStorage:', e);
+      process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
     }
     setIsVisible(false);
     trackEvent({

@@ -160,7 +160,7 @@ export default function StatsClient({
       map.set(d, cur);
     });
     const result = Array.from(map.values());
-    console.log('Grouped Orders:', result); // Отладка
+    process.env.NODE_ENV !== "production" && console.log('Grouped Orders:', result); // Отладка
     return result;
   }, [filteredOrders]);
 

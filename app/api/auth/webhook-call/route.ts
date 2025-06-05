@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    console.log(`[${new Date().toISOString()}] Webhook received`);
+    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Webhook received`);
     // 1. Считываем form-data
     const formData = await request.formData();
     const entries = Object.fromEntries(formData.entries());
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
       const checkId = lines[1];
       const statusCode = lines[2];
-      console.log(
+      process.env.NODE_ENV !== "production" && console.log(
         `[${new Date().toISOString()}] Processing webhook: checkId=${checkId}, status=${statusCode}`
       );
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         where: { check_id: checkId },
       });
       if (!log) {
-        console.error(
+        process.env.NODE_ENV !== "production" && console.error(
           `[${new Date().toISOString()}] auth_logs record not found for check_id=${checkId}`
         );
         continue;
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         },
       });
 
-      console.log(
+      process.env.NODE_ENV !== "production" && console.log(
         `[${new Date().toISOString()}] auth_logs updated: check_id=${checkId}, status=${newStatus}`
       );
 
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
               updated_at: new Date(),
             },
           });
-          console.log(
+          process.env.NODE_ENV !== "production" && console.log(
             `[${new Date().toISOString()}] Created user_profiles for phone=${phone}`
           );
         }
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Webhook processed' });
   } catch (error: any) {
-    console.error(
+    process.env.NODE_ENV !== "production" && console.error(
       `[${new Date().toISOString()}] Error in webhook-call:`,
       error
     );

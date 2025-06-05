@@ -69,7 +69,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
         setBonusData(null);
       }
     } catch (error) {
-      console.error(`${new Date().toISOString()} AccountClient: Error checking session`, error);
+      process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} AccountClient: Error checking session`, error);
       setIsAuthenticated(false);
       setPhone('');
       setOrders([]);
@@ -117,7 +117,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       });
       const loyaltyResult = await loyaltyRes.json();
       if (!loyaltyRes.ok || !loyaltyResult.success) {
-        console.error('Failed to update loyalty:', loyaltyResult.error);
+        process.env.NODE_ENV !== "production" && console.error('Failed to update loyalty:', loyaltyResult.error);
       }
 
       // 3. Загружаем бонусы (после expire-bonuses и update-loyalty)

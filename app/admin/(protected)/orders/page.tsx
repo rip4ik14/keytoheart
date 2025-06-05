@@ -50,10 +50,10 @@ export default async function AdminOrdersPage() {
     });
     const result = await res.json();
     if (!res.ok || !result.success) {
-      console.error('Failed to clear Supabase cookies:', result.error);
+      process.env.NODE_ENV !== "production" && console.error('Failed to clear Supabase cookies:', result.error);
     }
   } catch (error: any) {
-    console.error('Error calling clear-supabase-cookies API:', error);
+    process.env.NODE_ENV !== "production" && console.error('Error calling clear-supabase-cookies API:', error);
   }
 
   // Проверка сессии
@@ -134,7 +134,7 @@ export default async function AdminOrdersPage() {
             : [],
     }));
   } catch (err: any) {
-    console.error('Error fetching orders:', err);
+    process.env.NODE_ENV !== "production" && console.error('Error fetching orders:', err);
     loadError = err?.message || 'Ошибка загрузки заказов';
   }
 

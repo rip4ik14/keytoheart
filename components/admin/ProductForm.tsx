@@ -52,7 +52,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
       .eq('is_visible', true);
 
     if (error) {
-      console.error('Error fetching categories:', error);
+      process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "production" && console.error('Error fetching categories:', error);
       return;
     }
 
@@ -66,7 +66,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
       .eq('is_visible', true);
 
     if (error) {
-      console.error('Error fetching subcategories:', error);
+      process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "production" && console.error('Error fetching subcategories:', error);
       return;
     }
 
@@ -81,7 +81,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
       .eq('product_id', product.id);
 
     if (error) {
-      console.error('Error fetching product categories:', error);
+      process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "production" && console.error('Error fetching product categories:', error);
       return;
     }
 
@@ -99,7 +99,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
       .eq('product_id', product.id);
 
     if (error) {
-      console.error('Error fetching product subcategories:', error);
+      process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "production" && console.error('Error fetching product subcategories:', error);
       return;
     }
 

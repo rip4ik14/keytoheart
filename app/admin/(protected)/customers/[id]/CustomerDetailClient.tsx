@@ -165,7 +165,7 @@ export default function CustomerDetailClient({ customer }: Props) {
     }
 
     try {
-      console.log('Sending bonus update request:', {
+      process.env.NODE_ENV !== "production" && console.log('Sending bonus update request:', {
         phone: customer.phone,
         delta,
         reason: bonusReason,
@@ -186,7 +186,7 @@ export default function CustomerDetailClient({ customer }: Props) {
       });
 
       const result = await response.json();
-      console.log('Bonus update response:', result);
+      process.env.NODE_ENV !== "production" && console.log('Bonus update response:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to update bonuses');
@@ -198,7 +198,7 @@ export default function CustomerDetailClient({ customer }: Props) {
       setBonusReason('');
       router.refresh();
     } catch (err: any) {
-      console.error('Error updating bonuses:', err);
+      process.env.NODE_ENV !== "production" && console.error('Error updating bonuses:', err);
       toast.error(err.message);
     }
   };

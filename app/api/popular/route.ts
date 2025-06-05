@@ -28,7 +28,7 @@ export async function GET() {
       .limit(10);
 
     if (error) {
-      console.error('Supabase error fetching popular products:', error);
+      process.env.NODE_ENV !== "production" && console.error('Supabase error fetching popular products:', error);
       return NextResponse.json(
         { error: 'Ошибка получения популярных товаров: ' + error.message },
         { status: 500 }
