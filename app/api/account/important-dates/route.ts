@@ -24,12 +24,9 @@ export async function POST(request: Request) {
     });
 
     if (!profile) {
-<<<<<<< HEAD
-      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== "production" &&
+        console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
       return NextResponse.json(
-=======
-process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);      return NextResponse.json(
->>>>>>> d253a58 (Мои локальные правки перед pull)
         { success: false, error: 'Профиль с таким телефоном не найден' },
         { status: 404 }
       );
@@ -37,12 +34,9 @@ process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOStrin
 
     // Проверяем, что events — массив
     if (!Array.isArray(events)) {
-<<<<<<< HEAD
-      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
+      process.env.NODE_ENV !== "production" &&
+        console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
       return NextResponse.json(
-=======
-process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);      return NextResponse.json(
->>>>>>> d253a58 (Мои локальные правки перед pull)
         { success: false, error: 'События должны быть переданы в виде массива' },
         { status: 400 }
       );
@@ -70,17 +64,13 @@ process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOStrin
       await prisma.important_dates.createMany({ data: sanitizedEvents });
     }
 
-<<<<<<< HEAD
-    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);
+    process.env.NODE_ENV !== "production" &&
+      console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
+    process.env.NODE_ENV !== "production" &&
+      console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
     return NextResponse.json(
-=======
-process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);    return NextResponse.json({ success: true });
-  } catch (error: any) {
-process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);    return NextResponse.json(
->>>>>>> d253a58 (Мои локальные правки перед pull)
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
     );
@@ -111,12 +101,9 @@ export async function GET(request: Request) {
       data: data || [],
     });
   } catch (error: any) {
-<<<<<<< HEAD
-    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
+    process.env.NODE_ENV !== "production" &&
+      console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
     return NextResponse.json(
-=======
-process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);    return NextResponse.json(
->>>>>>> d253a58 (Мои локальные правки перед pull)
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }
     );
