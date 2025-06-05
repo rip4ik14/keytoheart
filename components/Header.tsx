@@ -22,7 +22,7 @@ export default async function Header() {
     .order('id', { ascending: true });
 
   if (error) {
-    process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} Header: Error loading categories`, error);
+    process.env.NODE_ENV !== "production" && console.error(`${new Date().toISOString()} Header: Error loading categories`, error);
   }
 
   // Форматируем данные категорий
