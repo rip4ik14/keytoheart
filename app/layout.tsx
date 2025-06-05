@@ -266,6 +266,13 @@ export default async function RootLayout({
       </head>
 
       <body className="font-sans">
+        {/* Skip to main content link for accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only absolute left-2 top-2 z-50 bg-white text-black p-2"
+        >
+          Перейти к основному содержимому
+        </a>
         <CartAnimationProvider>
           <CartProvider>
             {/* Top Navigation */}
@@ -278,7 +285,7 @@ export default async function RootLayout({
             </Suspense>
 
             {/* Main Content */}
-            <main className="pt-12 sm:pt-14">{children}</main>
+            <main id="main-content" className="pt-12 sm:pt-14">{children}</main>
 
             {/* Promo block right above footer */}
             <PromoFooterBlock />
