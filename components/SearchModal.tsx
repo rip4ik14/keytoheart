@@ -236,11 +236,13 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                   className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                   aria-label={`Перейти к товару ${p.title}`}
                 >
-                  <img
+                  <Image
                     src={p.images?.[0] || '/no-image.png'}
                     alt={p.title}
                     className="w-10 h-10 object-cover rounded"
                     loading="lazy"
+                    width={40}
+                    height={40}
                   />
                   <div className="flex-1">
                     <span className="text-sm text-black">{p.title}</span>

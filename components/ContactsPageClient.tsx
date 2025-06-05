@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 import TrackedLink from '@components/TrackedLink';
 import ContactLink from '@components/ContactLink';
@@ -122,11 +123,14 @@ export default function ContactsPageClient() {
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <img
+          <Image
             src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.042147,45.059956&z=17&l=map&pt=39.042147,45.059956,pm2rdl"
             alt="Магазин Ключ к Сердцу на карте"
             className="w-full h-[320px] sm:h-[400px] object-cover"
             loading="lazy"
+            width={450}
+            height={450}
+            unoptimized
           />
           <div className="text-xs p-2 text-center text-gray-500 bg-white border-t">
             <a
