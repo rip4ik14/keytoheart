@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminJwt } from '@/lib/auth';
 
-<<<<<<< HEAD
 export async function GET(req: NextRequest) {
-  process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Incoming request to /api/admin-session:`, {
-=======
-export async function GET(req: NextRequest) {process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} Incoming request to /api/admin-session:`, {
->>>>>>> d253a58 (Мои локальные правки перед pull)
-    method: req.method,
-    headers: Object.fromEntries(req.headers),
-    cookies: req.cookies.getAll(),
-  });
+  process.env.NODE_ENV !== "production" &&
+    console.log(`${new Date().toISOString()} Incoming request to /api/admin-session:`, {
+      method: req.method,
+      headers: Object.fromEntries(req.headers),
+      cookies: req.cookies.getAll(),
+    });
 
   try {
     const token = req.cookies.get('admin_session')?.value;

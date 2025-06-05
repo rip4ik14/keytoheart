@@ -43,12 +43,9 @@ export async function POST(request: Request) {
     });
 
     if (recentActivity) {
-<<<<<<< HEAD
-      process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
+      process.env.NODE_ENV !== "production" &&
+        console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
       return NextResponse.json({ success: true, expired: 0, new_balance: bonusRow.bonus_balance });
-=======
-process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);      return NextResponse.json({ success: true, expired: 0, new_balance: bonusRow.bonus_balance });
->>>>>>> d253a58 (Мои локальные правки перед pull)
     }
 
     // Если недавней активности нет, проверяем начисления
