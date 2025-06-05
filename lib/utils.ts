@@ -1,4 +1,9 @@
-export function validateProduct(data: any): string | null {
+export interface ProductData {
+  title: string;
+  price: number;
+}
+
+export function validateProduct(data: ProductData): string | null {
   if (!data.title || data.title.length < 3) {
     return 'Название должно быть не короче 3 символов';
   }
