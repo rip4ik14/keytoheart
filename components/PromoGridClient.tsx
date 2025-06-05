@@ -3,8 +3,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
+import WebpImage from '@components/WebpImage';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/css';
@@ -79,7 +79,7 @@ export default function PromoGridClient({
                     title={b.title}
                   >
                     <div className="relative w-full h-full aspect-[3/2]">
-                      <Image
+                      <WebpImage
                         src={b.image_url}
                         alt={b.title}
                         fill
@@ -185,7 +185,7 @@ export default function PromoGridClient({
                     title={item.title}
                   >
                     <div className="relative w-full h-full aspect-[3/2]">
-                      <Image
+                      <WebpImage
                         src={item.image_url}
                         alt={item.title}
                         fill
@@ -301,7 +301,7 @@ export default function PromoGridClient({
                 title={c.title}
                 role="button"
               >
-                <Image
+                <WebpImage
                   src={c.image_url}
                   alt={c.title}
                   fill
