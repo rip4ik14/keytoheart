@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic } from '@/lib/supabase/client';
-import { slugify, validateProduct } from '@/lib/utils';
+import { slugify, validateProduct, type ProductData } from '@/lib/utils';
 import type { Tables } from '@/lib/supabase/types_new';
 import Image from 'next/image';
 
@@ -132,7 +132,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
     e.preventDefault();
     setError('');
 
-    const validationError = validateProduct(formData);
+    const validationError = validateProduct(formData as ProductData);
     if (validationError) {
       setError(validationError);
       return;
