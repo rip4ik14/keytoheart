@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import StoryViewer from '@components/StoryViewer';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import WebpImage from '@components/WebpImage';
@@ -28,6 +29,8 @@ export default function PromoGridClient({
   cards: Block[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   // Анимация текста
   const textVariants = {
@@ -52,7 +55,45 @@ export default function PromoGridClient({
       <h2 id="promo-grid-title" className="sr-only">
         Промо-блоки
       </h2>
+      {viewerIndex !== null && (
+        <StoryViewer
+          stories={banners}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        {/* Stories for mobile */}
+        <div className="lg:hidden">
+          <Swiper
+            direction="vertical"
+            autoplay={{ delay: 5000 }}
+            modules={[Autoplay]}
+            loop
+            className="w-full"
+            onAutoplayTimeLeft={(_, __, p) => setStoryProgress(p)}
+          >
+            {banners.map((s, i) => (
+              <SwiperSlide key={s.id}>
+                <div
+                  onClick={() => setViewerIndex(i)}
+                  className="relative w-full overflow-hidden rounded-2xl aspect-[9/16]"
+                  role="button"
+                  aria-label={s.title}
+                >
+                  <Image src={s.image_url} alt={s.title} fill className="object-cover" />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <span className="absolute bottom-2 left-2 text-white text-xs font-semibold line-clamp-1">
+                    {s.title}
+                  </span>
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+          <div className="h-1 w-full bg-white/30 mt-1">
+            <div className="h-full bg-white" style={{ width: `${storyProgress * 100}%` }} />
+          </div>
+        </div>
         {/* Баннеры/карточки для десктопа */}
         <motion.div
           className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
