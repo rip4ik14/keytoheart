@@ -210,10 +210,10 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
     updatePos();
     window.addEventListener('resize', updatePos);
-    window.addEventListener('scroll', updatePos);
+    window.addEventListener('scroll', updatePos, { passive: true });
     return () => {
       window.removeEventListener('resize', updatePos);
-      window.removeEventListener('scroll', updatePos);
+      window.removeEventListener('scroll', updatePos, { passive: true });
     };
   }, [setCartIconPosition]);
 
