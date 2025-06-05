@@ -480,24 +480,21 @@ export default function CartPageClient() {
     debounce((query: string) => {
       if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
       setIsLoadingSuggestions(true);
-      window.ymaps.ready(() => {
-        window.ymaps!
-          .suggest(query, {
+      window.ymaps.ready(async () => {
+        try {
+          const response = await window.ymaps!.suggest(query, {
             boundedBy: [[45.0, 38.9], [45.2, 39.1]],
             strictBounds: true,
             results: 5,
-          })
-          .then((response) => {
-            setAddressSuggestions(response.map((item: any) => item.value));
-            setShowSuggestions(true);
-          })
-          .catch(() => {
-            setAddressSuggestions([]);
-            setShowSuggestions(false);
-          })
-          .finally(() => {
-            setIsLoadingSuggestions(false);
           });
+          setAddressSuggestions(response.map((item: any) => item.value));
+          setShowSuggestions(true);
+        } catch {
+          setAddressSuggestions([]);
+          setShowSuggestions(false);
+        } finally {
+          setIsLoadingSuggestions(false);
+        }
       });
     }, 300),
     []
