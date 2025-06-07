@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '../layout';  
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import CSRFToken from '@components/CSRFToken';
@@ -200,8 +199,7 @@ export default function PromoCodesAdminPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <AdminLayout>
-      <CSRFToken>
+    <CSRFToken>
         {(csrfToken) => (
           <motion.div
             className="max-w-4xl mx-auto py-10 px-4"
@@ -428,6 +426,5 @@ export default function PromoCodesAdminPage() {
           </motion.div>
         )}
       </CSRFToken>
-    </AdminLayout>
   );
 }
