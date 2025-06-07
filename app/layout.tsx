@@ -269,6 +269,7 @@ export default async function RootLayout({
         {/* Skip to main content link for accessibility */}
         <a
           href="#main-content"
+          onClick={() => document.getElementById('main-content')?.focus()}
           className="sr-only focus:not-sr-only absolute left-2 top-2 z-50 bg-white text-black p-2"
         >
           Перейти к основному содержимому
@@ -285,7 +286,7 @@ export default async function RootLayout({
             </Suspense>
 
             {/* Main Content */}
-            <main id="main-content" className="pt-12 sm:pt-14">{children}</main>
+            <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">{children}</main>
 
             {/* Promo block right above footer */}
             <PromoFooterBlock />
