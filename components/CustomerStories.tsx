@@ -133,7 +133,7 @@ export default function CustomerStories() {
               <div className="p-4">
                 <p className="text-sm text-gray-600 mb-2 line-clamp-3">{story.review}</p>
                 <p className="text-sm font-semibold text-black">{story.customer_name}</p>
-                <p className="text-xs text-gray-400">{new Date(story.date).toLocaleDateString('ru-RU')}</p>
+                <p className="text-xs text-gray-600">{new Date(story.date).toLocaleDateString('ru-RU')}</p>
               </div>
             </motion.div>
           );

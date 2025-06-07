@@ -300,7 +300,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 >
                   +7 (988) 603-38-21
                 </a>
-                <span className="text-xs text-gray-400">с 08:00 до 22:00</span>
+                <span className="text-xs text-gray-600">с 08:00 до 22:00</span>
               </div>
               <div className="flex items-center gap-2">
                 <a
@@ -481,7 +481,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               </motion.div>
               <motion.button
                 onClick={() => setIsSearchOpen(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-black focus:ring-2 focus:ring-black"
+                className="absolute top-4 right-4 text-gray-600 hover:text-black focus:ring-2 focus:ring-black"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

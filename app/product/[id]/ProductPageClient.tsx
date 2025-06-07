@@ -458,7 +458,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 <span className="text-base sm:text-lg text-black font-medium ml-3 flex items-center gap-1">
                   + бонус {bonus}₽
                   <span
-                    className="ml-1 text-gray-400 cursor-pointer"
+                    className="ml-1 text-gray-600 cursor-pointer"
                     title="Бонус за оплату заказа, начисляется на бонусный счёт клиента"
                   >ⓘ</span>
                 </span>

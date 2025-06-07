@@ -71,7 +71,7 @@ export default function CartItem({
               <motion.button
                 onClick={handleMinus}
                 disabled={item.quantity <= 1}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-black transition disabled:opacity-50"
+                className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-black transition disabled:opacity-50"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 aria-label="Уменьшить количество"
@@ -82,7 +82,7 @@ export default function CartItem({
               <span className="px-3 text-base">{item.quantity}</span>
               <motion.button
                 onClick={handlePlus}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-black transition"
+                className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-black transition"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 aria-label="Увеличить количество"
@@ -94,7 +94,7 @@ export default function CartItem({
           )}
           <motion.button
             onClick={handleRemove}
-            className="text-gray-400 hover:text-red-500 transition ml-2"
+            className="text-gray-600 hover:text-red-500 transition ml-2"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             aria-label="Удалить товар из корзины"

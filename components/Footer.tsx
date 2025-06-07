@@ -72,7 +72,7 @@ export default function Footer({ categories }: FooterProps) {
           >
             Рейтинг на Яндекс.Картах
           </a>
-          <p className="text-xs text-gray-400 mt-4">© 2025 KeyToHeart. Все права защищены.</p>
+          <p className="text-xs text-gray-600 mt-4">© 2025 KeyToHeart. Все права защищены.</p>
           <div className="mt-2 space-y-1">
             <Link
               href="/policy"
@@ -283,7 +283,7 @@ export default function Footer({ categories }: FooterProps) {
       {/* СЕРЫЙ блок о разработчике */}
       <div className="border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="text-xs text-gray-400 font-mono">
+          <span className="text-xs text-gray-600 font-mono">
             Разработчик: Рыбалко Денис
           </span>
           <a

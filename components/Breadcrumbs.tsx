@@ -224,7 +224,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
           {crumbs.map((c, i) => (
             <Fragment key={c.href}>
               {i > 0 && (
-                <span aria-hidden="true" className="mx-1 text-gray-400">
+                <span aria-hidden="true" className="mx-1 text-gray-500">
                   /
                 </span>
               )}
@@ -282,7 +282,7 @@ function SubcategoryCrumb({ categories }: { categories: Category[] }) {
     if (subcategory) {
       return (
         <li role="listitem" className="flex gap-2">
-          <span aria-hidden="true" className="mx-1 text-gray-400">/</span>
+          <span aria-hidden="true" className="mx-1 text-gray-500">/</span>
           <span className="text-black font-medium" aria-current="page">
             {subcategory.name}
           </span>

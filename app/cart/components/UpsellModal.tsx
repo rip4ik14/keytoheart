@@ -88,7 +88,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
         >
           <motion.button
             onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl focus:outline-none focus:ring-2 focus:ring-black"
+            className="absolute top-4 right-4 text-gray-600 hover:text-black text-2xl focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Закрыть модальное окно"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
