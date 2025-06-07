@@ -42,13 +42,13 @@ export default function BurgerMenu() {
     };
 
     if (menu) {
-      menu.addEventListener('touchstart', onTouchStart);
-      menu.addEventListener('touchend', onTouchEnd);
+      menu.addEventListener('touchstart', onTouchStart, { passive: true });
+      menu.addEventListener('touchend', onTouchEnd, { passive: true });
     }
     return () => {
       if (menu) {
-        menu.removeEventListener('touchstart', onTouchStart);
-        menu.removeEventListener('touchend', onTouchEnd);
+        menu.removeEventListener('touchstart', onTouchStart, { passive: true });
+        menu.removeEventListener('touchend', onTouchEnd, { passive: true });
       }
     };
   }, []);
