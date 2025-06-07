@@ -49,7 +49,6 @@ export default function TrackedLink({
         aria-label={ariaLabel}
         target={target}
         rel={rel}
-        role="link"
         onClick={handleClick}
       >
         {children}
