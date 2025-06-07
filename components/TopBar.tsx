@@ -15,7 +15,7 @@ export default function TopBar() {
         <div className="relative">
           <div
             className="animate-marquee flex w-max whitespace-nowrap text-sm py-2"
-            role="marquee"
+            aria-roledescription="marquee"
             aria-label="Информационная панель"
           >
             {[...Array(30)].flatMap((_, i) =>
