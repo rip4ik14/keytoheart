@@ -162,7 +162,7 @@ export default async function RootLayout({
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-        <link rel="preload" href="/og-cover.jpg" as="image" />
+        <link rel="preload" href="/og-cover.jpg" as="image" crossOrigin="anonymous" />
         {/* === Preconnect для ускорения загрузки Supabase CDN === */}
         <link
           rel="preconnect"

@@ -133,14 +133,14 @@ export default function CategoryPageClient({
           transition={{ duration: 0.5 }}
           aria-label="Список товаров"
         >
-          {filteredProducts.map((p) => (
+          {filteredProducts.map((p, idx) => (
             <motion.div
               key={p.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <ProductCard product={p} />
+              <ProductCard product={p} priority={idx < 2} />
             </motion.div>
           ))}
         </motion.div>
