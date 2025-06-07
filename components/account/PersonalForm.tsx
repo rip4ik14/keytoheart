@@ -25,6 +25,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [receiveOffers, setReceiveOffers] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [isBirthdaySet, setIsBirthdaySet] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -44,6 +45,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           setLastName(profileData.last_name || '');
           setEmail(profileData.email || '');
           setBirthday(profileData.birthday || '');
+          setIsBirthdaySet(!!profileData.birthday);
           setReceiveOffers(profileData.receive_offers || false);
         } else {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
@@ -117,6 +119,9 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       }
 
       toast.success('Данные успешно обновлены');
+      if (birthday) {
+        setIsBirthdaySet(true);
+      }
       await onUpdate();
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
@@ -216,8 +221,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               onChange={(e) => setBirthday(e.target.value)}
               className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
               aria-label="Введите вашу дату рождения"
-              disabled={isLoading}
+              disabled={isLoading || isBirthdaySet}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Дата рождения указывается один раз и не может быть изменена.
+            </p>
           </div>
           <div className="flex items-center">
             <input
