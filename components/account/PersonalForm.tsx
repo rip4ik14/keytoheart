@@ -18,7 +18,7 @@ interface ProfileData {
 }
 
 export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
-  const [name, setName] = useState<string>('Денис');
+  const [name, setName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [birthday, setBirthday] = useState<string>('');
@@ -40,7 +40,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         const data = await res.json();
         if (data.success && data.data) {
           const profileData: ProfileData = data.data;
-          setName(profileData.name || 'Денис');
+          setName(profileData.name || '');
           setLastName(profileData.last_name || '');
           setEmail(profileData.email || '');
           setBirthday(profileData.birthday || '');
