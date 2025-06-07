@@ -1,6 +1,10 @@
 // lib/auth.ts
 import jwt from 'jsonwebtoken';
-const JWT_SECRET = process.env.JWT_SECRET!;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable must be defined');
+}
 
 export async function signAdminJwt(): Promise<string> {
   process.env.NODE_ENV !== "production" && console.log(`${new Date().toISOString()} signAdminJwt: Using JWT_SECRET`, { secret: JWT_SECRET });
