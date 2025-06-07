@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Корпоративные подарки от KeyToHeart',
     description: 'Уникальные подарки для коллег и партнёров.',
-    images: [{ url: '/og-cover.jpg', width: 1200, height: 630 }],
+    images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
     url: 'https://keytoheart.ru/corporate',
     type: 'website',
   },
