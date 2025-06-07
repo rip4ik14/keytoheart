@@ -5,7 +5,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import PromoGrid from '@components/PromoGrid';
 import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
-// import PopularProductsServer from '@components/PopularProductsServer';
+import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewWrapper from '@components/CategoryPreviewWrapper';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
@@ -186,15 +186,9 @@ export default async function Home() {
       <section>
         <PromoGrid />
       </section>
-      {/**
-       * Temporarily disable popular products for Lighthouse testing.
-       * Uncomment the section below to restore popular products.
-       */}
-      {/*
       <section>
         <PopularProductsServer />
       </section>
-      */}
       {/* AdvantagesServer убираем если используем AdvantagesClient */}
       <section aria-label="Категории товаров">
         {products.length === 0 ? (
