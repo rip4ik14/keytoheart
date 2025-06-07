@@ -3,7 +3,9 @@ import { Product } from '@/types/product';
 
 export default async function PopularProductsServer() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://keytoheart.ru';
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const res = await fetch(`${baseUrl}/api/popular`, { next: { revalidate: 60 } });
     if (!res.ok) {
       if (process.env.NODE_ENV !== 'production') {
