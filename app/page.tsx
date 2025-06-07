@@ -5,7 +5,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import PromoGrid from '@components/PromoGrid';
 import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
-import PopularProducts from '@components/PopularProducts';
+import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
@@ -187,7 +187,7 @@ export default async function Home() {
         <PromoGrid />
       </section>
       <section>
-        <PopularProducts />
+        <PopularProductsServer />
       </section>
       {/* AdvantagesServer убираем если используем AdvantagesClient */}
       <section aria-label="Категории товаров">
