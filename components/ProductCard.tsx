@@ -10,7 +10,13 @@ import toast from 'react-hot-toast';
 import { Star, ShoppingCart } from 'lucide-react';
 import type { Product } from '@/types/product';
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   /* ----------------------- state & refs ----------------------- */
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
@@ -109,6 +115,7 @@ export default function ProductCard({ product }: { product: Product }) {
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
           sizes="(max-width: 640px) 100vw, 280px"
           loading="lazy"
+          priority={priority}
         />
         {!isMobile && images.length > 1 && (
           <div className="absolute left-1/2 bottom-2 -translate-x-1/2 flex gap-1 z-10">

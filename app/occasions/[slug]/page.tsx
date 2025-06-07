@@ -224,8 +224,8 @@ export default async function OccasionDetailPage({
         products.length > 0 ? (
           <AnimatedSection>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {products.map((product, idx) => (
+                <ProductCard key={product.id} product={product} priority={idx < 2} />
               ))}
             </div>
           </AnimatedSection>

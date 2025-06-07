@@ -10,8 +10,7 @@ import WhyUsMarquee from '@components/WhyUsMarquee';
 import Link from 'next/link';
 
 const TypeAnimation = dynamic(
-  () => import('react-type-animation').then((mod) => mod.TypeAnimation),
-  { ssr: false }
+  () => import('react-type-animation').then((mod) => mod.TypeAnimation)
 );
 
 export default function AboutContent() {

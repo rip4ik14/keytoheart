@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-const PromoGridClient = dynamic(() => import('@components/PromoGridClient'), { ssr: false });
+const PromoGridClient = dynamic(() => import('@components/PromoGridClient'));
 
 interface Block {
   id: number;
