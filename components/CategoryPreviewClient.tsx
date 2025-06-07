@@ -8,10 +8,12 @@ export default function CategoryPreviewClient({
   categoryName,
   products,
   seeMoreLink,
+  headingId,
 }: {
   categoryName: string;
   products: Product[];
   seeMoreLink: string;
+  headingId: string;
 }) {
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
@@ -23,10 +25,10 @@ export default function CategoryPreviewClient({
   return (
     <section
       className="max-w-7xl mx-auto px-4 py-12"
-      aria-labelledby="category-preview-title"
+      aria-labelledby={headingId}
     >
       <h2
-        id="category-preview-title"
+        id={headingId}
         className="text-2xl md:text-3xl font-bold text-center mb-8 font-sans uppercase"
       >
         {categoryName}
