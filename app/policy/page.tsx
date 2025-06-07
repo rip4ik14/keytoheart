@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     siteName: 'KeyToHeart',
     images: [
       {
-        url: 'https://keytoheart.ru/og-cover.jpg',
+        url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
         alt: 'KeyToHeart — политика конфиденциальности',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Политика конфиденциальности | KeyToHeart',
     description: 'Как KeyToHeart защищает ваши персональные данные.',
-    images: ['https://keytoheart.ru/og-cover.jpg'],
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/policy' },
 };

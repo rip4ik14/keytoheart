@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     siteName: 'KeyToHeart',
     images: [
       {
-        url: 'https://keytoheart.ru/og-cover.jpg',
+        url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
         alt: 'Программа лояльности KeyToHeart',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Программа лояльности | KeyToHeart',
     description: 'Получайте кешбэк до 15% за заказы.',
-    images: ['https://keytoheart.ru/og-cover.jpg'],
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/loyalty' },
 };

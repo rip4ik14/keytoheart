@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     title: 'KeyToHeart — Клубничные букеты и подарки',
     description: 'Закажите уникальные композиции с доставкой по Краснодару.',
     url: 'https://keytoheart.ru',
-    images: [{ url: '/og-cover.jpg', width: 1200, height: 630 }],
+    images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
 };

@@ -91,11 +91,11 @@ export const metadata: Metadata = {
       'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
     images: [
       {
-        url: '/og-cover.jpg',
+        url: '/og-cover.webp',
         width: 1200,
         height: 630,
         alt: 'KeyToHeart — клубничные букеты и подарки в Краснодаре',
-        type: 'image/jpeg',
+        type: 'image/webp',
       },
     ],
   },
@@ -104,7 +104,7 @@ export const metadata: Metadata = {
     title: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
     description:
       'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
-    images: ['/og-cover.jpg'],
+    images: ['/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
@@ -162,7 +162,7 @@ export default async function RootLayout({
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-        <link rel="preload" href="/og-cover.jpg" as="image" crossOrigin="anonymous" />
+        <link rel="preload" href="/og-cover.webp" as="image" crossOrigin="anonymous" />
         {/* === Preconnect для ускорения загрузки Supabase CDN === */}
         <link
           rel="preconnect"

@@ -51,7 +51,7 @@ export async function generateMetadata({
       title: product.title,
       description: productDescription ?? 'Купите клубничный букет с доставкой по Краснодару.',
       url: `https://keytoheart.ru/product/${id}`,
-      images: [{ url: '/og-cover.jpg', width: 1200, height: 630 }],
+      images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
     },
     alternates: { canonical: `https://keytoheart.ru/product/${id}` },
   };
