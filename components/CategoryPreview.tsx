@@ -9,6 +9,7 @@ interface Props {
   products: Product[];
   seeMoreLink: string;
   isVisible: boolean; // Добавляем параметр isVisible
+  headingId: string; // ID заголовка для aria
 }
 
 export default function CategoryPreview({
@@ -16,6 +17,7 @@ export default function CategoryPreview({
   products,
   seeMoreLink,
   isVisible,
+  headingId,
 }: Props) {
   // Если категория не видима, не отображаем её
   if (!isVisible) {
@@ -32,10 +34,10 @@ export default function CategoryPreview({
   return (
     <section
       className="max-w-7xl mx-auto px-4 py-12"
-      aria-labelledby="category-preview-title"
+      aria-labelledby={headingId}
     >
       <h2
-        id="category-preview-title"
+        id={headingId}
         className="text-2xl md:text-3xl font-bold text-center mb-8"
       >
         {categoryName}

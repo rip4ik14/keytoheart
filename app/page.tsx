@@ -210,6 +210,7 @@ export default async function Home() {
                   categoryName={category}
                   products={items}
                   seeMoreLink={slug}
+                  headingId={`category-preview-${slug || idx}`}
                 />
                 {/* Преимущества после первой категории */}
                 {idx === 0 && <AdvantagesClient />}
