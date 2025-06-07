@@ -3,7 +3,8 @@
 import CategoryPreviewClient from '@components/CategoryPreviewClient';
 import { Product } from '@/types/product'; // Импортируем тип Product
 
-export default function CategoryPreviewServer({
+// Wrapper component for CategoryPreviewClient
+export default function CategoryPreviewWrapper({
   categoryName,
   products,
   seeMoreLink,

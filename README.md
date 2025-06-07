@@ -44,3 +44,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 Without this value the `/api/upsell/products` endpoint will return an error.
+
+## Components
+
+### CategoryPreviewWrapper
+
+`CategoryPreviewWrapper` is a thin client wrapper around `CategoryPreviewClient` that prepares product data. The file lives in `components/CategoryPreviewWrapper.tsx` and includes the `'use client'` directive.
