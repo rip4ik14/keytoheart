@@ -64,7 +64,7 @@ export default function PaymentPageClient() {
                 width={24}
                 height={24}
                 className="flex-shrink-0"
-                loading="lazy"
+                loading="eager"
                 sizes="(max-width: 640px) 24px, 24px"
               />
               <div>
@@ -86,7 +86,7 @@ export default function PaymentPageClient() {
               width={24}
               height={24}
               className="flex-shrink-0"
-              loading="lazy"
+              loading="eager"
               sizes="(max-width: 640px) 24px, 24px"
             />
             <div>
