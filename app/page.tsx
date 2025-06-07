@@ -206,7 +206,7 @@ export default async function Home() {
 
             return (
               <React.Fragment key={category}>
-                <CategoryPreviewServer
+                <CategoryPreviewWrapper
                   categoryName={category}
                   products={items}
                   seeMoreLink={slug}
