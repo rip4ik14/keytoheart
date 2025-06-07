@@ -257,7 +257,7 @@ export default async function RootLayout({
             {`
               (function() {
                 var turboScript = document.createElement('script');
-                turboScript.src = 'https://cdn.turbo.yandex.ru/turbo.js';
+                turboScript.src = 'https://yastatic.net/s3/turbo-widget/v3/turbo.esm.min.js';
                 turboScript.async = true;
                 document.head.appendChild(turboScript);
               })();
