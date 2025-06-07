@@ -216,7 +216,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
 
             return (
               <li key={cat.id} className="flex items-center">
-                <div className="group inline-block">
+                <div className="group relative inline-block">
                   <Link
                     href={href}
                     className={`px-2 py-1 text-sm font-medium transition-colors ${

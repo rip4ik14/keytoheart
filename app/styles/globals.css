@@ -629,14 +629,7 @@ footer a {
   scrollbar-width: none;
 }
 
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE и Edge */
-  scrollbar-width: none;     /* Firefox */
-  overflow: hidden !important; /* Принудительно скрыть любые скроллы */
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;             /* Safari и Chrome */
-}
+
 
 /* globals.css */
 /* ===== Бесконечные бегущие строки  ===== */

@@ -18,10 +18,11 @@ interface ProfileData {
 }
 
 export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
-  const [name, setName] = useState<string>('Денис');
+  const [name, setName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [birthday, setBirthday] = useState<string>('');
+  const [birthdayLocked, setBirthdayLocked] = useState<boolean>(false);
   const [receiveOffers, setReceiveOffers] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -40,10 +41,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         const data = await res.json();
         if (data.success && data.data) {
           const profileData: ProfileData = data.data;
-          setName(profileData.name || 'Денис');
+          setName(profileData.name || '');
           setLastName(profileData.last_name || '');
           setEmail(profileData.email || '');
           setBirthday(profileData.birthday || '');
+          setBirthdayLocked(!!profileData.birthday);
           setReceiveOffers(profileData.receive_offers || false);
         } else {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
@@ -118,6 +120,9 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
       toast.success('Данные успешно обновлены');
       await onUpdate();
+      if (birthday && !birthdayLocked) {
+        setBirthdayLocked(true);
+      }
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
       window.ym?.(96644553, 'reachGoal', 'update_profile', { name: trimmedName });
@@ -216,7 +221,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               onChange={(e) => setBirthday(e.target.value)}
               className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
               aria-label="Введите вашу дату рождения"
-              disabled={isLoading}
+              disabled={isLoading || birthdayLocked}
             />
           </div>
           <div className="flex items-center">

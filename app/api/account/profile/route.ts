@@ -73,6 +73,11 @@ export async function POST(request: Request) {
     const sanitizedEmail = sanitizeHtml(email || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedBirthday = sanitizeHtml(birthday || '', { allowedTags: [], allowedAttributes: {} });
 
+    const existingProfile = await prisma.user_profiles.findUnique({
+      where: { phone: normalizedPhone },
+      select: { birthday: true },
+    });
+
     // upsert: если профиль есть — обновляем, если нет — создаём
     await prisma.user_profiles.upsert({
       where: { phone: normalizedPhone },
@@ -80,9 +85,9 @@ export async function POST(request: Request) {
         name: sanitizedName || null,
         last_name: sanitizedLastName || null,
         email: sanitizedEmail || null,
-        birthday: sanitizedBirthday || null,
         receive_offers: receive_offers ?? false,
         updated_at: new Date().toISOString(),
+        ...(existingProfile?.birthday ? {} : { birthday: sanitizedBirthday || null }),
       },
       create: {
         phone: normalizedPhone,
