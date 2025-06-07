@@ -91,7 +91,7 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
         >
           <motion.button
             onClick={onClose}
-            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-black p-1"
+            className="absolute right-4 top-4 text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-black p-1"
             aria-label="Закрыть модальное окно"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}

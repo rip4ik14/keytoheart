@@ -93,7 +93,7 @@ export default function Step2RecipientDetails({
           Имя получателя <span className="text-red-500">*</span>
         </label>
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
             <Image src="/icons/user.svg" alt="Имя" width={16} height={16} />
           </div>
           <input

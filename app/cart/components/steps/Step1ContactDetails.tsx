@@ -52,7 +52,7 @@ export default function Step1ContactDetails({
           Телефон
         </label>
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
             <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} loading="lazy" />
           </div>
           <input
@@ -83,7 +83,7 @@ export default function Step1ContactDetails({
           Ваше имя
         </label>
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
             <Image src="/icons/user.svg" alt="Имя" width={16} height={16} loading="lazy" />
           </div>
           <input
@@ -113,7 +113,7 @@ export default function Step1ContactDetails({
           E-mail (необязательно)
         </label>
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
             <Image src="/icons/envelope.svg" alt="Email" width={16} height={16} loading="lazy" />
           </div>
           <input
