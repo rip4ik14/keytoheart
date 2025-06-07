@@ -114,7 +114,7 @@ export default function ProductCard({
           fill
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
           sizes="(max-width: 640px) 100vw, 280px"
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
           priority={priority}
         />
         {!isMobile && images.length > 1 && (

@@ -127,7 +127,7 @@ export default function ContactsPageClient() {
             src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.042147,45.059956&z=17&l=map&pt=39.042147,45.059956,pm2rdl"
             alt="Магазин Ключ к Сердцу на карте"
             className="w-full h-[320px] sm:h-[400px] object-cover"
-            loading="lazy"
+            loading="eager"
             width={450}
             height={450}
             unoptimized

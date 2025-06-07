@@ -310,7 +310,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   aria-label="Перейти в WhatsApp"
                   rel="nofollow"
                 >
-                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="lazy" />
+                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="eager" />
                 </a>
                 <a
                   href="https://t.me/keytomyheart"
@@ -319,7 +319,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   aria-label="Перейти в Telegram"
                   rel="nofollow"
                 >
-                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} loading="lazy" />
+                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} loading="eager" />
                 </a>
               </div>
             </div>
@@ -340,7 +340,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 width={20}
                 height={20}
                 className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7"
-                loading="lazy"
+                loading="eager"
               />
             </button>
 
@@ -357,7 +357,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     width={20}
                     height={20}
                     className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
-                    loading="lazy"
+                    loading="eager"
                   />
                   <div className="hidden md:flex items-center gap-2">
                     {bonus !== null && bonus >= 0 && (
@@ -412,7 +412,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   width={20}
                   height={20}
                   className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
-                  loading="lazy"
+                  loading="eager"
                 />
                 <span className="hidden md:inline">Вход</span>
               </Link>
@@ -432,7 +432,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   width={20}
                   height={20}
                   className={`w-5 h-5 fill-current md:w-7 md:h-7 ${totalItems > 0 ? 'text-rose-500' : 'text-gray-900'}`}
-                  loading="lazy"
+                  loading="eager"
                 />
                 {totalItems > 0 && (
                   <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center shadow-sm border border-white md:-top-2 md:-right-2">
@@ -488,7 +488,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 transition={{ duration: 0.2, delay: 0.1 }}
                 aria-label="Закрыть поиск"
               >
-                <Image src="/icons/x.svg" alt="Закрыть" width={24} height={24} loading="lazy" />
+                <Image src="/icons/x.svg" alt="Закрыть" width={24} height={24} loading="eager" />
               </motion.button>
             </div>
           </motion.div>

@@ -41,7 +41,7 @@ export default function DostavkaPageClient() {
                 alt="Доставка клубничных букетов по Краснодару"
                 fill
                 className="object-cover rounded-lg"
-                loading="lazy"
+                loading="eager"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
@@ -93,7 +93,7 @@ export default function DostavkaPageClient() {
                 alt="Самовывоз клубничных букетов в Краснодаре"
                 fill
                 className="object-cover rounded-lg"
-                loading="lazy"
+                loading="eager"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
