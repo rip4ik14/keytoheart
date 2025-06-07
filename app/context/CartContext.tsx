@@ -32,7 +32,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('cart');
     if (saved) {
       try {
-        setItems(JSON.parse(saved));
+        const parsed: CartItem[] = JSON.parse(saved);
+        setItems(
+          Array.isArray(parsed)
+            ? parsed.map((item) => ({ ...item, id: String(item.id) }))
+            : []
+        );
       } catch {
         localStorage.removeItem('cart');
       }
@@ -45,10 +50,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (item: CartItem) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => String(i.id) === String(item.id));
       if (existing) {
         const updatedItems = prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
+          String(i.id) === String(item.id)
+            ? { ...i, quantity: i.quantity + item.quantity }
+            : i
         );
         toast.success(`${item.title} обновлён в корзине (x${existing.quantity + item.quantity})`);
         window.gtag?.('event', 'update_cart_item', {
@@ -68,7 +75,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         item_id: item.id,
       });
       window.ym?.(96644553, 'reachGoal', 'add_to_cart', { item_id: item.id });
-      return [...prev, item];
+      return [...prev, { ...item, id: String(item.id) }];
     });
   };
 
@@ -76,7 +83,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const updated = [...prev];
       newItems.forEach((newItem) => {
-        const index = updated.findIndex((i) => i.id === newItem.id);
+        const index = updated.findIndex(
+          (i) => String(i.id) === String(newItem.id)
+        );
         if (index !== -1) {
           updated[index].quantity += newItem.quantity;
           toast.success(`${newItem.title} обновлён в корзине (x${updated[index].quantity})`);
@@ -90,7 +99,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             quantity: updated[index].quantity,
           });
         } else {
-          updated.push(newItem);
+          updated.push({ ...newItem, id: String(newItem.id) });
           toast.success(`${newItem.title} добавлен в корзину`);
           window.gtag?.('event', 'add_to_cart', {
             event_category: 'cart',
@@ -105,7 +114,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = (id: string) => {
     setItems((prev) => {
-      const item = prev.find((i) => i.id === id);
+      const item = prev.find((i) => String(i.id) === String(id));
       if (item) {
         toast.success(`${item.title} удалён из корзины`);
         window.gtag?.('event', 'remove_from_cart', {
@@ -114,13 +123,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
         window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
       }
-      return prev.filter((item) => item.id !== id);
+      return prev.filter((item) => String(item.id) !== String(id));
     });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
     setItems((prev) => {
-      const item = prev.find((i) => i.id === id);
+      const item = prev.find((i) => String(i.id) === String(id));
       if (quantity <= 0) {
         if (item) {
           toast.success(`${item.title} удалён из корзины`);
@@ -130,10 +139,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
           window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
         }
-        return prev.filter((item) => item.id !== id);
+        return prev.filter((item) => String(item.id) !== String(id));
       }
       const updatedItems = prev.map((item) =>
-        item.id === id ? { ...item, quantity } : item
+        String(item.id) === String(id) ? { ...item, quantity } : item
       );
       if (item) {
         toast.success(`${item.title} обновлён (x${quantity})`);
