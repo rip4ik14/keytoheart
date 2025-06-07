@@ -34,7 +34,9 @@ export default function BurgerMenu() {
     let startX = 0;
     const menu = menuRef.current;
 
-    const onTouchStart = (e: TouchEvent) => (startX = e.touches[0].clientX);
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+    };
     const onTouchEnd = (e: TouchEvent) => {
       if (startX - e.changedTouches[0].clientX > 50) {
         setIsOpen(false);
@@ -47,8 +49,8 @@ export default function BurgerMenu() {
     }
     return () => {
       if (menu) {
-        menu.removeEventListener('touchstart', onTouchStart, { passive: true });
-        menu.removeEventListener('touchend', onTouchEnd, { passive: true });
+        menu.removeEventListener('touchstart', onTouchStart);
+        menu.removeEventListener('touchend', onTouchEnd);
       }
     };
   }, []);
