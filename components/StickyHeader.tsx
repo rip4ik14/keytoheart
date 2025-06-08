@@ -310,7 +310,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   aria-label="Перейти в WhatsApp"
                   rel="nofollow"
                 >
-                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="eager" />
+                  <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
                 </a>
                 <a
                   href="https://t.me/keytomyheart"
@@ -319,7 +319,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   aria-label="Перейти в Telegram"
                   rel="nofollow"
                 >
-                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} loading="eager" />
+                  <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
                 </a>
               </div>
             </div>
@@ -340,7 +340,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 width={20}
                 height={20}
                 className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7"
-                loading="eager"
               />
             </button>
 
@@ -357,7 +356,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     width={20}
                     height={20}
                     className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
-                    loading="eager"
                   />
                   <div className="hidden md:flex items-center gap-2">
                     {bonus !== null && bonus >= 0 && (
@@ -412,7 +410,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   width={20}
                   height={20}
                   className="w-5 h-5 text-gray-900 fill-current md:w-7 md:h-7 md:hidden"
-                  loading="eager"
                 />
                 <span className="hidden md:inline">Вход</span>
               </Link>
