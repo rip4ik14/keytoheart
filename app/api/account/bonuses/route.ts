@@ -1,9 +1,8 @@
 // ✅ Путь: app/api/account/bonuses/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 
-const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   process.env.NODE_ENV !== "production" && console.log('Received GET request to /api/account/bonuses:', request.url);
