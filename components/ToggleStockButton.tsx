@@ -1,5 +1,6 @@
 // ✅ Путь: components/ToggleStockButton.tsx
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useTransition } from 'react';
 import { toast } from 'react-hot-toast';
@@ -34,7 +35,7 @@ export default function ToggleStockButton({
           product_id: id,
           in_stock: !inStock,
         });
-        window.ym?.(96644553, 'reachGoal', 'toggle_stock', {
+        callYm(96644553, 'reachGoal', 'toggle_stock', {
           product_id: id,
           in_stock: !inStock,
         });

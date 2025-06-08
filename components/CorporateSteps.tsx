@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -95,7 +96,7 @@ export default function CorporateSteps({}: CorporateStepsProps) {
               event_category: 'CorporateSteps',
               event_label: 'Leave Request',
             });
-            window.ym?.(96644553, 'reachGoal', 'click_steps_cta');
+            callYm(96644553, 'reachGoal', 'click_steps_cta');
           }}
         >
           Оставить заявку

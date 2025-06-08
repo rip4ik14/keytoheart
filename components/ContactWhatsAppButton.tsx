@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import Image from 'next/image';
 
@@ -11,7 +12,7 @@ export default function ContactWhatsAppButton() {
       className="inline-flex items-center gap-2 bg-black text-white px-6 py-3 rounded-full font-semibold text-base sm:text-lg hover:bg-gray-800 transition-all duration-300"
       onClick={() => {
         window.gtag?.('event', 'contact_whatsapp', { event_category: 'payment_page' });
-        window.ym?.(96644553, 'reachGoal', 'contact_whatsapp');
+        callYm(96644553, 'reachGoal', 'contact_whatsapp');
       }}
       aria-label="Связаться через WhatsApp"
     >

@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -19,7 +20,7 @@ export default function CategoryCard({ title, imageUrl, href }: Props) {
           event_category: 'navigation',
           category: title,
         });
-        window.ym?.(96644553, 'reachGoal', 'category_card_click', {
+        callYm(96644553, 'reachGoal', 'category_card_click', {
           category: title,
         });
       }}

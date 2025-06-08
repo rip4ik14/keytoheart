@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useEffect, useState } from 'react';
 import ProductCard from '@components/ProductCard';
@@ -67,7 +68,7 @@ export default function CategoryPageClient({
       event_category: 'category',
       event_label: apiName,
     });
-    window.ym?.(96644553, 'reachGoal', 'view_category', { category: apiName });
+    callYm(96644553, 'reachGoal', 'view_category', { category: apiName });
   }, [apiName]);
 
   return (

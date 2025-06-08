@@ -1,5 +1,6 @@
 // ✅ Путь: app/cart/components/UpsellModal.tsx
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -144,7 +145,7 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                       item_id: item.id,
                       item_type: type,
                     });
-                    window.ym?.(96644553, 'reachGoal', 'select_upsell_item', {
+                    callYm(96644553, 'reachGoal', 'select_upsell_item', {
                       item_id: item.id,
                       item_type: type,
                     });

@@ -1,5 +1,6 @@
 // app/product/[id]/ProductPageClient.tsx
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -238,7 +239,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         event_label: product.title,
         value: product.price,
       });
-      window.ym?.(96644553, 'reachGoal', 'view_item', { product_id: product.id });
+      callYm(96644553, 'reachGoal', 'view_item', { product_id: product.id });
     } catch (error) {}
   }, [product.id, product.title, product.price]);
 
@@ -270,7 +271,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         event_label: title,
         value: price,
       });
-      window.ym?.(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
+      callYm(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch (error) {}
   };
 

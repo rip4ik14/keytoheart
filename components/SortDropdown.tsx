@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,7 +31,7 @@ export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownPr
       event_category: 'catalog',
       sort_value: value,
     });
-    window.ym?.(96644553, 'reachGoal', 'sort_change', {
+    callYm(96644553, 'reachGoal', 'sort_change', {
       sort_value: value,
     });
   };

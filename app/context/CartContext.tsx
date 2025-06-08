@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
@@ -63,7 +64,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: item.id,
           quantity: existing.quantity + item.quantity,
         });
-        window.ym?.(96644553, 'reachGoal', 'update_cart_item', {
+        callYm(96644553, 'reachGoal', 'update_cart_item', {
           item_id: item.id,
           quantity: existing.quantity + item.quantity,
         });
@@ -74,7 +75,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         event_category: 'cart',
         item_id: item.id,
       });
-      window.ym?.(96644553, 'reachGoal', 'add_to_cart', { item_id: item.id });
+      callYm(96644553, 'reachGoal', 'add_to_cart', { item_id: item.id });
       return [...prev, { ...item, id: String(item.id) }];
     });
   };
@@ -94,7 +95,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             item_id: newItem.id,
             quantity: updated[index].quantity,
           });
-          window.ym?.(96644553, 'reachGoal', 'update_cart_item', {
+          callYm(96644553, 'reachGoal', 'update_cart_item', {
             item_id: newItem.id,
             quantity: updated[index].quantity,
           });
@@ -105,7 +106,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: newItem.id,
           });
-          window.ym?.(96644553, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
+          callYm(96644553, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
         }
       });
       return updated;
@@ -121,7 +122,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           event_category: 'cart',
           item_id: id,
         });
-        window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
+        callYm(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
       }
       return prev.filter((item) => String(item.id) !== String(id));
     });
@@ -137,7 +138,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: id,
           });
-          window.ym?.(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
+          callYm(96644553, 'reachGoal', 'remove_from_cart', { item_id: id });
         }
         return prev.filter((item) => String(item.id) !== String(id));
       }
@@ -151,7 +152,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: id,
           quantity,
         });
-        window.ym?.(96644553, 'reachGoal', 'update_cart_quantity', {
+        callYm(96644553, 'reachGoal', 'update_cart_quantity', {
           item_id: id,
           quantity,
         });
@@ -165,7 +166,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart');
     toast.success('Корзина очищена');
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
-    window.ym?.(96644553, 'reachGoal', 'clear_cart');
+    callYm(96644553, 'reachGoal', 'clear_cart');
   };
 
   const maxProductionTime = items.length > 0
