@@ -1,10 +1,9 @@
 // app/api/account/orders/route.ts
 
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 
-const prisma = new PrismaClient();
 
 export async function GET(req: Request) {
   try {

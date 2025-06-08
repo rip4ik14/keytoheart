@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 
-const prisma = new PrismaClient();
 
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');

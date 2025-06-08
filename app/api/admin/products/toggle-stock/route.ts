@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { revalidateTag } from 'next/cache';
 
-const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   const { id } = await req.json();

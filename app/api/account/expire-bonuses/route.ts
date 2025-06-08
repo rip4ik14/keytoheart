@@ -1,8 +1,7 @@
 // ✅ Путь: app/api/account/expire-bonuses/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 const BONUS_EXPIRE_DAYS = 180; // 6 месяцев
 
 export async function POST(request: Request) {
