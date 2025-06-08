@@ -18,16 +18,15 @@ export default function TopBar() {
             aria-roledescription="marquee"
             aria-label="Информационная панель"
           >
-            {[...Array(30)].flatMap((_, i) =>
-              textItems.map((text, idx) => (
-                <span key={`${i}-${idx}`} className="mx-6">
-                  {text}
-                </span>
-              ))
-            )}
+            {[...textItems, ...textItems].map((text, idx) => (
+              <span key={idx} className="mx-6">
+                {text}
+              </span>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
