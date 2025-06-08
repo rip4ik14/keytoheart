@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import ProductCardServer from './ProductCardServer';
 import type { Product } from '@/types/product';
+import { claimPriority } from '@/utils/imagePriority';
 
 interface Props {
   categoryName: string;
@@ -28,9 +29,16 @@ export default function CategoryPreviewServer({
         {categoryName}
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-        {visibleProducts.map((product, idx) => (
-          <ProductCardServer key={product.id} product={product} priority={idx < 2} />
-        ))}
+        {visibleProducts.map((product, idx) => {
+          const shouldPrioritize = idx === 0 && claimPriority();
+          return (
+            <ProductCardServer
+              key={product.id}
+              product={product}
+              priority={shouldPrioritize}
+            />
+          );
+        })}
       </div>
       <div className="text-center mt-6">
         <Link
