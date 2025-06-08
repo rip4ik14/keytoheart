@@ -2,25 +2,6 @@
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 import localFont from 'next/font/local';
-
-const golosText = localFont({
-  variable: '--font-golos',
-  src: [
-    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
-  ],
-  display: 'swap',
-});
-
-const marqueeFont = localFont({
-  variable: '--font-marquee',
-  src: '../public/fonts/MontserratMarquee.woff2',
-  display: 'swap',
-});
-
 import { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { JsonLd } from 'react-schemaorg';
@@ -38,72 +19,61 @@ import SkipLink from '@components/SkipLink';
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
-
 import { Category } from '@/types/category';
 
+/* === Локальные шрифты (swap, preload > Early-Hints) === */
+const golosText = localFont({
+  variable: '--font-golos',
+  display: 'swap',
+  src: [
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2',  weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2',    weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2',   weight: '900', style: 'normal' },
+  ],
+});
+const marqueeFont = localFont({
+  variable: '--font-marquee',
+  display: 'swap',
+  src: '../public/fonts/MontserratMarquee.woff2',
+});
+
+/* === SEO: базовые мета-данные для всех страниц === */
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
+    default: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KeyToHeart',
     template: '%s | KeyToHeart',
   },
   description:
-    'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы и любой праздник! Доставка 24/7.',
-  keywords: [
-    'клубничные букеты Краснодар',
-    'доставка цветов Краснодар',
-    'подарки Краснодар',
-    'цветы Краснодар',
-    'подарочные боксы Краснодар',
-    'подарки на 8 марта Краснодар',
-    'подарки на Новый год Краснодар',
-    'цветы на День Победы Краснодар',
-    'цветы на выпускной Краснодар',
-    'подарки на свадьбу Краснодар',
-    'цветы на 14 февраля Краснодар',
-    'доставка цветов недорого Краснодар',
-    'доставка цветов 24/7 Краснодар',
-    'заказать цветы Краснодар',
-    'клубничные букеты недорого Краснодар',
-    'подарки на день рождения Краснодар',
-    'подарки на юбилей Краснодар',
-    'подарки для девушки Краснодар',
-    'подарки для мужчины Краснодар',
-    'романтические подарки Краснодар',
-    'цветы на День учителя Краснодар',
-    'цветы на День матери Краснодар',
-    'подарки на 23 февраля Краснодар',
-    'эксклюзивные подарки Краснодар',
-    'подарки на годовщину Краснодар',
-    'доставка цветов на дом Краснодар',
-    'цветы оптом Краснодар',
-    'KeyToHeart',
-  ],
+    'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару. Бесплатная открытка и фото перед отправкой. Заказывайте онлайн 24/7!',
+  /*  ⤵ Meta keywords сегодня игнорируются ПС, поэтому убираем */
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'KeyToHeart',
     url: 'https://keytoheart.ru',
-    title: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
+    title: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KeyToHeart',
     description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
+      'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем круглосуточно.',
     images: [
       {
         url: '/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'KeyToHeart — клубничные букеты и подарки в Краснодаре',
+        alt: 'Клубничные букеты KeyToHeart',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Клубничные букеты, цветы и подарки с доставкой в Краснодаре | KeyToHeart',
+    title: 'KeyToHeart — клубничные букеты и подарки в Краснодаре',
     description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. KeyToHeart — идеальные подарки на 8 марта, Новый год, День Победы, день рождения, юбилей и любой праздник! Доставка 24/7.',
+      'Свежие цветы и клубничные боксы с доставкой за 60 мин. Бесплатная открытка к каждому заказу!',
     images: ['/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
@@ -116,12 +86,10 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Fetch categories once per revalidate period
+/* ==================================================================== */
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  /* --- Загружаем категории раз в час для шапки / футера --- */
   let categories: Category[] = [];
   try {
     const res = await fetch(
@@ -133,13 +101,13 @@ export default async function RootLayout({
     );
     const data = await res.json();
     if (Array.isArray(data)) {
-      categories = data.map((cat: any) => ({
-        id: cat.id,
-        name: cat.name,
-        slug: cat.slug,
-        is_visible: cat.is_visible ?? true,
+      categories = data.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        is_visible: c.is_visible ?? true,
         subcategories:
-          cat.subcategories
+          c.subcategories
             ?.filter((s: any) => s.is_visible)
             .map((s: any) => ({
               id: s.id,
@@ -149,8 +117,8 @@ export default async function RootLayout({
             })) ?? [],
       }));
     }
-  } catch (err) {
-    process.env.NODE_ENV !== "production" && console.error('RootLayout: could not load categories', err);
+  } catch (e) {
+    process.env.NODE_ENV !== 'production' && console.error('RootLayout: categories fetch error', e);
   }
 
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
@@ -158,26 +126,22 @@ export default async function RootLayout({
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
+        {/* Яндекс-верификация + гео */}
         <meta name="yandex-verification" content="2d95e0ee66415497" />
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-        <link rel="preload" href="/og-cover.webp" as="image" crossOrigin="anonymous" />
-        {/* === Preconnect для ускорения загрузки Supabase CDN === */}
-        <link
-          rel="preconnect"
-          href="https://gwbeabfkknhewwoesqax.supabase.co"
-          crossOrigin=""
-        />
+        {/* Preconnect Supabase CDN */}
+        <link rel="preconnect" href="https://gwbeabfkknhewwoesqax.supabase.co" crossOrigin="" />
 
-        {/* SEO разметка */}
+        {/* === JSON-LD базовый === */}
         <JsonLd<WebSite>
           item={{
             '@type': 'WebSite',
             name: 'KeyToHeart',
             url: 'https://keytoheart.ru',
             description:
-              'Клубничные букеты, свежие цветы и подарочные боксы с доставкой по Краснодару. Подарки на 8 марта, Новый год, День Победы и любой праздник!',
+              'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару.',
           }}
         />
         <JsonLd<LocalBusiness>
@@ -185,14 +149,14 @@ export default async function RootLayout({
             '@type': 'LocalBusiness',
             name: 'KeyToHeart',
             url: 'https://keytoheart.ru',
+            telephone: '+7-988-603-38-21',
+            email: 'info@keytoheart.ru',
             address: {
               '@type': 'PostalAddress',
               addressLocality: 'Краснодар',
               addressRegion: 'Краснодарский край',
               addressCountry: 'RU',
             },
-            telephone: '+7-988-603-38-21',
-            email: 'info@keytoheart.ru',
             openingHoursSpecification: {
               '@type': 'OpeningHoursSpecification',
               dayOfWeek: [
@@ -213,94 +177,62 @@ export default async function RootLayout({
           item={{
             '@type': 'BreadcrumbList',
             itemListElement: [
-              {
-                '@type': 'ListItem',
-                position: 1,
-                name: 'Главная',
-                item: 'https://keytoheart.ru',
-              },
+              { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
             ],
           }}
         />
 
-        {/* Яндекс Метрика */}
+        {/* Яндекс Метрика - подгружаем лениво */}
         {ymId && (
-          <Script id="yandex-metrika" strategy="lazyOnload">
+          <Script id="ym" strategy="lazyOnload">
             {`
-              (function(m,e,t,r,i,k,a){
-                m[i]=m[i]||function(){
-                  (m[i].a=m[i].a||[]).push(arguments)
-                };
-                m[i].l=1*new Date();
-                k=e.createElement(t);
-                a=e.getElementsByTagName(t)[0];
-                k.async=1;
-                k.src=r;
-                a.parentNode.insertBefore(k,a)
-              })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-              ym('${ymId}', "init", {
-                clickmap: true,
-                trackLinks: true,
-                accurateTrackBounce: true,
-                trackHash: true,
-                webvisor: true,
-                ecommerce: "dataLayer",
-                triggerEvent: true
-              });
-            `}
-          </Script>
-        )}
-
-        {/* Яндекс Турбо */}
-        {ymId && (
-          <Script id="yandex-turbo" strategy="lazyOnload">
-            {`
-              (function() {
-                var turboScript = document.createElement('script');
-                turboScript.src = 'https://yastatic.net/s3/turbo-widget/v3/turbo.esm.min.js';
-                turboScript.async = true;
-                document.head.appendChild(turboScript);
-              })();
+              (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+              m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+              k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
+              (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+              ym("${ymId}", "init", {clickmap:true,trackLinks:true,accurateTrackBounce:true,trackHash:true,webvisor:true});
             `}
           </Script>
         )}
       </head>
 
       <body className="font-sans">
-        {/* Skip to main content link for accessibility */}
         <SkipLink />
+
         <CartAnimationProvider>
           <CartProvider>
-            {/* Top Navigation */}
             <TopBar />
             <StickyHeader initialCategories={categories} />
 
-            {/* Breadcrumbs */}
-            <Suspense fallback={<div>Загрузка...</div>}>
+            <Suspense fallback={<div>Загрузка…</div>}>
               <ClientBreadcrumbs />
             </Suspense>
 
-            {/* Main Content */}
-            <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">{children}</main>
+            <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">
+              {children}
+            </main>
 
-            {/* Promo block right above footer */}
             <PromoFooterBlock />
-
-            {/* Standard Footer */}
             <Footer categories={categories} />
-
-            {/* Cookie banner */}
             <CookieBanner />
-
-            {/* Mobile “Contact Us” FAB */}
             <MobileContactFab />
 
-            {/* Hidden SEO text */}
-            <div className="sr-only" aria-hidden="true">
-              <p>
-                Клубничные букеты Краснодар, доставка цветов Краснодар, подарки Краснодар, цветы Краснодар, подарочные боксы Краснодар, подарки на 8 марта Краснодар, подарки на Новый год Краснодар, цветы на День Победы Краснодар, цветы на выпускной Краснодар, подарки на свадьбу Краснодар, цветы на 14 февраля Краснодар, доставка цветов недорого Краснодар, доставка цветов 24/7 Краснодар, заказать цветы Краснодар, клубничные букеты недорого Краснодар, подарки на день рождения Краснодар, подарки на юбилей Краснодар, подарки для девушки Краснодар, подарки для мужчины Краснодар
+            {/* SEO-текст для людей, не «скрытый» */}
+            <section className="mx-auto mt-8 mb-12 max-w-5xl px-4 text-[15px] leading-6 text-gray-700">
+              <h2 className="mb-2 text-lg font-semibold">Почему выбирают KeyToHeart?</h2>
+              <p className="mb-3">
+                Мы готовим клубничные букеты из охлаждённой фермерской ягоды и бельгийского
+                шоколада — заказывайте прямо сейчас и получите бесплатную открытку. Доставка по
+                Краснодару&nbsp;— всего за&nbsp;60&nbsp;минут.
               </p>
-            </div>
+              <h3 className="mb-1 font-medium">Популярные поводы</h3>
+              <ul className="list-disc pl-6">
+                <li>8 Марта и 14 Февраля</li>
+                <li>День&nbsp;рождения и юбилей</li>
+                <li>Выпускной и&nbsp;День&nbsp;учителя</li>
+                <li>Годовщина свадьбы</li>
+              </ul>
+            </section>
           </CartProvider>
         </CartAnimationProvider>
       </body>
