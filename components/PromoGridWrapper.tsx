@@ -1,3 +1,5 @@
+// Server rendered grid of banners and cards. The interactive slider
+// remains in PromoGridClient and can be loaded dynamically when needed.
 import Image from 'next/image';
 import Link from 'next/link';
 
