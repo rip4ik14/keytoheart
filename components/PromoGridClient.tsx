@@ -27,8 +27,11 @@ export default function PromoGridClient({
   cards: Block[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
-  const bannerSlides = banners.slice(0, 5); // лимит для Swiper (можно убрать)
-  const cardItems = cards.slice(0, 4);
+  const desktopBanners = banners.slice(0, 5);
+  const desktopCards = cards.slice(0, 4);
+
+  // Мобайл: баннеры и карточки вместе
+  const mobileItems = [...banners, ...cards];
 
   const textVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -47,10 +50,11 @@ export default function PromoGridClient({
       transition={{ duration: 0.8, ease: 'easeOut' }}
       aria-labelledby="promo-grid-title"
     >
-      <h2 id="promo-grid-title" className="sr-only">Промо-блоки</h2>
-
+      <h2 id="promo-grid-title" className="sr-only">
+        Промо-блоки
+      </h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Десктоп: Swiper с баннерами на 2 колонки */}
+        {/* Десктоп: Swiper баннеров */}
         <div className="lg:col-span-2 relative rounded-2xl lg:rounded-3xl overflow-hidden aspect-[3/2]">
           <div className="hidden lg:block w-full h-full">
             <Swiper
@@ -61,7 +65,7 @@ export default function PromoGridClient({
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
-              {bannerSlides.map((b, i) => (
+              {desktopBanners.map((b, i) => (
                 <SwiperSlide key={b.id}>
                   <Link href={b.href || '#'} className="relative block h-full w-full" title={b.title}>
                     <WebpImage
@@ -116,7 +120,7 @@ export default function PromoGridClient({
               ))}
             </Swiper>
           </div>
-          {/* Мобайл: Swiper только по баннерам */}
+          {/* Мобайл: Swiper и баннеров, и карточек */}
           <div className="block lg:hidden w-full h-full">
             <Swiper
               modules={[Autoplay, Pagination]}
@@ -126,12 +130,12 @@ export default function PromoGridClient({
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
-              {bannerSlides.map((b, i) => (
-                <SwiperSlide key={b.id}>
-                  <Link href={b.href || '#'} className="relative block h-full w-full" title={b.title}>
+              {mobileItems.map((item, i) => (
+                <SwiperSlide key={item.id}>
+                  <Link href={item.href || '#'} className="relative block h-full w-full" title={item.title}>
                     <WebpImage
-                      src={b.image_url}
-                      alt={b.title}
+                      src={item.image_url}
+                      alt={item.title}
                       fill
                       sizes="100vw"
                       priority={i === 0}
@@ -141,37 +145,46 @@ export default function PromoGridClient({
                     <div className="absolute inset-0 bg-black/20 rounded-2xl" />
                     <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 sm:py-8 text-white">
                       <div className="max-w-full w-full">
-                        <motion.h2
-                          className="mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3"
-                          variants={textVariants}
-                          initial="hidden"
-                          animate={activeSlide === i ? 'visible' : 'hidden'}
-                          custom={0}
-                        >
-                          {b.title}
-                        </motion.h2>
-                        {b.subtitle && (
-                          <motion.p
-                            className="mb-3 text-sm xs:text-base sm:text-lg text-white/90 max-w-[95vw] sm:max-w-[80vw] sm:mb-4"
-                            variants={textVariants}
-                            initial="hidden"
-                            animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={1}
-                          >
-                            {b.subtitle}
-                          </motion.p>
-                        )}
-                        <motion.div
-                          variants={textVariants}
-                          initial="hidden"
-                          animate={activeSlide === i ? 'visible' : 'hidden'}
-                          custom={b.subtitle ? 2 : 1}
-                          className="flex"
-                        >
-                          <span className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase bg-white text-[#535353] shadow-sm hover:bg-[#535353] hover:text-white transition-all duration-200">
-                            {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                        {/* Для баннеров — полный текст, для карточек — только подпись */}
+                        {item.type === 'banner' ? (
+                          <>
+                            <motion.h2
+                              className="mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3"
+                              variants={textVariants}
+                              initial="hidden"
+                              animate={activeSlide === i ? 'visible' : 'hidden'}
+                              custom={0}
+                            >
+                              {item.title}
+                            </motion.h2>
+                            {item.subtitle && (
+                              <motion.p
+                                className="mb-3 text-sm xs:text-base sm:text-lg text-white/90 max-w-[95vw] sm:max-w-[80vw] sm:mb-4"
+                                variants={textVariants}
+                                initial="hidden"
+                                animate={activeSlide === i ? 'visible' : 'hidden'}
+                                custom={1}
+                              >
+                                {item.subtitle}
+                              </motion.p>
+                            )}
+                            <motion.div
+                              variants={textVariants}
+                              initial="hidden"
+                              animate={activeSlide === i ? 'visible' : 'hidden'}
+                              custom={item.subtitle ? 2 : 1}
+                              className="flex"
+                            >
+                              <span className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase bg-white text-[#535353] shadow-sm hover:bg-[#535353] hover:text-white transition-all duration-200">
+                                {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                              </span>
+                            </motion.div>
+                          </>
+                        ) : (
+                          <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
+                            {item.title}
                           </span>
-                        </motion.div>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -181,9 +194,9 @@ export default function PromoGridClient({
           </div>
         </div>
 
-        {/* Карточки справа, только на десктопе */}
+        {/* Десктоп: карточки справа */}
         <div className="hidden lg:grid grid-cols-2 grid-rows-2 gap-4 h-full">
-          {cardItems.map((c, i) => (
+          {desktopCards.map((c, i) => (
             <motion.div
               key={c.id}
               initial={{ opacity: 0, y: 20 }}
