@@ -6,6 +6,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import ProductCard from '@components/ProductCard';
 import { Product } from '@/types/product';
+import { claimPriority } from '@/utils/imagePriority';
 import Image from 'next/image';
 
 export default function PopularProductsClient({ products }: { products: Product[] }) {
@@ -44,11 +45,14 @@ export default function PopularProductsClient({ products }: { products: Product[
           }}
           className="group"
         >
-          {prepared.map((p, idx) => (
-            <SwiperSlide key={p.id} className="flex justify-center">
-              <ProductCard product={p} priority={idx < 2} />
-            </SwiperSlide>
-          ))}
+          {prepared.map((p, idx) => {
+            const shouldPrioritize = idx === 0 && claimPriority();
+            return (
+              <SwiperSlide key={p.id} className="flex justify-center">
+                <ProductCard product={p} priority={shouldPrioritize} />
+              </SwiperSlide>
+            );
+          })}
           <button
             className="popular-prev absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-3 shadow hover:scale-110 transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Прокрутить популярные товары влево"
