@@ -1,5 +1,6 @@
 // ✅ Путь: components/CorporateFooterCTA.tsx
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -52,7 +53,7 @@ export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
           aria-label="Оставить заявку на корпоративные подарки"
           onClick={() => {
             window.gtag?.('event', 'corporate_cta_click', { event_category: 'corporate' });
-            window.ym?.(96644553, 'reachGoal', 'corporate_cta_click');
+            callYm(96644553, 'reachGoal', 'corporate_cta_click');
           }}
         >
           Оставить заявку

@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
@@ -46,7 +47,7 @@ export default function TabsHeader({ activeTab, setActiveTab }: TabsHeaderProps)
               event_label: tab.label,
               tab: tab.key,
             });
-            window.ym?.(96644553, 'reachGoal', 'switch_tab', { tab: tab.key, label: tab.label });
+            callYm(96644553, 'reachGoal', 'switch_tab', { tab: tab.key, label: tab.label });
           }}
           className={`py-2 px-2 sm:px-3 border-b-2 transition-all duration-300 font-medium ${
             activeTab === tab.key

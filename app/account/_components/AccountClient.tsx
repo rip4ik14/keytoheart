@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -185,7 +186,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
-      window.ym?.(96644553, 'reachGoal', 'view_account');
+      callYm(96644553, 'reachGoal', 'view_account');
     } catch (error: any) {
       toast.error('Ошибка загрузки данных');
       setOrders([]);
@@ -224,7 +225,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setBonusData(null);
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
-      window.ym?.(96644553, 'reachGoal', 'logout');
+      callYm(96644553, 'reachGoal', 'logout');
       // Отправляем кастомное событие после выхода
       window.dispatchEvent(new Event('authChange'));
       router.refresh();

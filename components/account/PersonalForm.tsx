@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -125,7 +126,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       await onUpdate();
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
-      window.ym?.(96644553, 'reachGoal', 'update_profile', { name: trimmedName });
+      callYm(96644553, 'reachGoal', 'update_profile', { name: trimmedName });
     } catch (error: any) {
       process.env.NODE_ENV !== "production" && console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');

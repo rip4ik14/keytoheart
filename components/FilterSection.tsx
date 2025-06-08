@@ -1,4 +1,5 @@
 'use client';
+import { callYm } from '@/utils/metrics';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,7 +54,7 @@ export default function FilterSection({
       filter_type: filterType,
       filter_value: value,
     });
-    window.ym?.(96644553, 'reachGoal', 'filter_change', {
+    callYm(96644553, 'reachGoal', 'filter_change', {
       filter_type: filterType,
       filter_value: value,
     });
