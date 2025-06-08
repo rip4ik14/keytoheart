@@ -98,7 +98,11 @@ export default function BurgerMenu() {
           </button>
         </div>
 
-        <nav className="p-4 space-y-1" aria-label="Основная навигация">
+        <nav
+          className="p-4 space-y-1"
+          aria-label="Основная навигация"
+          aria-hidden={!isOpen}
+        >
           {navLinks.map((link, idx) => (
             <Link
               key={idx}
@@ -114,6 +118,7 @@ export default function BurgerMenu() {
                 });
               }}
               className="block py-2 text-black hover:bg-gray-100 transition-colors"
+              tabIndex={isOpen ? 0 : -1}
             >
               {link.name}
             </Link>

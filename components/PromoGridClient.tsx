@@ -70,7 +70,7 @@ export default function PromoGridClient({
                   <Link href={b.href || '#'} className="relative block h-full w-full" title={b.title}>
                     <WebpImage
                       src={b.image_url}
-                      alt={b.title}
+                      alt=""
                       fill
                       sizes="(max-width: 1024px) 100vw, 66vw"
                       priority={i === 0}
@@ -135,7 +135,7 @@ export default function PromoGridClient({
                   <Link href={item.href || '#'} className="relative block h-full w-full" title={item.title}>
                     <WebpImage
                       src={item.image_url}
-                      alt={item.title}
+                      alt=""
                       fill
                       sizes="100vw"
                       priority={i === 0}
@@ -207,7 +207,7 @@ export default function PromoGridClient({
               <Link href={c.href} className="group block h-full w-full" title={c.title} role="button">
                 <WebpImage
                   src={c.image_url}
-                  alt={c.title}
+                  alt=""
                   fill
                   sizes="(max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
