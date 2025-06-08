@@ -6,7 +6,7 @@ import type { ItemList } from 'schema-dts';
 import PromoGrid from '@components/PromoGrid';
 import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
 import PopularProductsServer from '@components/PopularProductsServer';
-import CategoryPreviewWrapper from '@components/CategoryPreviewWrapper';
+import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -206,7 +206,7 @@ export default async function Home() {
 
             return (
               <React.Fragment key={category}>
-                <CategoryPreviewWrapper
+                <CategoryPreviewServer
                   categoryName={category}
                   products={items}
                   seeMoreLink={slug}
