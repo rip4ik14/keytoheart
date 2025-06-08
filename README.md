@@ -47,6 +47,10 @@ Without this value the `/api/upsell/products` endpoint will return an error.
 
 ## Components
 
-### CategoryPreviewWrapper
+### CategoryPreviewServer
 
-`CategoryPreviewWrapper` is a thin client wrapper around `CategoryPreviewClient` that prepares product data. The file lives in `components/CategoryPreviewWrapper.tsx` and includes the `'use client'` directive.
+`CategoryPreviewServer` is rendered on the server and maps incoming product data to the server-side card component. It lives in `components/CategoryPreviewServer.tsx` and outputs the category heading together with a "see more" link.
+
+### ProductCardServer
+
+`ProductCardServer` renders the static markup for a product card and delegates the "Add to Cart" logic to `ProductCardClient`. Only this small interactive piece includes the `'use client'` directive.
