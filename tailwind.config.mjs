@@ -27,7 +27,7 @@ export default {
         marquee: ['var(--font-marquee)', 'sans-serif'],
       },
       animation: {
-        marquee: 'marquee 50s linear infinite',
+        marquee: 'marquee 600s linear infinite',
         spin: 'spin 1s linear infinite',
         pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         fadeIn: 'fadeIn 0.5s ease-in-out',
