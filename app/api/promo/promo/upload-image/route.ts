@@ -45,32 +45,32 @@ export async function POST(req: NextRequest) {
 
     // Загружаем в Supabase Storage
     const { error } = await supabase.storage
-      .from('promo-images')
+      .from('product-image')
       .upload(filename, optimizedImage, {
         contentType: 'image/webp',
         upsert: true
       });
 
     if (error) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки в Supabase Storage:', error);
+      console.error('Ошибка загрузки в Supabase Storage:', error);
       return NextResponse.json({ error: 'Ошибка загрузки файла в Supabase' }, { status: 500 });
     }
 
     // Формируем публичный URL
-    const image_url = `${supabaseUrl}/storage/v1/object/public/promo-images/${filename}`;
+    const image_url = `${supabaseUrl}/storage/v1/object/public/product-image/${filename}`;
 
     // Удаляем старое изображение если оно на Supabase
-    if (oldImageUrl && oldImageUrl.includes('promo-images/')) {
-      const parts = oldImageUrl.split('promo-images/');
+    if (oldImageUrl && oldImageUrl.includes('product-image/')) {
+      const parts = oldImageUrl.split('product-image/');
       const oldFile = parts[1];
       if (oldFile) {
-        await supabase.storage.from('promo-images').remove([oldFile]);
+        await supabase.storage.from('product-image').remove([oldFile]);
       }
     }
 
     return NextResponse.json({ image_url });
   } catch (err: any) {
-    process.env.NODE_ENV !== "production" && console.error('Unexpected error in /api/promo/upload-image:', err);
+    console.error('Unexpected error in /api/promo/upload-image:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
