@@ -1,15 +1,5 @@
 import PromoGridWrapper from '@components/PromoGridWrapper';
-
-interface Block {
-  id: number;
-  title: string;
-  subtitle?: string | null;
-  href: string;
-  image_url: string;
-  type: 'card' | 'banner';
-  button_text?: string | null;
-  order_index?: number | null;
-}
+import { PromoBlock } from '@/types/promo';
 
 export default async function PromoGridServer() {
   try {
@@ -23,7 +13,7 @@ export default async function PromoGridServer() {
       }
       return null;
     }
-    const data: Block[] = await res.json();
+    const data: PromoBlock[] = await res.json();
     const banners = data.filter((b) => b.type === 'banner');
     const cards = data.filter((b) => b.type === 'card');
     return <PromoGridWrapper banners={banners} cards={cards} />;

@@ -10,22 +10,14 @@ import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
-interface Block {
-  id: number;
-  title: string;
-  subtitle?: string;
-  href: string;
-  image_url: string;
-  type: 'card' | 'banner';
-  button_text?: string;
-}
+import { PromoBlock } from '@/types/promo';
 
 export default function PromoGridClient({
   banners,
   cards,
 }: {
-  banners: Block[];
-  cards: Block[];
+  banners: PromoBlock[];
+  cards: PromoBlock[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
