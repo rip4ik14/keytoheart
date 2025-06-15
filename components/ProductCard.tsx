@@ -135,53 +135,87 @@ export default function ProductCard({
           id={`product-${product.id}-title`}
           className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-2 break-words"
         >
-          {product.title}
+          <Link
+            href={`/product/${product.id}`}
+            aria-label={`Перейти к товару ${product.title}`}
+            className="hover:underline"
+          >
+            {product.title}
+          </Link>
         </h3>
 
-        <div className="flex flex-col items-center mt-2 sm:mt-3">
-          {discountAmount > 0 ? (
-            <>
-              <div className="flex items-center mb-1">
-                <span className="text-xs sm:text-sm text-gray-400 line-through mr-1 sm:mr-2">
+        {isMobile ? (
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {discountAmount > 0 ? (
+              <>
+                <span className="text-xs text-gray-400 line-through">
                   {(originalPrice > product.price ? originalPrice : product.price)}₽
                 </span>
-                <span className="bg-black text-white rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold">
+                <span className="bg-black text-white rounded px-1.5 py-0.5 text-[10px] font-bold">
                   -{discountAmount}₽
                 </span>
-              </div>
-              <span className="text-lg sm:text-2xl font-bold text-black">{discountedPrice}₽</span>
-            </>
-          ) : originalPrice > product.price ? (
-            <>
-              <span className="text-xs sm:text-sm text-gray-400 line-through">{originalPrice}₽</span>
-              <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
-            </>
-          ) : (
-            <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
-          )}
-        </div>
-
-        {/* --------- кнопка ---------- */}
-        <AnimatePresence>
-          {(hovered || isMobile) && (
-            <motion.button
+              </>
+            ) : originalPrice > product.price ? (
+              <span className="text-xs text-gray-400 line-through">{originalPrice}₽</span>
+            ) : null}
+            <span className="text-lg font-bold text-black">
+              {discountAmount > 0 ? discountedPrice : product.price}₽
+            </span>
+            <button
               ref={buttonRef}
               onClick={handleAddToCart}
-              className="mt-2 sm:mt-auto flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-300 rounded-lg px-4 py-3 font-bold text-sm uppercase bg-white text-black transition-all duration-200 hover:bg-black hover:text-white active:scale-95 w-full"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.18 }}
+              className="w-8 h-8 rounded-full flex items-center justify-center border border-gray-300 bg-white text-black transition-colors duration-200 hover:bg-black hover:text-white active:scale-95"
               aria-label={`Добавить ${product.title} в корзину`}
             >
-              {isMobile ? <ShoppingCart size={16} /> : (
+              <ShoppingCart size={16} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col items-center mt-2 sm:mt-3">
+              {discountAmount > 0 ? (
                 <>
-                  <ShoppingCart size={19} /> В корзину
+                  <div className="flex items-center mb-1">
+                    <span className="text-xs sm:text-sm text-gray-400 line-through mr-1 sm:mr-2">
+                      {(originalPrice > product.price ? originalPrice : product.price)}₽
+                    </span>
+                    <span className="bg-black text-white rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold">
+                      -{discountAmount}₽
+                    </span>
+                  </div>
+                  <span className="text-lg sm:text-2xl font-bold text-black">{discountedPrice}₽</span>
                 </>
+              ) : originalPrice > product.price ? (
+                <>
+                  <span className="text-xs sm:text-sm text-gray-400 line-through">{originalPrice}₽</span>
+                  <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
+                </>
+              ) : (
+                <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
               )}
-            </motion.button>
-          )}
-        </AnimatePresence>
+            </div>
+
+            {/* --------- кнопка ---------- */}
+            <AnimatePresence>
+              {hovered && (
+                <motion.button
+                  ref={buttonRef}
+                  onClick={handleAddToCart}
+                  className="mt-2 sm:mt-auto flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-300 rounded-lg px-4 py-3 font-bold text-sm uppercase bg-white text-black transition-all duration-200 hover:bg-black hover:text-white active:scale-95 w-full"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.18 }}
+                  aria-label={`Добавить ${product.title} в корзину`}
+                >
+                  <>
+                    <ShoppingCart size={19} /> В корзину
+                  </>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </div>
   );
