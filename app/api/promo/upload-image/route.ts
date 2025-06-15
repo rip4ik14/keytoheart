@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // Загружаем в Supabase Storage
     const { error } = await supabase.storage
-      .from('product-image')
+      .from('promo-images')
       .upload(filename, optimizedImage, {
         contentType: 'image/webp',
         upsert: true
@@ -57,14 +57,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Формируем публичный URL
-    const image_url = `${supabaseUrl}/storage/v1/object/public/product-image/${filename}`;
+    const image_url = `${supabaseUrl}/storage/v1/object/public/promo-images/${filename}`;
 
     // Удаляем старое изображение если оно на Supabase
-    if (oldImageUrl && oldImageUrl.includes('product-image/')) {
-      const parts = oldImageUrl.split('product-image/');
+    if (oldImageUrl && oldImageUrl.includes('promo-images/')) {
+      const parts = oldImageUrl.split('promo-images/');
       const oldFile = parts[1];
       if (oldFile) {
-        await supabase.storage.from('product-image').remove([oldFile]);
+        await supabase.storage.from('promo-images').remove([oldFile]);
       }
     }
 
