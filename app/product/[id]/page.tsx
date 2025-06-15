@@ -1,152 +1,161 @@
-// app/product/[id]/page.tsx
+// ✅  app/product/[id]/page.tsx  (замена целиком)
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { JsonLd } from 'react-schemaorg';
-import type { Product as SchemaProduct } from 'schema-dts';
+import type { Product as SchemaProduct, AggregateOffer } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
-import { Product, ComboItem } from './types'; // Импортируем типы
+import { Product, ComboItem } from './types';
 
-const supabaseAnon = createClient<Database>(
+const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 export const revalidate = 3600;
 
-export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const { data } = await supabaseAnon.from('products').select('id');
-  return data?.map((p) => ({ id: String(p.id) })) ?? [];
+/* ------------------------------------------------------------------ */
+/*                              TYPES                                 */
+/* ------------------------------------------------------------------ */
+type RowFull = Database['public']['Tables']['products']['Row'] & {
+  product_categories: { category_id: number }[]; // join-результат
+};
+
+/* ------------------------------------------------------------------ */
+export async function generateStaticParams() {
+  const { data } = await supabase
+    .from('products')
+    .select('id')
+    .eq('is_visible', true);
+  return data?.map(p => ({ id: String(p.id) })) ?? [];
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }): Promise<Metadata> {
-  const { id } = await params;
-  const numericId = parseInt(id, 10);
-  const { data: product, error } = await supabaseAnon
+  const id = Number(params.id);
+  if (Number.isNaN(id)) return {};
+
+  const { data } = await supabase
     .from('products')
-    .select('title, description')
-    .eq('id', numericId)
+    .select('title, description, images')
+    .eq('id', id)
     .single();
 
-  if (error || !product) {
+  if (!data) {
     return {
       title: 'Товар не найден | KeyToHeart',
       description: 'Страница товара не найдена.',
     };
   }
 
-  const productDescription: string | undefined = product.description === null ? undefined : product.description;
+  const desc = (data.description ?? '')
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .slice(0, 160);
+
+  const firstImg =
+    Array.isArray(data.images) && data.images[0] ? data.images[0] : '/og-cover.webp';
+  const url = `https://keytoheart.ru/product/${id}`;
+
   return {
-    title: `${product.title} | KeyToHeart`,
-    description: productDescription ?? 'Купите клубничный букет с доставкой по Краснодару.',
-    keywords: [product.title, 'KeyToHeart', 'клубничный букет'],
-    openGraph: {
-      title: product.title,
-      description: productDescription ?? 'Купите клубничный букет с доставкой по Краснодару.',
-      url: `https://keytoheart.ru/product/${id}`,
-      images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
-    },
-    alternates: { canonical: `https://keytoheart.ru/product/${id}` },
+    title: `${data.title} | KeyToHeart`,
+    description: desc || undefined,
+    openGraph: { title: data.title, description: desc, url, images: [{ url: firstImg }] },
+    twitter: { card: 'summary_large_image', title: data.title, description: desc, images: [firstImg] },
+    alternates: { canonical: url },
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const numericId = parseInt(id, 10);
+/* ------------------------------------------------------------------ */
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const id = Number(params.id);
+  if (Number.isNaN(id)) notFound();
 
-  // Получение продукта
-  const { data: productData, error: productError } = await supabaseAnon
+  /* ---- один запрос с джойном категорий ---- */
+  const { data, error } = await supabase
     .from('products')
-    .select(`
-      id,
-      title,
-      price,
-      original_price,
-      discount_percent,
-      images,
-      description,
-      composition,
-      production_time
-    `)
-    .eq('id', numericId)
-    .single();
+    .select(
+      `
+        *,
+        product_categories(category_id)
+      `,
+    )
+    .eq('id', id)
+    .eq('is_visible', true)
+    .single<RowFull>();
 
-  if (productError || !productData) {
-    notFound();
-  }
+  if (error || !data || data.in_stock === false) notFound();
 
-  // Получаем category_ids через product_categories
-  const { data: productCategoryData } = await supabaseAnon
-    .from('product_categories')
-    .select('category_id')
-    .eq('product_id', numericId);
-
-  const categoryIds = productCategoryData?.map(item => item.category_id) || [];
-
-  const validatedProduct: Product = {
-    id: productData.id,
-    title: productData.title || 'Без названия',
-    price: productData.price || 0,
-    original_price: productData.original_price ?? undefined,
-    discount_percent: productData.discount_percent ?? 0,
-    images: productData.images ?? [],
-    description: productData.description ?? '',
-    composition: productData.composition ?? '',
-    production_time: productData.production_time ?? null,
-    category_ids: categoryIds,
+  const product: Product = {
+    id: data.id,
+    title: data.title ?? 'Без названия',
+    price: data.price ?? 0,
+    original_price: data.original_price ?? undefined,
+    discount_percent: data.discount_percent ?? 0,
+    images: data.images ?? [],
+    description: data.description ?? '',
+    composition: data.composition ?? '',
+    production_time: data.production_time ?? null,
+    category_ids: data.product_categories?.map(c => c.category_id) ?? [],
   };
 
-  // Получаем допродажи
-  let combos: ComboItem[] = [];
-  const { data: upsellItems } = await supabaseAnon
+  /* ---- апселлы ---- */
+  const { data: upsells } = await supabase
     .from('upsell_items')
     .select('id, title, price, image_url');
 
-  if (upsellItems) {
-    combos = upsellItems.map((u) => ({
-      id: parseInt(String(u.id), 10),
+  const combos: ComboItem[] =
+    upsells?.map(u => ({
+      id: Number(u.id),
       title: u.title,
       price: u.price,
-      image: u.image_url || '',
-    }));
-  }
+      image: u.image_url ?? '',
+    })) ?? [];
 
-  const discountedPrice =
-    validatedProduct.discount_percent != null && validatedProduct.discount_percent > 0
-      ? Math.round(validatedProduct.price * (1 - validatedProduct.discount_percent / 100))
-      : validatedProduct.price;
+  const finalPrice =
+    product.discount_percent && product.discount_percent > 0
+      ? Math.round(product.price * (1 - product.discount_percent / 100))
+      : product.price;
+
+  const offer: AggregateOffer = {
+    '@type': 'AggregateOffer',
+    priceCurrency: 'RUB',
+    lowPrice: finalPrice,
+    highPrice: product.original_price ?? product.price,
+    offerCount: 1,
+    price: finalPrice,
+    availability: 'https://schema.org/InStock',
+  };
 
   return (
-    <main aria-label={`Товар ${validatedProduct.title}`}>
+    <main aria-label={`Товар ${product.title}`}>
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
-          name: validatedProduct.title,
-          image: validatedProduct.images ?? undefined,
-          description: validatedProduct.description ?? undefined,
-          material: validatedProduct.composition ?? undefined,
+          sku: String(product.id),
+          name: product.title,
+          url: `https://keytoheart.ru/product/${product.id}`,
+          image: product.images.length ? product.images : undefined,
+          description: product.description || undefined,
+          material: product.composition || undefined,
+          category: product.category_ids.join(',') || undefined,
           brand: { '@type': 'Brand', name: 'KeyToHeart' },
-          offers: {
-            '@type': 'Offer',
-            priceCurrency: 'RUB',
-            price: discountedPrice,
-            availability: 'https://schema.org/InStock',
-          },
+          offers: offer,
         }}
       />
-      {/* Оба компонента в Suspense */}
+
       <Suspense fallback={null}>
-        <Breadcrumbs productTitle={validatedProduct.title} />
+        <Breadcrumbs productTitle={product.title} />
       </Suspense>
-      <Suspense fallback={<div className="text-center py-8">Загрузка...</div>}>
-        <ProductPageClient product={validatedProduct} combos={combos} />
+
+      <Suspense fallback={<div className="text-center py-8">Загрузка…</div>}>
+        <ProductPageClient product={product} combos={combos} />
       </Suspense>
     </main>
   );
