@@ -17,7 +17,6 @@ export default function ProductCard({
   product: Product;
   priority?: boolean;
 }) {
-  /* ----------------------- state & refs ----------------------- */
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
@@ -27,7 +26,14 @@ export default function ProductCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  /* ----------------------- derived data ----------------------- */
+  // Гидратация + мобильный брейк-поинт
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 640);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const images = Array.isArray(product.images) ? product.images : [];
   const imageUrl = images[0] || '/placeholder.jpg';
   const bonus = product.bonus || Math.floor(product.price * 0.025);
@@ -41,16 +47,7 @@ export default function ProductCard({
     : 0;
   const isPopular = product.is_popular;
 
-  /* ----------------------- hooks ----------------------- */
-  // Гидратация + мобильный брейк-поинт
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 640);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  /* ----------------------- handlers ----------------------- */
+  // Добавить в корзину
   const handleAddToCart = () => {
     addItem({
       id: product.id.toString(),
@@ -67,6 +64,7 @@ export default function ProductCard({
     toast.success('Товар добавлен в корзину');
   };
 
+  // Для клавиатурной доступности
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -74,11 +72,10 @@ export default function ProductCard({
     }
   };
 
-  /* ----------------------- JSX ----------------------- */
   return (
     <div
       ref={cardRef}
-      className="relative flex flex-col w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 h-auto sm:h-[400px] focus:outline-none animate-fade-up"
+      className="relative flex flex-col w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] border border-gray-200 overflow-hidden shadow-sm transition-all duration-200 h-auto sm:h-[400px] focus:outline-none animate-fade-up"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onKeyDown={handleKeyDown}
@@ -104,7 +101,7 @@ export default function ProductCard({
       {/* --------- изображение ---------- */}
       <Link
         href={`/product/${product.id}`}
-        className="block relative w-full h-56 sm:h-64 rounded-t-lg overflow-hidden aspect-[3/4]"
+        className="block relative w-full h-56 sm:h-64 rounded-t-[16px] overflow-hidden aspect-[3/4]"
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
       >
@@ -117,6 +114,7 @@ export default function ProductCard({
           loading={priority ? 'eager' : 'lazy'}
           priority={priority}
         />
+        {/* индикаторы для слайдера, если есть картинки */}
         {!isMobile && images.length > 1 && (
           <div className="absolute left-1/2 bottom-2 -translate-x-1/2 flex gap-1 z-10">
             {images.map((_, i) => (
@@ -129,93 +127,72 @@ export default function ProductCard({
         )}
       </Link>
 
-      {/* --------- описание & цена ---------- */}
-      <div className="flex flex-col flex-1 p-3 sm:p-4 min-h-[140px] sm:min-h-[160px]">
+      {/* --------- описание, цена, скидки ---------- */}
+      <div className="flex flex-col flex-1 p-2 sm:p-4 min-h-[110px] sm:min-h-[150px]">
         <h3
           id={`product-${product.id}-title`}
-          className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-2 break-words"
+          className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-2 break-words mb-1 sm:mb-2"
         >
-          <Link
-            href={`/product/${product.id}`}
-            aria-label={`Перейти к товару ${product.title}`}
-            className="hover:underline"
-          >
-            {product.title}
-          </Link>
+          {product.title}
         </h3>
 
-        {isMobile ? (
-          <div className="flex items-center justify-center gap-2 mt-2">
-            {discountAmount > 0 ? (
-              <>
-                <span className="text-xs text-gray-400 line-through">
-                  {(originalPrice > product.price ? originalPrice : product.price)}₽
-                </span>
-                <span className="bg-black text-white rounded px-1.5 py-0.5 text-[10px] font-bold">
-                  -{discountAmount}₽
-                </span>
-              </>
-            ) : originalPrice > product.price ? (
-              <span className="text-xs text-gray-400 line-through">{originalPrice}₽</span>
-            ) : null}
-            <span className="text-lg font-bold text-black">
-              {discountAmount > 0 ? discountedPrice : product.price}₽
+        {/* Цены и скидка */}
+        <div className="flex items-center justify-center gap-2 mb-0.5 min-h-[30px]">
+          {/* Старая цена */}
+          {discountAmount > 0 || originalPrice > product.price ? (
+            <span className="text-xs text-gray-400 line-through">
+              {(originalPrice > product.price ? originalPrice : product.price)}₽
             </span>
-            <button
-              ref={buttonRef}
-              onClick={handleAddToCart}
-              className="w-8 h-8 rounded-full flex items-center justify-center border border-gray-300 bg-white text-black transition-colors duration-200 hover:bg-black hover:text-white active:scale-95"
-              aria-label={`Добавить ${product.title} в корзину`}
-            >
-              <ShoppingCart size={16} />
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-col items-center mt-2 sm:mt-3">
-              {discountAmount > 0 ? (
-                <>
-                  <div className="flex items-center mb-1">
-                    <span className="text-xs sm:text-sm text-gray-400 line-through mr-1 sm:mr-2">
-                      {(originalPrice > product.price ? originalPrice : product.price)}₽
-                    </span>
-                    <span className="bg-black text-white rounded-md px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold">
-                      -{discountAmount}₽
-                    </span>
-                  </div>
-                  <span className="text-lg sm:text-2xl font-bold text-black">{discountedPrice}₽</span>
-                </>
-              ) : originalPrice > product.price ? (
-                <>
-                  <span className="text-xs sm:text-sm text-gray-400 line-through">{originalPrice}₽</span>
-                  <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
-                </>
-              ) : (
-                <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
-              )}
-            </div>
+          ) : null}
 
-            {/* --------- кнопка ---------- */}
-            <AnimatePresence>
-              {hovered && (
-                <motion.button
-                  ref={buttonRef}
-                  onClick={handleAddToCart}
-                  className="mt-2 sm:mt-auto flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-300 rounded-lg px-4 py-3 font-bold text-sm uppercase bg-white text-black transition-all duration-200 hover:bg-black hover:text-white active:scale-95 w-full"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.18 }}
-                  aria-label={`Добавить ${product.title} в корзину`}
-                >
-                  <>
-                    <ShoppingCart size={19} /> В корзину
-                  </>
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </>
-        )}
+          {/* Скидка */}
+          {discountAmount > 0 && (
+            <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold ml-0.5">
+              -{discountAmount}₽
+            </span>
+          )}
+
+          {/* Актуальная цена */}
+          <span className="text-lg font-bold text-black ml-1">
+            {discountAmount > 0 ? discountedPrice : product.price}₽
+          </span>
+        </div>
+
+        {/* --- Кнопка/блок "В корзину" --- */}
+        <AnimatePresence>
+          {(hovered || isMobile) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.22 }}
+              className={`
+                w-full
+                ${isMobile
+                  ? 'mt-3'
+                  : 'absolute left-0 bottom-0 w-full px-0 pb-0 bg-transparent'}
+              `}
+              style={{ zIndex: 10 }}
+            >
+              <button
+                ref={buttonRef}
+                onClick={handleAddToCart}
+                className={`
+                  w-full flex items-center justify-center
+                  ${isMobile
+                    ? 'bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base'
+                    : 'bg-white border-t border-x border-b-0 border-gray-300 text-black py-3 rounded-b-[18px] font-bold text-base shadow-md'}
+                  transition-all duration-200
+                  hover:bg-black hover:text-white active:scale-95
+                `}
+                aria-label={`Добавить ${product.title} в корзину`}
+              >
+                <ShoppingCart size={20} className="mr-2" />
+                <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
