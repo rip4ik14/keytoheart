@@ -1,22 +1,24 @@
 // ✅ Путь: app/api/promo/validate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('POST /api/promo/validate: Starting request');
+    process.env.NODE_ENV !== 'production' &&
+      console.log('POST /api/promo/validate: Starting request');
     const body = await req.json();
-    console.log('POST /api/promo/validate: Received payload:', body);
+    process.env.NODE_ENV !== 'production' &&
+      console.log('POST /api/promo/validate: Received payload:', body);
 
     const { code } = body;
     if (!code) {
-      console.log('POST /api/promo/validate: Missing code');
+      process.env.NODE_ENV !== 'production' &&
+        console.log('POST /api/promo/validate: Missing code');
       return NextResponse.json({ error: 'Код промокода обязателен' }, { status: 400 });
     }
 
-    console.log('POST /api/promo/validate: Validating promo code:', code);
+    process.env.NODE_ENV !== 'production' &&
+      console.log('POST /api/promo/validate: Validating promo code:', code);
     const promo = await prisma.promo_codes.findUnique({
       where: { code: code.toUpperCase() },
       select: {
@@ -31,22 +33,26 @@ export async function POST(req: NextRequest) {
     });
 
     if (!promo || !promo.is_active) {
-      console.log('POST /api/promo/validate: Promo code invalid or inactive:', code);
+      process.env.NODE_ENV !== 'production' &&
+        console.log('POST /api/promo/validate: Promo code invalid or inactive:', code);
       return NextResponse.json({ error: 'Промокод недействителен' }, { status: 400 });
     }
 
     const now = new Date();
     if (promo.expires_at && promo.expires_at < now) {
-      console.log('POST /api/promo/validate: Promo code expired:', code, 'Expires at:', promo.expires_at);
+      process.env.NODE_ENV !== 'production' &&
+        console.log('POST /api/promo/validate: Promo code expired:', code, 'Expires at:', promo.expires_at);
       return NextResponse.json({ error: 'Срок действия промокода истёк' }, { status: 400 });
     }
 
     if (promo.max_uses && promo.used_count >= promo.max_uses) {
-      console.log('POST /api/promo/validate: Promo code usage limit reached:', code);
+      process.env.NODE_ENV !== 'production' &&
+        console.log('POST /api/promo/validate: Promo code usage limit reached:', code);
       return NextResponse.json({ error: 'Промокод исчерпан' }, { status: 400 });
     }
 
-    console.log('POST /api/promo/validate: Promo code validated:', promo);
+    process.env.NODE_ENV !== 'production' &&
+      console.log('POST /api/promo/validate: Promo code validated:', promo);
     return NextResponse.json({
       success: true,
       discount: promo.discount_value, // Исправлено: возвращаем discount_value
@@ -54,7 +60,8 @@ export async function POST(req: NextRequest) {
       promoId: promo.id,
     });
   } catch (error: any) {
-    console.error('POST /api/promo/validate: Error:', error);
+    process.env.NODE_ENV !== 'production' &&
+      console.error('POST /api/promo/validate: Error:', error);
     return NextResponse.json(
       { error: 'Ошибка проверки промокода: ' + error.message },
       { status: 500 }
