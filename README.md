@@ -53,7 +53,7 @@ Without `SUPABASE_SERVICE_ROLE_KEY` the `/api/upsell/products` endpoint will ret
 
 ### CategoryPreviewServer
 
-`CategoryPreviewServer` is rendered on the server and maps incoming product data to the server-side card component. It lives in `components/CategoryPreviewServer.tsx` and outputs the category heading together with a "see more" link.
+`CategoryPreviewServer` is rendered on the server and outputs the category heading together with a "see more" link. Product cards are rendered using the interactive `ProductCard` component so the "Add to Cart" button appears on hover.
 
 ### ProductCardServer
 
