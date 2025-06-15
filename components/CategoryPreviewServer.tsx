@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import ProductCardServer from './ProductCardServer';
+import ProductCard from './ProductCard';
 import type { Product } from '@/types/product';
 import { claimPriority } from '@/utils/imagePriority';
 
@@ -32,7 +32,7 @@ export default function CategoryPreviewServer({
         {visibleProducts.map((product, idx) => {
           const shouldPrioritize = idx === 0 && claimPriority();
           return (
-            <ProductCardServer
+            <ProductCard
               key={product.id}
               product={product}
               priority={shouldPrioritize}
