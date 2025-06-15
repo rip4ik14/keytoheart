@@ -214,13 +214,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
             k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
             (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
-            ym("${ymId}", "init", {
-              clickmap:true,
-              trackLinks:true,
-              accurateTrackBounce:true,
-              trackHash:true,
-              webvisor:true
-            });
+            if (typeof window.ym === 'function') {
+              ym("${ymId}", "init", {
+                clickmap:true,
+                trackLinks:true,
+                accurateTrackBounce:true,
+                trackHash:true,
+                webvisor:true
+              });
+            } else {
+              console.warn('Yandex.Metrica script is blocked');
+            }
           `}</Script>
         )}
       </head>
