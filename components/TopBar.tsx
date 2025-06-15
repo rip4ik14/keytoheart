@@ -25,8 +25,7 @@ export default function TopBar() {
         aria-label="Информационная панель"
       >
         {/* одна и та же строка дважды подряд — никакого зазора на стыке */}
-        <span>{STRIP}</span>
-        <span aria-hidden="true">{STRIP}</span>
+        <span>{STRIP}</span><span aria-hidden="true">{STRIP}</span>
       </motion.div>
     </div>
   );
