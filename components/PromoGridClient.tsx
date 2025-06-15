@@ -30,10 +30,9 @@ export default function PromoGridClient({
   const desktopBanners = banners.slice(0, 5);
   const desktopCards = cards.slice(0, 4);
   const bannerLoop = desktopBanners.length > 1;
-  const mobileLoop = mobileItems.length > 1;
-
   // Мобайл: баннеры и карточки вместе
   const mobileItems = [...banners, ...cards];
+  const mobileLoop = mobileItems.length > 1;
 
   const textVariants = {
     hidden: { opacity: 0, y: 20 },
