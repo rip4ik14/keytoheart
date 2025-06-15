@@ -1,4 +1,3 @@
-// ✅ Путь: app/api/promo/reorder/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
