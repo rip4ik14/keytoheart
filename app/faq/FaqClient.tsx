@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -125,7 +126,7 @@ export default function FaqClient() {
       event_label: question,
       value: openIndexes.includes(i) ? 0 : 1, // 1 = открыли, 0 = закрыли
     });
-    callYm(96644553, 'reachGoal', 'faq_toggle', {
+    callYm(YM_ID, 'reachGoal', 'faq_toggle', {
       question,
       action: openIndexes.includes(i) ? 'close' : 'open',
     });

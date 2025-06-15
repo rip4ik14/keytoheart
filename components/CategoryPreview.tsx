@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import ProductCard from '@components/ProductCard';
@@ -57,7 +58,7 @@ export default function CategoryPreview({
               event_category: 'navigation',
               category: categoryName,
             });
-            callYm(96644553, 'reachGoal', 'see_more_category', {
+            callYm(YM_ID, 'reachGoal', 'see_more_category', {
               category: categoryName,
             });
           }}

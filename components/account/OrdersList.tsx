@@ -1,6 +1,7 @@
 // account/component/OrdersList.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -137,7 +138,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                           event_category: 'account',
                           order_id: o.id,
                         });
-                        callYm(96644553, 'reachGoal', 'repeat_order', {
+                        callYm(YM_ID, 'reachGoal', 'repeat_order', {
                           order_id: o.id,
                         });
                       }}

@@ -1,6 +1,7 @@
 // ✅ Путь: components/OrderStep.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { ReactNode, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -98,7 +99,7 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    callYm(12345678, 'reachGoal', 'order_step_back', { step });
+                    callYm(YM_ID, 'reachGoal', 'order_step_back', { step });
                   }}
                   className={`${buttonStyle} flex-1 bg-gray-200 text-[#535353] hover:bg-gray-300 hover:text-[#535353]`}
                   aria-label="Вернуться к предыдущему шагу"
@@ -116,7 +117,7 @@ export default function OrderStep({
                       event_category: 'order',
                       step,
                     });
-                    callYm(12345678, 'reachGoal', 'order_step_next', { step });
+                    callYm(YM_ID, 'reachGoal', 'order_step_next', { step });
                   }}
                   className={`${buttonStyle} flex-1 bg-white text-[#535353] ${
                     isNextDisabled ? 'opacity-50 cursor-not-allowed' : ''

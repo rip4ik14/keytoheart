@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -54,7 +55,7 @@ export default function ProfileMenu() {
             onClick={() => {
               setOpen((prev) => !prev);
               window.gtag?.('event', 'profile_menu_toggle', { event_category: 'profile' });
-              callYm(96644553, 'reachGoal', 'profile_menu_toggle');
+              callYm(YM_ID, 'reachGoal', 'profile_menu_toggle');
             }}
             className="flex items-center gap-2 px-4 py-1 border rounded-full hover:bg-gray-100"
             aria-label="Открыть меню профиля"
@@ -80,7 +81,7 @@ export default function ProfileMenu() {
                 onClick={() => {
                   setOpen(false);
                   window.gtag?.('event', 'profile_menu_account', { event_category: 'profile' });
-                  callYm(96644553, 'reachGoal', 'profile_menu_account');
+                  callYm(YM_ID, 'reachGoal', 'profile_menu_account');
                 }}
                 role="menuitem"
               >
@@ -92,7 +93,7 @@ export default function ProfileMenu() {
                   setOpen(false);
                   toast.success('Вы вышли из аккаунта');
                   window.gtag?.('event', 'profile_menu_signout', { event_category: 'profile' });
-                  callYm(96644553, 'reachGoal', 'profile_menu_signout');
+                  callYm(YM_ID, 'reachGoal', 'profile_menu_signout');
                 }}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                 role="menuitem"
@@ -109,7 +110,7 @@ export default function ProfileMenu() {
           className="px-4 py-1 border rounded-full hover:bg-gray-100 flex items-center gap-1"
           onClick={() => {
             window.gtag?.('event', 'profile_menu_login', { event_category: 'profile' });
-            callYm(96644553, 'reachGoal', 'profile_menu_login');
+            callYm(YM_ID, 'reachGoal', 'profile_menu_login');
           }}
           aria-label="Войти в аккаунт"
         >

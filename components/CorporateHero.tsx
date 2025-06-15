@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -39,7 +40,7 @@ export default function CorporateHero() {
             hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
           onClick={() => {
             window.gtag?.('event', 'click_hero_cta', { event_category: 'CorporateHero', event_label: 'Order Gifts' });
-            callYm(12345678, 'reachGoal', 'click_hero_cta');
+            callYm(YM_ID, 'reachGoal', 'click_hero_cta');
           }}
         >
           Заказать подарки

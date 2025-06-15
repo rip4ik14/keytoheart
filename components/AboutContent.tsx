@@ -1,6 +1,7 @@
 // components/AboutContent.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Image from 'next/image';
 import WebpImage from './WebpImage';
@@ -62,7 +63,7 @@ export default function AboutContent() {
                 className="inline-block w-max border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                 onClick={() => {
                   window.gtag?.('event', 'click_cta_about', { event_category: 'CTA', event_label: 'Order Bouquet' });
-                  callYm(96644553, 'reachGoal', 'click_cta_about');
+                  callYm(YM_ID, 'reachGoal', 'click_cta_about');
                 }}
               >
                 Заказать букет
@@ -160,7 +161,7 @@ export default function AboutContent() {
             className="border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
             onClick={() => {
               window.gtag?.('event', 'click_cta_footer', { event_category: 'CTA', event_label: 'Order Bouquet Footer' });
-              callYm(96644553, 'reachGoal', 'click_cta_footer');
+              callYm(YM_ID, 'reachGoal', 'click_cta_footer');
             }}
           >
             Заказать букет

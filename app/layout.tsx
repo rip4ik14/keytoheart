@@ -20,6 +20,7 @@ import SkipLink from '@components/SkipLink';
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import { Category } from '@/types/category';
+import { YM_ID } from '@/utils/ym';
 
 /* === Локальные шрифты (swap, preload > Early-Hints) === */
 const golosText = localFont({
@@ -121,7 +122,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     process.env.NODE_ENV !== 'production' && console.error('RootLayout: categories fetch error', e);
   }
 
-  const ymId = process.env.NEXT_PUBLIC_YM_ID;
+  const ymId = YM_ID;
 
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>

@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
@@ -125,7 +126,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       setLoading(false);
 
       window.gtag?.('event', 'search_query', { event_category: 'search', query });
-      callYm(96644553, 'reachGoal', 'search_query', { query });
+      callYm(YM_ID, 'reachGoal', 'search_query', { query });
     };
 
     const timer = setTimeout(() => {
@@ -230,7 +231,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                       event_category: 'search',
                       product_id: p.id,
                     });
-                    callYm(96644553, 'reachGoal', 'search_result_click', {
+                    callYm(YM_ID, 'reachGoal', 'search_result_click', {
                       product_id: p.id,
                     });
                   }}

@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -181,7 +182,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                           category: cat.name,
                           type: 'category',
                         });
-                        callYm(96644553, 'reachGoal', 'category_nav_click', {
+                        callYm(YM_ID, 'reachGoal', 'category_nav_click', {
                           category: cat.name,
                           type: 'category',
                         });
@@ -231,7 +232,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                         category: cat.name,
                         type: 'category',
                       });
-                      callYm(96644553, 'reachGoal', 'category_nav_click', {
+                      callYm(YM_ID, 'reachGoal', 'category_nav_click', {
                         category: cat.name,
                         type: 'category',
                       });
@@ -278,7 +279,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                               type: 'subcategory',
                             });
                             callYm(
-                              96644553,
+                              YM_ID,
                               'reachGoal',
                               'subcategory_nav_click',
                               { subcategory: sub.name, type: 'subcategory' }

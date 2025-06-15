@@ -37,13 +37,17 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Environment Variables
 
-The API routes require a Supabase service role key. Create a `.env` file with the following variable:
+Create a `.env` file with the following variables:
 
 ```bash
+NEXT_PUBLIC_YM_ID=your-yandex-metrica-id
+NEXT_PUBLIC_YANDEX_MAPS_API_KEY=your-yandex-maps-key
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-Without this value the `/api/upsell/products` endpoint will return an error.
+Without `SUPABASE_SERVICE_ROLE_KEY` the `/api/upsell/products` endpoint will return an error.
 
 ## Components
 

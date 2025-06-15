@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from "next/link";
 import Image from "next/image";
@@ -21,7 +22,7 @@ export default function OccasionCard({ occasion, index }: { occasion: Occasion; 
           event_label: occasion.title,
           value: index + 1,
         });
-        callYm(96644553, 'reachGoal', 'occasion_click', {
+        callYm(YM_ID, 'reachGoal', 'occasion_click', {
           occasion: occasion.title,
         });
       }}

@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -143,7 +144,7 @@ export default function CorporateForm() {
       setFormData({ name: '', company: '', phone: '', email: '', message: '' });
       toast.success('Заявка отправлена');
       window.gtag?.('event', 'corporate_form_submit', { event_category: 'corporate' });
-      callYm(96644553, 'reachGoal', 'corporate_form_submit');
+      callYm(YM_ID, 'reachGoal', 'corporate_form_submit');
     } catch (err: any) {
       process.env.NODE_ENV !== "production" && console.error('Error submitting form:', err);
       setError(err.message || 'Произошла ошибка при отправке заявки');

@@ -1,6 +1,7 @@
 // app/product/[id]/ProductPageClient.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -85,6 +86,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
   const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos);
+  const recommendLoop = recommendedItems.length > 4;
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
 
@@ -239,7 +241,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         event_label: product.title,
         value: product.price,
       });
-      callYm(96644553, 'reachGoal', 'view_item', { product_id: product.id });
+      callYm(YM_ID, 'reachGoal', 'view_item', { product_id: product.id });
     } catch (error) {}
   }, [product.id, product.title, product.price]);
 
@@ -271,7 +273,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         event_label: title,
         value: price,
       });
-      callYm(96644553, 'reachGoal', 'add_to_cart', { product_id: id });
+      callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch (error) {}
   };
 
@@ -582,7 +584,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                     prevEl: '.recommendSwiperButtonPrev',
                     nextEl: '.recommendSwiperButtonNext',
                   }}
-                  loop={recommendedItems.length >= 2}
+                  loop={recommendLoop}
                   modules={[Navigation]}
                   spaceBetween={12}
                   slidesPerView={2}

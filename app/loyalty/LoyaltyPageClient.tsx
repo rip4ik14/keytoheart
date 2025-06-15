@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Image from 'next/image';
 import WebpImage from '@components/WebpImage';
@@ -33,7 +34,7 @@ export default function LoyaltyPageClient() {
   useEffect(() => {
     // Аналитика: событие просмотра страницы лояльности
     window.gtag?.('event', 'view_loyalty', { event_category: 'loyalty', type: 'page_view' });
-    callYm(96644553, 'reachGoal', 'view_loyalty', { type: 'page_view' });
+    callYm(YM_ID, 'reachGoal', 'view_loyalty', { type: 'page_view' });
 
     const fetchUserData = async () => {
       // TODO: Заменить на российский сервис после миграции
@@ -264,7 +265,7 @@ export default function LoyaltyPageClient() {
               onClick={() => {
                 setFaqOpen(faqOpen === idx ? null : idx);
                 window.gtag?.('event', 'click_faq', { event_category: 'FAQ', event_label: faq.question });
-                callYm(96644553, 'reachGoal', 'click_faq', { question: faq.question });
+                callYm(YM_ID, 'reachGoal', 'click_faq', { question: faq.question });
               }}
               role="button"
               tabIndex={0}

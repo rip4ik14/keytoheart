@@ -1,4 +1,5 @@
 import { callYm } from '../utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 interface EventParams {
   category: string;
@@ -19,7 +20,7 @@ export function trackEvent({ category, action, label, value, type }: EventParams
       });
     }
     // Яндекс.Метрика
-    callYm(96644553, 'reachGoal', action, {
+    callYm(YM_ID, 'reachGoal', action, {
       category,
       label,
       value,

@@ -24,6 +24,8 @@ export default function PopularProductsClient({ products }: { products: Product[
     category_ids: item.category_ids || [],
   }));
 
+  const enableLoop = prepared.length > 4;
+
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
       <h2
@@ -35,7 +37,7 @@ export default function PopularProductsClient({ products }: { products: Product[
       <div className="relative">
         <Swiper
           modules={[Navigation]}
-          loop
+          loop={enableLoop}
           navigation={{ nextEl: '.popular-next', prevEl: '.popular-prev' }}
           slidesPerView={1}
           spaceBetween={16}
