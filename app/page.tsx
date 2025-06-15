@@ -3,7 +3,7 @@ import React from 'react'; // <-- обязательно для <React.Fragment>
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
-import PromoGrid from '@components/PromoGrid';
+import PromoGridServer from '@components/PromoGridServer';
 import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
@@ -184,7 +184,7 @@ export default async function Home() {
         }}
       />
       <section>
-        <PromoGrid />
+        <PromoGridServer />
       </section>
       <section>
         <PopularProductsServer />

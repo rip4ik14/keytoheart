@@ -47,7 +47,7 @@ export default function PromoAdminPage() {
 
   async function fetchBlocks() {
     try {
-      const res = await fetch('/api/promo/blocks'); // Предполагаемый эндпоинт для получения блоков
+      const res = await fetch('/api/promo');
       const data = await res.json();
       setBlocks(data);
     } catch (err: any) {
@@ -105,7 +105,11 @@ export default function PromoAdminPage() {
   async function handleDelete(id: number) {
     if (!confirm('Удалить блок?')) return;
     try {
-      const res = await fetch(`/api/promo/blocks/${id}`, { method: 'DELETE' });
+      const res = await fetch('/api/promo', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
       if (!res.ok) throw new Error('Ошибка удаления');
       toast.success('Блок удалён');
       fetchBlocks();
@@ -135,6 +139,7 @@ export default function PromoAdminPage() {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: { 'X-CSRF-Token': csrfToken },
       });
 
       const data = await res.json();

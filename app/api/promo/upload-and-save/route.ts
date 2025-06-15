@@ -5,6 +5,12 @@ import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 
+function checkCSRF(req: NextRequest) {
+  const csrfToken = req.headers.get('X-CSRF-Token');
+  const stored = req.cookies.get('csrf_token')?.value;
+  return csrfToken && stored && csrfToken === stored;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Проверка сессии
@@ -17,10 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NEAUTH', message: 'Доступ запрещён' }, { status: 401 });
     }
 
-    // Проверка CSRF-токена (предполагаем, что он передаётся в заголовке или теле)
-    const csrfToken = req.headers.get('X-CSRF-Token') || (await req.text()).match(/csrfToken=([^;]+)/)?.[1];
-    if (!csrfToken) {
-      return NextResponse.json({ error: 'CSRF_TOKEN_MISSING', message: 'CSRF-токен отсутствует' }, { status: 403 });
+    if (!checkCSRF(req)) {
+      return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
     }
 
     const formData = await req.formData();
