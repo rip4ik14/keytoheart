@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       where: { code: code.toUpperCase() },
       select: {
         id: true,
-
+        discount_value: true,
         discount_type: true,
         is_active: true,
         expires_at: true,
@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
     process.env.NODE_ENV !== 'production' &&
       console.log('POST /api/promo/validate: Promo code validated:', promo);
 
+    return NextResponse.json({
+      success: true,
+      discount: promo.discount_value,
       discountType: promo.discount_type,
       promoId: promo.id,
     });
