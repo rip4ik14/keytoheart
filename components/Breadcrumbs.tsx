@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -243,7 +244,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
                         event_category: 'navigation',
                         path: c.href,
                       });
-                      callYm(96644553, 'reachGoal', 'breadcrumb_click', {
+                      callYm(YM_ID, 'reachGoal', 'breadcrumb_click', {
                         path: c.href,
                       });
                     }}

@@ -1,6 +1,7 @@
 // ✅ Путь: components/Footer.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -28,7 +29,7 @@ export default function Footer({ categories }: FooterProps) {
               aria-label="Перейти в ВКонтакте"
               onClick={() => {
                 window.gtag?.('event', 'vk_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'vk_click');
+                callYm(YM_ID, 'reachGoal', 'vk_click');
               }}
             >
               <Image src="/icons/vk.svg" alt="ВКонтакте" width={16} height={16} />
@@ -41,7 +42,7 @@ export default function Footer({ categories }: FooterProps) {
               aria-label="Перейти в WhatsApp"
               onClick={() => {
                 window.gtag?.('event', 'whatsapp_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'whatsapp_click');
+                callYm(YM_ID, 'reachGoal', 'whatsapp_click');
               }}
             >
               <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
@@ -54,7 +55,7 @@ export default function Footer({ categories }: FooterProps) {
               aria-label="Перейти в Telegram"
               onClick={() => {
                 window.gtag?.('event', 'telegram_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'telegram_click');
+                callYm(YM_ID, 'reachGoal', 'telegram_click');
               }}
             >
               <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
@@ -68,7 +69,7 @@ export default function Footer({ categories }: FooterProps) {
             aria-label="Рейтинг на Яндекс.Картах"
             onClick={() => {
               window.gtag?.('event', 'yandex_maps_click', { event_category: 'footer' });
-              callYm(96644553, 'reachGoal', 'yandex_maps_click');
+              callYm(YM_ID, 'reachGoal', 'yandex_maps_click');
             }}
           >
             Рейтинг на Яндекс.Картах
@@ -80,7 +81,7 @@ export default function Footer({ categories }: FooterProps) {
               className="hover:underline block text-gray-500"
               onClick={() => {
                 window.gtag?.('event', 'policy_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'policy_click');
+                callYm(YM_ID, 'reachGoal', 'policy_click');
               }}
             >
               Политика конфиденциальности
@@ -90,7 +91,7 @@ export default function Footer({ categories }: FooterProps) {
               className="hover:underline block text-gray-500"
               onClick={() => {
                 window.gtag?.('event', 'offer_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'offer_click');
+                callYm(YM_ID, 'reachGoal', 'offer_click');
               }}
             >
               Публичная оферта
@@ -100,7 +101,7 @@ export default function Footer({ categories }: FooterProps) {
               className="hover:underline block text-gray-500"
               onClick={() => {
                 window.gtag?.('event', 'terms_click', { event_category: 'footer' });
-                callYm(96644553, 'reachGoal', 'terms_click');
+                callYm(YM_ID, 'reachGoal', 'terms_click');
               }}
             >
               Пользовательское соглашение
@@ -122,7 +123,7 @@ export default function Footer({ categories }: FooterProps) {
                       event_category: 'footer',
                       category: cat.name,
                     });
-                    callYm(96644553, 'reachGoal', 'footer_category_click', {
+                    callYm(YM_ID, 'reachGoal', 'footer_category_click', {
                       category: cat.name,
                     });
                   }}
@@ -137,7 +138,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_occasions_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_occasions_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_occasions_click');
                 }}
               >
                 Праздники
@@ -156,7 +157,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_delivery_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_delivery_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_delivery_click');
                 }}
               >
                 Доставка
@@ -168,7 +169,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_corporate_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_corporate_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_corporate_click');
                 }}
               >
                 Корпоративным клиентам
@@ -180,7 +181,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_faq_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_faq_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_faq_click');
                 }}
               >
                 Часто задаваемые вопросы
@@ -192,7 +193,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_payment_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_payment_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_payment_click');
                 }}
               >
                 Оплата
@@ -204,7 +205,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_loyalty_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_loyalty_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_loyalty_click');
                 }}
               >
                 Программа лояльности
@@ -223,7 +224,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_about_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_about_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_about_click');
                 }}
               >
                 О нас
@@ -235,7 +236,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_contacts_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_contacts_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_contacts_click');
                 }}
               >
                 Контакты
@@ -247,7 +248,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_news_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_news_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_news_click');
                 }}
               >
                 Новости
@@ -259,7 +260,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_articles_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_articles_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_articles_click');
                 }}
               >
                 Статьи
@@ -271,7 +272,7 @@ export default function Footer({ categories }: FooterProps) {
                 className="hover:underline text-gray-500"
                 onClick={() => {
                   window.gtag?.('event', 'footer_occasions_click', { event_category: 'footer' });
-                  callYm(96644553, 'reachGoal', 'footer_occasions_click');
+                  callYm(YM_ID, 'reachGoal', 'footer_occasions_click');
                 }}
               >
                 Праздники

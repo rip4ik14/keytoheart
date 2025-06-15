@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -66,7 +67,7 @@ export function usePromoAndBonuses({
         event_category: 'cart',
         promo_code: promoCode,
       });
-      callYm(96644553, 'reachGoal', 'apply_promo_code', { promo_code: promoCode });
+      callYm(YM_ID, 'reachGoal', 'apply_promo_code', { promo_code: promoCode });
     } catch {
       toast.error('Ошибка при проверке промокода.');
     } finally {
@@ -79,7 +80,7 @@ export function usePromoAndBonuses({
     setPromoDiscount(null);
     toast.success('Промокод сброшен');
     window.gtag?.('event', 'reset_promo_code', { event_category: 'cart' });
-    callYm(96644553, 'reachGoal', 'reset_promo_code');
+    callYm(YM_ID, 'reachGoal', 'reset_promo_code');
   };
 
   const applyBonuses = (maxBonusUse: number) => {
@@ -95,7 +96,7 @@ export function usePromoAndBonuses({
         event_category: 'cart',
         bonuses_used: bonusesUsed,
       });
-      callYm(96644553, 'reachGoal', 'apply_bonuses', { bonuses_used: bonusesUsed });
+      callYm(YM_ID, 'reachGoal', 'apply_bonuses', { bonuses_used: bonusesUsed });
     }
   };
 
@@ -103,7 +104,7 @@ export function usePromoAndBonuses({
     setBonusesUsed(0);
     toast.success('Бонусы сброшены');
     window.gtag?.('event', 'reset_bonuses', { event_category: 'cart' });
-    callYm(96644553, 'reachGoal', 'reset_bonuses');
+    callYm(YM_ID, 'reachGoal', 'reset_bonuses');
   };
 
   return {

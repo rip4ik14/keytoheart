@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,7 +32,7 @@ export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownPr
       event_category: 'catalog',
       sort_value: value,
     });
-    callYm(96644553, 'reachGoal', 'sort_change', {
+    callYm(YM_ID, 'reachGoal', 'sort_change', {
       sort_value: value,
     });
   };

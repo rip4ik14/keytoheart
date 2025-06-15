@@ -1,13 +1,14 @@
 // ✅ Путь: components/LogoutButton.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 export default function LogoutButton() {
   const handleLogout = async () => {
     await fetch('/api/admin-logout', { method: 'POST' });
     window.location.href = '/admin/login';
     window.gtag?.('event', 'admin_logout', { event_category: 'admin' });
-    callYm(96644553, 'reachGoal', 'admin_logout');
+    callYm(YM_ID, 'reachGoal', 'admin_logout');
   };
 
   return (

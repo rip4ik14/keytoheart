@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 
@@ -13,7 +14,7 @@ export default function BackToOccasionsButton({ occasionTitle }: { occasionTitle
           event_category: 'occasion_detail_page',
           event_label: occasionTitle,
         });
-        callYm(96644553, 'reachGoal', 'back_to_occasions', {
+        callYm(YM_ID, 'reachGoal', 'back_to_occasions', {
           occasion: occasionTitle,
         });
       }}

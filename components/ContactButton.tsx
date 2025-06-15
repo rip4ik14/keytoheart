@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Image from 'next/image';
 
@@ -17,7 +18,7 @@ export default function ContactButton() {
             event_label: 'Telegram Contact Click',
             value: 1,
           });
-          callYm(96644553, 'reachGoal', 'contact_telegram', {
+          callYm(YM_ID, 'reachGoal', 'contact_telegram', {
             source: 'payment_page',
           });
         }}
@@ -37,7 +38,7 @@ export default function ContactButton() {
             event_label: 'WhatsApp Contact Click',
             value: 1,
           });
-          callYm(96644553, 'reachGoal', 'contact_whatsapp', {
+          callYm(YM_ID, 'reachGoal', 'contact_whatsapp', {
             source: 'payment_page',
           });
         }}

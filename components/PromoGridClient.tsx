@@ -29,6 +29,8 @@ export default function PromoGridClient({
   const [activeSlide, setActiveSlide] = useState(0);
   const desktopBanners = banners.slice(0, 5);
   const desktopCards = cards.slice(0, 4);
+  const bannerLoop = desktopBanners.length > 1;
+  const mobileLoop = mobileItems.length > 1;
 
   // Мобайл: баннеры и карточки вместе
   const mobileItems = [...banners, ...cards];
@@ -61,7 +63,7 @@ export default function PromoGridClient({
               modules={[Autoplay, Pagination]}
               autoplay={{ delay: 6000 }}
               pagination={{ clickable: true }}
-              loop
+              loop={bannerLoop}
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
@@ -126,7 +128,7 @@ export default function PromoGridClient({
               modules={[Autoplay, Pagination]}
               autoplay={{ delay: 6000 }}
               pagination={{ clickable: true }}
-              loop
+              loop={mobileLoop}
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >

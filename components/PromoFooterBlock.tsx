@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import Image from 'next/image';
 import WebpImage from './WebpImage';
@@ -67,7 +68,7 @@ export default function PromoFooterBlock() {
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               onClick={() => {
                 window.gtag?.('event', 'click_loyalty_link', { event_category: 'PromoFooter', event_label: 'Loyalty Program' });
-                callYm(12345678, 'reachGoal', 'click_loyalty_link');
+                callYm(YM_ID, 'reachGoal', 'click_loyalty_link');
               }}
             >
               Программа лояльности
@@ -80,7 +81,7 @@ export default function PromoFooterBlock() {
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               onClick={() => {
                 window.gtag?.('event', 'click_corporate_link', { event_category: 'PromoFooter', event_label: 'Corporate Clients' });
-                callYm(12345678, 'reachGoal', 'click_corporate_link');
+                callYm(YM_ID, 'reachGoal', 'click_corporate_link');
               }}
             >
               Для юрлиц
@@ -118,7 +119,7 @@ export default function PromoFooterBlock() {
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               onClick={() => {
                 window.gtag?.('event', 'click_instagram_link', { event_category: 'PromoFooter', event_label: 'Instagram' });
-                callYm(12345678, 'reachGoal', 'click_instagram_link');
+                callYm(YM_ID, 'reachGoal', 'click_instagram_link');
               }}
             >
               @Keytoheart
@@ -133,7 +134,7 @@ export default function PromoFooterBlock() {
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               onClick={() => {
                 window.gtag?.('event', 'click_vk_link', { event_category: 'PromoFooter', event_label: 'VK' });
-                callYm(12345678, 'reachGoal', 'click_vk_link');
+                callYm(YM_ID, 'reachGoal', 'click_vk_link');
               }}
             >
               VK

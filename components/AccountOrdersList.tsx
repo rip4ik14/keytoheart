@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useRouter } from 'next/navigation';
 import { useCart } from '@context/CartContext';
@@ -41,7 +42,7 @@ export default function AccountOrdersList({ phone }: { phone: string }) {
         event_category: 'account',
         order_id: order.id,
       });
-      callYm(96644553, 'reachGoal', 'repeat_order', { order_id: order.id });
+      callYm(YM_ID, 'reachGoal', 'repeat_order', { order_id: order.id });
     } catch {
       toast.error('Не удалось повторить заказ');
     }

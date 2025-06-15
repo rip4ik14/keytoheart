@@ -1,5 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
@@ -32,7 +33,7 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: -320, behavior: 'smooth' });
       window.gtag?.('event', 'gallery_scroll_left', { event_category: 'corporate' });
-      callYm(96644553, 'reachGoal', 'gallery_scroll_left');
+      callYm(YM_ID, 'reachGoal', 'gallery_scroll_left');
     }
   };
 
@@ -40,7 +41,7 @@ export default function CorporateGallerySlider({}: CorporateGallerySliderProps) 
     if (scrollRef.current) {
       scrollRef.current.scrollBy({ left: 320, behavior: 'smooth' });
       window.gtag?.('event', 'gallery_scroll_right', { event_category: 'corporate' });
-      callYm(96644553, 'reachGoal', 'gallery_scroll_right');
+      callYm(YM_ID, 'reachGoal', 'gallery_scroll_right');
     }
   };
 
