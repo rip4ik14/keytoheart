@@ -45,7 +45,7 @@ export default function AboutPage() {
           description: 'KEY TO HEART — студия сладких эмоций. Букеты и подарки с доставкой по Краснодару.',
           contactPoint: {
             '@type': 'ContactPoint',
-            telephone: '+7-918-123-45-67',
+            telephone: '+7-988-603-38-21',
             contactType: 'customer service',
             areaServed: 'RU',
             availableLanguage: 'Russian',
