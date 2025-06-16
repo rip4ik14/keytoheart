@@ -158,7 +158,9 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
       images: formData.images,
       slug: slugify(formData.title),
       discount_percent: formData.discount_percent,
-      original_price: formData.original_price,
+      original_price: formData.original_price
+        ? Number(formData.original_price)
+        : null,
       order_index: formData.order_index,
     };
 
@@ -279,7 +281,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
             </label>
             <input
               id="original_price"
-              type="text"
+              type="number"
               value={formData.original_price}
               onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"
