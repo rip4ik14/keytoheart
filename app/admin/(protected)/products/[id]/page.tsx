@@ -717,7 +717,8 @@ export default function EditProductPage() {
                   type="number"
                   value={productionTime}
                   onChange={(e) => setProductionTime(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+
                   placeholder="Введите время изготовления в часах"
                   min="0"
                   step="1"
