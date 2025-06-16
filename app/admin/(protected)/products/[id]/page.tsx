@@ -529,15 +529,15 @@ export default function EditProductPage() {
     <CSRFToken>
       {(csrfToken) => (
         <motion.div
-          className="max-w-6xl mx-auto p-6 space-y-6 bg-gray-50 rounded-lg shadow-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          className="max-w-3xl mx-auto p-4 sm:p-8 bg-white rounded-2xl shadow-xl my-8 animate-in fade-in duration-200"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 tracking-tight">Редактировать товар #{id}</h1>
           <form onSubmit={(e) => handleSubmit(e, csrfToken)} className="space-y-8">
             {/* Основная информация */}
-            <section className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+            <section>
               <h2 className="text-xl font-semibold text-gray-700">Основная информация</h2>
               <div>
                 <label htmlFor="title" className="block mb-1 font-medium text-gray-600">
@@ -548,7 +548,7 @@ export default function EditProductPage() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите название товара (мин. 3 символа)"
                   required
                   aria-describedby="title-desc"
@@ -578,7 +578,7 @@ export default function EditProductPage() {
                               setCategoryIds(prev => prev.filter(id => id !== cat.id));
                             }
                           }}
-                          className="mr-2"
+                          className="mr-2 accent-black"
                         />
                         {cat.name}
                       </label>
@@ -609,7 +609,7 @@ export default function EditProductPage() {
                               setSubcategoryIds(prev => prev.filter(id => id !== sub.id));
                             }
                           }}
-                          className="mr-2"
+                          className="mr-2 accent-black"
                         />
                         {sub.name} (Категория: {categories.find(cat => cat.id === sub.category_id)?.name})
                       </label>
@@ -623,7 +623,7 @@ export default function EditProductPage() {
             </section>
 
             {/* Цены, скидки и бонусы */}
-            <section className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+            <section>
               <h2 className="text-xl font-semibold text-gray-700">Цены, скидки и бонусы</h2>
               <div>
                 <label htmlFor="price" className="block mb-1 font-medium text-gray-600">
@@ -634,7 +634,7 @@ export default function EditProductPage() {
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите цену"
                   required
                   min="0.01"
@@ -655,7 +655,7 @@ export default function EditProductPage() {
                   type="number"
                   value={originalPrice}
                   onChange={(e) => setOriginalPrice(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите старую цену"
                   required
                   min="0.01"
@@ -676,7 +676,7 @@ export default function EditProductPage() {
                   type="number"
                   value={discountPercent}
                   onChange={(e) => setDiscountPercent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите скидку (0-100)"
                   min="0"
                   max="100"
@@ -697,7 +697,7 @@ export default function EditProductPage() {
                   type="number"
                   value={bonus}
                   onChange={(e) => setBonus(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите бонус"
                   min="0"
                   step="0.01"
@@ -717,7 +717,7 @@ export default function EditProductPage() {
                   type="number"
                   value={productionTime}
                   onChange={(e) => setProductionTime(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите время изготовления в часах"
                   min="0"
                   step="1"
@@ -731,7 +731,7 @@ export default function EditProductPage() {
             </section>
 
             {/* Описание */}
-            <section className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+            <section>
               <h2 className="text-xl font-semibold text-gray-700">Описание</h2>
               <div>
                 <label htmlFor="shortDesc" className="block mb-1 font-medium text-gray-600">
@@ -741,7 +741,7 @@ export default function EditProductPage() {
                   id="shortDesc"
                   value={shortDesc}
                   onChange={(e) => setShortDesc(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите краткое описание"
                   rows={3}
                   aria-describedby="shortDesc-desc"
@@ -759,7 +759,7 @@ export default function EditProductPage() {
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите полное описание"
                   rows={5}
                   aria-describedby="description-desc"
@@ -777,7 +777,7 @@ export default function EditProductPage() {
                   id="composition"
                   value={composition}
                   onChange={(e) => setComposition(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
                   placeholder="Введите состав"
                   rows={3}
                   aria-describedby="composition-desc"
@@ -790,7 +790,7 @@ export default function EditProductPage() {
             </section>
 
             {/* Изображения и настройки */}
-            <section className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+            <section>
               <h2 className="text-xl font-semibold text-gray-700">Изображения и настройки</h2>
               <div>
                 <label className="block mb-1 font-medium text-gray-600">Существующие изображения:</label>
@@ -848,7 +848,7 @@ export default function EditProductPage() {
                   type="checkbox"
                   checked={inStock}
                   onChange={(e) => setInStock(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="w-5 h-5 accent-black focus:ring-black border-gray-300 rounded"
                   aria-describedby="inStock-desc"
                 />
                 <label htmlFor="inStock" className="font-medium text-gray-600">
@@ -864,7 +864,7 @@ export default function EditProductPage() {
                   type="checkbox"
                   checked={isVisible}
                   onChange={(e) => setIsVisible(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="w-5 h-5 accent-black focus:ring-black border-gray-300 rounded"
                   aria-describedby="isVisible-desc"
                 />
                 <label htmlFor="isVisible" className="font-medium text-gray-600">
@@ -880,7 +880,7 @@ export default function EditProductPage() {
                   type="checkbox"
                   checked={isPopular}
                   onChange={(e) => setIsPopular(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="w-5 h-5 accent-black focus:ring-black border-gray-300 rounded"
                   aria-describedby="isPopular-desc"
                 />
                 <label htmlFor="isPopular" className="font-medium text-gray-600">
@@ -893,13 +893,13 @@ export default function EditProductPage() {
             </section>
 
             {/* Кнопки */}
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <motion.button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="flex-1 py-3 text-lg font-bold bg-black text-white rounded-xl shadow-md hover:bg-gray-900 transition-all disabled:bg-gray-400"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
                 aria-label="Сохранить изменения"
               >
                 {loading ? 'Сохранение...' : 'Сохранить изменения'}
@@ -907,9 +907,9 @@ export default function EditProductPage() {
               <motion.button
                 type="button"
                 onClick={() => router.push('/admin/products')}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
                 aria-label="Отмена"
               >
                 Отмена
