@@ -227,9 +227,12 @@ export default function NewProductPage() {
       if (categoryIds.length === 0) throw new Error('Необходимо выбрать хотя бы одну категорию');
       const discountNum = discountPercent ? parseFloat(discountPercent) : 0;
       if (discountNum < 0 || discountNum > 100) throw new Error('Скидка должна быть от 0 до 100%');
-      const productionTimeNum = productionTime ? parseInt(productionTime) : null;
-      if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
-        throw new Error('Время изготовления должно быть ≥ 0');
+      const productionTimeNum = productionTime ? parseFloat(productionTime) : null;
+      if (
+        productionTime &&
+        (isNaN(productionTimeNum!) || productionTimeNum! < 0 || !Number.isInteger(productionTimeNum!))
+      ) {
+        throw new Error('Время изготовления указывается только в часах (целое число).');
       }
       const bonusNum = parseFloat(bonus);
       if (isNaN(bonusNum) || bonusNum < 0) {
@@ -439,17 +442,20 @@ export default function NewProductPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (ч):</label>
+                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (часы):</label>
                   <input
                     id="productionTime"
                     type="number"
                     value={productionTime}
                     onChange={e => setProductionTime(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
-                    placeholder="Время изготовления"
+                    placeholder="Время изготовления в часах"
                     min="0"
                     step="1"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Укажите целое число часов, необходимое для изготовления товара.
+                  </p>
                 </div>
               </div>
             </section>
