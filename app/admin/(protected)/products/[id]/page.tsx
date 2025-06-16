@@ -429,9 +429,12 @@ export default function EditProductPage() {
       if (discountNum < 0 || discountNum > 100) {
         throw new Error('Скидка должна быть от 0 до 100%');
       }
-      const productionTimeNum = productionTime ? parseInt(productionTime) : null;
-      if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
-        throw new Error('Время изготовления должно быть ≥ 0');
+      const productionTimeNum = productionTime ? parseFloat(productionTime) : null;
+      if (
+        productionTime &&
+        (isNaN(productionTimeNum!) || productionTimeNum! < 0 || !Number.isInteger(productionTimeNum!))
+      ) {
+        throw new Error('Время изготовления указывается только в часах (целое число).');
       }
       const bonusNum = bonus ? parseFloat(bonus) : 0;
       if (bonus && (isNaN(bonusNum) || bonusNum < 0)) {
@@ -715,7 +718,7 @@ export default function EditProductPage() {
                   value={productionTime}
                   onChange={(e) => setProductionTime(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  placeholder="Введите время изготовления"
+                  placeholder="Введите время изготовления в часах"
                   min="0"
                   step="1"
                   aria-describedby="productionTime-desc"
