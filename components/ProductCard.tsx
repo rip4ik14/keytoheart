@@ -85,10 +85,19 @@ export default function ProductCard({
     >
       {/* --------- бонус ---------- */}
       {bonus > 0 && (
-        <div className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100">
-          +{bonus}₽
-        </div>
-      )}
+  <div className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100">
+    +{bonus}
+    <img
+      src="/icons/gift.svg"
+      alt="Бонусы"
+      className="ml-1 w-[13px] h-[13px] inline-block"
+      draggable={false}
+      style={{ minWidth: 13, minHeight: 13 }}
+    />
+  </div>
+)}
+
+
 
       {/* --------- популярно ---------- */}
       {isPopular && (
