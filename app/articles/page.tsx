@@ -4,36 +4,36 @@ import type { Article, FAQPage, WebPage } from 'schema-dts';
 import ArticlesPageClient from '@components/ArticlesPageClient';
 
 export const metadata: Metadata = {
-  title: 'Статьи о клубничных букетах и подарках | KeyToHeart',
-  description: 'Полезные статьи о клубничных букетах, оригинальных подарках и доставке в Краснодаре от KeyToHeart. Узнайте, как выбрать идеальный букет для любого случая.',
+  title: 'Статьи о клубничных букетах и подарках | KEY TO HEART',
+  description: 'Полезные статьи о клубничных букетах, оригинальных подарках и доставке в Краснодаре от KEY TO HEART. Узнайте, как выбрать идеальный букет для любого случая.',
   keywords: [
     'клубничные букеты',
     'подарки Краснодар',
     'оригинальные подарки',
     'доставка букетов Краснодар',
     'цветочные композиции',
-    'KeyToHeart',
+    'KEY TO HEART',
     'статьи',
   ],
   openGraph: {
-    title: 'Статьи о клубничных букетах и подарках | KeyToHeart',
-    description: 'Узнайте всё о клубничных букетах, подарках и доставке в Краснодаре от KeyToHeart.',
+    title: 'Статьи о клубничных букетах и подарках | KEY TO HEART',
+    description: 'Узнайте всё о клубничных букетах, подарках и доставке в Краснодаре от KEY TO HEART.',
     url: 'https://keytoheart.ru/articles',
-    siteName: 'KeyToHeart',
+    siteName: 'KEY TO HEART',
     images: [
       {
         url: 'https://keytoheart.ru/og-image-articles.jpg',
         width: 1200,
         height: 630,
-        alt: 'Статьи о клубничных букетах KeyToHeart',
+        alt: 'Статьи о клубничных букетах KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Статьи о клубничных букетах и подарках | KeyToHeart',
-    description: 'Узнайте всё о клубничных букетах, подарках и доставке в Краснодаре от KeyToHeart.',
+    title: 'Статьи о клубничных букетах и подарках | KEY TO HEART',
+    description: 'Узнайте всё о клубничных букетах, подарках и доставке в Краснодаре от KEY TO HEART.',
     images: ['https://keytoheart.ru/og-image-articles.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/articles' },
@@ -44,15 +44,15 @@ export const revalidate = 86400;
 const articleSchema: Article = {
   '@type': 'Article',
   headline: 'Почему клубничные букеты – идеальный подарок для любого случая',
-  description: 'Узнайте, почему клубничные букеты от KeyToHeart – это уникальный и запоминающийся подарок для любого события.',
+  description: 'Узнайте, почему клубничные букеты от KEY TO HEART – это уникальный и запоминающийся подарок для любого события.',
   author: {
     '@type': 'Organization',
-    name: 'KeyToHeart',
+    name: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
   },
   publisher: {
     '@type': 'Organization',
-    name: 'KeyToHeart',
+    name: 'KEY TO HEART',
     logo: {
       '@type': 'ImageObject',
       url: 'https://keytoheart.ru/logo.png',
@@ -73,7 +73,7 @@ const faqSchema: FAQPage = {
       name: 'Как долго хранятся клубничные букеты?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Клубничные букеты от KeyToHeart сохраняют свежесть до 24 часов при правильном хранении в прохладном месте. Мы используем только свежие ягоды и рекомендуем дарить букет в день доставки.',
+        text: 'Клубничные букеты от KEY TO HEART сохраняют свежесть до 24 часов при правильном хранении в прохладном месте. Мы используем только свежие ягоды и рекомендуем дарить букет в день доставки.',
       },
     },
     {
@@ -81,7 +81,7 @@ const faqSchema: FAQPage = {
       name: 'Можно ли заказать доставку клубничного букета в Краснодаре?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Да, KeyToHeart предлагает быструю доставку клубничных букетов по Краснодару. Вы можете выбрать удобное время доставки при оформлении заказа.',
+        text: 'Да, KEY TO HEART предлагает быструю доставку клубничных букетов по Краснодару. Вы можете выбрать удобное время доставки при оформлении заказа.',
       },
     },
     {
@@ -106,12 +106,12 @@ export default function ArticlesPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Статьи о клубничных букетах и подарках | KeyToHeart',
+          name: 'Статьи о клубничных букетах и подарках | KEY TO HEART',
           url: 'https://keytoheart.ru/articles',
-          description: 'Полезные статьи о клубничных букетах, подарках и доставке в Краснодаре от KeyToHeart.',
+          description: 'Полезные статьи о клубничных букетах, подарках и доставке в Краснодаре от KEY TO HEART.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KeyToHeart',
+            name: 'KEY TO HEART',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

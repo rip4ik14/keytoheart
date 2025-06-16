@@ -109,7 +109,7 @@ export default function LoyaltyPageClient() {
       >
         <WebpImage
           src="/images/banner-loyalty.jpg"
-          alt="Баннер программы лояльности KeyToHeart"
+          alt="Баннер программы лояльности KEY TO HEART"
           fill
           className="object-cover opacity-50"
           priority
@@ -215,7 +215,7 @@ export default function LoyaltyPageClient() {
           <table
             className="w-full text-sm text-gray-700"
             role="grid"
-            aria-label="Уровни кешбэка программы лояльности KeyToHeart"
+            aria-label="Уровни кешбэка программы лояльности KEY TO HEART"
           >
             <thead className="bg-gray-100">
               <tr>

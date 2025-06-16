@@ -27,11 +27,11 @@ export const revalidate = 60;
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'KeyToHeart — Клубничные букеты и подарки в Краснодаре',
+  title: 'KEY TO HEART — Клубничные букеты и подарки в Краснодаре',
   description: 'Свежие цветы, клубничные букеты и подарочные боксы с доставкой по Краснодару.',
   keywords: ['клубничные букеты', 'цветы Краснодар', 'доставка подарков'],
   openGraph: {
-    title: 'KeyToHeart — Клубничные букеты и подарки',
+    title: 'KEY TO HEART — Клубничные букеты и подарки',
     description: 'Закажите уникальные композиции с доставкой по Краснодару.',
     url: 'https://keytoheart.ru',
     images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],

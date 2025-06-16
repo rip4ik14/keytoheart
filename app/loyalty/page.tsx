@@ -4,28 +4,28 @@ import type { FAQPage, WebPage } from 'schema-dts';
 import LoyaltyPageClient from './LoyaltyPageClient';
 
 export const metadata: Metadata = {
-  title: 'Программа лояльности • до 15% бонусами | KeyToHeart',
+  title: 'Программа лояльности • до 15% бонусами | KEY TO HEART',
   description:
-    'Получайте кешбэк до 15% за каждый заказ на KeyToHeart и оплачивайте им до 15% следующих покупок.',
-  keywords: ['программа лояльности', 'KeyToHeart', 'бонусы', 'кешбэк', 'Краснодар'],
+    'Получайте кешбэк до 15% за каждый заказ на KEY TO HEART и оплачивайте им до 15% следующих покупок.',
+  keywords: ['программа лояльности', 'KEY TO HEART', 'бонусы', 'кешбэк', 'Краснодар'],
   openGraph: {
-    title: 'Программа лояльности | KeyToHeart',
+    title: 'Программа лояльности | KEY TO HEART',
     description: 'Получайте кешбэк до 15% за заказы.',
     url: 'https://keytoheart.ru/loyalty',
-    siteName: 'KeyToHeart',
+    siteName: 'KEY TO HEART',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Программа лояльности KeyToHeart',
+        alt: 'Программа лояльности KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Программа лояльности | KeyToHeart',
+    title: 'Программа лояльности | KEY TO HEART',
     description: 'Получайте кешбэк до 15% за заказы.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
@@ -39,7 +39,7 @@ const faqSchema: FAQPage = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Что такое кешбэк в программе лояльности KeyToHeart?',
+      name: 'Что такое кешбэк в программе лояльности KEY TO HEART?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Кешбэк – это возврат бонусных баллов на ваш счёт. 1 балл = 1 ₽. Вы получаете до 15% от суммы заказа в зависимости от уровня.',
@@ -62,12 +62,12 @@ export default function LoyaltyPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Программа лояльности | KeyToHeart',
+          name: 'Программа лояльности | KEY TO HEART',
           url: 'https://keytoheart.ru/loyalty',
           description: 'Получайте кешбэк до 15% за заказы.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KeyToHeart',
+            name: 'KEY TO HEART',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

@@ -4,28 +4,28 @@ import type { FAQPage, WebPage } from 'schema-dts';
 import CookiePolicyPageClient from '@components/CookiePolicyPageClient';
 
 export const metadata: Metadata = {
-  title: 'Политика использования cookie | KeyToHeart',
-  description: 'Узнайте, как KeyToHeart использует cookie для улучшения вашего опыта. Политика использования cookie в соответствии с законодательством РФ (152-ФЗ).',
-  keywords: ['cookie', 'KeyToHeart', 'политика', 'конфиденциальность', 'политика cookie', 'безопасность данных', 'Краснодар'],
+  title: 'Политика использования cookie | KEY TO HEART',
+  description: 'Узнайте, как KEY TO HEART использует cookie для улучшения вашего опыта. Политика использования cookie в соответствии с законодательством РФ (152-ФЗ).',
+  keywords: ['cookie', 'KEY TO HEART', 'политика', 'конфиденциальность', 'политика cookie', 'безопасность данных', 'Краснодар'],
   openGraph: {
-    title: 'Политика использования cookie | KeyToHeart',
-    description: 'Узнайте, как KeyToHeart использует cookie для улучшения вашего опыта.',
+    title: 'Политика использования cookie | KEY TO HEART',
+    description: 'Узнайте, как KEY TO HEART использует cookie для улучшения вашего опыта.',
     url: 'https://keytoheart.ru/cookie-policy',
-    siteName: 'KeyToHeart',
+    siteName: 'KEY TO HEART',
     images: [
       {
         url: 'https://keytoheart.ru/og-image-cookie-policy.jpg',
         width: 1200,
         height: 630,
-        alt: 'Политика использования cookie KeyToHeart',
+        alt: 'Политика использования cookie KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Политика использования cookie | KeyToHeart',
-    description: 'Узнайте, как KeyToHeart использует cookie для улучшения вашего опыта.',
+    title: 'Политика использования cookie | KEY TO HEART',
+    description: 'Узнайте, как KEY TO HEART использует cookie для улучшения вашего опыта.',
     images: ['https://keytoheart.ru/og-image-cookie-policy.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/cookie-policy' },
@@ -38,7 +38,7 @@ const faqSchema: FAQPage = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Какие cookie использует KeyToHeart?',
+      name: 'Какие cookie использует KEY TO HEART?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Мы используем необходимые cookie для базовой функциональности, аналитические cookie (Google Analytics, Яндекс.Метрика) для анализа трафика и функциональные cookie для запоминания ваших предпочтений.',
@@ -46,7 +46,7 @@ const faqSchema: FAQPage = {
     },
     {
       '@type': 'Question',
-      name: 'Можно ли отключить cookie на сайте KeyToHeart?',
+      name: 'Можно ли отключить cookie на сайте KEY TO HEART?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Вы можете отключить аналитические и функциональные cookie через баннер cookie или настройки браузера, но необходимые cookie обязательны для работы сайта.',
@@ -64,12 +64,12 @@ export default function CookiePolicyPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Политика использования cookie | KeyToHeart',
+          name: 'Политика использования cookie | KEY TO HEART',
           url: 'https://keytoheart.ru/cookie-policy',
-          description: 'Политика использования cookie интернет-магазина KeyToHeart в соответствии с 152-ФЗ.',
+          description: 'Политика использования cookie интернет-магазина KEY TO HEART в соответствии с 152-ФЗ.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KeyToHeart',
+            name: 'KEY TO HEART',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

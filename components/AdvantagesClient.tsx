@@ -11,7 +11,7 @@ export default function AdvantagesClient() {
   ];
 
   return (
-    <section className="py-6 sm:py-8 md:py-10 bg-white" aria-label="Преимущества KeyToHeart">
+    <section className="py-6 sm:py-8 md:py-10 bg-white" aria-label="Преимущества KEY TO HEART">
       <div className="max-w-4xl mx-auto px-2 sm:px-4">
         <div
           className="

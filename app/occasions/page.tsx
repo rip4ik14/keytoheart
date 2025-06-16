@@ -88,11 +88,11 @@ const occasions = [
 ];
 
 export const metadata: Metadata = {
-  title: 'Подарки по поводам | KeyToHeart',
+  title: 'Подарки по поводам | KEY TO HEART',
   description: 'Выберите идеальный подарок для любого повода: 8 марта, День рождения, День влюблённых, Новый год и другие. Доставка по Краснодару.',
-  keywords: ['подарки по поводам', 'KeyToHeart', 'Краснодар', 'клубничные букеты', 'доставка'],
+  keywords: ['подарки по поводам', 'KEY TO HEART', 'Краснодар', 'клубничные букеты', 'доставка'],
   openGraph: {
-    title: 'Подарки по поводам | KeyToHeart',
+    title: 'Подарки по поводам | KEY TO HEART',
     description: 'Идеальные подарки для любого повода с доставкой по Краснодару.',
     url: 'https://keytoheart.ru/occasions',
     images: [
@@ -100,14 +100,14 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-image-occasions.jpg',
         width: 1200,
         height: 630,
-        alt: 'Подарки по поводам KeyToHeart',
+        alt: 'Подарки по поводам KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Подарки по поводам | KeyToHeart',
+    title: 'Подарки по поводам | KEY TO HEART',
     description: 'Идеальные подарки для любого повода с доставкой по Краснодару.',
     images: ['https://keytoheart.ru/og-image-occasions.jpg'],
   },
@@ -120,7 +120,7 @@ export default function OccasionListPage() {
       <JsonLd<CollectionPage>
         item={{
           '@type': 'CollectionPage',
-          name: 'Подарки по поводам | KeyToHeart',
+          name: 'Подарки по поводам | KEY TO HEART',
           description: 'Выберите идеальный подарок для любого повoda: 8 марта, День рождения, День влюблённых, Новый год и другие.',
           url: 'https://keytoheart.ru/occasions',
           hasPart: occasions.map((o) => ({

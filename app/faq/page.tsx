@@ -4,11 +4,11 @@ import { JsonLd } from 'react-schemaorg';
 import type { FAQPage } from 'schema-dts'; // Исправляем импорт
 
 export const metadata: Metadata = {
-  title: 'FAQ — Часто задаваемые вопросы | KeyToHeart',
-  description: 'Ответы на популярные вопросы о заказе, оплате, доставке и составе клубничных букетов и наборов KeyToHeart.',
-  keywords: ['FAQ', 'KeyToHeart', 'вопросы', 'клубничные букеты', 'доставка', 'Краснодар'],
+  title: 'FAQ — Часто задаваемые вопросы | KEY TO HEART',
+  description: 'Ответы на популярные вопросы о заказе, оплате, доставке и составе клубничных букетов и наборов KEY TO HEART.',
+  keywords: ['FAQ', 'KEY TO HEART', 'вопросы', 'клубничные букеты', 'доставка', 'Краснодар'],
   openGraph: {
-    title: 'FAQ | KeyToHeart',
+    title: 'FAQ | KEY TO HEART',
     description: 'Ответы на вопросы о букетах и доставке.',
     url: 'https://keytoheart.ru/faq',
     images: [
@@ -16,14 +16,14 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-image-faq.jpg',
         width: 1200,
         height: 630,
-        alt: 'FAQ KeyToHeart',
+        alt: 'FAQ KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FAQ | KeyToHeart',
+    title: 'FAQ | KEY TO HEART',
     description: 'Ответы на вопросы о букетах и доставке.',
     images: ['https://keytoheart.ru/og-image-faq.jpg'],
   },
@@ -39,10 +39,10 @@ export default function FAQPage() {
           mainEntity: [
             {
               '@type': 'Question',
-              name: 'Что такое KeyToHeart?',
+              name: 'Что такое KEY TO HEART?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: 'KeyToHeart — это сервис по созданию и доставке стильных букетов и подарочных наборов из клубники в шоколаде и свежих цветов. Мы работаем в Краснодаре.',
+                text: 'KEY TO HEART — это сервис по созданию и доставке стильных букетов и подарочных наборов из клубники в шоколаде и свежих цветов. Мы работаем в Краснодаре.',
               },
             },
             {
@@ -151,7 +151,7 @@ export default function FAQPage() {
             },
             {
               '@type': 'Question',
-              name: 'Как работает кешбэк от KeyToHeart?',
+              name: 'Как работает кешбэк от KEY TO HEART?',
               acceptedAnswer: {
                 '@type': 'Answer',
                 text: 'За каждый заказ начисляются бонусные баллы (от 5 до 20% от суммы заказа, 1 балл = 1 рубль), которые можно использовать при следующем оформлении. Статус виден в корзине после входа в аккаунт.',

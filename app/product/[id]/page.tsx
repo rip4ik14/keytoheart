@@ -49,7 +49,7 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Товар не найден | KeyToHeart',
+      title: 'Товар не найден | KEY TO HEART',
       description: 'Страница товара не найдена.',
     };
   }
@@ -64,7 +64,7 @@ export async function generateMetadata({
   const url = `https://keytoheart.ru/product/${id}`;
 
   return {
-    title: `${data.title} | KeyToHeart`,
+    title: `${data.title} | KEY TO HEART`,
     description: desc || undefined,
     openGraph: { title: data.title, description: desc, url, images: [{ url: firstImg }] },
     twitter: { card: 'summary_large_image', title: data.title, description: desc, images: [firstImg] },
@@ -145,7 +145,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
           description: product.description || undefined,
           material: product.composition || undefined,
           category: product.category_ids.join(',') || undefined,
-          brand: { '@type': 'Brand', name: 'KeyToHeart' },
+          brand: { '@type': 'Brand', name: 'KEY TO HEART' },
           offers: offer,
         }}
       />

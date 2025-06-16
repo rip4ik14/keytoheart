@@ -56,18 +56,18 @@ export const revalidate = 3600;          // ISR-тайм-аут для layout
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KeyToHeart',
-    template: '%s | KeyToHeart',
+    default: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
+    template: '%s | KEY TO HEART',
   },
   description:
     'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару. Работаем круглосуточно, заказы онлайн 24/7.',
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
-    siteName: 'KeyToHeart',
+    siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
     title:
-      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KeyToHeart',
+      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
     description:
       'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
     images: [
@@ -75,14 +75,14 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-cover.webp',   // абсолютный URL
         width: 1200,
         height: 630,
-        alt: 'Клубничные букеты KeyToHeart',
+        alt: 'Клубничные букеты KEY TO HEART',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KeyToHeart — клубничные букеты и подарки в Краснодаре',
+    title: 'KEY TO HEART — клубничные букеты и подарки в Краснодаре',
     description:
       'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
     images: ['https://keytoheart.ru/og-cover.webp'],
@@ -156,14 +156,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             '@graph': [
               {
                 '@type': 'WebSite',
-                name: 'KeyToHeart',
+                name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
                 description:
                   'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару.',
               } satisfies WebSite,
               {
                 '@type': 'LocalBusiness',
-                name: 'KeyToHeart',
+                name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
                 telephone: '+7-988-603-38-21',
                 email: 'info@keytoheart.ru',
@@ -253,7 +253,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               aria-label="О магазине"
               className="mx-auto mt-8 mb-12 max-w-5xl px-4 text-[15px] leading-6 text-gray-700"
             >
-              <h2 className="mb-2 text-lg font-semibold">Почему выбирают KeyToHeart?</h2>
+              <h2 className="mb-2 text-lg font-semibold">Почему выбирают KEY TO HEART?</h2>
 
               <p className="mb-3">
                 Мы готовим клубничные букеты из свежей фермерской ягоды и настоящего бельгийского

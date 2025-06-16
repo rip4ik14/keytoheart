@@ -4,11 +4,11 @@ import CatalogClient, { Product, SitePage, CategoryFromDB, SubcategoryFromDB } f
 
 // Метаданные для SEO
 export const metadata: Metadata = {
-  title: 'Каталог товаров | KeyToHeart',
+  title: 'Каталог товаров | KEY TO HEART',
   description: 'Купите клубничные букеты и цветы с доставкой по Краснодару. Широкий выбор, свежие цветы, лучшие цены.',
-  keywords: ['клубничные букеты', 'цветы', 'доставка Краснодар', 'KeyToHeart'],
+  keywords: ['клубничные букеты', 'цветы', 'доставка Краснодар', 'KEY TO HEART'],
   openGraph: {
-    title: 'Каталог товаров | KeyToHeart',
+    title: 'Каталог товаров | KEY TO HEART',
     description: 'Купите клубничные букеты и цветы с доставкой по Краснодару.',
     url: 'https://keytoheart.ru/catalog',
     images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],

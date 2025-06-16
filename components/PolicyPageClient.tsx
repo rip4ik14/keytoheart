@@ -42,11 +42,11 @@ export default function PolicyPageClient() {
         whileInView="visible"
         viewport={{ once: true }}
       >
-        Настоящая Политика конфиденциальности персональных данных (далее – Политика) разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных» и действует в отношении всей информации, которую интернет-магазин KeyToHeart, расположенный на доменном имени{' '}
+        Настоящая Политика конфиденциальности персональных данных (далее – Политика) разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных» и действует в отношении всей информации, которую интернет-магазин KEY TO HEART, расположенный на доменном имени{' '}
         <Link
           href="/"
           className="underline hover:text-gray-500 transition-colors duration-300"
-          aria-label="Перейти на главную страницу KeyToHeart"
+          aria-label="Перейти на главную страницу KEY TO HEART"
           onClick={() => handleLinkClick('Главная страница', 'policy')}
         >
           keytoheart.ru
@@ -85,12 +85,12 @@ export default function PolicyPageClient() {
               description: 'Уникальный сетевой адрес узла в компьютерной сети.',
             },
             {
-              term: 'Сайт KeyToHeart',
+              term: 'Сайт KEY TO HEART',
               description: 'Совокупность веб-страниц под доменом keytoheart.ru и его субдоменами.',
             },
             {
               term: 'Пользователь',
-              description: 'Лицо, использующее сайт KeyToHeart через Интернет.',
+              description: 'Лицо, использующее сайт KEY TO HEART через Интернет.',
             },
           ].map((item, index) => (
             <li key={index} role="listitem">

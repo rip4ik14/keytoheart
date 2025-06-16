@@ -304,7 +304,7 @@ export default function ProductPageClient({
       navigator
         .share({
           title: product.title,
-          text: `Посмотрите этот букет: ${product.title} на KeyToHeart!`,
+          text: `Посмотрите этот букет: ${product.title} на KEY TO HEART!`,
           url: window.location.href,
         })
         .catch(() => {});
@@ -330,7 +330,7 @@ export default function ProductPageClient({
     >
       {/* schema.org meta */}
       <meta itemProp="sku" content={String(product.id)} />
-      <meta itemProp="brand" content="KeyToHeart" />
+      <meta itemProp="brand" content="KEY TO HEART" />
       <meta itemProp="name" content={product.title} />
       {images[0] && <link itemProp="image" href={images[0]} />}
 
