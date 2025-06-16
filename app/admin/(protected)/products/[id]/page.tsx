@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { supabasePublic as supabase } from '@/lib/supabase/public';
 import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
@@ -13,7 +13,6 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import type { Database } from '@/lib/supabase/types_new';
 
 type Product = {
   id: number;
@@ -171,21 +170,12 @@ export default function EditProductPage() {
     const fetchCategoriesAndSubcategories = async () => {
       try {
         setIsCategoriesLoading(true);
-        const { data: categoriesData, error: categoriesError } = await supabase
-          .from('categories')
-          .select('id, name, slug')
-          .order('name', { ascending: true });
-
-        if (categoriesError) throw new Error(categoriesError.message);
-        setCategories(categoriesData || []);
-
-        const { data: subcategoriesData, error: subcategoriesError } = await supabase
-          .from('subcategories')
-          .select('id, name, category_id')
-          .order('name', { ascending: true });
-
-        if (subcategoriesError) throw new Error(subcategoriesError.message);
-        setSubcategories(subcategoriesData || []);
+        const res = await fetch('/api/categories');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Ошибка загрузки категорий');
+        setCategories(json.categories || []);
+        const subs = json.categories?.flatMap((c: any) => c.subcategories) || [];
+        setSubcategories(subs);
       } catch (err: any) {
         toast.error('Ошибка загрузки категорий: ' + err.message);
       } finally {
@@ -350,21 +340,7 @@ export default function EditProductPage() {
 
   const handleRemoveImage = async (id: string, isExisting: boolean) => {
     if (isExisting) {
-      try {
-        const fileName = decodeURIComponent(id.split('/').pop()!);
-        const { error } = await supabase.storage
-          .from('product-image')
-          .remove([fileName]);
-
-        if (error) {
-          throw new Error('Ошибка удаления изображения: ' + error.message);
-        }
-
-        setExistingImages((prev) => prev.filter((url) => url !== id));
-        toast.success('Изображение удалено');
-      } catch (err: any) {
-        toast.error('Ошибка: ' + err.message);
-      }
+      setExistingImages((prev) => prev.filter((url) => url !== id));
     } else {
       setImages(prev => prev.filter(img => img.id !== id));
     }
@@ -463,14 +439,7 @@ export default function EditProductPage() {
       }
 
       // Получаем названия категорий
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('name, slug')
-        .in('id', categoryIds);
-
-      if (categoriesError || !categoriesData) {
-        throw new Error('Ошибка получения категорий: ' + categoriesError.message);
-      }
+      const categoriesData = categories.filter(cat => categoryIds.includes(cat.id));
 
       const categoryNames = categoriesData.map(cat => cat.name).join(', ');
       const categorySlugs = categoriesData.map(cat => cat.slug);
@@ -484,26 +453,14 @@ export default function EditProductPage() {
         for (const image of images) {
           process.env.NODE_ENV !== "production" && console.log('Compressing image:', image.file.name);
           const compressedImage = await compressImage(image.file);
-          const fileName = `${uuidv4()}-${compressedImage.name}`;
-          process.env.NODE_ENV !== "production" && console.log('Uploading image to Supabase:', fileName);
-          const { data, error } = await supabase.storage
-            .from('product-image')
-            .upload(fileName, compressedImage);
-
-          if (error) {
-            throw new Error('Ошибка загрузки изображения: ' + error.message);
+          const formData = new FormData();
+          formData.append('file', compressedImage);
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          const uploadData = await uploadRes.json();
+          if (!uploadRes.ok) {
+            throw new Error(uploadData.error || 'Ошибка загрузки изображения');
           }
-
-          const { data: publicData } = supabase.storage
-            .from('product-image')
-            .getPublicUrl(fileName);
-
-          if (publicData?.publicUrl) {
-            imageUrls.push(publicData.publicUrl);
-            process.env.NODE_ENV !== "production" && console.log('Image uploaded:', publicData.publicUrl);
-          } else {
-            throw new Error('Не удалось получить публичный URL изображения');
-          }
+          imageUrls.push(uploadData.image_url);
         }
       }
 
