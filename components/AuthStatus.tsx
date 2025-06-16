@@ -1,12 +1,13 @@
 'use client';
 
-       import { useEffect, useState } from 'react';
-       import { createBrowserClient } from '@supabase/ssr';
-       import type { Database } from '@/lib/supabase/types_new';
+import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '@/lib/supabase/types_new';
+import type { Session } from '@supabase/supabase-js';
        import Link from 'next/link';
 
        export default function AuthStatus() {
-         const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
          const supabase = createBrowserClient<Database>(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
