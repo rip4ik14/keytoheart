@@ -2,8 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabasePublic } from '@/lib/supabase/public';
-
 export type Category = {
   id: number;
   name: string;
@@ -15,12 +13,9 @@ export function useCategories() {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data } = await supabasePublic
-        .from('categories')
-        .select('id, name, slug')
-        .order('id', { ascending: true });
-
-      if (data) setCategories(data);
+      const res = await fetch('/api/categories');
+      const json = await res.json();
+      if (res.ok && json.categories) setCategories(json.categories);
     };
 
     fetchCategories();

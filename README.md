@@ -45,9 +45,10 @@ NEXT_PUBLIC_YANDEX_MAPS_API_KEY=your-yandex-maps-key
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-Without `SUPABASE_SERVICE_ROLE_KEY` the `/api/upsell/products` endpoint will return an error.
+`NEXT_PUBLIC_BASE_URL` is used for admin session checks. Without `SUPABASE_SERVICE_ROLE_KEY` the `/api/upsell/products` endpoint will return an error.
 
 ## Components
 

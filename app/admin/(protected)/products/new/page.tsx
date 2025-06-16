@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import CSRFToken from '@components/CSRFToken';
@@ -104,19 +103,12 @@ export default function NewProductPage() {
     const fetchCategoriesAndSubcategories = async () => {
       try {
         setIsCategoriesLoading(true);
-        const { data: categoriesData, error: categoriesError } = await supabase
-          .from('categories')
-          .select('id, name, slug')
-          .order('name', { ascending: true });
-        if (categoriesError) throw new Error(categoriesError.message);
-        setCategories(categoriesData || []);
-
-        const { data: subcategoriesData, error: subcategoriesError } = await supabase
-          .from('subcategories')
-          .select('id, name, category_id')
-          .order('name', { ascending: true });
-        if (subcategoriesError) throw new Error(subcategoriesError.message);
-        setSubcategories(subcategoriesData || []);
+        const res = await fetch('/api/categories');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Ошибка загрузки категорий');
+        setCategories(json.categories || []);
+        const subs = json.categories?.flatMap((c: any) => c.subcategories) || [];
+        setSubcategories(subs);
       } catch (err: any) {
         toast.error('Ошибка загрузки категорий: ' + err.message);
       } finally {
@@ -245,11 +237,7 @@ export default function NewProductPage() {
       }
 
       // Проверяем название категорий (для лейбла)
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('name, slug')
-        .in('id', categoryIds);
-      if (categoriesError || !categoriesData) throw new Error('Ошибка получения категорий');
+      const categoriesData = categories.filter(cat => categoryIds.includes(cat.id));
 
       // Запрещаем шарики/открытки в популярных
       if (isPopular && categoriesData.some(cat => ['balloon', 'postcard'].includes(cat.slug))) {
@@ -261,19 +249,12 @@ export default function NewProductPage() {
       if (images.length > 0) {
         for (const image of images) {
           const compressedImage = await compressImage(image.file);
-          const fileName = `${uuidv4()}-${compressedImage.name}`;
-          const { error } = await supabase.storage
-            .from('product-image')
-            .upload(fileName, compressedImage);
-          if (error) throw new Error('Ошибка загрузки изображения: ' + error.message);
-          const { data: publicData } = supabase.storage
-            .from('product-image')
-            .getPublicUrl(fileName);
-          if (publicData?.publicUrl) {
-            imageUrls.push(publicData.publicUrl);
-          } else {
-            throw new Error('Не удалось получить публичный URL изображения');
-          }
+          const formData = new FormData();
+          formData.append('file', compressedImage);
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          const uploadData = await uploadRes.json();
+          if (!uploadRes.ok) throw new Error(uploadData.error || 'Ошибка загрузки изображения');
+          imageUrls.push(uploadData.image_url);
         }
       }
 

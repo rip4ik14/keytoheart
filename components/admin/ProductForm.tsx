@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabasePublic } from '@/lib/supabase/client';
+import { supabasePublic } from '@/lib/supabase/public';
 import { slugify, validateProduct, type ProductData } from '@/lib/utils';
 import type { Tables } from '@/lib/supabase/types_new';
 import Image from 'next/image';
