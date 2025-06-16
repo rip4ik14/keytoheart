@@ -19,7 +19,7 @@ export default function Footer({ categories }: FooterProps) {
       <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
         {/* Логотип и социальные сети */}
         <div>
-          <h3 className="text-xl font-bold mb-3">KeyToHeart</h3>
+          <h3 className="text-xl font-bold mb-3">KEY TO HEART</h3>
           <div className="flex gap-3 mb-4">
             <a
               href="https://vk.com"
@@ -74,7 +74,7 @@ export default function Footer({ categories }: FooterProps) {
           >
             Рейтинг на Яндекс.Картах
           </a>
-          <p className="text-xs text-gray-600 mt-4">© 2025 KeyToHeart. Все права защищены.</p>
+          <p className="text-xs text-gray-600 mt-4">© 2025 KEY TO HEART. Все права защищены.</p>
           <div className="mt-2 space-y-1">
             <Link
               href="/policy"

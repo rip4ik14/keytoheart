@@ -97,17 +97,17 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const occasion = occasions.find((o) => o.slug === params.slug);
   if (!occasion) {
     return {
-      title: 'Повод не найден | KeyToHeart',
+      title: 'Повод не найден | KEY TO HEART',
       description: 'Такого повода не существует. Выберите другой повод для подарка.',
     };
   }
 
   return {
-    title: `${occasion.title} | KeyToHeart`,
-    description: `Подарки на ${occasion.title} от KeyToHeart. Клубничные букеты и наборы с доставкой по Краснодару.`,
-    keywords: [occasion.title, 'KeyToHeart', 'Краснодар', 'клубничные букеты', 'доставка'],
+    title: `${occasion.title} | KEY TO HEART`,
+    description: `Подарки на ${occasion.title} от KEY TO HEART. Клубничные букеты и наборы с доставкой по Краснодару.`,
+    keywords: [occasion.title, 'KEY TO HEART', 'Краснодар', 'клубничные букеты', 'доставка'],
     openGraph: {
-      title: `${occasion.title} | KeyToHeart`,
+      title: `${occasion.title} | KEY TO HEART`,
       description: `Подарки на ${occasion.title} с доставкой по Краснодару.`,
       url: `https://keytoheart.ru/occasions/${occasion.slug}`,
       images: [
@@ -122,7 +122,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${occasion.title} | KeyToHeart`,
+      title: `${occasion.title} | KEY TO HEART`,
       description: `Подарки на ${occasion.title} с доставкой по Краснодару.`,
       images: [occasion.image],
     },
@@ -180,8 +180,8 @@ export default async function OccasionDetailPage({
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList', // Используем ItemList вместо CollectionPage
-          name: `${occasion.title} | KeyToHeart`,
-          description: `Подарки на ${occasion.title} от KeyToHeart.`,
+          name: `${occasion.title} | KEY TO HEART`,
+          description: `Подарки на ${occasion.title} от KEY TO HEART.`,
           url: `https://keytoheart.ru/occasions/${occasion.slug}`,
           image: occasion.image,
           itemListElement: products?.map((product) => ({

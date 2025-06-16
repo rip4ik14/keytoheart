@@ -86,9 +86,9 @@ export async function generateMetadata({
   return {
     title: `${name} — купить с доставкой в Краснодаре`,
     description: `Свежие ${name.toLowerCase()} с доставкой по Краснодару. Онлайн-заказ за час.`,
-    keywords: [name.toLowerCase(), 'KeyToHeart', 'доставка'],
+    keywords: [name.toLowerCase(), 'KEY TO HEART', 'доставка'],
     openGraph: {
-      title: `${name} | KeyToHeart`,
+      title: `${name} | KEY TO HEART`,
       description: `Закажите ${name.toLowerCase()} с доставкой.`,
       url: `https://keytoheart.ru/category/${category}`,
     },

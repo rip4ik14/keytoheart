@@ -30,7 +30,7 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-main.jpg"
-                alt="KeyToHeart — клубничные букеты и цветы"
+                alt="KEY TO HEART — клубничные букеты и цветы"
                 fill
                 className="object-cover"
                 priority
@@ -40,14 +40,14 @@ export default function AboutContent() {
             {/* Блок справа с правильным расположением кнопки */}
             <div className="flex flex-col gap-4">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-black tracking-tight">
-                О KeyToHeart
+                О KEY TO HEART
               </h1>
               <div className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
                 <TypeAnimation
                   sequence={[
-                    'KeyToHeart — клубничные букеты и цветы, которые создают настроение.',
+                    'KEY TO HEART — клубничные букеты и цветы, которые создают настроение.',
                     1000,
-                    'KeyToHeart — доставляем эмоции в каждый уголок Краснодара.',
+                    'KEY TO HEART — доставляем эмоции в каждый уголок Краснодара.',
                     1000,
                   ]}
                   wrapper="span"
@@ -85,7 +85,7 @@ export default function AboutContent() {
                 Как всё начиналось
               </h2>
               <p className="text-gray-600 text-sm sm:text-base">
-                KeyToHeart родился в 2022 году из мечты создавать подарки, которые запоминаются. С домашней кухни мы выросли до собственной мастерской, но сохранили главное — любовь к деталям. Основательница бренда лично отбирает ягоды и цветы, чтобы каждый заказ был идеальным.
+                KEY TO HEART родился в 2022 году из мечты создавать подарки, которые запоминаются. С домашней кухни мы выросли до собственной мастерской, но сохранили главное — любовь к деталям. Основательница бренда лично отбирает ягоды и цветы, чтобы каждый заказ был идеальным.
               </p>
             </div>
             <motion.div
@@ -96,7 +96,7 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-founder.jpg"
-                alt="Основательница KeyToHeart за работой"
+                alt="Основательница KEY TO HEART за работой"
                 fill
                 className="object-cover"
                 loading="lazy"
@@ -154,7 +154,7 @@ export default function AboutContent() {
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16 text-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-black">
-            KeyToHeart — эмоции, которые можно подарить
+            KEY TO HEART — эмоции, которые можно подарить
           </h2>
           <Link
             href="/catalog"

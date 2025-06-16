@@ -4,28 +4,28 @@ import AboutContent from '@components/AboutContent';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'О нас | KeyToHeart — Клубничные букеты и цветы в Краснодаре',
-  description: 'История KeyToHeart — студия сладких эмоций. Создаём букеты из клубники в шоколаде и свежих цветов с доставкой по Краснодару.',
-  keywords: ['о нас', 'KeyToHeart', 'клубничные букеты'],
+  title: 'О нас | KEY TO HEART — Клубничные букеты и цветы в Краснодаре',
+  description: 'История KEY TO HEART — студия сладких эмоций. Создаём букеты из клубники в шоколаде и свежих цветов с доставкой по Краснодару.',
+  keywords: ['о нас', 'KEY TO HEART', 'клубничные букеты'],
   openGraph: {
-    title: 'О нас | KeyToHeart',
-    description: 'Узнайте историю KeyToHeart — как мы создаём сладкие и цветочные эмоции.',
+    title: 'О нас | KEY TO HEART',
+    description: 'Узнайте историю KEY TO HEART — как мы создаём сладкие и цветочные эмоции.',
     url: 'https://keytoheart.ru/about',
-    siteName: 'KeyToHeart',
+    siteName: 'KEY TO HEART',
     images: [
       {
         url: '/images/about-banner.jpg', // Изменили на локальный путь
         width: 1200,
         height: 600,
-        alt: 'KeyToHeart — клубника в шоколаде и цветочные букеты',
+        alt: 'KEY TO HEART — клубника в шоколаде и цветочные букеты',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'О нас | KeyToHeart',
-    description: 'История KeyToHeart — студия сладких эмоций в Краснодаре.',
+    title: 'О нас | KEY TO HEART',
+    description: 'История KEY TO HEART — студия сладких эмоций в Краснодаре.',
     images: ['/images/about-banner.jpg'], // Изменили на локальный путь
   },
   alternates: { canonical: 'https://keytoheart.ru/about' },
@@ -38,11 +38,11 @@ export default function AboutPage() {
         item={{
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: 'KeyToHeart',
+          name: 'KEY TO HEART',
           url: 'https://keytoheart.ru',
           logo: 'https://keytoheart.ru/favicon.ico',
           sameAs: ['https://t.me/keytoheart'],
-          description: 'KeyToHeart — студия сладких эмоций. Букеты и подарки с доставкой по Краснодару.',
+          description: 'KEY TO HEART — студия сладких эмоций. Букеты и подарки с доставкой по Краснодару.',
           contactPoint: {
             '@type': 'ContactPoint',
             telephone: '+7-918-123-45-67',
