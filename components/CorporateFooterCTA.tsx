@@ -1,27 +1,25 @@
 // ✅ Путь: components/CorporateFooterCTA.tsx
 'use client';
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
-interface CorporateFooterCTAProps {}
-
-export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
+export default function CorporateFooterCTA() {
   const textVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden:  { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
   };
 
   return (
     <section
-      className="py-16 px-4 md:px-8 bg-black text-white text-center"
       aria-labelledby="corporate-cta-title"
+      className="py-16 px-4 md:px-8 text-center"
     >
       <motion.h2
         id="corporate-cta-title"
-        className="text-3xl md:text-4xl font-bold mb-4"
+        className="text-3xl md:text-4xl font-bold mb-4 text-black"
         variants={textVariants}
         initial="hidden"
         whileInView="visible"
@@ -29,16 +27,18 @@ export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
       >
         Готовы сделать заказ?
       </motion.h2>
+
       <motion.p
-        className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-white/80"
+        className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-gray-700"
         variants={textVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
         transition={{ delay: 0.2 }}
       >
-        Оставьте заявку, и мы свяжемся с вами в течение 15 минут для обсуждения деталей.
+        Оставьте заявку, и мы свяжемся с вами в течение&nbsp;15&nbsp;минут для обсуждения деталей.
       </motion.p>
+
       <motion.div
         variants={textVariants}
         initial="hidden"
@@ -48,12 +48,16 @@ export default function CorporateFooterCTA({}: CorporateFooterCTAProps) {
       >
         <Link
           href="#form"
-          className="inline-block bg-white text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-          scroll={true}
+          scroll
           prefetch={false}
           aria-label="Оставить заявку на корпоративные подарки"
+          className="inline-block rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight
+            border border-[#bdbdbd] bg-white text-[#535353] shadow-sm transition-colors duration-200
+            hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
           onClick={() => {
-            window.gtag?.('event', 'corporate_cta_click', { event_category: 'corporate' });
+            window.gtag?.('event', 'corporate_cta_click', {
+              event_category: 'corporate',
+            });
             callYm(YM_ID, 'reachGoal', 'corporate_cta_click');
           }}
         >

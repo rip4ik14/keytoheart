@@ -100,19 +100,7 @@ export default function ContactsPageClient() {
           .
         </motion.p>
 
-        {/* Кнопка WhatsApp */}
-        <motion.a
-          href="https://wa.me/79886033821"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block w-full sm:w-auto px-8 py-3 rounded-lg border-2 border-black text-black font-semibold text-base text-center transition hover:bg-black hover:text-white mb-6"
-          variants={sectionVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Написать в WhatsApp
-        </motion.a>
+        {/* Кнопка WhatsApp удалена */}
 
         {/* Статическая карта Яндекс */}
         <motion.div
