@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import {
   DndContext,
   closestCenter,
@@ -332,38 +331,55 @@ export default function ProductTable({
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const allCategoryIds = Array.from(new Set(products.flatMap((product) => product.category_ids)));
+      const allCategoryIds = Array.from(
+        new Set(products.flatMap((product) => product.category_ids)),
+      );
       if (allCategoryIds.length === 0) return;
 
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('id, name')
-        .in('id', allCategoryIds);
+      try {
+        const res = await fetch('/api/categories');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Failed');
 
-      if (categoriesError) {
+        const map = new Map<number, string>();
+        (json.categories || [])
+          .filter((c: any) => allCategoryIds.includes(c.id))
+          .forEach((c: any) => map.set(c.id, c.name));
+
+        setCategoriesMap(map);
+      } catch (err: any) {
         toast.error('Ошибка загрузки категорий');
-        return;
       }
-
-      const map = new Map<number, string>();
-      categoriesData.forEach((cat) => map.set(cat.id, cat.name));
-      setCategoriesMap(map);
     };
     fetchCategories();
   }, [products]);
 
   // Универсальная функция обновления статуса
-  const toggleStatus = async (id: number, field: keyof Product, current: boolean) => {
-    const update: Record<string, boolean> = {};
-    update[field] = !current;
-    const { error } = await supabase.from('products').update(update).eq('id', id);
-    if (error) {
-      toast.error('Ошибка обновления статуса: ' + error.message);
-    } else {
+  const toggleStatus = async (
+    id: number,
+    field: keyof Product,
+    current: boolean,
+  ) => {
+    let endpoint = '';
+    if (field === 'in_stock') endpoint = '/api/admin/products/toggle-stock';
+    if (field === 'is_visible') endpoint = '/api/admin/products/toggle-visible';
+    if (field === 'is_popular') endpoint = '/api/admin/products/toggle-popular';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Ошибка');
+
       toast.success('Статус обновлён');
       onReorder(
         products.map((p) => (p.id === id ? { ...p, [field]: !current } : p))
       );
+    } catch (err: any) {
+      toast.error('Ошибка обновления статуса: ' + err.message);
     }
   };
 
@@ -395,13 +411,19 @@ export default function ProductTable({
     onReorder(updatedProducts);
 
     try {
-      for (const p of updatedProducts.filter((p) => p.is_popular)) {
-        const { error } = await supabase
-          .from('products')
-          .update({ order_index: p.order_index })
-          .eq('id', p.id);
-        if (error) throw new Error(error.message);
-      }
+      const order = updatedProducts
+        .filter((p) => p.is_popular)
+        .map((p) => ({ id: p.id, order_index: p.order_index }));
+
+      const res = await fetch('/api/admin/products/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Ошибка');
+
       toast.success('Порядок популярных товаров обновлён');
     } catch (err: any) {
       toast.error('Ошибка обновления порядка: ' + err.message);
