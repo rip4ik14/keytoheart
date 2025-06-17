@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -35,10 +34,6 @@ interface OrderRequest {
   whatsapp?: boolean;
 }
 
-// Тип для результата запроса products
-interface Product {
-  id: number;
-}
 
 // Функция для нормализации телефона
 const normalizePhone = (phone: string): string => {
@@ -155,13 +150,15 @@ export async function POST(req: Request) {
     }
 
     if (productIds.length > 0) {
-      const { data: products, error: productError } = await supabaseAdmin
-        .from('products')
-        .select('id, in_stock, is_visible')
-        .in('id', productIds);
-
-      if (productError) {
-        process.env.NODE_ENV !== "production" && console.error('Supabase error fetching products:', productError);
+      let products;
+      try {
+        products = await prisma.products.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, in_stock: true, is_visible: true },
+        });
+      } catch (productError: any) {
+        process.env.NODE_ENV !== "production" &&
+          console.error('Prisma error fetching products:', productError);
         return NextResponse.json(
           { error: 'Ошибка получения товаров: ' + productError.message },
           { status: 500 }
@@ -170,7 +167,7 @@ export async function POST(req: Request) {
 
       const invalidItems = regularItems.filter((item) => {
         const itemId = parseInt(item.id, 10);
-        const product = products.find((p: any) => p.id === itemId);
+        const product = products.find((p) => p.id === itemId);
         if (!product) return true; // Товар не найден
         if (!product.in_stock) return true; // Товар отсутствует в наличии
         if (!product.is_visible) return true; // Товар не доступен для заказа
@@ -180,7 +177,7 @@ export async function POST(req: Request) {
       if (invalidItems.length > 0) {
         const reasons = invalidItems.map((item) => {
           const itemId = parseInt(item.id, 10);
-          const product = products.find((p: any) => p.id === itemId);
+          const product = products.find((p) => p.id === itemId);
           if (!product) return `Товар с ID ${itemId} не найден`;
           if (!product.in_stock) return `Товар с ID ${itemId} отсутствует в наличии`;
           if (!product.is_visible) return `Товар с ID ${itemId} не доступен для заказа`;
