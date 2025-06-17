@@ -43,9 +43,17 @@ Create a `.env` file with the following variables:
 NEXT_PUBLIC_YM_ID=your-yandex-metrica-id
 NEXT_PUBLIC_YANDEX_MAPS_API_KEY=your-yandex-maps-key
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-public-key
+SUPABASE_URL=your-supabase-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+JWT_SECRET=your-jwt-secret
 ```
 
 `NEXT_PUBLIC_BASE_URL` is used for admin session checks.
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` configure the client Supabase connection.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are used by server-side Supabase clients for privileged operations.
+`JWT_SECRET` signs admin tokens. Without these values, admin actions like deleting products will fail.
 
 ## Components
 
