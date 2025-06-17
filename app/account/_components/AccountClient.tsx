@@ -255,7 +255,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6 sm:max-w-md" aria-label="Вход в личный кабинет">
         <Toaster position="top-center" />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Вход в кабинет</h1>
-        <p className="text-gray-500">Введите номер телефона для входа</p>
+        <p className="text-gray-500">Введите номер телефона для авторизации и оформления заказа</p>
         <AuthWithCall onSuccess={handleAuthSuccess} />
       </main>
     );
