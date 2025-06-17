@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import ReactQueryProvider from '@/app/providers/ReactQueryProvider';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,7 +27,8 @@ export default function AdminProtectedLayout({
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <ReactQueryProvider>
+      <div className="flex min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
       <motion.aside
         className="w-64 bg-white border-r p-6 hidden md:block"
@@ -151,5 +153,6 @@ export default function AdminProtectedLayout({
       {/* Main content */}
       <main className="flex-1 p-6 bg-white overflow-auto">{children}</main>
     </div>
+    </ReactQueryProvider>
   );
 }
