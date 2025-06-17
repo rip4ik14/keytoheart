@@ -52,7 +52,7 @@ const generateUniqueSlug = async (title: string): Promise<string> => {
     while (true) {
       process.env.NODE_ENV !== "production" &&
         console.log('generateUniqueSlug: Checking slug:', uniqueSlug);
-      const existing = await prisma.products.findUnique({
+      const existing = await prisma.products.findFirst({
         where: { slug: uniqueSlug },
         select: { id: true },
       });
