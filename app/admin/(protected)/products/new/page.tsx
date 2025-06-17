@@ -9,18 +9,7 @@ import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-}
-
-interface Subcategory {
-  id: number;
-  name: string;
-  category_id: number | null;
-}
+import type { Category, Subcategory } from '@/types/category';
 
 interface ImageFile {
   id: string;

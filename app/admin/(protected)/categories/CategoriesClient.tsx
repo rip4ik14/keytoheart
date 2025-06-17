@@ -12,21 +12,7 @@ import {
   deleteSubcategory,
 } from './actions';
 
-interface Subcategory {
-  id: number;
-  name: string;
-  category_id: number | null;
-  slug: string;
-  is_visible: boolean;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  is_visible: boolean;
-  subcategories: Subcategory[];
-}
+import type { Category, Subcategory } from '@/types/category';
 
 interface Props {
   categories: Category[];

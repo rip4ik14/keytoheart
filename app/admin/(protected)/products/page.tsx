@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SitePagesDropdown from '../components/SitePagesDropdown';
 import ProductTable from './ProductTable';
 import type { Database } from '@/lib/supabase/types_new';
+import type { Category } from '@/types/category';
 
 // Интерфейс Product
 interface Product {
@@ -34,11 +35,6 @@ interface Product {
 }
 
 export type ViewMode = 'table' | 'cards';
-
-interface Category {
-  id: number;
-  name: string;
-}
 
 const queryClient = new QueryClient();
 
