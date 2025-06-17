@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Metadata } from 'next';
 import Image from "next/image";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from '@/lib/prisma';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts'; // Исправляем на ItemList
 import AnimatedSection from '@components/AnimatedSection';
@@ -130,11 +130,6 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 // Компонент скелетона для загрузки продуктов
 const ProductSkeleton = () => (
   <div className="animate-pulse">
@@ -156,24 +151,56 @@ export default async function OccasionDetailPage({
     notFound();
   }
 
-  let products = null;
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("occasion_slug", params.slug)
-      .eq("in_stock", true);
+  const data = await prisma.products.findMany({
+    where: { occasion_slug: params.slug, in_stock: true },
+    select: {
+      id: true,
+      title: true,
+      price: true,
+      discount_percent: true,
+      original_price: true,
+      in_stock: true,
+      images: true,
+      image_url: true,
+      created_at: true,
+      slug: true,
+      bonus: true,
+      short_desc: true,
+      description: true,
+      composition: true,
+      is_popular: true,
+      is_visible: true,
+      production_time: true,
+      order_index: true,
+    },
+  });
 
-    if (error) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки продуктов:', error.message || error);
-      throw new Error('Ошибка загрузки продуктов из Supabase');
-    }
-
-    products = data;
-  } catch (err) {
-    process.env.NODE_ENV !== "production" && console.error('Не удалось загрузить продукты:', err);
-    products = [];
-  }
+  const products = data.map((product: any) => ({
+    id: product.id,
+    title: product.title,
+    price: product.price,
+    discount_percent: product.discount_percent ?? null,
+    original_price:
+      product.original_price !== null && typeof product.original_price === 'object' && 'toNumber' in product.original_price
+        ? product.original_price.toNumber()
+        : product.original_price !== null
+          ? Number(product.original_price)
+          : null,
+    in_stock: product.in_stock ?? true,
+    images: Array.isArray(product.images) ? product.images : [],
+    image_url: product.image_url ?? null,
+    created_at: product.created_at ?? null,
+    slug: product.slug ?? null,
+    bonus: product.bonus ? Number(product.bonus) : null,
+    short_desc: product.short_desc ?? null,
+    description: product.description ?? null,
+    composition: product.composition ?? null,
+    is_popular: product.is_popular ?? false,
+    is_visible: product.is_visible ?? true,
+    category_ids: [],
+    production_time: product.production_time ?? null,
+    order_index: product.order_index ?? null,
+  }));
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
