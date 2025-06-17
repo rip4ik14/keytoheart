@@ -45,7 +45,6 @@ type ViewMode = 'table' | 'cards';
 
 interface ProductTableProps {
   products: Product[];
-  toggleInStock: (id: number, current: boolean | null) => void;
   deleteProduct: (id: number) => void;
   viewMode: ViewMode;
   onReorder: (newProducts: Product[]) => void;
@@ -314,7 +313,6 @@ const ProductTableTable = ({
 
 export default function ProductTable({
   products,
-  toggleInStock,
   deleteProduct,
   viewMode,
   onReorder,
