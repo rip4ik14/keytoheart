@@ -177,7 +177,7 @@ const SortableProduct = ({
       </div>
       <div className="flex gap-2 flex-col sm:flex-row">
         <Link
-          href={`/admin/products/${product.id}`}
+          href={`/admin/edit-product/${product.id}`}
           className="p-2 text-blue-500 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label={`Редактировать товар ${product.title}`}
         >
@@ -292,7 +292,7 @@ const ProductTableTable = ({
               <td className="px-2 py-2 text-center">
                 <div className="flex justify-center gap-2">
                   <Link
-                    href={`/admin/products/${product.id}`}
+                    href={`/admin/edit-product/${product.id}`}
                     className="p-2 text-blue-500 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-label={`Редактировать товар ${product.title}`}
                   >

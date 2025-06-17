@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       (event: { type: string; date: string; description: string }) => ({
         phone: sanitizedPhone,
         type: sanitizeHtml(event.type || '', { allowedTags: [], allowedAttributes: {} }),
-        date: event.date ? new Date(event.date) : null,
+        date: event.date ? new Date(event.date).toISOString().split('T')[0] : null,
         description: sanitizeHtml(event.description || '', { allowedTags: [], allowedAttributes: {} }) || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -94,14 +94,10 @@ export async function GET(request: Request) {
       select: { type: true, date: true, description: true },
       orderBy: { date: 'asc' },
     });
-    const sanitizedData = (data || []).map((event) => ({
-      ...event,
-      date: event.date ? event.date.toISOString().split('T')[0] : null,
-    }));
 
     return NextResponse.json({
       success: true,
-      data: sanitizedData,
+      data: data || [],
     });
   } catch (error: any) {
     process.env.NODE_ENV !== "production" &&
