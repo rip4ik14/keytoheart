@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
@@ -194,55 +193,19 @@ export default function EditProductPage() {
         return;
       }
 
-      // Загружаем данные товара
-      const { data: productData, error: productError } = await supabase
-        .from('products')
-        .select('id, title, price, original_price, discount_percent, production_time, short_desc, description, composition, bonus, images, in_stock, is_visible, is_popular, order_index, created_at, image_url, slug')
-        .eq('id', productId)
-        .single();
-
-      if (productError) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товара:', productError);
-        toast.error('Ошибка загрузки товара: ' + productError.message);
+      // Загружаем данные товара через Prisma API
+      const res = await fetch(`/api/products/${productId}`);
+      const json = await res.json();
+      if (!res.ok) {
+        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товара:', json.error);
+        toast.error('Ошибка загрузки товара: ' + (json.error || res.statusText));
         router.push('/admin/products');
         return;
       }
 
-      if (!productData) {
-        toast.error('Товар не найден');
-        router.push('/admin/products');
-        return;
-      }
-
-      // Загружаем категории товара
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('product_categories')
-        .select('category_id')
-        .eq('product_id', productId);
-
-      if (categoryError) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', categoryError);
-        toast.error('Ошибка загрузки категорий: ' + categoryError.message);
-        router.push('/admin/products');
-        return;
-      }
-
-      const categoryIds = categoryData.map(item => item.category_id);
-
-      // Загружаем подкатегории товара
-      const { data: subcategoryData, error: subcategoryError } = await supabase
-        .from('product_subcategories')
-        .select('subcategory_id')
-        .eq('product_id', productId);
-
-      if (subcategoryError) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки подкатегорий:', subcategoryError);
-        toast.error('Ошибка загрузки подкатегорий: ' + subcategoryError.message);
-        router.push('/admin/products');
-        return;
-      }
-
-      const subcategoryIds = subcategoryData.map(item => item.subcategory_id);
+      const productData = json as any;
+      const categoryIds = Array.isArray(productData.category_ids) ? productData.category_ids : [];
+      const subcategoryIds = Array.isArray(productData.subcategory_ids) ? productData.subcategory_ids : [];
 
       const normalizedData: Product = {
         id: productData.id,
