@@ -82,11 +82,18 @@ export default function ProductCardServer({ product, priority = false }: Props) 
             <span className="text-lg sm:text-2xl font-bold text-black">{product.price}₽</span>
           )}
         </div>
+        {product.production_time != null && (
+          <p className="mt-1 text-xs sm:text-sm text-gray-500 text-center">
+            Время изготовления: {product.production_time}{' '}
+            {product.production_time === 1 ? 'час' : 'часов'}
+          </p>
+        )}
         <ProductCardClient
           id={product.id}
           title={product.title}
           price={discountedPrice}
           imageUrl={imageUrl}
+          productionTime={product.production_time ?? null}
         />
       </div>
     </div>

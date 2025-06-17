@@ -55,6 +55,7 @@ export default function ProductCard({
       price: discountedPrice,
       quantity: 1,
       imageUrl,
+      production_time: product.production_time ?? null,
     });
 
     if (isMobile && buttonRef.current) {
@@ -166,6 +167,12 @@ export default function ProductCard({
             {discountAmount > 0 ? discountedPrice : product.price}₽
           </span>
         </div>
+        {product.production_time != null && (
+          <p className="text-center text-xs sm:text-sm text-gray-500 mt-1">
+            Время изготовления: {product.production_time}{' '}
+            {product.production_time === 1 ? 'час' : 'часов'}
+          </p>
+        )}
 
         {/* --- Кнопка/блок "В корзину" --- */}
         <AnimatePresence>
