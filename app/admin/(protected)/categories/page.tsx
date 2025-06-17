@@ -26,7 +26,7 @@ export default async function CategoriesPage() {
   let categories: Category[] = [];
 
   try {
-    const categoriesData = await prisma.categories.findMany({
+    const categoriesData: any[] = await prisma.categories.findMany({
       orderBy: { id: 'asc' },
       select: {
         id: true,
@@ -45,10 +45,10 @@ export default async function CategoriesPage() {
         },
       },
     });
-    categories = categoriesData.map((cat) => ({
+    categories = categoriesData.map((cat: any) => ({
       ...cat,
       is_visible: cat.is_visible ?? true,
-      subcategories: cat.subcategories.map((sub) => ({
+      subcategories: cat.subcategories.map((sub: any) => ({
         ...sub,
         is_visible: sub.is_visible ?? true,
       })),
