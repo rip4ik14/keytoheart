@@ -77,9 +77,9 @@ const nameMap: Record<string, string> = {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ category: string }>;
+  params: { category: string };
 }): Promise<Metadata> {
-  const { category } = await params;
+  const { category } = params;
   const name = nameMap[category] ?? 'Категория';
 
   return {
@@ -101,11 +101,11 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ category: string }>;
-  searchParams: Promise<{ sort?: string; subcategory?: string }>;
+  params: { category: string };
+  searchParams: { sort?: string; subcategory?: string };
 }) {
-  const { category } = await params;
-  const { sort = 'newest', subcategory: initialSubcategory = 'all' } = await searchParams;
+  const { category } = params;
+  const { sort = 'newest', subcategory: initialSubcategory = 'all' } = searchParams;
 
   const apiName = nameMap[category];
 

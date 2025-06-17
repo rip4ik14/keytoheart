@@ -22,7 +22,7 @@ interface Customer {
 }
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 export default async function CustomerPage({ params }: PageProps) {
@@ -38,8 +38,8 @@ export default async function CustomerPage({ params }: PageProps) {
     redirect('/admin/login?error=invalid-session');
   }
 
-  // Распаковываем params с помощью await
-  const { id } = await params;
+  // Распаковываем params
+  const { id } = params;
 
   let customer: Customer | null = null;
   try {
