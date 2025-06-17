@@ -53,12 +53,18 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-function Breadcrumbs({ productTitle }: { productTitle?: string }) {
+function Breadcrumbs({
+  productTitle,
+  initialCategories = [],
+}: {
+  productTitle?: string;
+  initialCategories?: Category[];
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const subcategorySlug = searchParams.get('subcategory') || 'all';
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [loading, setLoading] = useState(initialCategories.length === 0);
 
   const fetchCategories = async () => {
     try {
@@ -112,7 +118,13 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
   };
 
   useEffect(() => {
-    fetchCategories();
+    if (initialCategories.length === 0) {
+      fetchCategories();
+    } else {
+      categoryCache = initialCategories;
+      setCategories(initialCategories);
+      setLoading(false);
+    }
 
     const channel = supabase
       .channel('categories-subcategories-changes-breadcrumbs')
@@ -139,7 +151,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [initialCategories]);
 
   const crumbs: Crumb[] = [];
   crumbs.push({ href: '/', label: 'Главная' });
