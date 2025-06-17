@@ -53,9 +53,9 @@ export async function GET() {
       production_time: product.production_time !== null ? Number(product.production_time) : null,
     }));
 
-    return NextResponse.json(formattedData, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
-    });
+     return NextResponse.json(formattedData, {
+   headers: { 'Cache-Control': 'no-store' },
+ });
   } catch (err: any) {
     return NextResponse.json(
       { error: 'Неожиданная ошибка сервера', details: err.message || 'Нет деталей' },
@@ -64,4 +64,4 @@ export async function GET() {
   }
 }
 
-export const revalidate = 60;
+export const revalidate = 0;

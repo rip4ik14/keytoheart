@@ -6,7 +6,7 @@ export default async function PopularProductsServer() {
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const res = await fetch(`${baseUrl}/api/popular`, { next: { revalidate: 60 } });
+    const res = await fetch(`${baseUrl}/api/popular`, { cache: 'no-store' });
     if (!res.ok) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('PopularProductsServer fetch error:', await res.text());
