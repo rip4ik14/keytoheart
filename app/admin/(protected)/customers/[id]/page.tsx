@@ -26,7 +26,7 @@ interface PageProps {
 }
 
 export default async function CustomerPage({ params }: PageProps) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
 
   if (!token) {

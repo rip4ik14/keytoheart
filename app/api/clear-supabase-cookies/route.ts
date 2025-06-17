@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 export async function POST() {
   try {
     // Получаем объект cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     // Удаляем все cookies, начинающиеся с 'sb-'
     for (const cookie of cookieStore.getAll()) {
