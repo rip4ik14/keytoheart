@@ -19,6 +19,7 @@ interface Product {
   price: number;
   discount_percent: number | null;
   in_stock: boolean;
+  is_popular: boolean;
   images: string[];
   production_time: number | null;
   category_ids: number[];
@@ -83,14 +84,15 @@ export default async function Home() {
     const productIds = Array.from(productCategoriesMap.keys());
 
     // Получаем товары
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
         id,
         title,
         price,
         discount_percent,
         in_stock,
+        is_popular,
         images,
         production_time
       `)
@@ -108,6 +110,7 @@ export default async function Home() {
           price: item.price,
           discount_percent: item.discount_percent ?? null,
           in_stock: item.in_stock ?? false,
+          is_popular: item.is_popular ?? false,
           images: item.images ?? [],
           production_time: item.production_time ?? null,
           category_ids: productCategoriesMap.get(item.id) || [],
