@@ -20,6 +20,8 @@ interface Product {
   discount_percent: number | null;
   in_stock: boolean;
   images: string[];
+  production_time?: number | null;
+  is_popular?: boolean | null;
   category_ids: number[];
 }
 
@@ -90,7 +92,9 @@ export default async function Home() {
         price,
         discount_percent,
         in_stock,
-        images
+        images,
+        production_time,
+        is_popular
       `)
       .in('id', productIds.length > 0 ? productIds : [0]) // Избегаем пустого IN
       .eq('in_stock', true)
@@ -107,6 +111,8 @@ export default async function Home() {
           discount_percent: item.discount_percent ?? null,
           in_stock: item.in_stock ?? false,
           images: item.images ?? [],
+          production_time: item.production_time ?? null,
+          is_popular: item.is_popular ?? null,
           category_ids: productCategoriesMap.get(item.id) || [],
         }))
       : [];
