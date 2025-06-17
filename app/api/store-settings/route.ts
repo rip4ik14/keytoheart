@@ -1,23 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/types_new';
-
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from('store_settings')
-      .select('*')
-      .single();
-
-    if (error) {
-      process.env.NODE_ENV !== "production" && console.error('Supabase error in store-settings:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
+    const data = await prisma.store_settings.findFirst();
 
     if (!data) {
       return NextResponse.json({ success: false, error: 'Настройки не найдены' }, { status: 404 });

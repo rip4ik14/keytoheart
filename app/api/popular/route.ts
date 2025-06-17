@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 
 // Итоговый тип, который мы возвращаем на фронт (для автокомплита)
 interface PopularProduct {
@@ -13,27 +13,30 @@ interface PopularProduct {
   is_popular: boolean | null;
   is_visible: boolean | null;
   order_index: number | null;
+  production_time: number | null;
 }
 
 export async function GET() {
   try {
-    // Получаем товары из Supabase
-    const { data, error } = await supabaseAdmin
-      .from('products')
-      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index')
-      .eq('in_stock', true)
-      .eq('is_popular', true)
-      .eq('is_visible', true)
-      .order('order_index', { ascending: true })
-      .limit(10);
-
-    if (error) {
-      process.env.NODE_ENV !== "production" && console.error('Supabase error fetching popular products:', error);
-      return NextResponse.json(
-        { error: 'Ошибка получения популярных товаров: ' + error.message },
-        { status: 500 }
-      );
-    }
+    // Получаем товары из базы через Prisma
+    const data = await prisma.products.findMany({
+      where: { in_stock: true, is_popular: true, is_visible: true },
+      orderBy: { order_index: 'asc' },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        original_price: true,
+        discount_percent: true,
+        in_stock: true,
+        images: true,
+        is_popular: true,
+        is_visible: true,
+        order_index: true,
+        production_time: true,
+      },
+    });
 
     // Приводим все поля к правильным типам
     const formattedData: PopularProduct[] = (data || []).map((product: any) => ({
@@ -49,6 +52,8 @@ export async function GET() {
       is_popular: product.is_popular,
       is_visible: product.is_visible,
       order_index: product.order_index !== null ? Number(product.order_index) : null,
+      production_time:
+        product.production_time !== null ? Number(product.production_time) : null,
     }));
 
     return NextResponse.json(formattedData, {

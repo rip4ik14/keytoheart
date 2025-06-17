@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -155,18 +154,10 @@ export async function POST(req: Request) {
     }
 
     if (productIds.length > 0) {
-      const { data: products, error: productError } = await supabaseAdmin
-        .from('products')
-        .select('id, in_stock, is_visible')
-        .in('id', productIds);
-
-      if (productError) {
-        process.env.NODE_ENV !== "production" && console.error('Supabase error fetching products:', productError);
-        return NextResponse.json(
-          { error: 'Ошибка получения товаров: ' + productError.message },
-          { status: 500 }
-        );
-      }
+      const products = await prisma.products.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, in_stock: true, is_visible: true },
+      });
 
       const invalidItems = regularItems.filter((item) => {
         const itemId = parseInt(item.id, 10);
