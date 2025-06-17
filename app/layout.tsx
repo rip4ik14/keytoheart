@@ -22,6 +22,7 @@ import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym';
+import { prisma } from '@/lib/prisma';
 
 /* ------------------------------------------------------------------ */
 /*                          ШРИФТЫ (next/font)                         */
@@ -102,34 +103,30 @@ export const viewport: Viewport = {
 /* ------------------------------------------------------------------ */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   /* --------------------------- Категории -------------------------- */
-  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   let categories: Category[] = [];
   try {
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
-      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } },
-    );
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      categories = data.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        is_visible: c.is_visible ?? true,
-        subcategories:
-          c.subcategories?.filter((s: any) => s.is_visible).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            slug: s.slug,
-            is_visible: s.is_visible ?? true,
-          })) ?? [],
-      }));
-    }
+    const data = await prisma.categories.findMany({
+      where: { is_visible: true },
+      include: { subcategories: { where: { is_visible: true } } },
+      orderBy: { id: 'asc' },
+    });
+
+    categories = data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      is_visible: c.is_visible ?? true,
+      subcategories: c.subcategories.map((s) => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        is_visible: s.is_visible ?? true,
+      })),
+    }));
   } catch (e) {
     process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error →', e);
-    categories = [];   // гарантируем, что JSX не рухнет
+    categories = []; // гарантируем, что JSX не рухнет
   }
 
   const ymId = YM_ID;
@@ -145,9 +142,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
-
-        {/* pre-connect */}
-        <link rel="preconnect" href="https://gwbeabfkknhewwoesqax.supabase.co" crossOrigin="anonymous" />
 
         {/* ---- JSON-LD (объединённый через @graph) ---- */}
         <JsonLd
