@@ -11,6 +11,11 @@ import ProductTable from './ProductTable';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Category } from '@/types/category';
 
+interface CategoryOption {
+  id: number;
+  name: string;
+}
+
 // Интерфейс Product
 interface Product {
   id: number;
@@ -54,7 +59,7 @@ function ProductsContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all');
@@ -174,7 +179,7 @@ function ProductsContent() {
         .order('name', { ascending: true });
 
       if (categoriesError) throw new Error(categoriesError.message);
-      setCategories(categoriesData || []);
+      setCategories((categoriesData || []) as CategoryOption[]);
 
       // Формирование данных продуктов
       return data.map((product) => ({
