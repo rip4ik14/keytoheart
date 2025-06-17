@@ -721,6 +721,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Доступ запрещён: требуется роль администратора' }, { status: 403 });
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase credentials are missing');
+      return NextResponse.json({ error: 'Supabase credentials are missing' }, { status: 500 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     process.env.NODE_ENV !== "production" && console.log('DELETE /api/products: Product ID to delete:', id);
