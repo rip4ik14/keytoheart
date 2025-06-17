@@ -13,6 +13,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2 } from 'lucide-react';
 import Image from 'next/image';
+import type { Category, Subcategory } from '@/types/category';
 
 type Product = {
   id: number;
@@ -37,17 +38,6 @@ type Product = {
   subcategory_ids: number[];
 };
 
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-}
-
-interface Subcategory {
-  id: number;
-  name: string;
-  category_id: number | null;
-}
 
 interface ImageFile {
   id: string;

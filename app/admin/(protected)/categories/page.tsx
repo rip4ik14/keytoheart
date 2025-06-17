@@ -3,22 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
 import CategoriesClient from './CategoriesClient';
-
-interface Subcategory {
-  id: number;
-  name: string;
-  category_id: number | null;
-  slug: string;
-  is_visible: boolean;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  is_visible: boolean;
-  subcategories: Subcategory[];
-}
+import type { Category } from '@/types/category';
 
 export default async function CategoriesPage() {
   const cookieStore = await cookies();

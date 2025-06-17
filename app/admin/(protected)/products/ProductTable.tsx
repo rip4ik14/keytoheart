@@ -24,6 +24,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import type { Category } from '@/types/category';
 
 interface Product {
   id: number;
@@ -39,10 +40,6 @@ interface Product {
   category_ids: number[];
 }
 
-interface Category {
-  id: number;
-  name: string;
-}
 
 type ViewMode = 'table' | 'cards';
 
