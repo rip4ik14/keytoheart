@@ -154,6 +154,7 @@ export default async function CatalogPage() {
           composition,
           is_popular,
           is_visible,
+          production_time,
           in_stock
         `)
         .order('id', { ascending: true });
@@ -190,6 +191,7 @@ export default async function CatalogPage() {
           composition: product.composition ?? null,
           is_popular: product.is_popular ?? null,
           is_visible: product.is_visible ?? null,
+          production_time: product.production_time ?? null,
           in_stock: product.in_stock ?? null,
           category_ids: productCategoriesMap.get(product.id) || [],
           subcategory_ids: subcategoryIds,
