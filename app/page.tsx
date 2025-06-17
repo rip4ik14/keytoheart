@@ -8,9 +8,7 @@ import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { Database } from '@/lib/supabase/types_new';
+import { prisma } from '@/lib/prisma';
 
 // Обновлённый тип Product
 interface Product {
@@ -42,110 +40,52 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return Array.from(cookieStore.getAll()).map((cookie) => ({
-            name: cookie.name,
-            value: cookie.value,
-          }));
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
 
   let products: Product[] = [];
+  const categoryMap = new Map<number, { name: string; slug: string }>();
   try {
-    // Получаем связи товаров с категориями
-    const { data: productCategoryData, error: productCategoryError } = await supabase
-      .from('product_categories')
-      .select('product_id, category_id');
-
-    if (productCategoryError) {
-      throw new Error(`Ошибка загрузки связей категорий: ${productCategoryError.message}`);
-    }
-
-    // Группируем category_ids по product_id
-    const productCategoriesMap = new Map<number, number[]>();
-    productCategoryData.forEach(item => {
-      const existing = productCategoriesMap.get(item.product_id) || [];
-      productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+    const data = await prisma.products.findMany({
+      where: { in_stock: true, is_visible: true },
+      orderBy: { id: 'desc' },
+      include: {
+        product_categories: {
+          select: {
+            category_id: true,
+            categories: {
+              select: { name: true, slug: true },
+            },
+          },
+        },
+      },
     });
 
-    const productIds = Array.from(productCategoriesMap.keys());
+    products = data.map((item) => {
+      const categoryIds: number[] = [];
+      item.product_categories.forEach((pc) => {
+        categoryIds.push(pc.category_id);
+        if (pc.categories) {
+          categoryMap.set(pc.category_id, {
+            name: pc.categories.name,
+            slug: pc.categories.slug,
+          });
+        }
+      });
 
-    // Получаем товары
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-        id,
-        title,
-        price,
-        discount_percent,
-        in_stock,
-        is_popular,
-        images,
-        production_time
-      `)
-      .in('id', productIds.length > 0 ? productIds : [0]) // Избегаем пустого IN
-      .eq('in_stock', true)
-      .not('images', 'is', null)
-      .order('id', { ascending: false });
-
-    if (error) throw new Error(`Ошибка загрузки товаров: ${error.message}`);
-
-    products = data
-      ? data.map((item) => ({
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          discount_percent: item.discount_percent ?? null,
-          in_stock: item.in_stock ?? false,
-          is_popular: item.is_popular ?? false,
-          images: item.images ?? [],
-          production_time: item.production_time ?? null,
-          category_ids: productCategoriesMap.get(item.id) || [],
-        }))
-      : [];
+      return {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        discount_percent: item.discount_percent ?? null,
+        in_stock: item.in_stock ?? false,
+        is_popular: item.is_popular ?? false,
+        images: item.images ?? [],
+        production_time: item.production_time ?? null,
+        category_ids: categoryIds,
+      } as Product;
+    });
   } catch (err) {
     process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товаров:', err);
   }
-
-  // Получаем названия категорий
-  const categoryIds = Array.from(new Set(products.flatMap(p => p.category_ids)));
-  const { data: categoriesData, error: categoriesError } = await supabase
-    .from('categories')
-    .select('id, name, slug')
-    .in('id', categoryIds.length > 0 ? categoryIds : [0]); // Избегаем пустого IN
-
-  if (categoriesError) {
-    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', categoriesError);
-  }
-
-  const categoryMap = new Map<number, { name: string; slug: string }>();
-  categoriesData?.forEach(category => {
-    categoryMap.set(category.id, { name: category.name, slug: category.slug });
-  });
-
-  const slugMap: Record<string, string> = {
-    'Клубничные букеты': 'klubnichnye-bukety',
-    'Клубничные боксы': 'klubnichnye-boksy',
-    'Цветы': 'flowers',
-    'Комбо-наборы': 'combo',
-    'Premium': 'premium',
-    'Коллекции': 'kollekcii',
-    'Повод': 'povod',
-    'Подарки': 'podarki',
-  };
 
   // Фильтруем категории, исключая "Подарки"
   const categories = Array.from(
@@ -205,7 +145,9 @@ export default async function Home() {
           </div>
         ) : (
           categories.map((category, idx) => {
-            const slug = slugMap[category] || '';
+            const slug = Array.from(categoryMap.values()).find(
+              (c) => c.name === category
+            )?.slug || '';
             const items = products
               .filter((p) => p.category_ids.some(id => categoryMap.get(id)?.name === category))
               .slice(0, 8);
