@@ -1,11 +1,9 @@
 import React from 'react';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import StatsClient from './StatsClient';
 
 export const revalidate = 60; // обновлять раз в минуту
-
-const prisma = new PrismaClient();
 
 export default async function AdminStatsPage() {
   // 1) Все заказы (через Prisma)
@@ -27,44 +25,27 @@ export default async function AdminStatsPage() {
     throw new Error('Не удалось загрузить заказы: ' + error.message);
   }
 
-  // 2) Все позиции заказов (через Supabase)
-  const sb = supabaseAdmin as any;
-  const { data: items, error: itemsError } = await sb
-    .from('order_items')
-    .select('product_id, quantity, price')
-    .not('product_id', 'is', null);
-  if (itemsError) {
-    throw new Error('Не удалось загрузить позиции заказов: ' + itemsError.message);
-  }
-
-  // 3) Уникальные product_id
-  const productIds = Array.from(
-    new Set(
-      items
-        .map((i: any) => i.product_id)
-        .filter((id: number | null): id is number => id !== null)
-    )
-  );
-
-  // 4) Тянем названия продуктов (через Supabase)
-  const { data: products, error: productsError } = await sb
-    .from('products')
-    .select('id, title')
-    .in('id', productIds);
-  if (productsError) {
-    throw new Error('Не удалось загрузить продукты: ' + productsError.message);
-  }
-
-  // 5) Мапим позиции, добавляя title
-  const itemsWithTitle = (items as any[]).map((i) => {
-    const prod = (products as any[]).find((p) => p.id === i.product_id);
-    return {
+  // 2) Все позиции заказов с названиями продуктов (через Prisma)
+  let itemsWithTitle;
+  try {
+    const items = await prisma.order_items.findMany({
+      select: {
+        product_id: true,
+        quantity: true,
+        price: true,
+        products: { select: { title: true } },
+      },
+      where: { product_id: { not: null } },
+    });
+    itemsWithTitle = items.map((i: any) => ({
       product_id: i.product_id!,
       quantity: i.quantity,
       price: i.price,
-      title: prod?.title ?? 'Без названия',
-    };
-  });
+      title: i.products?.title ?? 'Без названия',
+    }));
+  } catch (error: any) {
+    throw new Error('Не удалось загрузить позиции заказов: ' + error.message);
+  }
 
   // 6) Данные о клиентах из auth.admin.listUsers() (через Supabase)
   const { data: usersList, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
@@ -99,13 +80,15 @@ export default async function AdminStatsPage() {
     created_at: b.created_at ?? '',
   }));
 
-  // 8) Промокоды (через Supabase)
-  const { data: promoCodes, error: promoError } = await sb
-    .from('promo_codes')
-    .select('id, code, discount, created_at')
-    .order('created_at', { ascending: true });
-  if (promoError) {
-    throw new Error('Не удалось загрузить промокоды: ' + promoError.message);
+  // 8) Промокоды (через Prisma)
+  let promoCodes;
+  try {
+    promoCodes = await prisma.promo_codes.findMany({
+      select: { id: true, code: true, discount: true, created_at: true },
+      orderBy: { created_at: 'asc' },
+    });
+  } catch (error: any) {
+    throw new Error('Не удалось загрузить промокоды: ' + error.message);
   }
   const promoCodeMap = new Map(
     (promoCodes as any[]).map((p) => [p.id, p.code])
