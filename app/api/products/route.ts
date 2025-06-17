@@ -712,7 +712,8 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     process.env.NODE_ENV !== "production" && console.log('DELETE /api/products: Starting request');
-    const sessionRes = await fetch(new URL('/api/admin-session', req.url), {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://keytoheart.ru';
+    const sessionRes = await fetch(new URL('/api/admin-session', baseUrl), {
       headers: { cookie: req.headers.get('cookie') || '' },
     });
     const sessionData = await sessionRes.json();
