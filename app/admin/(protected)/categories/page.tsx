@@ -21,7 +21,7 @@ interface Category {
 }
 
 export default async function CategoriesPage() {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
 
   // Проверяем admin_session токен
   const token = cookieStore.get('admin_session')?.value;

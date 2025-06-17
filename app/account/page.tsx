@@ -18,7 +18,7 @@ interface BonusesData {
 
 export default async function AccountPage() {
   // Получаем куки с телефоном
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const phone = cookieStore.get('user_phone')?.value ?? '';
 
   // Сессия

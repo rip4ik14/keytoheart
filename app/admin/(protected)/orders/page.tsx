@@ -57,7 +57,7 @@ export default async function AdminOrdersPage() {
   }
 
   // Проверка сессии
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const token = cookieStore.get('admin_session')?.value;
   if (!token) {
     redirect('/admin/login?error=no-session');

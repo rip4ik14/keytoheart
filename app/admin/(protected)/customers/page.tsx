@@ -49,7 +49,7 @@ interface Customer {
 }
 
 export default async function CustomersPage() {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const token = cookieStore.get('admin_session')?.value;
 
   if (!token) {
