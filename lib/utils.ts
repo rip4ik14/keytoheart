@@ -1,7 +1,6 @@
 export interface ProductData {
   title: string;
   price: number;
-  original_price?: number | null;
 }
 
 export function validateProduct(data: ProductData): string | null {
