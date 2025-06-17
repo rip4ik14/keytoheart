@@ -13,6 +13,7 @@ interface Event {
   type: string;
   date: string;
   description: string;
+  customType?: string; // New field for custom event type
 }
 
 export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps) {
@@ -34,6 +35,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
                   type: item.type,
                   date: item.date || '',
                   description: item.description || '',
+                  customType: item.type !== 'День рождения' && item.type !== 'Годовщина' ? item.type : '',
                 }))
               : [
                   { type: 'День рождения', date: '', description: '' },
@@ -53,12 +55,20 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
   }, [phone]);
 
   const handleAddEvent = () => {
-    setEvents([...events, { type: 'Другое', date: '', description: '' }]);
+    setEvents([...events, { type: 'Другое', date: '', description: '', customType: '' }]);
   };
 
   const handleEventChange = (index: number, field: keyof Event, value: string) => {
     const updatedEvents = [...events];
-    updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+    if (field === 'type' && value !== 'Другое') {
+      // If a predefined type is selected, clear customType
+      updatedEvents[index] = { ...updatedEvents[index], type: value, customType: '' };
+    } else if (field === 'customType') {
+      // If custom type is entered, update the type field with the custom value
+      updatedEvents[index] = { ...updatedEvents[index], type: value || 'Другое', customType: value };
+    } else {
+      updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+    }
     setEvents(updatedEvents);
   };
 
@@ -128,7 +138,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
               </label>
               <select
                 id={`event-type-${index}`}
-                value={event.type}
+                value={event.type === 'День рождения' || event.type === 'Годовщина' ? event.type : 'Другое'}
                 onChange={(e) => handleEventChange(index, 'type', e.target.value)}
                 className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
                 disabled={isLoading}
@@ -138,6 +148,23 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
                 <option value="Другое">Другое</option>
               </select>
             </div>
+            {event.type !== 'День рождения' && event.type !== 'Годовщина' && (
+              <div>
+                <label htmlFor={`event-custom-type-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                  Укажите событие
+                </label>
+                <input
+                  id={`event-custom-type-${index}`}
+                  type="text"
+                  value={event.customType || ''}
+                  onChange={(e) => handleEventChange(index, 'customType', e.target.value)}
+                  className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
+                  placeholder="Например, День свадьбы"
+                  disabled={isLoading}
+                  maxLength={50}
+                />
+              </div>
+            )}
             <div>
               <label htmlFor={`event-date-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
                 Дата

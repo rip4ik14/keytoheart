@@ -57,7 +57,7 @@ export default function PromoGridClient({
           <div className="hidden lg:block h-full w-full">
             <Swiper
               modules={[Autoplay, Pagination]}
-              autoplay={{ delay: 5000 }}
+              autoplay={{ delay: 10000 }}
               pagination={{ clickable: true }}
               loop
               className="h-full w-full"
