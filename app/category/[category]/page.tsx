@@ -1,11 +1,10 @@
-import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import { Suspense } from 'react';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
-import type { Tables } from '@/lib/supabase/types_new';
 
 interface Product {
   id: number;
@@ -105,7 +104,6 @@ export default async function CategoryPage({
   params: Promise<{ category: string }>;
   searchParams: Promise<{ sort?: string; subcategory?: string }>;
 }) {
-  const supabase = await createSupabaseServerClient();
   const { category } = await params;
   const { sort = 'newest', subcategory: initialSubcategory = 'all' } = await searchParams;
 
@@ -116,15 +114,13 @@ export default async function CategoryPage({
     redirect('/404');
   }
 
-  const { data: categoryData, error: categoryError } = await supabase
-    .from('categories')
-    .select('id, name, slug, is_visible')
-    .eq('name', apiName)
-    .eq('is_visible', true)
-    .single();
+  const categoryData = await prisma.categories.findFirst({
+    where: { name: apiName, is_visible: true },
+    select: { id: true, name: true, slug: true },
+  });
 
-  if (categoryError || !categoryData) {
-    process.env.NODE_ENV !== "production" && console.error(`Error fetching category ID for ${apiName}:`, categoryError?.message || 'No data');
+  if (!categoryData) {
+    process.env.NODE_ENV !== "production" && console.error(`Error fetching category ID for ${apiName}`);
     redirect('/404');
   }
 
@@ -135,25 +131,20 @@ export default async function CategoryPage({
 
   const categoryId = categoryData.id;
 
-  const { data: subcategoriesData, error: subcategoriesError } = await supabase
-    .from('subcategories')
-    .select('id, name, slug, is_visible, category_id, label')
-    .eq('category_id', categoryId)
-    .eq('is_visible', true)
-    .order('name', { ascending: true });
+  const subcategoriesData = await prisma.subcategories.findMany({
+    where: { category_id: categoryId, is_visible: true },
+    select: { id: true, name: true, slug: true, is_visible: true, category_id: true, label: true },
+    orderBy: { name: 'asc' },
+  });
 
-  if (subcategoriesError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching subcategories:', subcategoriesError.message);
-  }
-
-  const subcategories: Subcategory[] = subcategoriesData?.map((sub: Tables<'subcategories'>) => ({
+  const subcategories: Subcategory[] = subcategoriesData.map((sub) => ({
     id: sub.id,
     name: sub.name,
     slug: sub.slug,
     is_visible: sub.is_visible ?? true,
     category_id: sub.category_id,
-    label: sub.label,
-  })) ?? [];
+    label: sub.label ?? null,
+  }));
 
   if (subcategories.length > 0) {
     const subcategoryFromUrl = subcategories.find((sub) => sub.slug === initialSubcategory);
@@ -162,13 +153,13 @@ export default async function CategoryPage({
     }
   }
 
-  const { data: productCategoryData, error: productCategoryError } = await supabase
-    .from('product_categories')
-    .select('product_id')
-    .eq('category_id', categoryId);
+  const productCategoryData = await prisma.product_categories.findMany({
+    where: { category_id: categoryId },
+    select: { product_id: true },
+  });
 
-  if (productCategoryError || !productCategoryData) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
+  if (!productCategoryData) {
+    process.env.NODE_ENV !== "production" && console.error('Error fetching product IDs for category');
     redirect('/404');
   }
 
@@ -195,67 +186,56 @@ export default async function CategoryPage({
     );
   }
 
-  const { data: productsData, error: productsError } = await supabase
-    .from('products')
-    .select(`
-      id,
-      title,
-      price,
-      discount_percent,
-      original_price,
-      in_stock,
-      images,
-      image_url,
-      created_at,
-      slug,
-      bonus,
-      short_desc,
-      description,
-      composition,
-      is_popular,
-      is_visible,
-      order_index,
-      production_time
-    `)
-    .in('id', productIds)
-    .eq('in_stock', true)
-    .eq('is_visible', true)
-    .order('id', { ascending: false });
+  const productsData = await prisma.products.findMany({
+    where: {
+      id: { in: productIds },
+      in_stock: true,
+      is_visible: true,
+    },
+    orderBy: { id: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      price: true,
+      discount_percent: true,
+      original_price: true,
+      in_stock: true,
+      images: true,
+      image_url: true,
+      created_at: true,
+      slug: true,
+      bonus: true,
+      short_desc: true,
+      description: true,
+      composition: true,
+      is_popular: true,
+      is_visible: true,
+      order_index: true,
+      production_time: true,
+    },
+  });
 
-  if (productsError) {
-    process.env.NODE_ENV !== "production" && console.error('CategoryPage products error:', productsError.message);
-    redirect('/404');
-  }
-
-  const { data: productSubcategoryData, error: productSubcategoryError } = await supabase
-    .from('product_subcategories')
-    .select('product_id, subcategory_id')
-    .in('product_id', productIds);
-
-  if (productSubcategoryError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching product subcategories:', productSubcategoryError.message);
-  }
+  const productSubcategoryData = await prisma.product_subcategories.findMany({
+    where: { product_id: { in: productIds } },
+    select: { product_id: true, subcategory_id: true },
+  });
 
   const productSubcategoriesMap = new Map<number, number[]>();
-  productSubcategoryData?.forEach((item: { product_id: number; subcategory_id: number }) => {
+  productSubcategoryData.forEach((item: { product_id: number; subcategory_id: number }) => {
     const existing = productSubcategoriesMap.get(item.product_id) || [];
     productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
   });
 
-  const allSubcategoryIds = Array.from(new Set(productSubcategoryData?.map((item: { subcategory_id: number }) => item.subcategory_id) || []));
-  const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabase
-    .from('subcategories')
-    .select('id, name')
-    .in('id', allSubcategoryIds);
-
-  if (subcategoryNamesError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching subcategory names:', subcategoryNamesError.message);
-  }
+  const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map((item: { subcategory_id: number }) => item.subcategory_id)));
+  const subcategoryNamesData = await prisma.subcategories.findMany({
+    where: { id: { in: allSubcategoryIds } },
+    select: { id: true, name: true },
+  });
 
   const subcategoryNamesMap = new Map<number, string>();
-  subcategoryNamesData?.forEach((sub: { id: number; name: string }) => subcategoryNamesMap.set(sub.id, sub.name));
+  subcategoryNamesData.forEach((sub: { id: number; name: string }) => subcategoryNamesMap.set(sub.id, sub.name));
 
-  const products: Product[] = productsData?.map((product: Tables<'products'>) => {
+  const products: Product[] = productsData.map((product: any) => {
     const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
     const subcategoryNames = subcategoryIds.map((id) => subcategoryNamesMap.get(id) || '').filter((name) => name);
 
@@ -264,7 +244,12 @@ export default async function CategoryPage({
       title: product.title,
       price: product.price,
       discount_percent: product.discount_percent ?? null,
-      original_price: typeof product.original_price === 'string' ? parseFloat(product.original_price) : null,
+      original_price:
+        product.original_price !== null && typeof product.original_price === 'object' && 'toNumber' in product.original_price
+          ? product.original_price.toNumber()
+          : product.original_price !== null
+            ? Number(product.original_price)
+            : null,
       in_stock: product.in_stock ?? true,
       images: product.images ?? [],
       image_url: product.image_url ?? null,
@@ -322,20 +307,16 @@ export default async function CategoryPage({
 }
 
 export async function generateStaticParams() {
-  const { data, error } = await supabaseAdmin
-    .from('categories')
-    .select('slug')
-    .eq('is_visible', true);
-
-  if (error) {
-    process.env.NODE_ENV !== "production" && console.error('Ошибка получения категорий для generateStaticParams:', error.message);
+  try {
+    const data = await prisma.categories.findMany({
+      where: { is_visible: true },
+      select: { slug: true },
+    });
+    const paths = data.map((cat) => ({ category: cat.slug }));
+    process.env.NODE_ENV !== "production" && console.log('Generated category paths:', paths);
+    return paths;
+  } catch (error: any) {
+    process.env.NODE_ENV !== "production" && console.error('Ошибка получения категорий для generateStaticParams:', error?.message);
     return [];
   }
-
-  const paths = (data ?? []).map((cat: { slug: string }) => ({
-    category: cat.slug,
-  }));
-
-  process.env.NODE_ENV !== "production" && console.log('Generated category paths:', paths);
-  return paths;
 }
