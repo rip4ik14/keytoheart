@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 export async function createSupabaseServerClient() {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
