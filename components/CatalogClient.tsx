@@ -25,6 +25,7 @@ export interface Product {
   composition?: string | null;
   is_popular?: boolean | null;
   is_visible?: boolean | null;
+  production_time?: number | null;
   category_ids: number[]; // Массив ID категорий
   subcategory_ids: number[]; // Массив ID подкатегорий
   subcategory_names: string[]; // Массив названий подкатегорий
