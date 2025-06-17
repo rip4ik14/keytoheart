@@ -22,6 +22,7 @@ export default function PopularProductsClient({ products }: { products: Product[
     ...item,
     images: item.images || [],
     category_ids: item.category_ids || [],
+    production_time: item.production_time ?? null,
   }));
 
   const enableLoop = prepared.length > 4;
