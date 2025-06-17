@@ -19,6 +19,7 @@ export default async function PopularProductsServer() {
       ...item,
       images: item.images || [],
       category_ids: item.category_ids || [],
+      production_time: item.production_time ?? null,
     }));
     return <PopularProductsClient products={products} />;
   } catch (err) {

@@ -13,6 +13,7 @@ interface PopularProduct {
   is_popular: boolean | null;
   is_visible: boolean | null;
   order_index: number | null;
+  production_time: number | null;
 }
 
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
     // Получаем товары из Supabase
     const { data, error } = await supabaseAdmin
       .from('products')
-      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index')
+      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index, production_time')
       .eq('in_stock', true)
       .eq('is_popular', true)
       .eq('is_visible', true)
@@ -49,6 +50,8 @@ export async function GET() {
       is_popular: product.is_popular,
       is_visible: product.is_visible,
       order_index: product.order_index !== null ? Number(product.order_index) : null,
+      production_time:
+        product.production_time !== null ? Number(product.production_time) : null,
     }));
 
     return NextResponse.json(formattedData, {
