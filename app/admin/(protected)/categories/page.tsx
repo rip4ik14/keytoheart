@@ -6,7 +6,7 @@ import CategoriesClient from './CategoriesClient';
 import type { Category } from '@/types/category';
 
 export default async function CategoriesPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   // Проверяем admin_session токен
   const token = cookieStore.get('admin_session')?.value;
