@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
 import CategoriesClient from './CategoriesClient';
 
@@ -41,20 +41,25 @@ export default async function CategoriesPage() {
   let categories: Category[] = [];
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from('categories')
-      .select(`
-        id,
-        name,
-        slug,
-        is_visible,
-        subcategories!subcategories_category_id_fkey(id, name, slug, category_id, is_visible)
-      `)
-      .order('id', { ascending: true });
-
-    if (error) throw error;
-
-    categories = (data || []) as Category[];
+    categories = await prisma.categories.findMany({
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        is_visible: true,
+        subcategories: {
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            category_id: true,
+            is_visible: true,
+          },
+        },
+      },
+    });
   } catch (error: any) {
     process.env.NODE_ENV !== "production" && console.error('Error fetching categories:', error.message);
   }
