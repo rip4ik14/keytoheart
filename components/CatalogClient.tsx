@@ -42,14 +42,14 @@ export type SubcategoryFromDB = {
   id: number;
   name: string;
   slug: string;
-  is_visible: boolean;
+  is_visible: boolean | null;
 };
 
 export type CategoryFromDB = {
   id: number;
   name: string;
   slug: string;
-  is_visible: boolean;
+  is_visible: boolean | null;
 };
 
 type Category = {
