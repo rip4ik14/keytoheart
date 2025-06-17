@@ -44,16 +44,21 @@ interface Order {
 export default async function AdminOrdersPage() {
   // Очищаем cookies Supabase через API
   try {
-    const res = await fetch('http://localhost:3000/api/clear-supabase-cookies', {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const res = await fetch(`${baseUrl}/api/clear-supabase-cookies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     const result = await res.json();
     if (!res.ok || !result.success) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to clear Supabase cookies:', result.error);
+      process.env.NODE_ENV !== "production" &&
+        console.error('Failed to clear Supabase cookies:', result.error);
     }
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" && console.error('Error calling clear-supabase-cookies API:', error);
+    process.env.NODE_ENV !== "production" &&
+      console.error('Error calling clear-supabase-cookies API:', error);
   }
 
   // Проверка сессии
