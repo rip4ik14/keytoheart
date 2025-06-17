@@ -1,36 +1,25 @@
-// ✅  app/product/[id]/page.tsx  (замена целиком)
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { prisma } from '@/lib/prisma';
 import { JsonLd } from 'react-schemaorg';
 import type { Product as SchemaProduct, AggregateOffer } from 'schema-dts';
-import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
 import { Product, ComboItem } from './types';
 
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 export const revalidate = 3600;
 
 /* ------------------------------------------------------------------ */
 /*                              TYPES                                 */
 /* ------------------------------------------------------------------ */
-type RowFull = Database['public']['Tables']['products']['Row'] & {
-  product_categories: { category_id: number }[]; // join-результат
-};
-
-/* ------------------------------------------------------------------ */
 export async function generateStaticParams() {
-  const { data } = await supabase
-    .from('products')
-    .select('id')
-    .eq('is_visible', true);
-  return data?.map(p => ({ id: String(p.id) })) ?? [];
+  const data = await prisma.products.findMany({
+    where: { is_visible: true },
+    select: { id: true },
+  });
+  return data.map(p => ({ id: String(p.id) }));
 }
 
 export async function generateMetadata({
@@ -41,11 +30,10 @@ export async function generateMetadata({
   const id = Number(params.id);
   if (Number.isNaN(id)) return {};
 
-  const { data } = await supabase
-    .from('products')
-    .select('title, description, images')
-    .eq('id', id)
-    .single();
+  const data = await prisma.products.findUnique({
+    where: { id },
+    select: { title: true, description: true, images: true },
+  });
 
   if (!data) {
     return {
@@ -78,27 +66,25 @@ export default async function ProductPage({ params }: { params: { id: string } }
   if (Number.isNaN(id)) notFound();
 
   /* ---- один запрос с джойном категорий ---- */
-  const { data, error } = await supabase
-    .from('products')
-    .select(
-      `
-        *,
-        product_categories(category_id)
-      `,
-    )
-    .eq('id', id)
-    .eq('is_visible', true)
-    .single<RowFull>();
+  const data = await prisma.products.findFirst({
+    where: { id, is_visible: true },
+    include: { product_categories: { select: { category_id: true } } },
+  });
 
-  if (error || !data || data.in_stock === false) notFound();
+  if (!data || data.in_stock === false) notFound();
 
   const product: Product = {
     id: data.id,
     title: data.title ?? 'Без названия',
     price: data.price ?? 0,
-    original_price: data.original_price ?? undefined,
+    original_price:
+      data.original_price !== null && typeof data.original_price === 'object' && 'toNumber' in data.original_price
+        ? data.original_price.toNumber()
+        : data.original_price !== null
+          ? Number(data.original_price)
+          : undefined,
     discount_percent: data.discount_percent ?? 0,
-    images: data.images ?? [],
+    images: Array.isArray(data.images) ? data.images : [],
     description: data.description ?? '',
     composition: data.composition ?? '',
     production_time: data.production_time ?? null,
@@ -106,17 +92,16 @@ export default async function ProductPage({ params }: { params: { id: string } }
   };
 
   /* ---- апселлы ---- */
-  const { data: upsells } = await supabase
-    .from('upsell_items')
-    .select('id, title, price, image_url');
+  const upsells = await prisma.upsell_items.findMany({
+    select: { id: true, title: true, price: true, image_url: true },
+  });
 
-  const combos: ComboItem[] =
-    upsells?.map(u => ({
-      id: Number(u.id),
-      title: u.title,
-      price: u.price,
-      image: u.image_url ?? '',
-    })) ?? [];
+  const combos: ComboItem[] = upsells.map(u => ({
+    id: Number(u.id),
+    title: u.title,
+    price: u.price,
+    image: u.image_url ?? '',
+  }));
 
   const finalPrice =
     product.discount_percent && product.discount_percent > 0
