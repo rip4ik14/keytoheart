@@ -187,7 +187,7 @@ export default function CartPageClient() {
     validateStep5,
     getMinDate,
     resetForm,
-  } = useCheckoutForm(storeSettings, maxProductionTime);
+  } = useCheckoutForm();
 
   const handleStep4ValidationChange = useCallback((isValid: boolean, errorMessage: string) => {
     setIsStep4Valid(isValid);
