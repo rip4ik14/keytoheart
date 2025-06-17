@@ -4,18 +4,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
-interface DaySchedule {
-  start: string;
-  end: string;
-  enabled?: boolean;
-}
-
-interface StoreSettings {
-  order_acceptance_enabled: boolean;
-  order_acceptance_schedule: Record<string, DaySchedule>;
-  store_hours: Record<string, DaySchedule>;
-}
-
 interface FormState {
   phone: string;
   email: string;
@@ -69,10 +57,7 @@ const normalizePhone = (phone: string): string => {
   return phone.startsWith('+') ? phone : `+${phone}`;
 };
 
-export default function useCheckoutForm(
-  storeSettings?: StoreSettings | null,
-  maxProductionTime?: number | null,
-) {
+export default function useCheckoutForm() {
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [phoneError, setPhoneError] = useState<string>('');
@@ -299,44 +284,8 @@ export default function useCheckoutForm(
 
   const getMinDate = () => {
     const today = new Date();
-
-    if (storeSettings && storeSettings.order_acceptance_enabled) {
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        const dayKey = date
-          .toLocaleString('en-US', { weekday: 'long' })
-          .toLowerCase();
-        const orderDay = storeSettings.order_acceptance_schedule[dayKey];
-        const storeDay = storeSettings.store_hours[dayKey];
-        const isEnabled =
-          orderDay?.enabled !== false && storeDay?.enabled !== false;
-
-        if (!isEnabled) continue;
-
-        if (i === 0) {
-          // today - check cutoff time
-          const latestEnd = (orderDay.end < storeDay.end
-            ? orderDay.end
-            : storeDay.end) as string;
-          const [h, m] = latestEnd.split(':').map(Number);
-          const cutoff = new Date(today);
-          cutoff.setHours(h, m, 0, 0);
-          if (maxProductionTime != null) {
-            cutoff.setHours(cutoff.getHours() - maxProductionTime);
-          }
-          if (today <= cutoff) {
-            return today.toISOString().split('T')[0];
-          }
-        } else {
-          return date.toISOString().split('T')[0];
-        }
-      }
-    }
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    today.setDate(today.getDate() + 1);
+    return today.toISOString().split('T')[0];
   };
 
   const resetForm = () => {

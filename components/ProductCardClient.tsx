@@ -10,23 +10,15 @@ interface Props {
   title: string;
   price: number;
   imageUrl: string;
-  productionTime?: number | null;
 }
 
-export default function ProductCardClient({ id, title, price, imageUrl, productionTime }: Props) {
+export default function ProductCardClient({ id, title, price, imageUrl }: Props) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleClick = () => {
-    addItem({
-      id: id.toString(),
-      title,
-      price,
-      quantity: 1,
-      imageUrl,
-      production_time: productionTime,
-    });
+    addItem({ id: id.toString(), title, price, quantity: 1, imageUrl });
     if (buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
