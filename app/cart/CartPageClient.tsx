@@ -185,7 +185,6 @@ export default function CartPageClient() {
     validateStep3,
     validateStep4,
     validateStep5,
-    getMinDate,
     resetForm,
   } = useCheckoutForm();
 
@@ -924,7 +923,6 @@ export default function CartPageClient() {
                     dateError={dateError}
                     timeError={timeError}
                     onFormChange={onFormChange}
-                    getMinDate={getMinDate}
                     storeSettings={
                       storeSettings || {
                         order_acceptance_enabled: false,

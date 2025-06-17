@@ -17,7 +17,6 @@ interface Props {
   dateError: string;
   timeError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  getMinDate: () => string;
   storeSettings: {
     order_acceptance_schedule: Record<string, DaySchedule>;
     store_hours: Record<string, DaySchedule>;
@@ -41,7 +40,6 @@ export default function Step4DateTime({
   dateError,
   timeError,
   onFormChange,
-  getMinDate,
   storeSettings,
   maxProductionTime,
   onValidationChange,
@@ -61,6 +59,45 @@ export default function Step4DateTime({
   const latestEnd = orderSchedule.enabled && storeSchedule.enabled
     ? orderSchedule.end < storeSchedule.end ? orderSchedule.end : storeSchedule.end
     : '23:59';
+
+  const computeMinDate = () => {
+    const now = new Date();
+    const dayKey = now.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+    const orderDay = storeSettings.order_acceptance_schedule[dayKey];
+    const storeDay = storeSettings.store_hours[dayKey];
+
+    if (!orderDay?.enabled || !storeDay?.enabled) {
+      const t = new Date(now);
+      t.setDate(t.getDate() + 1);
+      return t.toISOString().split('T')[0];
+    }
+
+    const start = orderDay.start > storeDay.start ? orderDay.start : storeDay.start;
+    const end = orderDay.end < storeDay.end ? orderDay.end : storeDay.end;
+
+    const [sH, sM] = start.split(':').map(Number);
+    const [eH, eM] = end.split(':').map(Number);
+
+    const earliest = new Date(now);
+    earliest.setHours(sH, sM, 0, 0);
+
+    const latest = new Date(now);
+    latest.setHours(eH, eM, 0, 0);
+
+    let minTime = new Date(now);
+    if (maxProductionTime != null) {
+      minTime.setHours(minTime.getHours() + maxProductionTime);
+    }
+    if (minTime < earliest) minTime = earliest;
+
+    if (minTime <= latest) {
+      return now.toISOString().split('T')[0];
+    }
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
 
   const computeMin = () => {
     const now = new Date();
@@ -93,7 +130,7 @@ export default function Step4DateTime({
   };
 
   const now = new Date();
-  const minDate = getMinDate();
+  const minDate = computeMinDate();
   const minTimeDate = computeMin();
   const minTime = `${String(minTimeDate.getHours()).padStart(2, '0')}:${String(
     minTimeDate.getMinutes()

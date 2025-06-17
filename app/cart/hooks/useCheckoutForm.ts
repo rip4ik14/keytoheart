@@ -282,12 +282,6 @@ export default function useCheckoutForm() {
     });
   };
 
-  const getMinDate = () => {
-    const today = new Date();
-    today.setDate(today.getDate() + 1);
-    return today.toISOString().split('T')[0];
-  };
-
   const resetForm = () => {
     setForm(initialFormState);
     setPhoneError('');
@@ -334,7 +328,6 @@ export default function useCheckoutForm() {
     validateStep4,
     validateStep5,
     validateAllSteps,
-    getMinDate,
     resetForm,
   };
 }
