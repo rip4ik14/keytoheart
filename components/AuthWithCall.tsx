@@ -205,7 +205,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        Вход по телефону
+        
+        <p className="text-black-400">Введите номер телефона для авторизации и оформления заказа</p>
       </motion.h2>
 
       {step === 'phone' && (
