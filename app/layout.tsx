@@ -235,7 +235,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <StickyHeader initialCategories={categories} />
 
             <Suspense fallback={<div>Загрузка…</div>}>
-              <ClientBreadcrumbs />
+              <ClientBreadcrumbs initialCategories={categories} />
             </Suspense>
 
             <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">
