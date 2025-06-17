@@ -152,7 +152,15 @@ export default async function OccasionDetailPage({
   }
 
   const data = await prisma.products.findMany({
-    where: { occasion_slug: params.slug, in_stock: true },
+    where: {
+      in_stock: true,
+      is_visible: true,
+      product_subcategories: {
+        some: {
+          subcategories: { slug: params.slug },
+        },
+      },
+    },
     select: {
       id: true,
       title: true,

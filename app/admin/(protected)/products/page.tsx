@@ -40,7 +40,7 @@ export default async function ProductsPage() {
       },
     });
 
-    products = rows.map(r => ({
+    products = rows.map((r: any) => ({
       id: r.id,
       title: r.title ?? '',
       price: r.price ?? 0,
@@ -56,7 +56,7 @@ export default async function ProductsPage() {
       is_visible: r.is_visible ?? false,
       is_popular: r.is_popular ?? false,
       order_index: r.order_index ?? 0,
-      category_ids: r.product_categories.map(pc => pc.category_id),
+      category_ids: r.product_categories.map((pc: any) => pc.category_id),
       bonus: r.bonus !== null && r.bonus !== undefined ? Number(r.bonus) : null,
       composition: r.composition ?? null,
       created_at: r.created_at ? r.created_at.toISOString() : null,
@@ -75,7 +75,7 @@ export default async function ProductsPage() {
       select: { id: true, name: true, slug: true },
       orderBy: { name: 'asc' },
     });
-    categories = cats.map(c => ({ id: c.id, name: c.name, slug: c.slug }));
+    categories = cats.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }));
   } catch (error) {
     process.env.NODE_ENV !== 'production' && console.error('Error fetching categories:', error);
   }
