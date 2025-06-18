@@ -4,7 +4,7 @@ import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
-import Script from 'next/script';
+import YandexMetrikaScript from '@components/YandexMetrikaScript';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
 import { Suspense } from 'react';
@@ -193,28 +193,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
 
-        {ymId !== undefined && (
-          <Script
-            id="ym"
-            data-nosnippet
-            strategy="afterInteractive"
-            src="https://mc.yandex.ru/metrika/tag.js"
-            onLoad={() => {
-              if (typeof window.ym === 'function') {
-                // @ts-ignore: window.ym accepts object init params
-                window.ym(ymId, 'init', {
-                  clickmap: true,
-                  trackLinks: true,
-                  accurateTrackBounce: true,
-                  trackHash: true,
-                  webvisor: true,
-                });
-              } else {
-                console.error('Yandex Metrika is not loaded');
-              }
-            }}
-          />
-        )}
+        {ymId !== undefined && <YandexMetrikaScript ymId={ymId} />}
       </head>
 
       <body className="font-sans">
