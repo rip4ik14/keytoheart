@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import sanitizeHtml from 'sanitize-html';
+import { useRef, useEffect } from 'react';
 
 interface Props {
   form: {
@@ -30,13 +31,26 @@ const containerVariants = {
 export default function Step3Address({
   form,
   addressError,
+  onFormChange,
+  handleAddressChange,
+  // these two props are accepted for compatibility but not used
   showSuggestions,
   isLoadingSuggestions,
   addressSuggestions,
-  onFormChange,
-  handleAddressChange,
   handleSelectAddress,
 }: Props) {
+  const streetRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Инициализируем автодополнение от Яндекс.Карт
+    if (typeof window !== 'undefined' && (window as any).ymaps && streetRef.current) {
+      (window as any).ymaps.ready(() => {
+        // @ts-ignore
+        new (window as any).ymaps.SuggestView(streetRef.current!);
+      });
+    }
+  }, []);
+
   const handleInstr = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const clean = sanitizeHtml(e.target.value, { allowedTags: [], allowedAttributes: {} });
     onFormChange({ target: { name: 'deliveryInstructions', value: clean } } as any);
@@ -89,58 +103,58 @@ export default function Step3Address({
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-                <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
+                <Image
+                  src="/icons/map-marker-alt.svg"
+                  alt="Улица"
+                  width={16}
+                  height={16}
+                />
               </div>
               <input
+                ref={streetRef}
                 id="street"
                 name="street"
                 value={form.street}
                 onChange={handleAddressChange}
-                placeholder="Введите улицу"
+                placeholder="Начните вводить улицу"
                 className={`w-full pl-10 pr-3 py-2 border rounded-md ${
                   addressError ? 'border-red-500' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-black`}
                 aria-invalid={!!addressError}
                 aria-autocomplete="list"
+                autoComplete="off"
               />
-              {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
-              {showSuggestions && (
-                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-sm max-h-48 overflow-auto">
-                  {isLoadingSuggestions ? (
-                    <li className="p-2 text-gray-500 flex items-center gap-2">
-                      <Image src="/icons/spinner.svg" alt="..." width={16} height={16} className="animate-spin" />
-                      Загрузка...
-                    </li>
-                  ) : addressSuggestions.length > 0 ? (
-                    addressSuggestions.map((s, i) => (
-                      <li
-                        key={i}
-                        onClick={() => handleSelectAddress(s)}
-                        className="p-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
-                      >
-                        {s}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="p-2 text-gray-500">Ничего не найдено</li>
-                  )}
-                </ul>
+              {addressError && (
+                <p className="text-red-500 text-xs mt-1">{addressError}</p>
               )}
             </div>
           </div>
 
           <div className="flex gap-4">
-            {['house', 'apartment', 'entrance'].map((field, i) => (
+            {['house', 'apartment', 'entrance'].map((field) => (
               <div key={field} className="flex-1 space-y-1">
-                <label htmlFor={field} className="block text-xs text-gray-500">
-                  {field === 'house' ? 'Дом' : field === 'apartment' ? 'Квартира' : 'Подъезд'}
+                <label
+                  htmlFor={field}
+                  className="block text-xs text-gray-500"
+                >
+                  {field === 'house'
+                    ? 'Дом'
+                    : field === 'apartment'
+                    ? 'Квартира'
+                    : 'Подъезд'}
                 </label>
                 <input
                   id={field}
                   name={field}
                   value={(form as any)[field]}
                   onChange={onFormChange}
-                  placeholder={field === 'house' ? 'Дом' : field === 'apartment' ? 'Кв.' : 'Подъезд'}
+                  placeholder={
+                    field === 'house'
+                      ? 'Дом'
+                      : field === 'apartment'
+                      ? 'Квартира'
+                      : 'Подъезд'
+                  }
                   className="w-full pl-3 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
@@ -148,7 +162,10 @@ export default function Step3Address({
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="deliveryInstructions" className="block text-xs text-gray-500">
+            <label
+              htmlFor="deliveryInstructions"
+              className="block text-xs text-gray-500"
+            >
               Инструкции для доставки
             </label>
             <textarea

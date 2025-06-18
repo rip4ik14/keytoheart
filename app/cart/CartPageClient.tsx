@@ -485,29 +485,29 @@ export default function CartPageClient() {
     };
   }, []);
 
-  const fetchAddressSuggestions = useCallback(
-    debounce((query: string) => {
-      if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
-      setIsLoadingSuggestions(true);
-      window.ymaps.ready(async () => {
-        try {
-          const response = await window.ymaps!.suggest(query, {
-            boundedBy: [[45.0, 38.9], [45.2, 39.1]],
-            strictBounds: true,
-            results: 5,
-          });
-          setAddressSuggestions(response.map((item: any) => item.value));
-          setShowSuggestions(true);
-        } catch {
-          setAddressSuggestions([]);
-          setShowSuggestions(false);
-        } finally {
-          setIsLoadingSuggestions(false);
-        }
-      });
-    }, 300),
-    []
-  );
+const fetchAddressSuggestions = useCallback(
+  debounce((query: string) => {
+    if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
+    setIsLoadingSuggestions(true);
+    window.ymaps.ready(async () => {
+      try {
+        const response = await window.ymaps!.suggest(query, {
+          boundedBy: [[43.5, 37.5], [46.5, 41.5]], // Обновленные координаты для Краснодарского края
+          strictBounds: true,
+          results: 5,
+        });
+        setAddressSuggestions(response.map((item: any) => item.value));
+        setShowSuggestions(true);
+      } catch {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    });
+  }, 300),
+  []
+);
 
   const handleSelectAddress = useCallback(
     (address: string) => {
