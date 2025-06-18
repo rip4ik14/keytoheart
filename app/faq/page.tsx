@@ -1,4 +1,3 @@
-// ✅ Путь: app/faq/page.tsx
 import { Metadata } from 'next';
 import FaqClient from './FaqClient';
 import { JsonLd } from 'react-schemaorg';
@@ -6,8 +5,7 @@ import type { FAQPage } from 'schema-dts';
 
 export const metadata: Metadata = {
   title: 'FAQ — Часто задаваемые вопросы | KEY TO HEART',
-  description:
-    'Ответы на частые вопросы о заказе, оплате и доставке клубники в шоколаде и цветочных букетов по Краснодару и пригородам.',
+  description: 'Ответы на вопросы о заказе, оплате, доставке и составе клубничных букетов в Краснодаре. Узнайте больше на KEY TO HEART!',
   keywords: [
     'FAQ',
     'KEY TO HEART',
@@ -20,8 +18,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: 'FAQ | KEY TO HEART',
-    description:
-      'Вопросы и ответы о доставке клубники в шоколаде и цветов по Краснодару и пригородам, способах оплаты и программе лояльности.',
+    description: 'Все ответы о доставке клубники и цветов по Краснодару и пригородам.',
     url: 'https://keytoheart.ru/faq',
     images: [
       {
@@ -36,8 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'FAQ | KEY TO HEART',
-    description:
-      'Как оформить заказ, оплатить и получить клубнику в шоколаде с доставкой по Краснодару и пригородам — ответы на популярные вопросы.',
+    description: 'Как заказать и получить букет в Краснодаре? Ответы здесь!',
     images: ['https://keytoheart.ru/og-image-faq.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/faq' },
@@ -46,7 +42,6 @@ export const metadata: Metadata = {
 export default function FAQPage() {
   return (
     <main aria-label="Часто задаваемые вопросы">
-      {/* Структурированные данные Schema.org */}
       <JsonLd<FAQPage>
         item={{
           '@type': 'FAQPage',

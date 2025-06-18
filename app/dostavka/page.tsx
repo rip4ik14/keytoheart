@@ -5,7 +5,7 @@ import DostavkaPageClient from '@components/DostavkaPageClient';
 
 export const metadata: Metadata = {
   title: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
-  description: 'Условия доставки клубничных букетов и цветов по Краснодару от KEY TO HEART. Бесплатная доставка при заказе от 2000 ₽, доставка в день заказа, свежесть гарантирована.',
+  description: 'Условия доставки клубничных букетов и цветов по Краснодару от KEY TO HEART. Бесплатно от 2000 ₽, доставка в день заказа, свежесть гарантирована.',
   keywords: [
     'доставка букетов Краснодар',
     'клубничные букеты',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
-    description: 'Быстрая доставка клубничных букетов и цветов по Краснодару с KEY TO HEART.',
+    description: 'Быстрая доставка букетов и цветов по Краснодару. Заказывайте 24/7!',
     images: ['https://keytoheart.ru/og-image-dostavka.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/dostavka' },

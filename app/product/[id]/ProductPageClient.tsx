@@ -1,7 +1,7 @@
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react'; // Добавлены ChevronLeft и ChevronRight
+import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -15,7 +15,7 @@ import 'swiper/css/thumbs';
 import { Product, ComboItem } from './types';
 
 /* ------------------------------------------------------------------
- * types + helpers – оставлены без изменений
+ * types + helpers
  * -----------------------------------------------------------------*/
 interface DaySchedule {
   start: string;
@@ -61,7 +61,7 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 /* ------------------------------------------------------------------
- * анимации (как были)
+ * анимации
  * -----------------------------------------------------------------*/
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -180,7 +180,7 @@ export default function ProductPageClient({
     fetchRecommendedItems();
   }, [product.id]);
 
-  /* earliest delivery calc — оставлено как было */
+  /* earliest delivery calc */
   useEffect(() => {
     if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
       setEarliestDelivery(null);
@@ -190,7 +190,6 @@ export default function ProductPageClient({
       setEarliestDelivery('Магазин временно не принимает заказы.');
       return;
     }
-    /* — расчёт даты (оставлен без изменения) — */
     const now = new Date();
     now.setHours(now.getHours() + (product.production_time ?? 0));
     let earliestDate = now;
@@ -324,21 +323,18 @@ export default function ProductPageClient({
   /*                              JSX                                  */
   /* ================================================================= */
   return (
-    /* micro-markup Product */
     <section
       className="min-h-screen bg-white text-black"
       aria-label={`Товар ${product.title}`}
       itemScope
       itemType="https://schema.org/Product"
     >
-      {/* schema.org meta */}
       <meta itemProp="sku" content={String(product.id)} />
       <meta itemProp="brand" content="KEY TO HEART" />
       <meta itemProp="name" content={product.title} />
       {images[0] && <link itemProp="image" href={images[0]} />}
 
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* уведомления о добавлении */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -358,19 +354,17 @@ export default function ProductPageClient({
                   key={id}
                   className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
                   variants={notificationVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                >
-                  Добавлено в корзину!
-                </motion.div>
-              ),
-          )}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              Добавлено в корзину!
+            </motion.div>
+          ),
+        )}
         </AnimatePresence>
 
-        {/* ---------- GRID ---------- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
-          {/* ===== Галерея ===== */}
           <motion.div
             className="w-full mb-2 sm:mb-0"
             variants={containerVariants}
@@ -401,7 +395,7 @@ export default function ProductPageClient({
                           alt={`${product.title} — фото ${i + 1}`}
                           fill
                           className="object-cover"
-                          priority={i === 0} // главное фото — без lazy
+                          priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           sizes="(max-width:768px) 100vw, 50vw"
                         />
@@ -421,7 +415,6 @@ export default function ProductPageClient({
                     </div>
                   </SwiperSlide>
                 )}
-                {/* castom arrows */}
                 <button
                   className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
                   aria-label="Предыдущее изображение"
@@ -436,7 +429,6 @@ export default function ProductPageClient({
                 </button>
               </Swiper>
 
-              {/* миниатюры */}
               {images.length > 1 && (
                 <Swiper
                   onSwiper={setThumbsSwiper}
@@ -479,7 +471,6 @@ export default function ProductPageClient({
             </div>
           </motion.div>
 
-          {/* ===== Информация ===== */}
           <motion.div
             className="flex flex-col space-y-4 sm:space-y-6"
             variants={containerVariants}
@@ -499,7 +490,6 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* H1 + itemProp */}
             <h1
               className="text-2xl sm:text-3xl font-bold uppercase tracking-tight leading-tight"
               itemProp="name"
@@ -507,7 +497,6 @@ export default function ProductPageClient({
               {product.title}
             </h1>
 
-            {/* цена + Offer microdata */}
             <div
               itemProp="offers"
               itemScope
@@ -549,7 +538,6 @@ export default function ProductPageClient({
               </div>
             </div>
 
-            {/* время изготовления + доставка */}
             <div className="flex flex-col gap-2 text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
@@ -578,7 +566,6 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* CTA-кнопки */}
             <div className="flex gap-3">
               <motion.button
                 onClick={() =>
@@ -613,7 +600,6 @@ export default function ProductPageClient({
               </motion.button>
             </div>
 
-            {/* описание / состав */}
             {product.description && (
               <section className="space-y-1 pt-3 border-t">
                 <h2 className="font-bold text-lg">О товаре</h2>
@@ -637,7 +623,6 @@ export default function ProductPageClient({
               </section>
             )}
 
-            {/* отзывы */}
             <section className="space-y-4">
               <h2 className="font-bold text-lg">Отзывы клиентов</h2>
               {[
@@ -679,7 +664,6 @@ export default function ProductPageClient({
           </motion.div>
         </div>
 
-        {/* ===== рекомендуемые товары – оставлены без изменений ===== */}
         {recommendedItems.length > 0 && (
           <motion.section
             className="mt-4 pt-4 sm:mt-10 sm:pt-10 border-t"

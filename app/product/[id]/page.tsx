@@ -1,4 +1,3 @@
-// ✅  app/product/[id]/page.tsx  (замена целиком)
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { JsonLd } from 'react-schemaorg';
@@ -21,7 +20,7 @@ export const revalidate = 3600;
 /*                              TYPES                                 */
 /* ------------------------------------------------------------------ */
 type RowFull = Database['public']['Tables']['products']['Row'] & {
-  product_categories: { category_id: number }[]; // join-результат
+  product_categories: { category_id: number }[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -43,31 +42,39 @@ export async function generateMetadata({
 
   const { data } = await supabase
     .from('products')
-    .select('title, description, images')
+    .select('title, description, images, price')
     .eq('id', id)
     .single();
 
   if (!data) {
     return {
       title: 'Товар не найден | KEY TO HEART',
-      description: 'Страница товара не найдена.',
+      description: 'Товар не найден? Загляните в наш каталог и закажите другой букет в Краснодаре на KEY TO HEART!',
     };
   }
 
-  const desc = (data.description ?? '')
-    .replace(/<[^>]*>/g, '')
-    .trim()
-    .slice(0, 160);
-
-  const firstImg =
-    Array.isArray(data.images) && data.images[0] ? data.images[0] : '/og-cover.webp';
+  const desc = data.description
+    ? data.description.replace(/<[^>]*>/g, '').trim().slice(0, 150)
+    : `Закажите ${data.title} за ${data.price} руб. с доставкой за 60 мин в Краснодаре! Свежесть и вкус от KEY TO HEART.`;
+  const firstImg = Array.isArray(data.images) && data.images[0] ? data.images[0] : '/og-cover.webp';
   const url = `https://keytoheart.ru/product/${id}`;
 
   return {
-    title: `${data.title} | KEY TO HEART`,
-    description: desc || undefined,
-    openGraph: { title: data.title, description: desc, url, images: [{ url: firstImg }] },
-    twitter: { card: 'summary_large_image', title: data.title, description: desc, images: [firstImg] },
+    title: `${data.title} — заказать с доставкой | KEY TO HEART`,
+    description: desc,
+    keywords: ['клубничный букет Краснодар', 'доставка цветов Краснодар', data.title.toLowerCase()],
+    openGraph: {
+      title: `${data.title} — букет с доставкой | KEY TO HEART`,
+      description: desc,
+      url,
+      images: [{ url: firstImg }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${data.title} | KEY TO HEART`,
+      description: desc,
+      images: [firstImg],
+    },
     alternates: { canonical: url },
   };
 }
@@ -77,7 +84,6 @@ export default async function ProductPage({ params }: { params: { id: string } }
   const id = Number(params.id);
   if (Number.isNaN(id)) notFound();
 
-  /* ---- один запрос с джойном категорий ---- */
   const { data, error } = await supabase
     .from('products')
     .select(
@@ -105,7 +111,6 @@ export default async function ProductPage({ params }: { params: { id: string } }
     category_ids: data.product_categories?.map(c => c.category_id) ?? [],
   };
 
-  /* ---- апселлы ---- */
   const { data: upsells } = await supabase
     .from('upsell_items')
     .select('id, title, price, image_url');

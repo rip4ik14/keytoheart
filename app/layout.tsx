@@ -1,4 +1,3 @@
-// app/layout.tsx
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 
@@ -30,11 +29,11 @@ const golosText = localFont({
   display: 'swap',
   preload: true,
   src: [
-    { path: '../public/fonts/golos-text_regular.woff2',   weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2',    weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2',  weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2',      weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2',     weight: '900', style: 'normal' },
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
   ],
 });
 
@@ -53,36 +52,32 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default:
-      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
+    default: 'Клубничные букеты и цветы в Краснодаре — доставка 60 мин | KEY TO HEART',
     template: '%s | KEY TO HEART',
   },
-  description:
-    'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару. Работаем круглосуточно, заказы онлайн 24/7.',
+  description: 'Закажите клубничные букеты, цветы и подарки с доставкой за 60 мин в Краснодаре! Круглосуточно, свежо, вкусно — выбирайте KEY TO HEART.',
+  keywords: ['клубничные букеты Краснодар', 'доставка цветов Краснодар', 'подарки с доставкой', 'круглосуточная доставка'],
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
-    title:
-      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
-    description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
+    title: 'Клубничные букеты и цветы в Краснодаре — доставка 60 мин | KEY TO HEART',
+    description: 'Удивите близких! Закажите свежие клубничные букеты и цветы с доставкой за 60 мин в Краснодаре от KEY TO HEART.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничные букеты KEY TO HEART',
+        alt: 'Клубничные букеты и цветы KEY TO HEART в Краснодаре',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KEY TO HEART — клубничные букеты и подарки в Краснодаре',
-    description:
-      'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
+    title: 'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
+    description: 'Свежесть и скорость! Доставка клубничных букетов и цветов за 60 мин в Краснодаре. Заказывайте 24/7!',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
@@ -160,8 +155,7 @@ export default async function RootLayout({
                 '@type': 'WebSite',
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
-                description:
-                  'Клубничные букеты, свежие цветы и подарочные боксы с доставкой за 60 мин по Краснодару.',
+                description: 'Клубничные букеты, цветы и подарки с доставкой за 60 мин по Краснодару.',
               } satisfies WebSite,
               {
                 '@type': 'LocalBusiness',
@@ -186,8 +180,8 @@ export default async function RootLayout({
                     'Saturday',
                     'Sunday',
                   ],
-                  opens: '08:00',
-                  closes: '22:00',
+                  opens: '00:00',
+                  closes: '23:59',
                 },
               } satisfies LocalBusiness,
               {
@@ -257,22 +251,19 @@ export default async function RootLayout({
                 Почему выбирают KEY TO HEART?
               </h2>
               <p className="mb-3">
-                Мы готовим клубничные букеты из свежей фермерской ягоды и настоящего бельгийского
-                шоколада, а также цветочные композиции и комбо-наборы. Каждый заказ собирается
-                вручную прямо перед отправкой и доставляется по Краснодару — всего за 60 минут.
+                Мы создаём клубничные букеты из свежайшей ягоды и бельгийского шоколада, а также цветочные шедевры и подарочные наборы. Каждый заказ — ручная работа, доставка в Краснодаре за 60 минут!
               </p>
               <p className="mb-3">
-                Фото готового подарка отправляем вам перед доставкой, работаем онлайн 24/7
-                и бережно упаковываем любую композицию — от мини-букета до корпоративного заказа.
+                Фото готового сюрприза присылаем перед доставкой. Работаем 24/7, бережно упаковываем — от мини-букета до корпоративного подарка.
               </p>
               <h3 className="mb-1 font-medium">Популярные поводы</h3>
               <ul className="list-disc pl-6">
                 <li>8 Марта и 14 Февраля</li>
                 <li>День рождения и юбилей</li>
-                <li>Годовщина отношений или свадьбы</li>
+                <li>Годовщина и свадьба</li>
                 <li>Выписка из роддома</li>
-                <li>День учителя и День мамы</li>
-                <li>Корпоративные праздники и Новый год</li>
+                <li>День учителя и День матери</li>
+                <li>Корпоративы и Новый год</li>
               </ul>
             </section>
           </CartProvider>

@@ -5,12 +5,11 @@ import LoyaltyPageClient from './LoyaltyPageClient';
 
 export const metadata: Metadata = {
   title: 'Программа лояльности • до 15% бонусами | KEY TO HEART',
-  description:
-    'Получайте кешбэк до 15% за каждый заказ на KEY TO HEART и оплачивайте им до 15% следующих покупок.',
+  description: 'Получайте кешбэк до 15% за каждый заказ на KEY TO HEART и тратьте бонусы на скидки в Краснодаре.',
   keywords: ['программа лояльности', 'KEY TO HEART', 'бонусы', 'кешбэк', 'Краснодар'],
   openGraph: {
     title: 'Программа лояльности | KEY TO HEART',
-    description: 'Получайте кешбэк до 15% за заказы.',
+    description: 'Собирайте бонусы до 15% за заказы в Краснодаре.',
     url: 'https://keytoheart.ru/loyalty',
     siteName: 'KEY TO HEART',
     images: [
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Программа лояльности | KEY TO HEART',
-    description: 'Получайте кешбэк до 15% за заказы.',
+    description: 'Кешбэк до 15% за заказы в Краснодаре!',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/loyalty' },

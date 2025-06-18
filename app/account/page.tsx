@@ -3,6 +3,21 @@ import AccountClient from './_components/AccountClient';
 import { prisma } from '@/lib/prisma';
 import type { Order, OrderItem } from '@/types/order';
 
+// Определение типа Metadata вручную, если импорт не работает
+interface Metadata {
+  title?: string;
+  description?: string;
+  keywords?: string[];
+  openGraph?: {
+    title?: string;
+    description?: string;
+    images?: { url: string; width?: number; height?: number }[];
+    url?: string;
+    type?: string;
+  };
+  alternates?: { canonical?: string };
+}
+
 interface BonusHistoryItem {
   amount: number;
   reason: string;
@@ -16,12 +31,24 @@ interface BonusesData {
   history: BonusHistoryItem[];
 }
 
+export const metadata: Metadata = {
+  title: 'Личный кабинет — управление заказами | KEY TO HEART',
+  description: 'Управляйте заказами, проверяйте бонусы и обновляйте данные в личном кабинете KEY TO HEART в Краснодаре. Вход 24/7!',
+  keywords: ['личный кабинет', 'KEY TO HEART', 'заказы Краснодар', 'бонусы'],
+  openGraph: {
+    title: 'Личный кабинет | KEY TO HEART',
+    description: 'Проверяйте заказы и бонусы в личном кабинете с доставкой в Краснодаре.',
+    url: 'https://keytoheart.ru/account',
+    images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  alternates: { canonical: 'https://keytoheart.ru/account' },
+};
+
 export default async function AccountPage() {
-  // Получаем куки с телефоном
   const cookieStore = await cookies();
   const phone = cookieStore.get('user_phone')?.value ?? '';
 
-  // Сессия
   const initialSession = phone
     ? { phone, isAuthenticated: true }
     : null;
@@ -30,7 +57,6 @@ export default async function AccountPage() {
   let initialOrders: Order[] = [];
 
   if (phone) {
-    // 1. Бонусы + история
     const bonusesData = await prisma.bonuses.findUnique({
       where: { phone },
       select: {
@@ -61,7 +87,6 @@ export default async function AccountPage() {
         }
       : { id: null, bonus_balance: 0, level: 'bronze', history: [] };
 
-    // 2. Заказы
     const ordersRaw = await prisma.orders.findMany({
       where: { phone },
       orderBy: { created_at: 'desc' },

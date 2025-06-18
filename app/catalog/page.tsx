@@ -31,7 +31,7 @@ export default async function CatalogPage() {
 
       return data || [];
     } catch (err) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки sitePages:', err);
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки sitePages:', err);
       return [];
     }
   };
@@ -48,14 +48,14 @@ export default async function CatalogPage() {
       }
 
       // Приводим is_visible к boolean с помощью значения по умолчанию
-      return data?.map(category => ({
+      return data?.map((category) => ({
         id: category.id,
         name: category.name,
         slug: category.slug,
         is_visible: category.is_visible ?? true, // Приводим к boolean
       })) || [];
     } catch (err) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', err);
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки категорий:', err);
       return [];
     }
   };
@@ -72,14 +72,14 @@ export default async function CatalogPage() {
       }
 
       // Приводим is_visible к boolean с помощью значения по умолчанию
-      return data?.map(subcategory => ({
+      return data?.map((subcategory) => ({
         id: subcategory.id,
         name: subcategory.name,
         slug: subcategory.slug,
         is_visible: subcategory.is_visible ?? true, // Приводим к boolean
       })) || [];
     } catch (err) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки подкатегорий:', err);
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки подкатегорий:', err);
       return [];
     }
   };
@@ -100,7 +100,7 @@ export default async function CatalogPage() {
 
       // Группируем category_ids по product_id
       const productCategoriesMap = new Map<number, number[]>();
-      productCategoryData.forEach(item => {
+      productCategoryData.forEach((item) => {
         const existing = productCategoriesMap.get(item.product_id) || [];
         productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
       });
@@ -116,13 +116,13 @@ export default async function CatalogPage() {
 
       // Группируем subcategory_ids по product_id
       const productSubcategoriesMap = new Map<number, number[]>();
-      productSubcategoryData.forEach(item => {
+      productSubcategoryData.forEach((item) => {
         const existing = productSubcategoriesMap.get(item.product_id) || [];
         productSubcategoriesMap.set(item.product_id, [...existing, item.subcategory_id]);
       });
 
       // Получаем названия подкатегорий
-      const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map(item => item.subcategory_id)));
+      const allSubcategoryIds = Array.from(new Set(productSubcategoryData.map((item) => item.subcategory_id)));
       const { data: subcategoryNamesData, error: subcategoryNamesError } = await supabase
         .from('subcategories')
         .select('id, name')
@@ -133,7 +133,7 @@ export default async function CatalogPage() {
       }
 
       const subcategoryNamesMap = new Map<number, string>();
-      subcategoryNamesData.forEach(sub => subcategoryNamesMap.set(sub.id, sub.name));
+      subcategoryNamesData.forEach((sub) => subcategoryNamesMap.set(sub.id, sub.name));
 
       // Получаем все товары
       const { data, error } = await supabase
@@ -159,21 +159,21 @@ export default async function CatalogPage() {
         `)
         .order('id', { ascending: true });
 
-      process.env.NODE_ENV !== "production" && console.log('Supabase query duration for products:', Date.now() - start, 'ms');
-      process.env.NODE_ENV !== "production" && console.log('Supabase fetch result:', { data, error });
+      process.env.NODE_ENV !== 'production' && console.log('Supabase query duration for products:', Date.now() - start, 'ms');
+      process.env.NODE_ENV !== 'production' && console.log('Supabase fetch result:', { data, error });
 
       if (error) {
         throw new Error(`Supabase error: ${error.message || 'Неизвестная ошибка'} (code: ${error.code || 'N/A'}, details: ${error.details || 'N/A'}, hint: ${error.hint || 'N/A'})`);
       }
 
       if (!data || data.length === 0) {
-        process.env.NODE_ENV !== "production" && console.warn('Товары не найдены в таблице products');
+        process.env.NODE_ENV !== 'production' && console.warn('Товары не найдены в таблице products');
         return [];
       }
 
-      return data.map(product => {
+      return data.map((product) => {
         const subcategoryIds = productSubcategoriesMap.get(product.id) || [];
-        const subcategoryNames = subcategoryIds.map(id => subcategoryNamesMap.get(id) || '').filter(name => name);
+        const subcategoryNames = subcategoryIds.map((id) => subcategoryNamesMap.get(id) || '').filter((name) => name);
 
         return {
           id: product.id,
@@ -199,7 +199,7 @@ export default async function CatalogPage() {
         };
       });
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товаров:', {
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки товаров:', {
         message: err.message || 'Неизвестная ошибка',
         stack: err.stack || 'Нет стека',
         details: err.details || 'Нет деталей',

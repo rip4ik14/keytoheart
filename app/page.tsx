@@ -1,10 +1,9 @@
-// ✅ Путь: app/page.tsx
-import React from 'react'; // <-- обязательно для <React.Fragment>
+import React from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList } from 'schema-dts';
 import PromoGridServer from '@components/PromoGridServer';
-import AdvantagesClient from '@components/AdvantagesClient'; // <-- импорт Client версии
+import AdvantagesClient from '@components/AdvantagesClient';
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
@@ -29,14 +28,20 @@ export const revalidate = 60;
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'KEY TO HEART — Клубничные букеты и подарки в Краснодаре',
-  description: 'Свежие цветы, клубничные букеты и подарочные боксы с доставкой по Краснодару.',
-  keywords: ['клубничные букеты', 'цветы Краснодар', 'доставка подарков'],
+  title: 'Клубничные букеты и подарки в Краснодаре — KEY TO HEART',
+  description: 'Закажите свежие клубничные букеты, цветы и подарки с доставкой за 60 мин в Краснодаре! Выбор для любого случая — 24/7 на KEY TO HEART.',
+  keywords: ['клубничные букеты Краснодар', 'доставка цветов Краснодар', 'подарки с доставкой', 'заказ цветов онлайн'],
   openGraph: {
-    title: 'KEY TO HEART — Клубничные букеты и подарки',
-    description: 'Закажите уникальные композиции с доставкой по Краснодару.',
+    title: 'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
+    description: 'Сюрприз для души! Закажите клубничные букеты и цветы с доставкой за 60 мин в Краснодаре.',
     url: 'https://keytoheart.ru',
     images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Клубничные букеты в Краснодаре | KEY TO HEART',
+    description: 'Быстрая доставка свежих букетов и подарков в Краснодаре! Заказывайте 24/7 на KEY TO HEART.',
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
 };
@@ -65,7 +70,6 @@ export default async function Home() {
 
   let products: Product[] = [];
   try {
-    // Получаем связи товаров с категориями
     const { data: productCategoryData, error: productCategoryError } = await supabase
       .from('product_categories')
       .select('product_id, category_id');
@@ -74,7 +78,6 @@ export default async function Home() {
       throw new Error(`Ошибка загрузки связей категорий: ${productCategoryError.message}`);
     }
 
-    // Группируем category_ids по product_id
     const productCategoriesMap = new Map<number, number[]>();
     productCategoryData.forEach(item => {
       const existing = productCategoriesMap.get(item.product_id) || [];
@@ -83,7 +86,6 @@ export default async function Home() {
 
     const productIds = Array.from(productCategoriesMap.keys());
 
-    // Получаем товары
     const { data, error } = await supabase
       .from('products')
       .select(`
@@ -96,7 +98,7 @@ export default async function Home() {
         production_time,
         is_popular
       `)
-      .in('id', productIds.length > 0 ? productIds : [0]) // Избегаем пустого IN
+      .in('id', productIds.length > 0 ? productIds : [0])
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
@@ -117,18 +119,17 @@ export default async function Home() {
         }))
       : [];
   } catch (err) {
-    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки товаров:', err);
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки товаров:', err);
   }
 
-  // Получаем названия категорий
   const categoryIds = Array.from(new Set(products.flatMap(p => p.category_ids)));
   const { data: categoriesData, error: categoriesError } = await supabase
     .from('categories')
     .select('id, name, slug')
-    .in('id', categoryIds.length > 0 ? categoryIds : [0]); // Избегаем пустого IN
+    .in('id', categoryIds.length > 0 ? categoryIds : [0]);
 
   if (categoriesError) {
-    process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий:', categoriesError);
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки категорий:', categoriesError);
   }
 
   const categoryMap = new Map<number, { name: string; slug: string }>();
@@ -147,7 +148,6 @@ export default async function Home() {
     'Подарки': 'podarki',
   };
 
-  // Фильтруем категории, исключая "Подарки"
   const categories = Array.from(
     new Set(
       products
@@ -163,7 +163,6 @@ export default async function Home() {
 
   return (
     <main aria-label="Главная страница">
-      {/* Schema.org для товаров */}
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
@@ -195,7 +194,6 @@ export default async function Home() {
       <section>
         <PopularProductsServer />
       </section>
-      {/* AdvantagesServer убираем если используем AdvantagesClient */}
       <section aria-label="Категории товаров">
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
@@ -218,7 +216,6 @@ export default async function Home() {
                   seeMoreLink={slug}
                   headingId={`category-preview-${slug || idx}`}
                 />
-                {/* Преимущества после первой категории */}
                 {idx === 0 && <AdvantagesClient />}
               </React.Fragment>
             );

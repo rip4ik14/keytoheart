@@ -112,7 +112,7 @@ export default async function CategoryPage({
   const apiName = nameMap[category];
 
   if (!apiName) {
-    process.env.NODE_ENV !== "production" && console.error(`Category ${category} not found in nameMap`);
+    process.env.NODE_ENV !== 'production' && console.error(`Category ${category} not found in nameMap`);
     redirect('/404');
   }
 
@@ -124,12 +124,12 @@ export default async function CategoryPage({
     .single();
 
   if (categoryError || !categoryData) {
-    process.env.NODE_ENV !== "production" && console.error(`Error fetching category ID for ${apiName}:`, categoryError?.message || 'No data');
+    process.env.NODE_ENV !== 'production' && console.error(`Error fetching category ID for ${apiName}:`, categoryError?.message || 'No data');
     redirect('/404');
   }
 
   if (categoryData.slug !== category) {
-    process.env.NODE_ENV !== "production" && console.error(`Slug mismatch for category ${apiName}: expected ${categoryData.slug}, got ${category}`);
+    process.env.NODE_ENV !== 'production' && console.error(`Slug mismatch for category ${apiName}: expected ${categoryData.slug}, got ${category}`);
     redirect(`/category/${categoryData.slug}`);
   }
 
@@ -143,7 +143,7 @@ export default async function CategoryPage({
     .order('name', { ascending: true });
 
   if (subcategoriesError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching subcategories:', subcategoriesError.message);
+    process.env.NODE_ENV !== 'production' && console.error('Error fetching subcategories:', subcategoriesError.message);
   }
 
   const subcategories: Subcategory[] = subcategoriesData?.map((sub: Tables<'subcategories'>) => ({
@@ -168,7 +168,7 @@ export default async function CategoryPage({
     .eq('category_id', categoryId);
 
   if (productCategoryError || !productCategoryData) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
+    process.env.NODE_ENV !== 'production' && console.error('Error fetching product IDs for category:', productCategoryError?.message || 'No data');
     redirect('/404');
   }
 
@@ -223,7 +223,7 @@ export default async function CategoryPage({
     .order('id', { ascending: false });
 
   if (productsError) {
-    process.env.NODE_ENV !== "production" && console.error('CategoryPage products error:', productsError.message);
+    process.env.NODE_ENV !== 'production' && console.error('CategoryPage products error:', productsError.message);
     redirect('/404');
   }
 
@@ -233,7 +233,7 @@ export default async function CategoryPage({
     .in('product_id', productIds);
 
   if (productSubcategoryError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching product subcategories:', productSubcategoryError.message);
+    process.env.NODE_ENV !== 'production' && console.error('Error fetching product subcategories:', productSubcategoryError.message);
   }
 
   const productSubcategoriesMap = new Map<number, number[]>();
@@ -249,7 +249,7 @@ export default async function CategoryPage({
     .in('id', allSubcategoryIds);
 
   if (subcategoryNamesError) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching subcategory names:', subcategoryNamesError.message);
+    process.env.NODE_ENV !== 'production' && console.error('Error fetching subcategory names:', subcategoryNamesError.message);
   }
 
   const subcategoryNamesMap = new Map<number, string>();
@@ -328,7 +328,7 @@ export async function generateStaticParams() {
     .eq('is_visible', true);
 
   if (error) {
-    process.env.NODE_ENV !== "production" && console.error('Ошибка получения категорий для generateStaticParams:', error.message);
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка получения категорий для generateStaticParams:', error.message);
     return [];
   }
 
@@ -336,6 +336,6 @@ export async function generateStaticParams() {
     category: cat.slug,
   }));
 
-  process.env.NODE_ENV !== "production" && console.log('Generated category paths:', paths);
+  process.env.NODE_ENV !== 'production' && console.log('Generated category paths:', paths);
   return paths;
 }
