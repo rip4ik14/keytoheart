@@ -1,4 +1,4 @@
-// ✅  app/layout.tsx
+// app/layout.tsx
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 
@@ -6,7 +6,6 @@ import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
-import Script from 'next/script';
 import { Suspense } from 'react';
 
 import TopBar from '@components/TopBar';
@@ -17,8 +16,6 @@ import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
-
-import YandexMetrikaScript from '@components/YandexMetrikaScript';
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
@@ -33,11 +30,11 @@ const golosText = localFont({
   display: 'swap',
   preload: true,
   src: [
-    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
+    { path: '../public/fonts/golos-text_regular.woff2',   weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2',    weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2',  weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2',      weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2',     weight: '900', style: 'normal' },
   ],
 });
 
@@ -139,8 +136,6 @@ export default async function RootLayout({
     categories = [];
   }
 
-  const ymId = YM_ID;
-
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
@@ -209,10 +204,30 @@ export default async function RootLayout({
             ],
           }}
         />
-      </head>
-      <body className="font-sans">
-        {ymId !== undefined && <YandexMetrikaScript ymId={ymId} />}
 
+        {YM_ID && (
+          <script
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
+                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+                ym(${YM_ID}, "init", {
+                  clickmap:true,
+                  trackLinks:true,
+                  accurateTrackBounce:true,
+                  trackHash:true,
+                  webvisor:true
+                });
+              `,
+            }}
+          />
+        )}
+      </head>
+
+      <body className="font-sans">
         <SkipLink />
 
         <CartAnimationProvider>
@@ -242,15 +257,13 @@ export default async function RootLayout({
                 Почему выбирают KEY TO HEART?
               </h2>
               <p className="mb-3">
-                Мы готовим клубничные букеты из свежей фермерской ягоды и
-                настоящего бельгийского шоколада, а также цветочные композиции
-                и комбо-наборы. Каждый заказ собирается вручную прямо перед
-                отправкой и доставляется по Краснодару — всего за 60 минут.
+                Мы готовим клубничные букеты из свежей фермерской ягоды и настоящего бельгийского
+                шоколада, а также цветочные композиции и комбо-наборы. Каждый заказ собирается
+                вручную прямо перед отправкой и доставляется по Краснодару — всего за 60 минут.
               </p>
               <p className="mb-3">
-                Фото готового подарка отправляем вам перед доставкой, работаем
-                онлайн 24/7 и бережно упаковываем любую композицию — от
-                мини-букета до корпоративного заказа.
+                Фото готового подарка отправляем вам перед доставкой, работаем онлайн 24/7
+                и бережно упаковываем любую композицию — от мини-букета до корпоративного заказа.
               </p>
               <h3 className="mb-1 font-medium">Популярные поводы</h3>
               <ul className="list-disc pl-6">

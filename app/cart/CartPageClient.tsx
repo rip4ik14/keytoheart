@@ -914,18 +914,15 @@ const fetchAddressSuggestions = useCallback(
               )}
               {step === 3 && (
                 <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
-                  <Step3Address
-                    form={form}
-                    addressError={addressError}
-                    showSuggestions={showSuggestions}
-                    isLoadingSuggestions={isLoadingSuggestions}
-                    addressSuggestions={addressSuggestions}
-                    onFormChange={onFormChange}
-                    handleAddressChange={handleAddressChange}
-                    handleSelectAddress={handleSelectAddress}
-                  />
-                </OrderStep>
-              )}
+                  +   <Step3Address
+     form={form}
+     addressError={addressError}
+     onFormChange={onFormChange}
+     handleAddressChange={handleAddressChange}
+     handleSelectAddress={handleSelectAddress}
+  />
+  </OrderStep>
+)}
               {step === 4 && (
                 <OrderStep step={4} currentStep={step} title="Дата и время" onNext={handleNextStep} onBack={prevStep}>
                   <Step4DateTime

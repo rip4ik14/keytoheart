@@ -1,9 +1,10 @@
+// ✅ path: app/cart/components/steps/Step3Address.tsx
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import sanitizeHtml from 'sanitize-html';
-import { useRef, useEffect } from 'react';
 
 interface Props {
   form: {
@@ -15,9 +16,6 @@ interface Props {
     deliveryInstructions: string;
   };
   addressError: string;
-  showSuggestions: boolean;
-  isLoadingSuggestions: boolean;
-  addressSuggestions: string[];
   onFormChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleAddressChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSelectAddress: (address: string) => void;
@@ -33,22 +31,57 @@ export default function Step3Address({
   addressError,
   onFormChange,
   handleAddressChange,
-  // these two props are accepted for compatibility but not used
-  showSuggestions,
-  isLoadingSuggestions,
-  addressSuggestions,
   handleSelectAddress,
 }: Props) {
   const streetRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Инициализируем автодополнение от Яндекс.Карт
-    if (typeof window !== 'undefined' && (window as any).ymaps && streetRef.current) {
-      (window as any).ymaps.ready(() => {
-        // @ts-ignore
-        new (window as any).ymaps.SuggestView(streetRef.current!);
-      });
+    // Обратите внимание на "&load=package.suggest"
+    const ymapsUrl = `https://api-maps.yandex.ru/2.1/` +
+                     `?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}` +
+                     `&lang=ru_RU` +
+                     `&load=package.suggest`;
+
+    let cancelled = false;
+
+    function initSuggest() {
+      if (
+        typeof window !== 'undefined' &&
+        (window as any).ymaps &&
+        (window as any).ymaps.ready &&
+        streetRef.current
+      ) {
+        ;(window as any).ymaps.ready(() => {
+          if (cancelled) return;
+          // @ts-ignore
+          new (window as any).ymaps.SuggestView(streetRef.current, {
+            // Границы по Краснодарскому краю
+            boundedBy: [
+              [44.3, 38.3],
+              [46.0, 40.3],
+            ],
+            strictBounds: true,
+          });
+        });
+      }
     }
+
+    if (!document.querySelector(`script[src^="${ymapsUrl}"]`)) {
+      const script = document.createElement('script');
+      script.src = ymapsUrl;
+      script.async = true;
+      script.onload = initSuggest;
+      script.onerror = () => {
+        console.error('Не удалось загрузить скрипт Яндекс.Карт');
+      };
+      document.head.appendChild(script);
+    } else {
+      initSuggest();
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleInstr = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -97,18 +130,14 @@ export default function Step3Address({
           animate="visible"
           variants={containerVariants}
         >
+          {/* Улица с автодополнением */}
           <div className="space-y-1">
             <label htmlFor="street" className="block text-xs text-gray-500">
               Улица
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-                <Image
-                  src="/icons/map-marker-alt.svg"
-                  alt="Улица"
-                  width={16}
-                  height={16}
-                />
+                <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
               </div>
               <input
                 ref={streetRef}
@@ -121,7 +150,6 @@ export default function Step3Address({
                   addressError ? 'border-red-500' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-black`}
                 aria-invalid={!!addressError}
-                aria-autocomplete="list"
                 autoComplete="off"
               />
               {addressError && (
@@ -130,18 +158,12 @@ export default function Step3Address({
             </div>
           </div>
 
+          {/* Дом, кв., подъезд */}
           <div className="flex gap-4">
             {['house', 'apartment', 'entrance'].map((field) => (
               <div key={field} className="flex-1 space-y-1">
-                <label
-                  htmlFor={field}
-                  className="block text-xs text-gray-500"
-                >
-                  {field === 'house'
-                    ? 'Дом'
-                    : field === 'apartment'
-                    ? 'Квартира'
-                    : 'Подъезд'}
+                <label htmlFor={field} className="block text-xs text-gray-500">
+                  {field === 'house' ? 'Дом' : field === 'apartment' ? 'Квартира' : 'Подъезд'}
                 </label>
                 <input
                   id={field}
@@ -161,11 +183,9 @@ export default function Step3Address({
             ))}
           </div>
 
+          {/* Инструкции */}
           <div className="space-y-1">
-            <label
-              htmlFor="deliveryInstructions"
-              className="block text-xs text-gray-500"
-            >
+            <label htmlFor="deliveryInstructions" className="block text-xs text-gray-500">
               Инструкции для доставки
             </label>
             <textarea
