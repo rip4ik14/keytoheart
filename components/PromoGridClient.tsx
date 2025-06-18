@@ -1,16 +1,22 @@
-// ✅ Путь: app/components/PromoGridClient.tsx
 'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { Swiper, SwiperSlide } from 'swiper/react';
+import dynamic from 'next/dynamic';
 import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
 import { PromoBlock } from '@/types/promo';
+
+// Динамический импорт Swiper и framer-motion
+const Swiper = dynamic(() => import('swiper/react').then(mod => mod.Swiper), { ssr: false });
+const SwiperSlide = dynamic(() => import('swiper/react').then(mod => mod.SwiperSlide), { ssr: false });
+const MotionSection = dynamic(() => import('framer-motion').then(mod => mod.motion.section), { ssr: false });
+const MotionDiv = dynamic(() => import('framer-motion').then(mod => mod.motion.div), { ssr: false });
+const MotionH2 = dynamic(() => import('framer-motion').then(mod => mod.motion.h2), { ssr: false });
+const MotionP = dynamic(() => import('framer-motion').then(mod => mod.motion.p), { ssr: false });
 
 export default function PromoGridClient({
   banners,
@@ -21,7 +27,6 @@ export default function PromoGridClient({
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
-  // Анимация текста
   const textVariants = {
     hidden: { opacity: 0 },
     visible: (i: number) => ({
@@ -30,11 +35,10 @@ export default function PromoGridClient({
     }),
   };
 
-  // Для мобилки: баннеры + карточки в один список
   const mobileItems = [...banners, ...cards];
 
   return (
-    <motion.section
+    <MotionSection
       className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8"
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
@@ -45,15 +49,12 @@ export default function PromoGridClient({
         Промо-блоки
       </h2>
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-        {/* Баннеры/карточки для десктопа */}
-        <motion.div
-          className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
-          style={{ aspectRatio: '3 / 2' }}
+        <MotionDiv
+          className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2 aspect-[3/2]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          {/* Десктоп: только баннеры */}
           <div className="hidden lg:block h-full w-full">
             <Swiper
               modules={[Autoplay, Pagination]}
@@ -62,6 +63,7 @@ export default function PromoGridClient({
               loop
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+              aria-label="Карусель промо-баннеров"
             >
               {banners.map((b, i) => (
                 <SwiperSlide key={b.id}>
@@ -69,87 +71,66 @@ export default function PromoGridClient({
                     href={b.href || '#'}
                     className="relative block h-full w-full"
                     title={b.title}
+                    aria-label={`Перейти к акции: ${b.title}`}
                   >
-                    <div className="relative w-full h-full aspect-[3/2]">
-                      <Image
-                        src={b.image_url}
-                        alt={b.title}
-                        fill
-                        sizes="(max-width: 1024px) 100vw, 66vw"
-                        priority={i === 0} // Приоритет для первого баннера
-                        className="object-cover rounded-2xl lg:rounded-3xl"
-                        style={{ aspectRatio: '3 / 2' }}
-                      />
-                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
-                      <div
-                        className="
-                          absolute inset-0 flex flex-col justify-center
-                          items-start
-                          px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12
-                          text-white text-left
-                        "
-                      >
-                        <div className="max-w-full w-full">
-                          <motion.h2
-                            className="
-                              mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                              max-w-[95vw] sm:max-w-[80vw] leading-tight
-                              sm:mb-3 lg:mb-4
-                            "
+                    <Image
+                      src={b.image_url}
+                      alt={b.title}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 66vw"
+                      quality={75}
+                      priority={i === 0}
+                      loading={i > 0 ? 'lazy' : undefined}
+                      className="object-cover rounded-2xl lg:rounded-3xl"
+                    />
+                    <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
+                    <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12 text-white text-left">
+                      <div className="max-w-full w-full">
+                        <MotionH2
+                          className="mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3 lg:mb-4"
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={0}
+                          style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', fontSize: 'clamp(18px, 5vw, 48px)' }}
+                        >
+                          {b.title}
+                        </MotionH2>
+                        {b.subtitle && (
+                          <MotionP
+                            className="mb-3 text-sm xs:text-base sm:text-lg lg:text-xl text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] max-w-[95vw] sm:max-w-[80vw] sm:mb-4 lg:mb-6"
                             variants={textVariants}
                             initial="hidden"
                             animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={0}
-                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                            custom={1}
+                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', fontSize: 'clamp(14px, 3vw, 20px)' }}
                           >
-                            {b.title}
-                          </motion.h2>
-                          {b.subtitle && (
-                            <motion.p
-                              className="
-                                mb-3 text-sm xs:text-base sm:text-lg lg:text-xl text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
-                                max-w-[95vw] sm:max-w-[80vw]
-                                sm:mb-4 lg:mb-6
-                              "
-                              variants={textVariants}
-                              initial="hidden"
-                              animate={activeSlide === i ? 'visible' : 'hidden'}
-                              custom={1}
-                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                            >
-                              {b.subtitle}
-                            </motion.p>
-                          )}
-                          <motion.div
-                            variants={textVariants}
-                            initial="hidden"
-                            animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={b.subtitle ? 2 : 1}
-                            className="flex"
+                            {b.subtitle}
+                          </MotionP>
+                        )}
+                        <MotionDiv
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={b.subtitle ? 2 : 1}
+                          className="flex"
+                        >
+                          <span
+                            className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                            style={{ minWidth: 'fit-content', maxWidth: '100%', fontSize: 'clamp(12px, 2vw, 16px)' }}
+                            onClick={() => {
+                              window.gtag?.('event', 'click_banner_cta', {
+                                event_category: 'PromoGrid',
+                                event_label: b.title,
+                              });
+                              window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                banner: b.title,
+                              });
+                            }}
                           >
-                            <span
-                              className="
-                                inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center 
-                                bg-white text-[#535353] transition-all duration-200 shadow-sm
-                                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                              style={{
-                                minWidth: 'fit-content',
-                                maxWidth: '100%',
-                              }}
-                              onClick={() => {
-                                window.gtag?.('event', 'click_banner_cta', {
-                                  event_category: 'PromoGrid',
-                                  event_label: b.title,
-                                });
-                                window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                  banner: b.title,
-                                });
-                              }}
-                            >
-                              {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                            </span>
-                          </motion.div>
-                        </div>
+                            {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                          </span>
+                        </MotionDiv>
                       </div>
                     </div>
                   </Link>
@@ -157,7 +138,6 @@ export default function PromoGridClient({
               ))}
             </Swiper>
           </div>
-          {/* Мобильная версия: Swiper с баннерами и карточками */}
           <div className="block lg:hidden h-full w-full">
             <Swiper
               modules={[Autoplay, Pagination]}
@@ -168,6 +148,7 @@ export default function PromoGridClient({
               slidesPerView={1}
               className="h-full w-full"
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+              aria-label="Карусель промо-баннеров и карточек"
             >
               {mobileItems.map((item, i) => (
                 <SwiperSlide key={item.id}>
@@ -175,94 +156,76 @@ export default function PromoGridClient({
                     href={item.href || '#'}
                     className="relative block h-full w-full"
                     title={item.title}
+                    aria-label={`Перейти к ${item.type === 'banner' ? 'акции' : 'карточке'}: ${item.title}`}
                   >
-                    <div className="relative w-full h-full aspect-[3/2]">
-                      <Image
-                        src={item.image_url}
-                        alt={item.title}
-                        fill
-                        sizes="100vw"
-                        priority={i === 0} // Приоритет для первого элемента
-                        className="object-cover rounded-2xl"
-                        style={{ aspectRatio: '3 / 2' }}
-                      />
-                      <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
-                      <div
-                        className="
-                          absolute inset-0 flex flex-col justify-center
-                          items-start
-                          px-4 py-4 sm:px-12 sm:py-8
-                          text-white text-left
-                        "
-                      >
-                        <div className="max-w-full w-full">
-                          <motion.h2
-                            className="
-                              mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                              max-w-[95vw] sm:max-w-[80vw] leading-tight
-                              sm:mb-3
-                            "
+                    <Image
+                      src={item.image_url}
+                      alt={item.title}
+                      fill
+                      sizes="100vw"
+                      quality={75}
+                      priority={i === 0}
+                      loading={i > 0 ? 'lazy' : undefined}
+                      className="object-cover rounded-2xl"
+                    />
+                    <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
+                    <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 sm:py-8 text-white text-left">
+                      <div className="max-w-full w-full">
+                        <MotionH2
+                          className="mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3"
+                          variants={textVariants}
+                          initial="hidden"
+                          animate={activeSlide === i ? 'visible' : 'hidden'}
+                          custom={0}
+                          style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', fontSize: 'clamp(18px, 5vw, 36px)' }}
+                        >
+                          {item.title}
+                        </MotionH2>
+                        {item.subtitle && item.type === 'banner' && (
+                          <MotionP
+                            className="mb-3 text-sm xs:text-base sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] max-w-[95vw] sm:max-w-[80vw] sm:mb-4"
                             variants={textVariants}
                             initial="hidden"
                             animate={activeSlide === i ? 'visible' : 'hidden'}
-                            custom={0}
-                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                            custom={1}
+                            style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', fontSize: 'clamp(14px, 3vw, 18px)' }}
+                          >
+                            {item.subtitle}
+                          </MotionP>
+                        )}
+                        {item.type === 'banner' && (
+                          <MotionDiv
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={item.subtitle ? 2 : 1}
+                            className="flex"
+                          >
+                            <span
+                              className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                              style={{ minWidth: 'fit-content', maxWidth: '100%', fontSize: 'clamp(12px, 2vw, 14px)' }}
+                              onClick={() => {
+                                window.gtag?.('event', 'click_banner_cta', {
+                                  event_category: 'PromoGrid',
+                                  event_label: item.title,
+                                });
+                                window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
+                                  banner: item.title,
+                                });
+                              }}
+                            >
+                              {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                            </span>
+                          </MotionDiv>
+                        )}
+                        {item.type === 'card' && (
+                          <span
+                            className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 font-semibold text-black shadow-sm line-clamp-1"
+                            style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}
                           >
                             {item.title}
-                          </motion.h2>
-                          {item.subtitle && item.type === 'banner' && (
-                            <motion.p
-                              className="
-                                mb-3 text-sm xs:text-base sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]
-                                max-w-[95vw] sm:max-w-[80vw]
-                                sm:mb-4
-                              "
-                              variants={textVariants}
-                              initial="hidden"
-                              animate={activeSlide === i ? 'visible' : 'hidden'}
-                              custom={1}
-                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                            >
-                              {item.subtitle}
-                            </motion.p>
-                          )}
-                          {item.type === 'banner' && (
-                            <motion.div
-                              variants={textVariants}
-                              initial="hidden"
-                              animate={activeSlide === i ? 'visible' : 'hidden'}
-                              custom={item.subtitle ? 2 : 1}
-                              className="flex"
-                            >
-                              <span
-                                className="
-                                  inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                                  bg-white text-[#535353] transition-all duration-200 shadow-sm
-                                  hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                                style={{
-                                  minWidth: 'fit-content',
-                                  maxWidth: '100%',
-                                }}
-                                onClick={() => {
-                                  window.gtag?.('event', 'click_banner_cta', {
-                                    event_category: 'PromoGrid',
-                                    event_label: item.title,
-                                  });
-                                  window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                    banner: item.title,
-                                  });
-                                }}
-                              >
-                                {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                              </span>
-                            </motion.div>
-                          )}
-                          {item.type === 'card' && (
-                            <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
-                              {item.title}
-                            </span>
-                          )}
-                        </div>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -270,17 +233,15 @@ export default function PromoGridClient({
               ))}
             </Swiper>
           </div>
-        </motion.div>
-
-        {/* Карточки для десктопа (справа) */}
-        <motion.div
+        </MotionDiv>
+        <MotionDiv
           className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-4"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
           {cards.slice(0, 4).map((c, i) => (
-            <motion.div
+            <MotionDiv
               key={c.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -291,6 +252,7 @@ export default function PromoGridClient({
                 href={c.href}
                 className="group block h-full w-full"
                 title={c.title}
+                aria-label={`Перейти к карточке: ${c.title}`}
                 role="button"
               >
                 <Image
@@ -298,18 +260,22 @@ export default function PromoGridClient({
                   alt={c.title}
                   fill
                   sizes="(max-width: 1024px) 50vw, 33vw"
+                  quality={75}
+                  loading="lazy"
                   className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
-                  style={{ aspectRatio: '3 / 2' }}
                 />
                 <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
-                <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
+                <span
+                  className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 font-semibold text-black shadow-sm line-clamp-1"
+                  style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}
+                >
                   {c.title}
                 </span>
               </Link>
-            </motion.div>
+            </MotionDiv>
           ))}
-        </motion.div>
+        </MotionDiv>
       </div>
-    </motion.section>
+    </MotionSection>
   );
 }

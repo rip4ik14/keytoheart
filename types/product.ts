@@ -24,6 +24,8 @@ export interface Product {
   is_visible?: boolean | null;
   category_ids: number[]; // Заменяем category_id на category_ids
   production_time?: number | null; // Время изготовления в часах
+  computedPrice?: number;
+  discountAmount?: number;
 }
 
 // Тип ProductRow для использования при запросах к Supabase
