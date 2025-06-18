@@ -1,16 +1,32 @@
 'use client';
 
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
+import React from 'react';
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import ProductCard from '@components/ProductCard';
 import { Product } from '@/types/product';
 import { claimPriority } from '@/utils/imagePriority';
-import Image from 'next/image';
 
-export default function PopularProductsClient({ products }: { products: Product[] }) {
-  if (!products || products.length === 0) {
+/* -------- Swiper → динамический импорт, чтобы не грузить heavy-JS в initial bundle -------- */
+const Swiper = dynamic(() => import('swiper/react').then((m) => m.Swiper), {
+  ssr: false,
+  loading: () => <div className="h-72 w-full animate-pulse bg-gray-100 rounded-xl" />,
+});
+const SwiperSlide = dynamic(() => import('swiper/react').then((m) => m.SwiperSlide), {
+  ssr: false,
+});
+
+import { Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+
+/* ------------------------------------------------------------------ */
+interface Props {
+  products: Product[];
+}
+
+export default function PopularProductsClient({ products }: Props) {
+  if (!products?.length) {
     return (
       <section className="mx-auto max-w-7xl px-4 py-12">
         <p className="text-center text-gray-500">Популярных товаров пока нет. Скоро они появятся!</p>
@@ -28,12 +44,10 @@ export default function PopularProductsClient({ products }: { products: Product[
 
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
-      <h2
-        id="popular-products-title"
-        className="text-center text-2xl md:text-3xl font-sans font-bold mb-8 text-black"
-      >
+      <h2 id="popular-products-title" className="mb-8 text-center font-sans text-2xl md:text-3xl font-bold">
         ПОПУЛЯРНОЕ
       </h2>
+
       <div className="relative">
         <Swiper
           modules={[Navigation]}
@@ -55,17 +69,19 @@ export default function PopularProductsClient({ products }: { products: Product[
               </SwiperSlide>
             );
           })}
+
+          {/* навигационные кнопки */}
           <button
             className="popular-prev absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-3 shadow hover:scale-110 transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Прокрутить популярные товары влево"
           >
-            <Image src="/icons/chevron-left.svg" alt="Chevron Left" width={20} height={20} />
+            <Image src="/icons/chevron-left.svg" alt="" width={20} height={20} />
           </button>
           <button
             className="popular-next absolute right-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-3 shadow hover:scale-110 transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Прокрутить популярные товары вправо"
           >
-            <Image src="/icons/chevron-right.svg" alt="Chevron Right" width={20} height={20} />
+            <Image src="/icons/chevron-right.svg" alt="" width={20} height={20} />
           </button>
         </Swiper>
       </div>
