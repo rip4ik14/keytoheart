@@ -1,8 +1,6 @@
 /* -------------------------------------------------------------------------- */
-/*  Главная страница. Добавлены FAQ-разметка и SEO-штрихи, снижена тошнота     */
+/*  Главная страница. Добавлены FAQ-разметка и мелкие SEO-штрихи              */
 /* -------------------------------------------------------------------------- */
-'use client';
-
 import React from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
@@ -16,6 +14,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/supabase/types_new';
 
+/* -------------------------- Типы и настройки -------------------------- */
 interface Product {
   id: number;
   title: string;
@@ -32,11 +31,9 @@ export const revalidate = 60;
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'Клубничные букеты за 60 мин по Краснодару | KEY TO HEART',
+  title: 'Клубничные букеты с доставкой за 60 мин в Краснодаре | KEY TO HEART',
   description:
-    'Свежие клубничные букеты, цветы и подарки — доставка по Краснодару за 60 минут. Работаем 24/7. Гарантия качества и фото перед отправкой.',
-  keywords:
-    'доставка клубники в шоколаде, клубничные букеты Краснодар, подарки Краснодар, срочная доставка, заказать клубнику',
+    'Закажите свежие клубничные букеты, цветы и подарки с доставкой 24/7 за 60 мин по Краснодару!',
   openGraph: {
     title: 'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
     description: 'Сюрприз за час! Доставка букетов и подарков 24/7 по Краснодару.',
@@ -52,8 +49,8 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
+/* ------------------------------ Страница ------------------------------ */
 export default async function Home() {
-  // Читаем куки
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,41 +58,47 @@ export default async function Home() {
     {
       cookies: {
         getAll() {
-          const raw = cookieStore.getAll();
-          return raw.map((cookie: any) => ({ name: cookie.name, value: cookie.value }));
+          return Array.from(cookieStore.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach((c: any) => {
-            cookieStore.set(c.name, c.value, c.options);
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
           });
         },
       },
-    }
+    },
   );
 
+  /* ------------------ Грузим товары и карты категорий ------------------ */
   let products: Product[] = [];
   try {
-    // Загружаем связи товаров и категорий
     const { data: productCategoryData, error: productCategoryError } = await supabase
       .from('product_categories')
       .select('product_id, category_id');
+
     if (productCategoryError) throw productCategoryError;
+
     const productCategoriesMap = new Map<number, number[]>();
     productCategoryData.forEach(({ product_id, category_id }) => {
       const list = productCategoriesMap.get(product_id) || [];
       productCategoriesMap.set(product_id, [...list, category_id]);
     });
+
     const productIds = [...productCategoriesMap.keys()];
 
-    // Загружаем товары
     const { data, error } = await supabase
       .from('products')
       .select('id,title,price,discount_percent,in_stock,images,production_time,is_popular')
-      .in('id', productIds.length ? productIds : [-1])
+      .in('id', productIds.length ? productIds : [-1]) // CHANGED: -1 вместо 0
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
+
     if (error) throw error;
+
     products =
       data?.map((item) => ({
         id: item.id,
@@ -109,20 +112,23 @@ export default async function Home() {
         category_ids: productCategoriesMap.get(item.id) || [],
       })) || [];
   } catch (err) {
-    console.error('Ошибка загрузки товаров:', err);
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки товаров:', err);
   }
 
-  // Загружаем категории одним запросом
+  /* -------------- Грузим названия/slug категорий одним запросом --------- */
   const categoryIds = [...new Set(products.flatMap((p) => p.category_ids))];
   const { data: categoriesData, error: categoriesError } = await supabase
     .from('categories')
     .select('id,name,slug')
     .in('id', categoryIds.length ? categoryIds : [-1]);
-  if (categoriesError) console.error('Ошибка загрузки категорий:', categoriesError);
+
+  if (categoriesError)
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки категорий:', categoriesError);
+
   const categoryMap = new Map<number, { name: string; slug: string }>();
   categoriesData?.forEach((c) => categoryMap.set(c.id, { name: c.name, slug: c.slug }));
 
-  // Сопоставление имён для UI
+  /* ----------------- Формируем списки категорий для UI ----------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы': 'klubnichnye-boksy',
@@ -136,39 +142,48 @@ export default async function Home() {
 
   const categories = [...new Set(
     products
-      .flatMap((p) => p.category_ids.map((id) => categoryMap.get(id)?.name))
+      .filter((p) =>
+        !p.category_ids.some((id) => {
+          const slug = categoryMap.get(id)?.slug;
+          return slug === 'balloon' || slug === 'postcard';
+        }),
+      )
+      .flatMap((p) => p.category_ids.map((id) => categoryMap.get(id)?.name)),
   )]
     .filter(Boolean)
     .filter((name) => name !== 'Подарки') as string[];
 
+  /* ------------------------------ Рендер ------------------------------ */
   return (
     <main aria-label="Главная страница">
-      {/* JSON-LD для списка товаров */}
+      {/* -------------- JSON-LD для товаров ---------------- */}
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
-          itemListElement: products.map((p, i) => ({
-            '@type': 'ListItem',
-            position: i + 1,
-            item: {
-              '@type': 'Product',
-              name: p.title,
-              url: `https://keytoheart.ru/product/${p.id}`,
-              image: p.images[0],
-              offers: {
-                '@type': 'Offer',
-                price: p.price,
-                priceCurrency: 'RUB',
-                availability: p.in_stock
-                  ? 'https://schema.org/InStock'
-                  : 'https://schema.org/OutOfStock',
+          itemListElement: products
+            .filter((p) => p.images?.length)
+            .map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              item: {
+                '@type': 'Product',
+                name: p.title,
+                url: `https://keytoheart.ru/product/${p.id}`,
+                image: p.images[0],
+                offers: {
+                  '@type': 'Offer',
+                  price: p.price,
+                  priceCurrency: 'RUB',
+                  availability: p.in_stock
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                },
               },
-            },
-          })),
+            })),
         }}
       />
 
-      {/* FAQ */}
+      {/* -------------- FAQ-сниппет для People Also Ask --------------- */}
       <JsonLd<FAQPage>
         item={{
           '@type': 'FAQPage',
@@ -178,23 +193,29 @@ export default async function Home() {
               name: 'Сколько хранится клубничный букет?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: 'Свежий букет хранится до 24 часов при +4°C.',
+                text: 'При температуре 4 °C свежие клубничные букеты сохраняют вкус и вид до 24 часов.',
               },
             },
             {
               '@type': 'Question',
-              name: 'Работаете ли ночью?',
+              name: 'Доставляете ли вы ночью?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: 'Да, доставка круглосуточно 24/7.',
+                text: 'Да, сервис работает 24/7 — доставка возможна в любой час суток.',
               },
             },
           ],
         }}
       />
 
-      <section><PromoGridServer /></section>
-      <section><PopularProductsServer /></section>
+      {/* ----------------------- Контент --------------------- */}
+      <section>
+        <PromoGridServer />
+      </section>
+
+      <section>
+        <PopularProductsServer />
+      </section>
 
       <section aria-label="Категории товаров">
         {products.length === 0 ? (
@@ -206,9 +227,12 @@ export default async function Home() {
         ) : (
           categories.map((category, idx) => {
             const slug = slugMap[category] || '';
-            const items = products.filter((p) =>
-              p.category_ids.some((id) => categoryMap.get(id)?.name === category)
-            ).slice(0, 8);
+            const items = products
+              .filter((p) =>
+                p.category_ids.some((id) => categoryMap.get(id)?.name === category),
+              )
+              .slice(0, 8);
+
             return (
               <React.Fragment key={category}>
                 <CategoryPreviewServer
