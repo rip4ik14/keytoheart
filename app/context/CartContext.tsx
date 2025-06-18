@@ -11,7 +11,7 @@ interface CartItem {
   price: number;
   quantity: number;
   imageUrl: string;
-  production_time?: number | null; // Добавляем поле для времени изготовления
+  production_time?: number | null;
 }
 
 interface CartContextType {
@@ -22,7 +22,7 @@ interface CartContextType {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  maxProductionTime: number | null; // Добавляем максимальное время изготовления
+  maxProductionTime: number | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -52,23 +52,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (item: CartItem) => {
     setItems((prev) => {
-      const existing = prev.find((i) => String(i.id) === String(item.id));
+      const existing = prev.find((i) => i.id === item.id);
       if (existing) {
+        const newQuantity = existing.quantity + item.quantity;
         const updatedItems = prev.map((i) =>
-          String(i.id) === String(item.id)
-            ? { ...i, quantity: i.quantity + item.quantity }
-            : i
+          i.id === item.id ? { ...i, quantity: newQuantity } : i
         );
-        toast.success(`${item.title} обновлён в корзине (x${existing.quantity + item.quantity})`);
+        toast.success(`${item.title} обновлён в корзине (x${newQuantity})`);
         window.gtag?.('event', 'update_cart_item', {
           event_category: 'cart',
           item_id: item.id,
-          quantity: existing.quantity + item.quantity,
+          quantity: newQuantity,
         });
-        callYm(YM_ID, 'reachGoal', 'update_cart_item', {
-          item_id: item.id,
-          quantity: existing.quantity + item.quantity,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'update_cart_item', {
+            item_id: item.id,
+            quantity: newQuantity,
+          });
+        }
         return updatedItems;
       }
       toast.success(`${item.title} добавлен в корзину`);
@@ -76,7 +77,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         event_category: 'cart',
         item_id: item.id,
       });
-      callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: item.id });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: item.id });
+      }
       return [...prev, { ...item, id: String(item.id) }];
     });
   };
@@ -85,21 +88,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const updated = [...prev];
       newItems.forEach((newItem) => {
-        const index = updated.findIndex(
-          (i) => String(i.id) === String(newItem.id)
-        );
-        if (index !== -1) {
-          updated[index].quantity += newItem.quantity;
-          toast.success(`${newItem.title} обновлён в корзине (x${updated[index].quantity})`);
+        const idx = updated.findIndex((i) => i.id === newItem.id);
+        if (idx !== -1) {
+          updated[idx].quantity += newItem.quantity;
+          toast.success(
+            `${newItem.title} обновлён в корзине (x${updated[idx].quantity})`
+          );
           window.gtag?.('event', 'update_cart_item', {
             event_category: 'cart',
             item_id: newItem.id,
-            quantity: updated[index].quantity,
+            quantity: updated[idx].quantity,
           });
-          callYm(YM_ID, 'reachGoal', 'update_cart_item', {
-            item_id: newItem.id,
-            quantity: updated[index].quantity,
-          });
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'update_cart_item', {
+              item_id: newItem.id,
+              quantity: updated[idx].quantity,
+            });
+          }
         } else {
           updated.push({ ...newItem, id: String(newItem.id) });
           toast.success(`${newItem.title} добавлен в корзину`);
@@ -107,7 +112,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: newItem.id,
           });
-          callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'add_to_cart', {
+              item_id: newItem.id,
+            });
+          }
         }
       });
       return updated;
@@ -116,22 +125,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = (id: string) => {
     setItems((prev) => {
-      const item = prev.find((i) => String(i.id) === String(id));
+      const item = prev.find((i) => i.id === id);
       if (item) {
         toast.success(`${item.title} удалён из корзины`);
         window.gtag?.('event', 'remove_from_cart', {
           event_category: 'cart',
           item_id: id,
         });
-        callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
+        }
       }
-      return prev.filter((item) => String(item.id) !== String(id));
+      return prev.filter((i) => i.id !== id);
     });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
     setItems((prev) => {
-      const item = prev.find((i) => String(i.id) === String(id));
+      const item = prev.find((i) => i.id === id);
       if (quantity <= 0) {
         if (item) {
           toast.success(`${item.title} удалён из корзины`);
@@ -139,12 +150,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
             event_category: 'cart',
             item_id: id,
           });
-          callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
+          }
         }
-        return prev.filter((item) => String(item.id) !== String(id));
+        return prev.filter((i) => i.id !== id);
       }
-      const updatedItems = prev.map((item) =>
-        String(item.id) === String(id) ? { ...item, quantity } : item
+      const updatedItems = prev.map((i) =>
+        i.id === id ? { ...i, quantity } : i
       );
       if (item) {
         toast.success(`${item.title} обновлён (x${quantity})`);
@@ -153,10 +166,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: id,
           quantity,
         });
-        callYm(YM_ID, 'reachGoal', 'update_cart_quantity', {
-          item_id: id,
-          quantity,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'update_cart_quantity', {
+            item_id: id,
+            quantity,
+          });
+        }
       }
       return updatedItems;
     });
@@ -167,14 +182,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart');
     toast.success('Корзина очищена');
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
-    callYm(YM_ID, 'reachGoal', 'clear_cart');
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'clear_cart');
+    }
   };
 
-  const maxProductionTime = items.length > 0
-    ? Math.max(
-        ...items.map((item) => item.production_time ?? 0)
-      ) || null
-    : null;
+  const maxProductionTime =
+    items.length > 0
+      ? Math.max(...items.map((item) => item.production_time ?? 0))
+      : null;
 
   const value: CartContextType = {
     items,
@@ -184,7 +200,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     removeItem,
     updateQuantity,
     clearCart,
-    maxProductionTime, // Добавляем в контекст
+    maxProductionTime,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

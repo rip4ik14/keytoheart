@@ -42,7 +42,9 @@ export default function AccountOrdersList({ phone }: { phone: string }) {
         event_category: 'account',
         order_id: order.id,
       });
-      callYm(YM_ID, 'reachGoal', 'repeat_order', { order_id: order.id });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'repeat_order', { order_id: order.id });
+      }
     } catch {
       toast.error('Не удалось повторить заказ');
     }
@@ -65,12 +67,15 @@ export default function AccountOrdersList({ phone }: { phone: string }) {
           >
             <div className="flex justify-between items-center mb-2">
               <h3 id={`order-${order.id}-title`} className="font-semibold text-lg">
-                Заказ №{order.id.slice(0, 8)} от {new Date(order.created_at).toLocaleDateString('ru-RU')}
+                Заказ №{order.id.slice(0, 8)} от{' '}
+                {new Date(order.created_at).toLocaleDateString('ru-RU')}
               </h3>
               <button
                 onClick={() => handleRepeat(order)}
                 className="px-3 py-1 border border-black rounded-full text-sm hover:bg-black hover:text-white transition focus:outline-none focus:ring-2 focus:ring-black"
-                aria-label={`Повторить заказ от ${new Date(order.created_at).toLocaleDateString('ru-RU')}`}
+                aria-label={`Повторить заказ от ${new Date(
+                  order.created_at
+                ).toLocaleDateString('ru-RU')}`}
               >
                 Повторить заказ
               </button>

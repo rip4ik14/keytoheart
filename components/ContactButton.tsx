@@ -18,9 +18,11 @@ export default function ContactButton() {
             event_label: 'Telegram Contact Click',
             value: 1,
           });
-          callYm(YM_ID, 'reachGoal', 'contact_telegram', {
-            source: 'payment_page',
-          });
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'contact_telegram', {
+              source: 'payment_page',
+            });
+          }
         }}
         aria-label="Связаться через Telegram"
       >
@@ -38,9 +40,11 @@ export default function ContactButton() {
             event_label: 'WhatsApp Contact Click',
             value: 1,
           });
-          callYm(YM_ID, 'reachGoal', 'contact_whatsapp', {
-            source: 'payment_page',
-          });
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'contact_whatsapp', {
+              source: 'payment_page',
+            });
+          }
         }}
         aria-label="Связаться через WhatsApp"
       >

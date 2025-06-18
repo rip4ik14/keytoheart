@@ -21,9 +21,11 @@ export default function CategoryCard({ title, imageUrl, href }: Props) {
           event_category: 'navigation',
           category: title,
         });
-        callYm(YM_ID, 'reachGoal', 'category_card_click', {
-          category: title,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'category_card_click', {
+            category: title,
+          });
+        }
       }}
     >
       <div className="w-full h-40 bg-gray-100 overflow-hidden">

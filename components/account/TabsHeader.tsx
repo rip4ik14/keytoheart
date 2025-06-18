@@ -48,7 +48,9 @@ export default function TabsHeader({ activeTab, setActiveTab }: TabsHeaderProps)
               event_label: tab.label,
               tab: tab.key,
             });
-            callYm(YM_ID, 'reachGoal', 'switch_tab', { tab: tab.key, label: tab.label });
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'switch_tab', { tab: tab.key, label: tab.label });
+            }
           }}
           className={`py-2 px-2 sm:px-3 border-b-2 transition-all duration-300 font-medium ${
             activeTab === tab.key

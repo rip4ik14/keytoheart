@@ -1,4 +1,3 @@
-// ✅ Путь: app/loyalty/LoyaltyPageClient.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -38,7 +37,9 @@ export default function LoyaltyPageClient() {
       event_category: 'loyalty',
       type: 'page_view',
     });
-    callYm(YM_ID, 'reachGoal', 'view_loyalty', { type: 'page_view' });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'view_loyalty', { type: 'page_view' });
+    }
 
     // TODO: Заменить на российский сервис после миграции
     setUserPhone('mock-phone');
@@ -255,7 +256,9 @@ export default function LoyaltyPageClient() {
                   event_category: 'FAQ',
                   event_label: faq.question,
                 });
-                callYm(YM_ID, 'reachGoal', 'click_faq', { question: faq.question });
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'click_faq', { question: faq.question });
+                }
               }}
               onKeyDown={(e) =>
                 (e.key === 'Enter' || e.key === ' ') &&

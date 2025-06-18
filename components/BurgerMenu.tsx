@@ -63,7 +63,9 @@ export default function BurgerMenu() {
         onClick={() => {
           setIsOpen(true);
           window.gtag?.('event', 'open_burger_menu', { event_category: 'navigation' });
-          callYm(YM_ID, 'reachGoal', 'open_burger_menu');
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'open_burger_menu');
+          }
         }}
         className="p-2 hover:bg-gray-100 rounded"
         aria-label="Открыть меню навигации"
@@ -114,9 +116,11 @@ export default function BurgerMenu() {
                   event_category: 'navigation',
                   link: link.name,
                 });
-                callYm(YM_ID, 'reachGoal', 'burger_menu_link', {
-                  link: link.name,
-                });
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'burger_menu_link', {
+                    link: link.name,
+                  });
+                }
               }}
               className="block py-2 text-black hover:bg-gray-100 transition-colors"
               tabIndex={isOpen ? 0 : -1}

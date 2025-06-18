@@ -1,11 +1,10 @@
-// ✅ Путь: app/cart/components/UpsellModal.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // Исправлен импорт
 import toast from 'react-hot-toast';
 import { UpsellItem } from '../types';
 
@@ -146,10 +145,12 @@ export default function UpsellModal({ type, onClose, onSelect }: Props) {
                       item_id: item.id,
                       item_type: type,
                     });
-                    callYm(YM_ID, 'reachGoal', 'select_upsell_item', {
-                      item_id: item.id,
-                      item_type: type,
-                    });
+                    if (YM_ID !== undefined) {
+                      callYm(YM_ID, 'reachGoal', 'select_upsell_item', {
+                        item_id: item.id,
+                        item_type: type,
+                      });
+                    }
                   }}
                   className={`rounded-md border border-gray-300 p-2 cursor-pointer hover:shadow-md transition-all duration-300 ${
                     selectedId === item.id ? 'ring-2 ring-black' : ''

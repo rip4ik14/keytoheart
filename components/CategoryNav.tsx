@@ -46,7 +46,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         return;
       }
       setLoading(true);
-      const start = Date.now();
       const { data, error } = await supabase
         .from('categories')
         .select(`
@@ -78,7 +77,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       });
       categoryCache = updatedData;
       setCategories(updatedData);
-    } catch (err) {
+    } catch {
       setError('Не удалось загрузить категории');
     } finally {
       setLoading(false);
@@ -86,29 +85,23 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   };
 
   useEffect(() => {
-    if (initialCategories && initialCategories.length > 0) {
-      const updatedData = initialCategories
+    if (initialCategories.length > 0) {
+      const updated = initialCategories
         .filter((cat) => cat.is_visible !== false)
         .map((cat) => {
-          const subcategories = cat.subcategories
+          const subs = cat.subcategories
             ? cat.subcategories
-                .filter((sub) => sub.is_visible !== false)
-                .map((sub) => ({
-                  ...sub,
-                  slug: sub.slug || generateSlug(sub.name),
-                }))
+                .filter((s) => s.is_visible !== false)
+                .map((s) => ({ ...s, slug: s.slug || generateSlug(s.name) }))
             : [];
-          return {
-            ...cat,
-            slug: cat.slug || generateSlug(cat.name),
-            subcategories,
-          };
+          return { ...cat, slug: cat.slug || generateSlug(cat.name), subcategories: subs };
         });
-      setCategories(updatedData);
-      categoryCache = updatedData;
+      setCategories(updated);
+      categoryCache = updated;
     } else {
       fetchCategories();
     }
+
     const channel = supabase
       .channel('categories-subcategories-changes')
       .on(
@@ -128,6 +121,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         }
       )
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -138,43 +132,96 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
       aria-label="Навигация по категориям"
     >
-      {/* Мобильная версия */}
+      {/* mobile */}
       <div className="sm:hidden relative">
         <div className="overflow-x-auto no-scrollbar" ref={scrollRef}>
           <ul className="flex gap-2 px-4 py-4">
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <li key={i} className="flex-shrink-0">
-                  <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" />
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <li key={i} className="flex-shrink-0">
+                    <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" />
+                  </li>
+                ))
+              : categories.length === 0
+              ? (
+                <li className="text-center text-gray-500 font-sans w-full">
+                  Категории отсутствуют
                 </li>
-              ))
-            ) : categories.length === 0 ? (
-              <li className="text-center text-gray-500 font-sans w-full">
-                Категории отсутствуют
-              </li>
-            ) : (
-              categories.map((cat) => {
-                const href = `/category/${cat.slug}`;
-                const isActiveCategory = pathname.startsWith(href);
-                const isActiveSubcategory = cat.subcategories.some((sub) =>
-                  pathname.includes(`/category/${cat.slug}/${sub.slug}`)
-                );
-                const active = isActiveCategory || isActiveSubcategory;
+              )
+              : categories.map((cat) => {
+                  const href = `/category/${cat.slug}`;
+                  const isActiveCategory = pathname.startsWith(href);
+                  const isActiveSubcategory = cat.subcategories.some((sub) =>
+                    pathname.includes(`/category/${cat.slug}/${sub.slug}`)
+                  );
+                  const active = isActiveCategory || isActiveSubcategory;
 
-                return (
-                  <motion.li
-                    key={cat.id}
-                    className="flex-shrink-0"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: cat.id * 0.05 }}
-                  >
+                  return (
+                    <motion.li
+                      key={cat.id}
+                      className="flex-shrink-0"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: cat.id * 0.05 }}
+                    >
+                      <Link
+                        href={href}
+                        className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
+                          active
+                            ? 'bg-black text-white shadow-sm scale-105'
+                            : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
+                        } focus:ring-2 focus:ring-gray-500`}
+                        onClick={() => {
+                          window.gtag?.('event', 'category_nav_click', {
+                            event_category: 'navigation',
+                            category: cat.name,
+                            type: 'category',
+                          });
+                          if (YM_ID !== undefined) {
+                            callYm(YM_ID, 'reachGoal', 'category_nav_click', {
+                              category: cat.name,
+                              type: 'category',
+                            });
+                          }
+                        }}
+                        aria-current={active ? 'page' : undefined}
+                      >
+                        {cat.name}
+                      </Link>
+                    </motion.li>
+                  );
+                })}
+          </ul>
+        </div>
+      </div>
+
+      {/* desktop */}
+      <ul className="hidden sm:flex px-4 py-4 justify-center relative">
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <li key={i}>
+                <div className="h-6 w-20 rounded bg-gray-200 animate-pulse" />
+              </li>
+            ))
+          : categories.length === 0
+          ? (
+            <li className="text-center text-gray-500 font-sans">
+              Категории отсутствуют
+            </li>
+          )
+          : categories.map((cat, idx) => {
+              const href = `/category/${cat.slug}`;
+              const isActive = pathname.startsWith(href);
+
+              return (
+                <li key={cat.id} className="flex items-center">
+                  <div className="relative group inline-block">
                     <Link
                       href={href}
-                      className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
-                        active
-                          ? 'bg-black text-white shadow-sm scale-105'
-                          : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
+                      className={`px-2 py-1 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'text-black underline'
+                          : 'text-gray-500 hover:text-black hover:underline'
                       } focus:ring-2 focus:ring-gray-500`}
                       onClick={() => {
                         window.gtag?.('event', 'category_nav_click', {
@@ -182,135 +229,82 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                           category: cat.name,
                           type: 'category',
                         });
-                        callYm(YM_ID, 'reachGoal', 'category_nav_click', {
-                          category: cat.name,
-                          type: 'category',
-                        });
+                        if (YM_ID !== undefined) {
+                          callYm(YM_ID, 'reachGoal', 'category_nav_click', {
+                            category: cat.name,
+                            type: 'category',
+                          });
+                        }
                       }}
-                      aria-current={active ? 'page' : undefined}
+                      aria-current={isActive ? 'page' : undefined}
                     >
                       {cat.name}
                     </Link>
-                  </motion.li>
-                );
-              })
-            )}
-          </ul>
-        </div>
-      </div>
 
-      {/* Десктоп */}
-      <ul className="hidden sm:flex px-4 py-4 justify-center relative">
-        {loading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <li key={i}>
-              <div className="h-6 w-20 rounded bg-gray-200 animate-pulse" />
-            </li>
-          ))
-        ) : categories.length === 0 ? (
-          <li className="text-center text-gray-500 font-sans">
-            Категории отсутствуют
-          </li>
-        ) : (
-          categories.map((cat, index) => {
-            const href = `/category/${cat.slug}`;
-            const isActive = pathname.startsWith(href);
-
-            return (
-              <li key={cat.id} className="flex items-center">
-                <div className="relative group inline-block">
-                  <Link
-                    href={href}
-                    className={`px-2 py-1 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-black underline'
-                        : 'text-gray-500 hover:text-black hover:underline'
-                    } focus:ring-2 focus:ring-gray-500`}
-                    onClick={() => {
-                      window.gtag?.('event', 'category_nav_click', {
-                        event_category: 'navigation',
-                        category: cat.name,
-                        type: 'category',
-                      });
-                      callYm(YM_ID, 'reachGoal', 'category_nav_click', {
-                        category: cat.name,
-                        type: 'category',
-                      });
-                    }}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    {cat.name}
-                  </Link>
-
-                  {cat.subcategories?.length > 0 && (
-                    <div
-                      className="
-                        absolute left-1/2 -translate-x-1/2 top-full mt-1 w-64
-                        bg-white border rounded-xl shadow-xl z-50 opacity-0 scale-95
-                        group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
-                        pointer-events-none transition-all duration-200 ease-out
-                        py-2
-                        before:absolute before:-top-4 before:left-0 before:w-full before:h-4
-                        before:content-[''] before:block before:pointer-events-auto
-                      "
-                      role="menu"
-                      aria-label={`Подкатегории для ${cat.name}`}
-                      tabIndex={-1}
-                    >
+                    {cat.subcategories.length > 0 && (
                       <div
                         className="
-                          absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
-                          w-3 h-3 rotate-45 bg-white border-l border-t border-gray-200
-                          z-[-1]
+                          absolute left-1/2 -translate-x-1/2 top-full mt-1 w-64
+                          bg-white border rounded-xl shadow-xl z-50 opacity-0 scale-95
+                          group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
+                          pointer-events-none transition-all duration-200 ease-out
+                          py-2
+                          before:absolute before:-top-4 before:left-0 before:w-full before:h-4
+                          before:content-[''] before:block before:pointer-events-auto
                         "
-                        aria-hidden="true"
-                      />
-                      {cat.subcategories.map((sub) => (
-                        <Link
-                          key={sub.id}
-                          href={`/category/${cat.slug}/${sub.slug}`}
-                          className="block px-4 py-2 text-sm text-black hover:bg-gray-100 font-sans focus:bg-gray-100 outline-none"
-                          role="menuitem"
-                          tabIndex={0}
-                          onClick={() => {
-                            window.gtag?.('event', 'subcategory_nav_click', {
-                              event_category: 'navigation',
-                              subcategory: sub.name,
-                              type: 'subcategory',
-                            });
-                            callYm(
-                              YM_ID,
-                              'reachGoal',
-                              'subcategory_nav_click',
-                              { subcategory: sub.name, type: 'subcategory' }
-                            );
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              window.location.href = `/category/${cat.slug}/${sub.slug}`;
-                            }
-                          }}
-                        >
-                          {sub.name}
-                        </Link>
-                      ))}
-                    </div>
+                        role="menu"
+                        aria-label={`Подкатегории для ${cat.name}`}
+                        tabIndex={-1}
+                      >
+                        <div
+                          className="
+                            absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
+                            w-3 h-3 rotate-45 bg-white border-l border-t border-gray-200
+                            z-[-1]
+                          "
+                          aria-hidden="true"
+                        />
+                        {cat.subcategories.map((sub) => (
+                          <Link
+                            key={sub.id}
+                            href={`/category/${cat.slug}/${sub.slug}`}
+                            className="block px-4 py-2 text-sm text-black hover:bg-gray-100 font-sans focus:bg-gray-100 outline-none"
+                            role="menuitem"
+                            tabIndex={0}
+                            onClick={() => {
+                              window.gtag?.('event', 'subcategory_nav_click', {
+                                event_category: 'navigation',
+                                subcategory: sub.name,
+                                type: 'subcategory',
+                              });
+                              if (YM_ID !== undefined) {
+                                callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', {
+                                  subcategory: sub.name,
+                                  type: 'subcategory',
+                                });
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                window.location.href = `/category/${cat.slug}/${sub.slug}`;
+                              }
+                            }}
+                          >
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {idx < categories.length - 1 && (
+                    <span aria-hidden="true" className="mx-4 text-gray-300 select-none font-bold text-lg">
+                      ·
+                    </span>
                   )}
-                </div>
-                {/* Разделитель — только если не последний элемент */}
-                {index < categories.length - 1 && (
-                  <span
-                    aria-hidden="true"
-                    className="mx-4 text-gray-300 select-none font-bold text-lg"
-                  >
-                    ·
-                  </span>
-                )}
-              </li>
-            );
-          })
-        )}
+                </li>
+              );
+            })}
       </ul>
 
       {error && (

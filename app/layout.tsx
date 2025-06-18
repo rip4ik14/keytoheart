@@ -31,27 +31,25 @@ const golosText = localFont({
   display: 'swap',
   preload: true,
   src: [
-    { path: '../public/fonts/golos-text_regular.woff2',   weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2',    weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2',  weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2',      weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2',     weight: '900', style: 'normal' },
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
   ],
 });
 
 const marqueeFont = localFont({
   variable: '--font-marquee',
   display: 'swap',
-  preload: false,               // нет FOUT на критическом пути
-  src: [
-    { path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' },
-  ],
+  preload: false,
+  src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
 /* ------------------------------------------------------------------ */
 /*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                        */
 /* ------------------------------------------------------------------ */
-export const revalidate = 3600;          // ISR-тайм-аут для layout
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
@@ -66,13 +64,11 @@ export const metadata: Metadata = {
     locale: 'ru_RU',
     siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
-    title:
-      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
-    description:
-      'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
+    title: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
+    description: 'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
     images: [
       {
-        url: 'https://keytoheart.ru/og-cover.webp',   // абсолютный URL
+        url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
         alt: 'Клубничные букеты KEY TO HEART',
@@ -83,8 +79,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'KEY TO HEART — клубничные букеты и подарки в Краснодаре',
-    description:
-      'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
+    description: 'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
@@ -101,15 +96,14 @@ export const viewport: Viewport = {
 /*                              COMPONENT                             */
 /* ------------------------------------------------------------------ */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  /* --------------------------- Категории -------------------------- */
-  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   let categories: Category[] = [];
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
-      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } },
+      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } }
     );
     const data = await res.json();
     if (Array.isArray(data)) {
@@ -129,16 +123,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     }
   } catch (e) {
     process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error →', e);
-    categories = [];   // гарантируем, что JSX не рухнет
+    categories = [];
   }
 
   const ymId = YM_ID;
 
-  /* ----------------------------- JSX ------------------------------ */
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
-        {/* базовые meta */}
         <meta charSet="utf-8" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
@@ -146,10 +138,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
 
-        {/* pre-connect */}
         <link rel="preconnect" href="https://gwbeabfkknhewwoesqax.supabase.co" crossOrigin="anonymous" />
 
-        {/* ---- JSON-LD (объединённый через @graph) ---- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -203,30 +193,31 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
 
-        {/* ----- Яндекс.Метрика ----- */}
-        {ymId && (
+        {ymId !== undefined && (
           <Script
             id="ym"
             data-nosnippet
-            strategy="lazyOnload"
-          >{`
-            (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-            m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-            k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
-            (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
-            ym("${ymId}", "init", {
-              clickmap:true,
-              trackLinks:true,
-              accurateTrackBounce:true,
-              trackHash:true,
-              webvisor:true
-            });
-          `}</Script>
+            strategy="afterInteractive"
+            src="https://mc.yandex.ru/metrika/tag.js"
+            onLoad={() => {
+              if (typeof window.ym === 'function') {
+                // @ts-ignore: window.ym accepts object init params
+                window.ym(ymId, 'init', {
+                  clickmap: true,
+                  trackLinks: true,
+                  accurateTrackBounce: true,
+                  trackHash: true,
+                  webvisor: true,
+                });
+              } else {
+                console.error('Yandex Metrika is not loaded');
+              }
+            }}
+          />
         )}
       </head>
 
       <body className="font-sans">
-        {/* skip-link для a11y */}
         <SkipLink />
 
         <CartAnimationProvider>
@@ -247,7 +238,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <CookieBanner />
             <MobileContactFab />
 
-            {/* ----------- SEO-текстовый блок ----------- */}
             <section
               role="region"
               aria-label="О магазине"
@@ -257,23 +247,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
               <p className="mb-3">
                 Мы готовим клубничные букеты из свежей фермерской ягоды и настоящего бельгийского
-                шоколада, а также цветочные композиции и&nbsp;комбо-наборы. Каждый заказ собирается
-                вручную прямо перед отправкой и&nbsp;доставляется по&nbsp;Краснодару&nbsp;— всего&nbsp;за&nbsp;60&nbsp;минут.
+                шоколада, а также цветочные композиции и комбо-наборы. Каждый заказ собирается
+                вручную прямо перед отправкой и доставляется по Краснодару — всего за 60 минут.
               </p>
 
               <p className="mb-3">
                 Фото готового подарка отправляем вам перед доставкой, работаем онлайн 24/7
-                и&nbsp;бережно&nbsp;упаковываем любую композицию&nbsp;— от&nbsp;мини-букета до&nbsp;корпоративного заказа.
+                и бережно упаковываем любую композицию — от мини-букета до корпоративного заказа.
               </p>
 
               <h3 className="mb-1 font-medium">Популярные поводы</h3>
               <ul className="list-disc pl-6">
-                <li>8 Марта и&nbsp;14 Февраля</li>
-                <li>День&nbsp;рождения и&nbsp;юбилей</li>
+                <li>8 Марта и 14 Февраля</li>
+                <li>День рождения и юбилей</li>
                 <li>Годовщина отношений или свадьбы</li>
-                <li>Выписка из&nbsp;роддома</li>
-                <li>День&nbsp;учителя и&nbsp;День&nbsp;мамы</li>
-                <li>Корпоративные праздники и&nbsp;Новый год</li>
+                <li>Выписка из роддома</li>
+                <li>День учителя и День мамы</li>
+                <li>Корпоративные праздники и Новый год</li>
               </ul>
             </section>
           </CartProvider>

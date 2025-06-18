@@ -1,4 +1,3 @@
-// account/component/OrdersList.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
@@ -138,9 +137,11 @@ export default function OrdersList({ orders }: OrdersListProps) {
                           event_category: 'account',
                           order_id: o.id,
                         });
-                        callYm(YM_ID, 'reachGoal', 'repeat_order', {
-                          order_id: o.id,
-                        });
+                        if (YM_ID !== undefined) {
+                          callYm(YM_ID, 'reachGoal', 'repeat_order', {
+                            order_id: o.id,
+                          });
+                        }
                       }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}

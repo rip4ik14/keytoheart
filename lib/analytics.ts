@@ -1,3 +1,4 @@
+// ✅  lib/analytics.ts
 import { callYm } from '../utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
@@ -20,11 +21,13 @@ export function trackEvent({ category, action, label, value, type }: EventParams
       });
     }
     // Яндекс.Метрика
-    callYm(YM_ID, 'reachGoal', action, {
-      category,
-      label,
-      value,
-      type,
-    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', action, {
+        category,
+        label,
+        value,
+        type,
+      });
+    }
   }
 }

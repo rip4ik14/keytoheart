@@ -60,7 +60,9 @@ export default function CategoryPageClient({
       sortedProducts.sort((a, b) => b.id - a.id);
     }
 
-    process.env.NODE_ENV !== "production" && console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
+    process.env.NODE_ENV !== 'production' &&
+      console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
+
     setFilteredProducts(sortedProducts);
   }, [sort, subcategory, products, subcategories]);
 
@@ -69,7 +71,9 @@ export default function CategoryPageClient({
       event_category: 'category',
       event_label: apiName,
     });
-    callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
+    }
   }, [apiName]);
 
   return (

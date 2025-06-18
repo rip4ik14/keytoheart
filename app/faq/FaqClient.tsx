@@ -1,4 +1,3 @@
-// ✅ Путь: app/faq/FaqClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -166,10 +165,12 @@ export default function FaqClient() {
       event_label: question,
       value: openIndexes.includes(i) ? 0 : 1,
     });
-    callYm(YM_ID, 'reachGoal', 'faq_toggle', {
-      question,
-      action: openIndexes.includes(i) ? 'close' : 'open',
-    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'faq_toggle', {
+        question,
+        action: openIndexes.includes(i) ? 'close' : 'open',
+      });
+    }
   };
 
   const activeFaq = faqData.find((f) => f.category === activeCategory);

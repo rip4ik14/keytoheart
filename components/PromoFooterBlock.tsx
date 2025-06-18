@@ -14,7 +14,6 @@ export default function PromoFooterBlock() {
 
   return (
     <section className="relative w-full border-t border-[#eaeaea] bg-white overflow-hidden">
-      {/* ——— Бегущая серая строка ——— */}
       <motion.div
         className="pointer-events-none select-none absolute left-0 right-0 bottom-0 z-0 flex w-max will-change-transform"
         initial={{ x: 0 }}
@@ -35,9 +34,7 @@ export default function PromoFooterBlock() {
         </span>
       </motion.div>
 
-      {/* ——— Контент секции ——— */}
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row py-8 sm:py-12 lg:py-16 gap-6 sm:gap-8 px-4 sm:px-6 lg:px-8">
-        {/* Левая колонка */}
         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start md:pr-6">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mb-3 text-[#535353]">
             С нами выгодно
@@ -56,7 +53,9 @@ export default function PromoFooterBlock() {
                   event_category: 'PromoFooter',
                   event_label: 'Loyalty Program',
                 });
-                callYm(YM_ID, 'reachGoal', 'click_loyalty_cta');
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'click_loyalty_cta');
+                }
               }}
             >
               Программа лояльности
@@ -70,7 +69,9 @@ export default function PromoFooterBlock() {
                   event_category: 'PromoFooter',
                   event_label: 'Corporate Clients',
                 });
-                callYm(YM_ID, 'reachGoal', 'click_corporate_cta');
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'click_corporate_cta');
+                }
               }}
             >
               Для юрлиц
@@ -89,10 +90,8 @@ export default function PromoFooterBlock() {
           </div>
         </div>
 
-        {/* Вертикальная линия на десктопе */}
         <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 border-r border-[#eaeaea]" />
 
-        {/* Правая колонка */}
         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start md:pl-6 mt-6 md:mt-0">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mb-3 text-[#535353]">
             Наши соцсети
@@ -112,7 +111,9 @@ export default function PromoFooterBlock() {
                   event_category: 'PromoFooter',
                   event_label: 'Instagram',
                 });
-                callYm(YM_ID, 'reachGoal', 'click_instagram_cta');
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'click_instagram_cta');
+                }
               }}
             >
               @Keytoheart
@@ -128,7 +129,9 @@ export default function PromoFooterBlock() {
                   event_category: 'PromoFooter',
                   event_label: 'VK',
                 });
-                callYm(YM_ID, 'reachGoal', 'click_vk_cta');
+                if (YM_ID !== undefined) {
+                  callYm(YM_ID, 'reachGoal', 'click_vk_cta');
+                }
               }}
             >
               VK

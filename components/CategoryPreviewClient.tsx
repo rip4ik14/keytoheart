@@ -49,9 +49,11 @@ export default function CategoryPreviewClient({
               event_category: 'navigation',
               category: categoryName,
             });
-            callYm(YM_ID, 'reachGoal', 'see_more_category', {
-              category: categoryName,
-            });
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'see_more_category', {
+                category: categoryName,
+              });
+            }
           }}
           aria-label={`Посмотреть больше товаров в категории ${categoryName}`}
         >

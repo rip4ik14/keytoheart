@@ -21,26 +21,28 @@ export default function ProfileMenu() {
       return;
     }
 
-    async function loadBonuses(session: NonNullable<ReturnType<typeof useSession>>) {
+    const loadBonuses = async () => {
       const { data, error } = await supabase
         .from('bonuses')
         .select('bonus_balance')
         .eq('phone', session.user.user_metadata.phone)
         .single();
-      if (!error && data) setBonus(data.bonus_balance);
-    }
+      if (!error && data) {
+        setBonus(data.bonus_balance);
+      }
+    };
 
-    loadBonuses(session);
+    loadBonuses();
   }, [session, supabase]);
 
   useEffect(() => {
-    function handler(e: MouseEvent) {
+    const handleClickOutside = (e: MouseEvent) => {
       if (open && ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
   if (session === undefined) {
@@ -55,7 +57,9 @@ export default function ProfileMenu() {
             onClick={() => {
               setOpen((prev) => !prev);
               window.gtag?.('event', 'profile_menu_toggle', { event_category: 'profile' });
-              callYm(YM_ID, 'reachGoal', 'profile_menu_toggle');
+              if (YM_ID !== undefined) {
+                callYm(YM_ID, 'reachGoal', 'profile_menu_toggle');
+              }
             }}
             className="flex items-center gap-2 px-4 py-1 border rounded-full hover:bg-gray-100"
             aria-label="Открыть меню профиля"
@@ -81,7 +85,9 @@ export default function ProfileMenu() {
                 onClick={() => {
                   setOpen(false);
                   window.gtag?.('event', 'profile_menu_account', { event_category: 'profile' });
-                  callYm(YM_ID, 'reachGoal', 'profile_menu_account');
+                  if (YM_ID !== undefined) {
+                    callYm(YM_ID, 'reachGoal', 'profile_menu_account');
+                  }
                 }}
                 role="menuitem"
               >
@@ -93,7 +99,9 @@ export default function ProfileMenu() {
                   setOpen(false);
                   toast.success('Вы вышли из аккаунта');
                   window.gtag?.('event', 'profile_menu_signout', { event_category: 'profile' });
-                  callYm(YM_ID, 'reachGoal', 'profile_menu_signout');
+                  if (YM_ID !== undefined) {
+                    callYm(YM_ID, 'reachGoal', 'profile_menu_signout');
+                  }
                 }}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                 role="menuitem"
@@ -110,7 +118,9 @@ export default function ProfileMenu() {
           className="px-4 py-1 border rounded-full hover:bg-gray-100 flex items-center gap-1"
           onClick={() => {
             window.gtag?.('event', 'profile_menu_login', { event_category: 'profile' });
-            callYm(YM_ID, 'reachGoal', 'profile_menu_login');
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'profile_menu_login');
+            }
           }}
           aria-label="Войти в аккаунт"
         >

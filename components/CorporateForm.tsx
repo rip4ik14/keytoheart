@@ -52,15 +52,16 @@ export default function CorporateForm() {
           .in('key', ['corporate_form_title', 'corporate_form_description']);
 
         if (error) throw error;
-
         if (!data || data.length === 0) return;
 
         const newSettings = data.reduce(
           (acc: Settings, item: SupabaseSetting) => {
-            acc[item.key === 'corporate_form_title' ? 'title' : 'description'] = item.value;
+            acc[
+              item.key === 'corporate_form_title' ? 'title' : 'description'
+            ] = item.value;
             return acc;
           },
-          { title: 'Оставьте заявку', description: settings.description }
+          { title: settings.title, description: settings.description }
         );
         setSettings(newSettings);
       } catch {
@@ -72,18 +73,19 @@ export default function CorporateForm() {
     fetchSettings();
   }, []);
 
-  // Функция для форматирования номера телефона (для отображения пользователю)
   const displayPhone = (phone: string) => {
     if (!phone) return '';
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-      const digits = cleanPhone.slice(1); // Убираем 7
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+      const digits = cleanPhone.slice(1);
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(
+        6,
+        8
+      )}-${digits.slice(8, 10)}`;
     }
     return phone;
   };
 
-  // Обработчик изменения номера телефона
   const handlePhoneChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, '');
     let formattedValue = cleanValue;
@@ -117,7 +119,6 @@ export default function CorporateForm() {
       return;
     }
 
-    // Дополнительная валидация номера телефона
     const cleanPhone = formData.phone.replace(/\D/g, '');
     if (cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
       setError('Введите корректный номер телефона в формате +7xxxxxxxxxx');
@@ -126,7 +127,6 @@ export default function CorporateForm() {
     }
 
     try {
-      
       const response = await fetch('/api/corporate-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,19 +134,22 @@ export default function CorporateForm() {
       });
 
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Ошибка отправки заявки');
       }
 
-      // Устанавливаем submitted только после успешного ответа
       setSubmitted(true);
       setFormData({ name: '', company: '', phone: '', email: '', message: '' });
       toast.success('Заявка отправлена');
-      window.gtag?.('event', 'corporate_form_submit', { event_category: 'corporate' });
-      callYm(YM_ID, 'reachGoal', 'corporate_form_submit');
+      window.gtag?.('event', 'corporate_form_submit', {
+        event_category: 'corporate',
+      });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'corporate_form_submit');
+      }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error('Error submitting form:', err);
+      process.env.NODE_ENV !== 'production' &&
+        console.error('Error submitting form:', err);
       setError(err.message || 'Произошла ошибка при отправке заявки');
       toast.error(err.message || 'Ошибка отправки заявки');
     } finally {
@@ -204,7 +207,11 @@ export default function CorporateForm() {
           Спасибо! Мы скоро свяжемся с вами.
         </motion.div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6" aria-label="Форма заявки на корпоративные подарки">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+          aria-label="Форма заявки на корпоративные подарки"
+        >
           {error && (
             <motion.div
               className="text-center text-black text-lg"

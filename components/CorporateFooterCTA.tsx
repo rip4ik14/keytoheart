@@ -1,4 +1,3 @@
-// ✅ Путь: components/CorporateFooterCTA.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -36,7 +35,7 @@ export default function CorporateFooterCTA() {
         viewport={{ once: true }}
         transition={{ delay: 0.2 }}
       >
-        Оставьте заявку, и мы свяжемся с вами в течение&nbsp;15&nbsp;минут для обсуждения деталей.
+        Оставьте заявку, и мы свяжемся с вами в течение 15 минут для обсуждения деталей.
       </motion.p>
 
       <motion.div
@@ -58,7 +57,9 @@ export default function CorporateFooterCTA() {
             window.gtag?.('event', 'corporate_cta_click', {
               event_category: 'corporate',
             });
-            callYm(YM_ID, 'reachGoal', 'corporate_cta_click');
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'corporate_cta_click');
+            }
           }}
         >
           Оставить заявку

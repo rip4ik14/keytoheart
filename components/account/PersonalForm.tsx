@@ -53,7 +53,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
         }
       } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки данных:', error);
+        process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки данных:', error);
         setError('Не удалось загрузить данные');
         toast.error('Не удалось загрузить данные');
       } finally {
@@ -127,9 +127,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       await onUpdate();
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
-      callYm(YM_ID, 'reachGoal', 'update_profile', { name: trimmedName });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'update_profile', { name: trimmedName });
+      }
     } catch (error: any) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка обновления профиля:', error);
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');
       toast.error(error.message || 'Ошибка обновления данных');
     } finally {
@@ -191,7 +193,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
             <input
               id="phone"
               type="text"
-              value={phone || 'Не указан'}
+              value={phone}
               disabled
               className="border border-gray-300 px-4 py-2 rounded w-full bg-gray-100 text-gray-500 sm:p-3 cursor-not-allowed"
               aria-label="Ваш номер телефона (нельзя изменить)"

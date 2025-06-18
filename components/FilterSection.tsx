@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Filter } from 'lucide-react';
 
-// Типы для фильтров
 type FilterSectionProps = {
   priceRange: [number, number];
   setPriceRange: (range: [number, number]) => void;
@@ -31,7 +30,6 @@ export default function FilterSection({
   const [isMobile, setIsMobile] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Проверяем, мобильное ли устройство
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -41,29 +39,28 @@ export default function FilterSection({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Анимации для модального окна на мобильных устройствах
   const modalVariants = {
     hidden: { opacity: 0, y: '100%' },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
     exit: { opacity: 0, y: '100%', transition: { duration: 0.3 } },
   };
 
-  // Обработчики событий для аналитики
   const trackFilterChange = (filterType: string, value: string | number) => {
     window.gtag?.('event', 'filter_change', {
       event_category: 'catalog',
       filter_type: filterType,
       filter_value: value,
     });
-    callYm(YM_ID, 'reachGoal', 'filter_change', {
-      filter_type: filterType,
-      filter_value: value,
-    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'filter_change', {
+        filter_type: filterType,
+        filter_value: value,
+      });
+    }
   };
 
   return (
     <>
-      {/* Кнопка открытия фильтров на мобильных устройствах */}
       {isMobile && (
         <button
           onClick={() => setIsFilterOpen(true)}
@@ -75,15 +72,10 @@ export default function FilterSection({
         </button>
       )}
 
-      {/* Фильтры */}
       <AnimatePresence>
         {(!isMobile || isFilterOpen) && (
           <motion.div
-            className={`${
-              isMobile
-                ? 'fixed inset-0 bg-white z-50 p-6 overflow-y-auto'
-                : 'w-64 bg-white p-6 border-r border-gray-200'
-            }`}
+            className={`${isMobile ? 'fixed inset-0 bg-white z-50 p-6 overflow-y-auto' : 'w-64 bg-white p-6 border-r border-gray-200'}`}
             initial={isMobile ? 'hidden' : undefined}
             animate={isMobile ? 'visible' : undefined}
             exit={isMobile ? 'exit' : undefined}
@@ -92,7 +84,6 @@ export default function FilterSection({
             aria-labelledby="filter-title"
             aria-modal={isMobile ? 'true' : undefined}
           >
-            {/* Заголовок и кнопка закрытия на мобильных */}
             {isMobile && (
               <div className="flex justify-between items-center mb-6">
                 <h2 id="filter-title" className="text-xl font-bold text-black">
@@ -108,7 +99,6 @@ export default function FilterSection({
               </div>
             )}
 
-            {/* Фильтр по цене */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-black mb-2" htmlFor="price-min">
                 Цена
@@ -145,7 +135,6 @@ export default function FilterSection({
               </div>
             </div>
 
-            {/* Фильтр по категории */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-black mb-2" htmlFor="category-select">
                 Категория
@@ -156,7 +145,7 @@ export default function FilterSection({
                 onChange={(e) => {
                   const value = e.target.value;
                   setSelectedCategory(value);
-                  setSelectedSubcategory(''); // Сбрасываем подкатегорию
+                  setSelectedSubcategory('');
                   trackFilterChange('category', value);
                 }}
                 className="w-full p-2 border border-gray-300 rounded-lg text-black focus:ring-2 focus:ring-black focus:outline-none"
@@ -171,7 +160,6 @@ export default function FilterSection({
               </select>
             </div>
 
-            {/* Фильтр по подкатегории */}
             {selectedCategory && subcategories.length > 0 && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-black mb-2" htmlFor="subcategory-select">
@@ -202,7 +190,6 @@ export default function FilterSection({
         )}
       </AnimatePresence>
 
-      {/* Оверлей для мобильного модального окна */}
       {isMobile && isFilterOpen && (
         <motion.div
           className="fixed inset-0 bg-black/50 z-40"

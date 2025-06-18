@@ -13,7 +13,9 @@ export default function ContactWhatsAppButton() {
       className="inline-flex items-center gap-2 bg-black text-white px-6 py-3 rounded-full font-semibold text-base sm:text-lg hover:bg-gray-800 transition-all duration-300"
       onClick={() => {
         window.gtag?.('event', 'contact_whatsapp', { event_category: 'payment_page' });
-        callYm(YM_ID, 'reachGoal', 'contact_whatsapp');
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'contact_whatsapp', { source: 'payment_page' });
+        }
       }}
       aria-label="Связаться через WhatsApp"
     >

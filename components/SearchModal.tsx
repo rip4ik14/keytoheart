@@ -22,10 +22,18 @@ interface Category {
   name: string;
 }
 
-export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export default function SearchModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
-  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
+  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +55,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
 
   useEffect(() => {
     const controller = new AbortController();
+
     const fetchProducts = async () => {
       if (!query.trim()) {
         setResults([]);
@@ -54,67 +63,69 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       }
       setLoading(true);
 
-      const { data: productsData, error: productsError } = await supabasePublic
-        .from('products')
-        .select('id, title, price, images')
-        .or(`title.ilike.%${query}%,short_desc.ilike.%${query}%`)
-        .eq('in_stock', true)
-        .limit(10)
-        .abortSignal(controller.signal);
+      const { data: productsData, error: productsError } =
+        await supabasePublic
+          .from('products')
+          .select('id, title, price, images')
+          .or(`title.ilike.%${query}%,short_desc.ilike.%${query}%`)
+          .eq('in_stock', true)
+          .limit(10)
+          .abortSignal(controller.signal);
 
       if (productsError) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching products:', productsError);
+        console.error('Error fetching products:', productsError);
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+      if (!productsData?.length) {
         setResults([]);
         setLoading(false);
         return;
       }
 
-      if (!productsData || productsData.length === 0) {
-        setResults([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch category IDs for all products
-      const productIds = productsData.map(p => p.id);
-      const { data: categoryData, error: categoryError } = await supabasePublic
-        .from('product_categories')
-        .select('product_id, category_id')
-        .in('product_id', productIds);
+      // Fetch categories for results
+      const productIds = productsData.map((p) => p.id);
+      const { data: categoryData, error: categoryError } =
+        await supabasePublic
+          .from('product_categories')
+          .select('product_id, category_id')
+          .in('product_id', productIds);
 
       if (categoryError) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching product categories:', categoryError);
+        console.error('Error fetching product categories:', categoryError);
         setResults([]);
         setLoading(false);
         return;
       }
 
-      // Group category IDs by product ID
       const productCategoriesMap = new Map<number, number[]>();
-      categoryData.forEach(item => {
-        const existing = productCategoriesMap.get(item.product_id) || [];
-        productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
+      categoryData.forEach((item) => {
+        const arr = productCategoriesMap.get(item.product_id) || [];
+        productCategoriesMap.set(item.product_id, [...arr, item.category_id]);
       });
 
-      // Fetch category names
-      const allCategoryIds = Array.from(new Set(categoryData.map(item => item.category_id)));
-      const { data: categoriesData, error: categoriesError } = await supabasePublic
-        .from('categories')
-        .select('id, name')
-        .in('id', allCategoryIds);
+      const allCategoryIds = Array.from(
+        new Set(categoryData.map((item) => item.category_id))
+      );
+      const { data: categoriesData, error: categoriesError } =
+        await supabasePublic
+          .from('categories')
+          .select('id, name')
+          .in('id', allCategoryIds);
 
       if (categoriesError) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching categories:', categoriesError);
+        console.error('Error fetching categories:', categoriesError);
         setResults([]);
         setLoading(false);
         return;
       }
 
       const map = new Map<number, string>();
-      categoriesData.forEach(cat => map.set(cat.id, cat.name));
+      categoriesData.forEach((cat) => map.set(cat.id, cat.name));
       setCategoriesMap(map);
 
-      const productsWithCategories = productsData.map(item => ({
+      const productsWithCats = productsData.map((item) => ({
         id: item.id,
         title: item.title,
         price: item.price,
@@ -122,16 +133,21 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         category_ids: productCategoriesMap.get(item.id) || [],
       }));
 
-      setResults(productsWithCategories);
+      setResults(productsWithCats);
       setLoading(false);
 
-      window.gtag?.('event', 'search_query', { event_category: 'search', query });
-      callYm(YM_ID, 'reachGoal', 'search_query', { query });
+      window.gtag?.('event', 'search_query', {
+        event_category: 'search',
+        query,
+      });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'search_query', { query });
+      }
     };
 
     const timer = setTimeout(() => {
       fetchProducts().catch((err) => {
-        if (err.name !== 'AbortError') process.env.NODE_ENV !== "production" && console.error(err);
+        if (err.name !== 'AbortError') console.error(err);
       });
     }, 300);
 
@@ -139,7 +155,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, onClose]);
 
   if (!isOpen) return null;
 
@@ -150,7 +166,6 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
       aria-modal="true"
       aria-label="Поиск по сайту"
     >
-      {/* Кнопка закрытия */}
       <button
         onClick={onClose}
         className="absolute top-2 right-2 p-2 text-black hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-black"
@@ -159,9 +174,14 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         <X size={20} />
       </button>
 
-      {/* Инпут поиска */}
       <div className="flex items-center gap-2 py-3 px-4">
-        <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="text-black" />
+        <Image
+          src="/icons/search.svg"
+          alt="Поиск"
+          width={20}
+          height={20}
+          className="text-black"
+        />
         <input
           ref={inputRef}
           type="text"
@@ -173,8 +193,11 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
         />
       </div>
 
-      {/* Результаты */}
-      <div className="max-h-80 overflow-y-auto" role="list" aria-label="Результаты поиска">
+      <div
+        className="max-h-80 overflow-y-auto"
+        role="list"
+        aria-label="Результаты поиска"
+      >
         <AnimatePresence>
           {loading && (
             <motion.p
@@ -196,7 +219,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
             </motion.p>
           )}
 
-          {!loading && results.length === 0 && query && (
+          {!loading && !results.length && query && (
             <motion.p
               className="text-gray-500 px-4 py-2 text-sm"
               initial={{ opacity: 0 }}
@@ -211,7 +234,7 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
 
           {results.map((p) => {
             const categoryNames = p.category_ids
-              .map(id => categoriesMap.get(id) || '—')
+              .map((id) => categoriesMap.get(id) || '—')
               .join(', ');
 
             return (
@@ -231,15 +254,17 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                       event_category: 'search',
                       product_id: p.id,
                     });
-                    callYm(YM_ID, 'reachGoal', 'search_result_click', {
-                      product_id: p.id,
-                    });
+                    if (YM_ID !== undefined) {
+                      callYm(YM_ID, 'reachGoal', 'search_result_click', {
+                        product_id: p.id,
+                      });
+                    }
                   }}
                   className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                   aria-label={`Перейти к товару ${p.title}`}
                 >
                   <Image
-                    src={p.images?.[0] || '/no-image.png'}
+                    src={p.images[0] || '/no-image.png'}
                     alt={p.title}
                     className="w-10 h-10 object-cover rounded"
                     loading="lazy"
@@ -248,8 +273,12 @@ export default function SearchModal({ isOpen, onClose }: { isOpen: boolean; onCl
                   />
                   <div className="flex-1">
                     <span className="text-sm text-black">{p.title}</span>
-                    <span className="block text-xs text-gray-600">{p.price} ₽</span>
-                    <span className="block text-xs text-gray-500">{categoryNames}</span>
+                    <span className="block text-xs text-gray-600">
+                      {p.price} ₽
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      {categoryNames}
+                    </span>
                   </div>
                 </Link>
               </motion.div>

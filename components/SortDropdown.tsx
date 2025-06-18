@@ -11,30 +11,33 @@ type SortDropdownProps = {
   setSortOrder: (order: 'asc' | 'desc') => void;
 };
 
-export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownProps) {
+const options: { value: 'asc' | 'desc'; label: string }[] = [
+  { value: 'asc', label: 'По возрастанию цены' },
+  { value: 'desc', label: 'По убыванию цены' },
+];
+
+export default function SortDropdown({
+  sortOrder,
+  setSortOrder,
+}: SortDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const options = [
-    { value: 'asc', label: 'По возрастанию цены' },
-    { value: 'desc', label: 'По убыванию цены' },
-  ];
-
-  // Анимации для выпадающего списка
   const dropdownVariants = {
     hidden: { opacity: 0, height: 0 },
     visible: { opacity: 1, height: 'auto', transition: { duration: 0.2 } },
     exit: { opacity: 0, height: 0, transition: { duration: 0.2 } },
   };
 
-  // Обработчик событий для аналитики
   const trackSortChange = (value: 'asc' | 'desc') => {
     window.gtag?.('event', 'sort_change', {
       event_category: 'catalog',
       sort_value: value,
     });
-    callYm(YM_ID, 'reachGoal', 'sort_change', {
-      sort_value: value,
-    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'sort_change', {
+        sort_value: value,
+      });
+    }
   };
 
   return (
@@ -47,10 +50,12 @@ export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownPr
         aria-label="Выберите сортировку"
       >
         <span className="text-sm">
-          {options.find(opt => opt.value === sortOrder)?.label || 'Сортировка'}
+          {options.find((opt) => opt.value === sortOrder)?.label || 'Сортировка'}
         </span>
         <ChevronDown
-          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
         />
       </button>
 
@@ -65,16 +70,16 @@ export default function SortDropdown({ sortOrder, setSortOrder }: SortDropdownPr
             role="listbox"
             aria-label="Параметры сортировки"
           >
-            {options.map(option => (
+            {options.map((option) => (
               <li
                 key={option.value}
                 className={`p-2 text-sm text-black hover:bg-gray-100 cursor-pointer transition-colors duration-200 ${
                   sortOrder === option.value ? 'bg-gray-200' : ''
                 }`}
                 onClick={() => {
-                  setSortOrder(option.value as 'asc' | 'desc');
+                  setSortOrder(option.value);
                   setIsOpen(false);
-                  trackSortChange(option.value as 'asc' | 'desc');
+                  trackSortChange(option.value);
                 }}
                 role="option"
                 aria-selected={sortOrder === option.value}

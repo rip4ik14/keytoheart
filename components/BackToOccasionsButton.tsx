@@ -14,9 +14,11 @@ export default function BackToOccasionsButton({ occasionTitle }: { occasionTitle
           event_category: 'occasion_detail_page',
           event_label: occasionTitle,
         });
-        callYm(YM_ID, 'reachGoal', 'back_to_occasions', {
-          occasion: occasionTitle,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'back_to_occasions', {
+            occasion: occasionTitle,
+          });
+        }
       }}
     >
       Посмотреть другие поводы

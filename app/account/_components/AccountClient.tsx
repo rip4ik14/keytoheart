@@ -187,7 +187,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setOrders(transformedOrders);
 
       window.gtag?.('event', 'view_account', { event_category: 'account' });
-      callYm(YM_ID, 'reachGoal', 'view_account');
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'view_account');
+      }
     } catch (error: any) {
       toast.error('Ошибка загрузки данных');
       setOrders([]);
@@ -226,7 +228,9 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       setBonusData(null);
       toast.success('Вы вышли из аккаунта');
       window.gtag?.('event', 'logout', { event_category: 'auth' });
-      callYm(YM_ID, 'reachGoal', 'logout');
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'logout');
+      }
       // Отправляем кастомное событие после выхода
       window.dispatchEvent(new Event('authChange'));
       router.refresh();
@@ -255,7 +259,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       <main className="max-w-sm mx-auto py-10 px-4 text-center space-y-6 sm:max-w-md" aria-label="Вход в личный кабинет">
         <Toaster position="top-center" />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Вход в кабинет</h1>
-        <p className="text-gray-500">Введите номер телефона для входа </p>
+        <p className="text-gray-500">Введите номер телефона для входа</p>
         <AuthWithCall onSuccess={handleAuthSuccess} />
       </main>
     );

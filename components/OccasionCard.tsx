@@ -2,8 +2,8 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import Link from "next/link";
-import Image from "next/image";
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface Occasion {
   slug: string;
@@ -11,7 +11,13 @@ interface Occasion {
   image: string;
 }
 
-export default function OccasionCard({ occasion, index }: { occasion: Occasion; index: number }) {
+export default function OccasionCard({
+  occasion,
+  index,
+}: {
+  occasion: Occasion;
+  index: number;
+}) {
   return (
     <Link
       href={`/occasions/${occasion.slug}`}
@@ -22,9 +28,11 @@ export default function OccasionCard({ occasion, index }: { occasion: Occasion; 
           event_label: occasion.title,
           value: index + 1,
         });
-        callYm(YM_ID, 'reachGoal', 'occasion_click', {
-          occasion: occasion.title,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'occasion_click', {
+            occasion: occasion.title,
+          });
+        }
       }}
     >
       <div className="relative aspect-[4/3] rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">

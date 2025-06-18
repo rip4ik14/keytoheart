@@ -69,7 +69,6 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
       }
 
       setLoading(true);
-      const start = Date.now();
       const { data, error } = await supabase
         .from('categories')
         .select(`
@@ -82,30 +81,31 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
         .eq('is_visible', true)
         .order('id', { ascending: true });
 
-          if (error) throw error;
+      if (error) throw error;
 
       const updatedData: Category[] = data.map((cat: any) => {
-        const subcategories = cat.subcategories
+        const subcats = cat.subcategories
           ? cat.subcategories
-              .filter((sub: any) => sub.is_visible !== false)
-              .map((sub: any) => ({
-                ...sub,
-                slug: sub.slug || generateSlug(sub.name),
-                is_visible: sub.is_visible ?? true,
+              .filter((s: any) => s.is_visible !== false)
+              .map((s: any) => ({
+                ...s,
+                slug: s.slug || generateSlug(s.name),
+                is_visible: s.is_visible ?? true,
               }))
           : [];
         return {
           ...cat,
           is_visible: cat.is_visible ?? true,
           slug: cat.slug || generateSlug(cat.name),
-          subcategories,
+          subcategories: subcats,
         };
       });
 
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
+      process.env.NODE_ENV !== 'production' &&
+        console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
     } finally {
       setLoading(false);
     }
@@ -119,8 +119,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
-        (payload) => {
-          process.env.NODE_ENV !== "production" && console.log('Categories change detected in Breadcrumbs:', payload);
+        () => {
           categoryCache = null;
           fetchCategories();
         }
@@ -128,8 +127,7 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'subcategories' },
-        (payload) => {
-          process.env.NODE_ENV !== "production" && console.log('Subcategories change detected in Breadcrumbs:', payload);
+        () => {
           categoryCache = null;
           fetchCategories();
         }
@@ -146,73 +144,50 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
 
   let currentPath = '';
   const segments = pathname.split('/').filter(Boolean);
-
-  // Хлебные крошки отображаются всегда, кроме главной страницы
   const shouldRender = pathname !== '/';
 
   if (shouldRender && !loading) {
     segments.forEach((seg, idx) => {
       currentPath += `/${seg}`;
 
-      // Первый сегмент "category"
       if (seg === 'category' && idx === 0) {
         crumbs.push({ href: '/catalog', label: 'Каталог' });
-      }
-      // Второй сегмент — категория
-      else if (idx === 1 && segments[0] === 'category') {
-        const category = categories.find((cat) => cat.slug === seg);
-        if (category) {
-          crumbs.push({ href: `/category/${category.slug}`, label: category.name });
-        } else {
-          const label = decodeURIComponent(seg)
-            .split('-')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-          crumbs.push({ href: currentPath, label });
-        }
-      }
-      // Пропускаем сегмент "subcategory" (он обрабатывается через ?subcategory)
-      else if (idx === 2 && segments[0] === 'category' && segments[2] === 'subcategory') {
-        return;
-      }
-      // Четвёртый сегмент — подкатегория (обрабатывается через параметр ?subcategory)
-      else if (idx === 3 && segments[0] === 'category' && segments[2] === 'subcategory') {
-        return;
-      }
-      // Страница товара
-      else if (seg === 'product' && idx === 0) {
+      } else if (idx === 1 && segments[0] === 'category') {
+        const cat = categories.find((c) => c.slug === seg);
+        crumbs.push({
+          href: `/category/${seg}`,
+          label: cat
+            ? cat.name
+            : decodeURIComponent(seg)
+                .split('-')
+                .map((w) => w[0].toUpperCase() + w.slice(1))
+                .join(' '),
+        });
+      } else if (idx === 2 && segments[0] === 'category' && segments[2] === 'subcategory') {
+        // пропускаем
+      } else if (idx === 3 && segments[0] === 'category' && segments[2] === 'subcategory') {
+        // пропускаем
+      } else if (seg === 'product' && idx === 0) {
         crumbs.push({ href: '/catalog', label: 'Каталог' });
-      }
-      // Пропускаем сегмент "product/[id]"
-      else if (seg === 'product' && idx === 1) {
-        return;
-      }
-      // Название товара
-      else if (idx === 1 && segments[0] === 'product') {
-        const productCategory = categories.find((cat) => cat.slug === 'klubnichnye-bukety');
-        if (productCategory) {
-          crumbs.push({ href: `/category/${productCategory.slug}`, label: productCategory.name });
-        }
-        if (productTitle) {
-          crumbs.push({ href: currentPath, label: productTitle });
-        } else {
-          crumbs.push({ href: currentPath, label: `Товар ${segments[1]}` });
-        }
-      }
-      // Другие страницы (about, delivery, cart и т.д.)
-      else {
-        const label = staticTitles[seg] || decodeURIComponent(seg)
-          .split('-')
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-        crumbs.push({ href: currentPath, label });
+      } else if (seg === 'product' && idx === 1) {
+        // пропускаем
+      } else if (idx === 1 && segments[0] === 'product') {
+        const defaultCat = categories.find((c) => c.slug === 'klubnichnye-bukety');
+        if (defaultCat) crumbs.push({ href: `/category/${defaultCat.slug}`, label: defaultCat.name });
+        crumbs.push({ href: currentPath, label: productTitle || `Товар ${segments[1]}` });
+      } else {
+        const lbl =
+          staticTitles[seg] ||
+          decodeURIComponent(seg)
+            .split('-')
+            .map((w) => w[0].toUpperCase() + w.slice(1))
+            .join(' ');
+        crumbs.push({ href: currentPath, label: lbl });
       }
     });
   }
 
-  if (!shouldRender) {
-    return null;
-  }
+  if (!shouldRender) return null;
 
   return (
     <nav
@@ -244,9 +219,9 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
                         event_category: 'navigation',
                         path: c.href,
                       });
-                      callYm(YM_ID, 'reachGoal', 'breadcrumb_click', {
-                        path: c.href,
-                      });
+                      if (YM_ID !== undefined) {
+                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
+                      }
                     }}
                   >
                     {c.label}
@@ -266,33 +241,30 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
   );
 }
 
-// Компонент для отображения подкатегории
 function SubcategoryCrumb({ categories }: { categories: Category[] }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const subcategorySlug = searchParams.get('subcategory') || 'all';
+  const slug = searchParams.get('subcategory') || 'all';
 
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments[0] !== 'category' || segments.length < 2) return null;
+  const segs = pathname.split('/').filter(Boolean);
+  if (segs[0] !== 'category' || segs.length < 2) return null;
 
-  const categorySlug = segments[1];
-  const category = categories.find((cat) => cat.slug === categorySlug);
-  if (!category) return null;
+  const cat = categories.find((c) => c.slug === segs[1]);
+  if (!cat || slug === 'all') return null;
 
-  if (subcategorySlug !== 'all') {
-    const subcategory = category.subcategories.find((sub) => sub.slug === subcategorySlug);
-    if (subcategory) {
-      return (
-        <li role="listitem" className="flex gap-2">
-          <span aria-hidden="true" className="mx-1 text-gray-500">/</span>
-          <span className="text-black font-medium" aria-current="page">
-            {subcategory.name}
-          </span>
-        </li>
-      );
-    }
-  }
-  return null;
+  const sub = cat.subcategories.find((s) => s.slug === slug);
+  if (!sub) return null;
+
+  return (
+    <li role="listitem" className="flex gap-2">
+      <span aria-hidden="true" className="mx-1 text-gray-500">
+        /
+      </span>
+      <span className="text-black font-medium" aria-current="page">
+        {sub.name}
+      </span>
+    </li>
+  );
 }
 
 export default Breadcrumbs;

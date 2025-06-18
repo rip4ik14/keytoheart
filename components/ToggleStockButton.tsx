@@ -1,4 +1,4 @@
-// ✅ Путь: components/ToggleStockButton.tsx
+// ✅  components/ToggleStockButton.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
@@ -36,10 +36,12 @@ export default function ToggleStockButton({
           product_id: id,
           in_stock: !inStock,
         });
-        callYm(YM_ID, 'reachGoal', 'toggle_stock', {
-          product_id: id,
-          in_stock: !inStock,
-        });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'toggle_stock', {
+            product_id: id,
+            in_stock: !inStock,
+          });
+        }
       }
     });
 

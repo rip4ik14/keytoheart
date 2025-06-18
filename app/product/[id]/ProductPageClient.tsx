@@ -1,7 +1,7 @@
-// ✅ Путь: app/product/[id]/ProductPageClient.tsx
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
+import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react'; // Добавлены ChevronLeft и ChevronRight
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -9,7 +9,6 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@context/CartContext';
-import { Share2, Star } from 'lucide-react';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
@@ -246,7 +245,9 @@ export default function ProductPageClient({
         event_label: product.title,
         value: product.price,
       });
-      callYm(YM_ID, 'reachGoal', 'view_item', { product_id: product.id });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'view_item', { product_id: product.id });
+      }
     } catch {}
   }, [product.id, product.title, product.price]);
 
@@ -295,7 +296,9 @@ export default function ProductPageClient({
         event_label: title,
         value: price,
       });
-      callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
+      }
     } catch {}
   };
 
@@ -419,11 +422,17 @@ export default function ProductPageClient({
                   </SwiperSlide>
                 )}
                 {/* castom arrows */}
-                <button className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition">
-                  <span className="text-2xl text-white">&lt;</span>
+                <button
+                  className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  aria-label="Предыдущее изображение"
+                >
+                  <ChevronLeft className="text-white text-2xl" />
                 </button>
-                <button className="customSwiperButtonNext absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition">
-                  <span className="text-2xl text-white">&gt;</span>
+                <button
+                  className="customSwiperButtonNext absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  aria-label="Следующее изображение"
+                >
+                  <ChevronRight className="text-white text-2xl" />
                 </button>
               </Swiper>
 
@@ -749,11 +758,17 @@ export default function ProductPageClient({
                     </SwiperSlide>
                   ))}
                 </Swiper>
-                <button className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition">
-                  <span className="text-2xl text-white">&lt;</span>
+                <button
+                  className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  aria-label="Предыдущий товар"
+                >
+                  <ChevronLeft className="text-white text-2xl" />
                 </button>
-                <button className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition">
-                  <span className="text-2xl text-white">&gt;</span>
+                <button
+                  className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  aria-label="Следующий товар"
+                >
+                  <ChevronRight className="text-white text-2xl" />
                 </button>
               </div>
             )}

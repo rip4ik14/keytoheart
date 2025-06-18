@@ -112,7 +112,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
         onSuccess(clearPhone);
         if (statusCheckRef.current) clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
-        callYm(YM_ID, 'reachGoal', 'auth_success', { phone: clearPhone });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'auth_success', { phone: clearPhone });
+        }
 
         // Отправляем кастомное событие после успешной авторизации
         window.dispatchEvent(new Event('authChange'));
@@ -173,7 +175,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
           setStep('ban');
           startBanTimer();
           window.gtag?.('event', 'auth_attempt_limit', { event_category: 'auth', phone: clearPhone });
-          callYm(YM_ID, 'reachGoal', 'auth_attempt_limit');
+          if (YM_ID !== undefined) {
+            callYm(YM_ID, 'reachGoal', 'auth_attempt_limit');
+          }
         } else {
           setError(data.error || 'Не удалось инициировать звонок.');
         }
@@ -184,7 +188,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
         setStep('call');
         startCallTimer();
         window.gtag?.('event', 'auth_call_initiated', { event_category: 'auth', phone: clearPhone });
-        callYm(YM_ID, 'reachGoal', 'auth_call_initiated');
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'auth_call_initiated');
+        }
       }
     } catch {
       setError('Ошибка сети. Попробуйте ещё раз.');

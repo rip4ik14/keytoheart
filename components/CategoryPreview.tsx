@@ -10,8 +10,8 @@ interface Props {
   categoryName: string;
   products: Product[];
   seeMoreLink: string;
-  isVisible: boolean; // Добавляем параметр isVisible
-  headingId: string; // ID заголовка для aria
+  isVisible: boolean;
+  headingId: string;
 }
 
 export default function CategoryPreview({
@@ -21,7 +21,6 @@ export default function CategoryPreview({
   isVisible,
   headingId,
 }: Props) {
-  // Если категория не видима, не отображаем её
   if (!isVisible) {
     return null;
   }
@@ -58,9 +57,11 @@ export default function CategoryPreview({
               event_category: 'navigation',
               category: categoryName,
             });
-            callYm(YM_ID, 'reachGoal', 'see_more_category', {
-              category: categoryName,
-            });
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'see_more_category', {
+                category: categoryName,
+              });
+            }
           }}
           aria-label={`Посмотреть больше товаров в категории ${categoryName}`}
         >

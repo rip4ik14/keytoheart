@@ -97,7 +97,9 @@ export default function CorporateSteps({}: CorporateStepsProps) {
               event_category: 'CorporateSteps',
               event_label: 'Leave Request',
             });
-            callYm(YM_ID, 'reachGoal', 'click_steps_cta');
+            if (YM_ID !== undefined) {
+              callYm(YM_ID, 'reachGoal', 'click_steps_cta');
+            }
           }}
         >
           Оставить заявку
