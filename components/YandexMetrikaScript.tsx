@@ -28,6 +28,10 @@ export default function YandexMetrikaScript({ ymId }: YandexMetrikaScriptProps) 
           console.error('Yandex Metrika is not loaded');
         }
       }}
-    />
+      // Log if the external script fails to load
+      onError={() =>
+        console.error('Failed to load Yandex.Metrica script')
+      }
+      />
   );
 }
