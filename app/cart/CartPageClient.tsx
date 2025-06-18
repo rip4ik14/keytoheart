@@ -2,8 +2,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { useCart } from '@context/CartContext';
@@ -110,14 +108,6 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 export default function CartPageClient() {
-  // Яндекс.Метрика: событие начала оформления заказа
-  useEffect(() => {
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'start_checkout');
-    }
-    window.gtag?.('event', 'start_checkout', { event_category: 'cart' });
-  }, []);
-
   let cartContext;
   try {
     cartContext = useCart();
@@ -485,29 +475,29 @@ export default function CartPageClient() {
     };
   }, []);
 
-const fetchAddressSuggestions = useCallback(
-  debounce((query: string) => {
-    if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
-    setIsLoadingSuggestions(true);
-    window.ymaps.ready(async () => {
-      try {
-        const response = await window.ymaps!.suggest(query, {
-          boundedBy: [[43.5, 37.5], [46.5, 41.5]], // Обновленные координаты для Краснодарского края
-          strictBounds: true,
-          results: 5,
-        });
-        setAddressSuggestions(response.map((item: any) => item.value));
-        setShowSuggestions(true);
-      } catch {
-        setAddressSuggestions([]);
-        setShowSuggestions(false);
-      } finally {
-        setIsLoadingSuggestions(false);
-      }
-    });
-  }, 300),
-  []
-);
+  const fetchAddressSuggestions = useCallback(
+    debounce((query: string) => {
+      if (!query.trim() || typeof window === 'undefined' || !window.ymaps || !window.ymaps.ready) return;
+      setIsLoadingSuggestions(true);
+      window.ymaps.ready(async () => {
+        try {
+          const response = await window.ymaps!.suggest(query, {
+            boundedBy: [[45.0, 38.9], [45.2, 39.1]],
+            strictBounds: true,
+            results: 5,
+          });
+          setAddressSuggestions(response.map((item: any) => item.value));
+          setShowSuggestions(true);
+        } catch {
+          setAddressSuggestions([]);
+          setShowSuggestions(false);
+        } finally {
+          setIsLoadingSuggestions(false);
+        }
+      });
+    }, 300),
+    []
+  );
 
   const handleSelectAddress = useCallback(
     (address: string) => {
@@ -914,15 +904,18 @@ const fetchAddressSuggestions = useCallback(
               )}
               {step === 3 && (
                 <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
-                  +   <Step3Address
-     form={form}
-     addressError={addressError}
-     onFormChange={onFormChange}
-     handleAddressChange={handleAddressChange}
-     handleSelectAddress={handleSelectAddress}
-  />
-  </OrderStep>
-)}
+                  <Step3Address
+                    form={form}
+                    addressError={addressError}
+                    showSuggestions={showSuggestions}
+                    isLoadingSuggestions={isLoadingSuggestions}
+                    addressSuggestions={addressSuggestions}
+                    onFormChange={onFormChange}
+                    handleAddressChange={handleAddressChange}
+                    handleSelectAddress={handleSelectAddress}
+                  />
+                </OrderStep>
+              )}
               {step === 4 && (
                 <OrderStep step={4} currentStep={step} title="Дата и время" onNext={handleNextStep} onBack={prevStep}>
                   <Step4DateTime
