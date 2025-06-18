@@ -1,4 +1,4 @@
-// ✅ Путь: components/YandexMetrikaScript.tsx
+// components/YandexMetrikaScript.tsx
 'use client';
 
 import Script from 'next/script';
@@ -9,29 +9,28 @@ interface YandexMetrikaScriptProps {
 
 export default function YandexMetrikaScript({ ymId }: YandexMetrikaScriptProps) {
   return (
-    <Script
-      id="ym"
-      data-nosnippet
-      strategy="afterInteractive"
-      src="https://mc.yandex.ru/metrika/tag.js"
-      onLoad={() => {
-        if (typeof window.ym === 'function') {
-          // @ts-ignore: window.ym accepts object init params
-          window.ym(ymId, 'init', {
-            clickmap: true,
-            trackLinks: true,
-            accurateTrackBounce: true,
-            trackHash: true,
-            webvisor: true,
-          });
-        } else {
-          console.error('Yandex Metrika is not loaded');
-        }
-      }}
-      // Log if the external script fails to load
-      onError={() =>
-        console.error('Failed to load Yandex.Metrica script')
-      }
-      />
+    <Script id="yandex-metrika" strategy="afterInteractive">
+      {`
+        (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){
+            (m[i].a=m[i].a||[]).push(arguments)
+          };
+          m[i].l=1*new Date();
+          k=e.createElement(t);
+          a=e.getElementsByTagName(t)[0];
+          k.async=1;
+          k.src=r;
+          a.parentNode.insertBefore(k,a);
+        })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+        ym(${ymId}, "init", {
+          clickmap:true,
+          trackLinks:true,
+          accurateTrackBounce:true,
+          trackHash:true,
+          webvisor:true
+        });
+      `}
+    </Script>
   );
 }
