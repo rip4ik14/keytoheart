@@ -1,12 +1,12 @@
-// ✅  app/layout.tsx  (целиком под замену)
+// ✅  app/layout.tsx
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
-import YandexMetrikaScript from '@components/YandexMetrikaScript';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
+import Script from 'next/script';
 import { Suspense } from 'react';
 
 import TopBar from '@components/TopBar';
@@ -18,13 +18,15 @@ import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
 
+import YandexMetrikaScript from '@components/YandexMetrikaScript';
+
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym';
 
 /* ------------------------------------------------------------------ */
-/*                          ШРИФТЫ (next/font)                         */
+/*                          ШРИФТЫ (next/font)                        */
 /* ------------------------------------------------------------------ */
 const golosText = localFont({
   variable: '--font-golos',
@@ -47,14 +49,15 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------------------------------------------ */
-/*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                        */
+/*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                      */
 /* ------------------------------------------------------------------ */
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
+    default:
+      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
     template: '%s | KEY TO HEART',
   },
   description:
@@ -64,8 +67,10 @@ export const metadata: Metadata = {
     locale: 'ru_RU',
     siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
-    title: 'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
-    description: 'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
+    title:
+      'Клубничные букеты, цветы и подарки в Краснодаре — доставка 60 мин | KEY TO HEART',
+    description:
+      'Закажите клубничные букеты, свежие цветы и подарочные боксы с экспресс-доставкой по Краснодару. Работаем 24/7.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
@@ -79,7 +84,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'KEY TO HEART — клубничные букеты и подарки в Краснодаре',
-    description: 'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
+    description:
+      'Свежие цветы и клубничные боксы с доставкой за 60 мин по Краснодару. Онлайн-заказ 24/7.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
@@ -93,9 +99,13 @@ export const viewport: Viewport = {
 };
 
 /* ------------------------------------------------------------------ */
-/*                              COMPONENT                             */
+/*                             LAYOUT                                 */
 /* ------------------------------------------------------------------ */
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -113,16 +123,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         slug: c.slug,
         is_visible: c.is_visible ?? true,
         subcategories:
-          c.subcategories?.filter((s: any) => s.is_visible).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            slug: s.slug,
-            is_visible: s.is_visible ?? true,
-          })) ?? [],
+          c.subcategories
+            ?.filter((s: any) => s.is_visible)
+            .map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              slug: s.slug,
+              is_visible: s.is_visible ?? true,
+            })) ?? [],
       }));
     }
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error →', e);
+    process.env.NODE_ENV !== 'production' &&
+      console.warn('[layout] categories fetch error →', e);
     categories = [];
   }
 
@@ -138,7 +151,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.035470;38.975313" />
 
-        <link rel="preconnect" href="https://gwbeabfkknhewwoesqax.supabase.co" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://gwbeabfkknhewwoesqax.supabase.co"
+          crossOrigin="anonymous"
+        />
 
         <JsonLd
           item={{
@@ -192,11 +209,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ],
           }}
         />
-
-        {ymId !== undefined && <YandexMetrikaScript ymId={ymId} />}
       </head>
-
       <body className="font-sans">
+        {ymId !== undefined && <YandexMetrikaScript ymId={ymId} />}
+
         <SkipLink />
 
         <CartAnimationProvider>
@@ -222,19 +238,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               aria-label="О магазине"
               className="mx-auto mt-8 mb-12 max-w-5xl px-4 text-[15px] leading-6 text-gray-700"
             >
-              <h2 className="mb-2 text-lg font-semibold">Почему выбирают KEY TO HEART?</h2>
-
+              <h2 className="mb-2 text-lg font-semibold">
+                Почему выбирают KEY TO HEART?
+              </h2>
               <p className="mb-3">
-                Мы готовим клубничные букеты из свежей фермерской ягоды и настоящего бельгийского
-                шоколада, а также цветочные композиции и комбо-наборы. Каждый заказ собирается
-                вручную прямо перед отправкой и доставляется по Краснодару — всего за 60 минут.
+                Мы готовим клубничные букеты из свежей фермерской ягоды и
+                настоящего бельгийского шоколада, а также цветочные композиции
+                и комбо-наборы. Каждый заказ собирается вручную прямо перед
+                отправкой и доставляется по Краснодару — всего за 60 минут.
               </p>
-
               <p className="mb-3">
-                Фото готового подарка отправляем вам перед доставкой, работаем онлайн 24/7
-                и бережно упаковываем любую композицию — от мини-букета до корпоративного заказа.
+                Фото готового подарка отправляем вам перед доставкой, работаем
+                онлайн 24/7 и бережно упаковываем любую композицию — от
+                мини-букета до корпоративного заказа.
               </p>
-
               <h3 className="mb-1 font-medium">Популярные поводы</h3>
               <ul className="list-disc pl-6">
                 <li>8 Марта и 14 Февраля</li>
