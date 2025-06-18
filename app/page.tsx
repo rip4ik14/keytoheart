@@ -1,22 +1,20 @@
-// ✅ Путь: app/page.tsx
+/* -------------------------------------------------------------------------- */
+/*  Главная страница. Добавлены FAQ-разметка и мелкие SEO-штрихи              */
+/* -------------------------------------------------------------------------- */
 import React from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type { ItemList } from 'schema-dts';
-
-import PromoGridServer       from '@components/PromoGridServer';
+import type { ItemList, FAQPage } from 'schema-dts';
+import PromoGridServer from '@components/PromoGridServer';
+import AdvantagesClient from '@components/AdvantagesClient';
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
-import SkeletonCard          from '@components/ProductCardSkeleton';
-import AdvantagesDynamic     from '@components/AdvantagesDynamic';   // ← новая обёртка
-
+import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
-import { cookies }            from 'next/headers';
-import type { Database }      from '@/lib/supabase/types_new';
+import { cookies } from 'next/headers';
+import type { Database } from '@/lib/supabase/types_new';
 
-/* ------------------------------------------------------------------ */
-/* types                                                               */
-/* ------------------------------------------------------------------ */
+/* -------------------------- Типы и настройки -------------------------- */
 interface Product {
   id: number;
   title: string;
@@ -29,53 +27,30 @@ interface Product {
   category_ids: number[];
 }
 
-/* ------------------------------------------------------------------ */
-/* настройки ISR / SEO                                                 */
-/* ------------------------------------------------------------------ */
 export const revalidate = 60;
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title:
-    'Клубничные букеты и подарки в Краснодаре — KEY TO HEART',
+  title: 'Клубничные букеты с доставкой за 60 мин в Краснодаре | KEY TO HEART',
   description:
-    'Свежие клубничные букеты, цветы и подарки с доставкой за 60 мин в Краснодаре. Закажите 24/7 на KEY TO HEART для любого случая!',
-  keywords: [
-    'клубничные букеты Краснодар',
-    'доставка цветов Краснодар',
-    'подарки с доставкой',
-    'заказ цветов онлайн',
-  ],
+    'Закажите свежие клубничные букеты, цветы и подарки с доставкой 24/7 за 60 мин по Краснодару!',
   openGraph: {
-    title:
-      'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
-    description:
-      'Сюрприз для души! Закажите клубничные букеты и цветы с доставкой за 60 мин в Краснодаре.',
+    title: 'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
+    description: 'Сюрприз за час! Доставка букетов и подарков 24/7 по Краснодару.',
     url: 'https://keytoheart.ru',
-    images: [
-      {
-        url: '/og-cover.webp',
-        width: 1200,
-        height: 630,
-        alt: 'Клубничные букеты KEY TO HEART',
-      },
-    ],
+    images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Клубничные букеты в Краснодаре | KEY TO HEART',
-    description:
-      'Быстрая доставка свежих букетов и подарков в Краснодаре! Заказывайте 24/7 на KEY TO HEART.',
+    title: 'Клубничные букеты и подарки в Краснодаре | KEY TO HEART',
+    description: 'Свежие клубничные букеты и цветы с доставкой 24/7 за 60 мин.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
-/* ------------------------------------------------------------------ */
-/* компонент страницы                                                  */
-/* ------------------------------------------------------------------ */
+/* ------------------------------ Страница ------------------------------ */
 export default async function Home() {
-  /* --- создаём Supabase-клиент на сервере (с куками) --- */
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,84 +58,77 @@ export default async function Home() {
     {
       cookies: {
         getAll() {
-          return Array.from(cookieStore.getAll()).map((c) => ({
-            name: c.name,
-            value: c.value,
+          return Array.from(cookieStore.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
           }));
         },
-        setAll(arr) {
-          arr.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
         },
       },
     },
   );
 
-  /* --- загружаем товары и категории --- */
+  /* ------------------ Грузим товары и карты категорий ------------------ */
   let products: Product[] = [];
-  let categoriesData: { id: number; name: string; slug: string }[] = [];
-
   try {
-    const { data: productData, error: productError } = await supabase
+    const { data: productCategoryData, error: productCategoryError } = await supabase
+      .from('product_categories')
+      .select('product_id, category_id');
+
+    if (productCategoryError) throw productCategoryError;
+
+    const productCategoriesMap = new Map<number, number[]>();
+    productCategoryData.forEach(({ product_id, category_id }) => {
+      const list = productCategoriesMap.get(product_id) || [];
+      productCategoriesMap.set(product_id, [...list, category_id]);
+    });
+
+    const productIds = [...productCategoriesMap.keys()];
+
+    const { data, error } = await supabase
       .from('products')
-      .select(`
-        id,
-        title,
-        price,
-        discount_percent,
-        in_stock,
-        images,
-        production_time,
-        is_popular,
-        product_categories!inner(category_id)
-      `)
+      .select('id,title,price,discount_percent,in_stock,images,production_time,is_popular')
+      .in('id', productIds.length ? productIds : [-1]) // CHANGED: -1 вместо 0
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
 
-    if (productError) throw new Error(productError.message);
+    if (error) throw error;
 
     products =
-      productData?.map((item) => {
-        const categoryIds = item.product_categories.map(
-          (pc: { category_id: number }) => pc.category_id,
-        );
-        return {
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          discount_percent: item.discount_percent ?? null,
-          in_stock: item.in_stock ?? false,
-          images: item.images ?? [],
-          production_time: item.production_time ?? null,
-          is_popular: item.is_popular ?? null,
-          category_ids: categoryIds,
-        };
-      }) ?? [];
-
-    const uniqueCatIds = Array.from(
-      new Set(products.flatMap((p) => p.category_ids)),
-    );
-
-    const { data: catData, error: catError } = await supabase
-      .from('categories')
-      .select('id,name,slug')
-      .in('id', uniqueCatIds.length ? uniqueCatIds : [0]);
-
-    if (catError) throw new Error(catError.message);
-    categoriesData = catData ?? [];
-  } catch (e) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('Ошибка загрузки данных:', e);
+      data?.map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        discount_percent: item.discount_percent ?? null,
+        in_stock: item.in_stock ?? false,
+        images: item.images ?? [],
+        production_time: item.production_time ?? null,
+        is_popular: item.is_popular ?? null,
+        category_ids: productCategoriesMap.get(item.id) || [],
+      })) || [];
+  } catch (err) {
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки товаров:', err);
   }
 
-  /* --- мапы для быстрого доступа --- */
-  const categoryMap = new Map<number, { name: string; slug: string }>();
-  categoriesData.forEach((c) =>
-    categoryMap.set(c.id, { name: c.name, slug: c.slug }),
-  );
+  /* -------------- Грузим названия/slug категорий одним запросом --------- */
+  const categoryIds = [...new Set(products.flatMap((p) => p.category_ids))];
+  const { data: categoriesData, error: categoriesError } = await supabase
+    .from('categories')
+    .select('id,name,slug')
+    .in('id', categoryIds.length ? categoryIds : [-1]);
 
+  if (categoriesError)
+    process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки категорий:', categoriesError);
+
+  const categoryMap = new Map<number, { name: string; slug: string }>();
+  categoriesData?.forEach((c) => categoryMap.set(c.id, { name: c.name, slug: c.slug }));
+
+  /* ----------------- Формируем списки категорий для UI ----------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы': 'klubnichnye-boksy',
@@ -172,33 +140,28 @@ export default async function Home() {
     Подарки: 'podarki',
   };
 
-  const categories = Array.from(
-    new Set(
-      products
-        .filter(
-          (p) =>
-            !p.category_ids.some((id) => {
-              const c = categoryMap.get(id);
-              return c?.slug === 'balloon' || c?.slug === 'postcard';
-            }),
-        )
-        .flatMap((p) =>
-          p.category_ids.map((id) => categoryMap.get(id)?.name),
-        ),
-    ),
-  )
+  const categories = [...new Set(
+    products
+      .filter((p) =>
+        !p.category_ids.some((id) => {
+          const slug = categoryMap.get(id)?.slug;
+          return slug === 'balloon' || slug === 'postcard';
+        }),
+      )
+      .flatMap((p) => p.category_ids.map((id) => categoryMap.get(id)?.name)),
+  )]
     .filter(Boolean)
-    .filter((c) => c !== 'Подарки') as string[];
+    .filter((name) => name !== 'Подарки') as string[];
 
-  /* ------------------ JSX ------------------ */
+  /* ------------------------------ Рендер ------------------------------ */
   return (
     <main aria-label="Главная страница">
-      {/* JSON-LD каталога */}
+      {/* -------------- JSON-LD для товаров ---------------- */}
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
           itemListElement: products
-            .filter((p) => p.images.length)
+            .filter((p) => p.images?.length)
             .map((p, i) => ({
               '@type': 'ListItem',
               position: i + 1,
@@ -220,31 +183,44 @@ export default async function Home() {
         }}
       />
 
-      {/* Промо-баннеры */}
-      <section aria-labelledby="promo-grid-heading">
-        <h2 id="promo-grid-heading" className="sr-only">
-          Промо-баннеры
-        </h2>
+      {/* -------------- FAQ-сниппет для People Also Ask --------------- */}
+      <JsonLd<FAQPage>
+        item={{
+          '@type': 'FAQPage',
+          mainEntity: [
+            {
+              '@type': 'Question',
+              name: 'Сколько хранится клубничный букет?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'При температуре 4 °C свежие клубничные букеты сохраняют вкус и вид до 24 часов.',
+              },
+            },
+            {
+              '@type': 'Question',
+              name: 'Доставляете ли вы ночью?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: 'Да, сервис работает 24/7 — доставка возможна в любой час суток.',
+              },
+            },
+          ],
+        }}
+      />
+
+      {/* ----------------------- Контент --------------------- */}
+      <section>
         <PromoGridServer />
       </section>
 
-      {/* Популярные */}
-      <section aria-labelledby="popular-products-heading">
-        <h2 id="popular-products-heading" className="sr-only">
-          Популярные товары
-        </h2>
+      <section>
         <PopularProductsServer />
       </section>
 
-      {/* Категории с превью */}
-      <section aria-labelledby="categories-heading">
-        <h2 id="categories-heading" className="sr-only">
-          Категории товаров
-        </h2>
-
+      <section aria-label="Категории товаров">
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
@@ -253,9 +229,7 @@ export default async function Home() {
             const slug = slugMap[category] || '';
             const items = products
               .filter((p) =>
-                p.category_ids.some(
-                  (id) => categoryMap.get(id)?.name === category,
-                ),
+                p.category_ids.some((id) => categoryMap.get(id)?.name === category),
               )
               .slice(0, 8);
 
@@ -267,9 +241,7 @@ export default async function Home() {
                   seeMoreLink={slug}
                   headingId={`category-preview-${slug || idx}`}
                 />
-
-                {/* вставляем блок преимуществ после первой категории */}
-                {idx === 0 && <AdvantagesDynamic />}
+                {idx === 0 && <AdvantagesClient />}
               </React.Fragment>
             );
           })

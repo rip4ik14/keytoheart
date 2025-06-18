@@ -1,37 +1,49 @@
+/* -------------------------------------------------------------------------- */
+/*  Страница товара (SSR + Supabase, фикс типов cookies + JSON-LD)            */
+/* -------------------------------------------------------------------------- */
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { JsonLd } from 'react-schemaorg';
-import type { Product as SchemaProduct, AggregateOffer } from 'schema-dts';
+import type {
+  Product as SchemaProduct,
+  AggregateOffer,
+  BreadcrumbList,
+} from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
 import { Product, ComboItem } from './types';
 
-const supabase = createClient<Database>(
+/* ------------------------------------------------------------------ */
+/*  Анонимный клиент (используем в SSG-методах, cookie не нужны)       */
+/* ------------------------------------------------------------------ */
+const supabaseAnon = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-export const revalidate = 3600;
+export const revalidate = 3600; // 1 ч
 
-/* ------------------------------------------------------------------ */
-/*                              TYPES                                 */
-/* ------------------------------------------------------------------ */
 type RowFull = Database['public']['Tables']['products']['Row'] & {
   product_categories: { category_id: number }[];
 };
 
-/* ------------------------------------------------------------------ */
+/* ------------------------ SSG: generate paths ---------------------- */
 export async function generateStaticParams() {
-  const { data } = await supabase
+  const { data } = await supabaseAnon
     .from('products')
     .select('id')
     .eq('is_visible', true);
-  return data?.map(p => ({ id: String(p.id) })) ?? [];
+
+  return data?.map((p) => ({ id: String(p.id) })) ?? [];
 }
 
+/* ----------------------- SSG: generate <head> ---------------------- */
 export async function generateMetadata({
   params,
 }: {
@@ -40,38 +52,44 @@ export async function generateMetadata({
   const id = Number(params.id);
   if (Number.isNaN(id)) return {};
 
-  const { data } = await supabase
+  const { data } = await supabaseAnon
     .from('products')
-    .select('title, description, images, price')
+    .select('title, description, images')
     .eq('id', id)
     .single();
 
   if (!data) {
     return {
       title: 'Товар не найден | KEY TO HEART',
-      description: 'Товар не найден? Загляните в наш каталог и закажите другой букет в Краснодаре на KEY TO HEART!',
+      description: 'Страница товара не найдена.',
+      robots: { index: false, follow: false },
     };
   }
 
-  const desc = data.description
-    ? data.description.replace(/<[^>]*>/g, '').trim().slice(0, 150)
-    : `Закажите ${data.title} за ${data.price} руб. с доставкой за 60 мин в Краснодаре! Свежесть и вкус от KEY TO HEART.`;
-  const firstImg = Array.isArray(data.images) && data.images[0] ? data.images[0] : '/og-cover.webp';
+  const desc = (data.description ?? '')
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .slice(0, 160);
+
+  const firstImg =
+    Array.isArray(data.images) && data.images[0]
+      ? data.images[0]
+      : '/og-cover.webp';
+
   const url = `https://keytoheart.ru/product/${id}`;
 
   return {
-    title: `${data.title} — заказать с доставкой | KEY TO HEART`,
-    description: desc,
-    keywords: ['клубничный букет Краснодар', 'доставка цветов Краснодар', data.title.toLowerCase()],
+    title: `${data.title} | KEY TO HEART`,
+    description: desc || undefined,
     openGraph: {
-      title: `${data.title} — букет с доставкой | KEY TO HEART`,
+      title: data.title,
       description: desc,
       url,
       images: [{ url: firstImg }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${data.title} | KEY TO HEART`,
+      title: data.title,
       description: desc,
       images: [firstImg],
     },
@@ -80,18 +98,38 @@ export async function generateMetadata({
 }
 
 /* ------------------------------------------------------------------ */
-export default async function ProductPage({ params }: { params: { id: string } }) {
+/*                                Page                                */
+/* ------------------------------------------------------------------ */
+export default async function ProductPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const id = Number(params.id);
   if (Number.isNaN(id)) notFound();
 
+  /* ---------- SSR-клиент Supabase с cookie-контекстом ---------- */
+  const cookieStore = await cookies(); // ← FIX: await, получаем ReadonlyRequestCookies
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll().map(({ name, value }) => ({
+            name,
+            value,
+          }));
+        },
+      },
+    },
+  );
+
+  /* ---------- Продукт + join категорий ---------- */
   const { data, error } = await supabase
     .from('products')
-    .select(
-      `
-        *,
-        product_categories(category_id)
-      `,
-    )
+    .select('*, product_categories(category_id)')
     .eq('id', id)
     .eq('is_visible', true)
     .single<RowFull>();
@@ -108,21 +146,29 @@ export default async function ProductPage({ params }: { params: { id: string } }
     description: data.description ?? '',
     composition: data.composition ?? '',
     production_time: data.production_time ?? null,
-    category_ids: data.product_categories?.map(c => c.category_id) ?? [],
+    category_ids: data.product_categories?.map((c) => c.category_id) ?? [],
   };
 
-  const { data: upsells } = await supabase
-    .from('upsell_items')
-    .select('id, title, price, image_url');
+  /* ---------- Апселлы (fail-silent) ---------- */
+  let combos: ComboItem[] = [];
+  try {
+    const { data: upsells } = await supabase
+      .from('upsell_items')
+      .select('id, title, price, image_url');
 
-  const combos: ComboItem[] =
-    upsells?.map(u => ({
-      id: Number(u.id),
-      title: u.title,
-      price: u.price,
-      image: u.image_url ?? '',
-    })) ?? [];
+    combos =
+      upsells?.map((u) => ({
+        id: Number(u.id),
+        title: u.title,
+        price: u.price,
+        image: u.image_url ?? '',
+      })) ?? [];
+  } catch (e) {
+    process.env.NODE_ENV !== 'production' &&
+      console.error('upsell_items →', e);
+  }
 
+  /* ---------- Offer для Schema.org ---------- */
   const finalPrice =
     product.discount_percent && product.discount_percent > 0
       ? Math.round(product.price * (1 - product.discount_percent / 100))
@@ -133,13 +179,18 @@ export default async function ProductPage({ params }: { params: { id: string } }
     priceCurrency: 'RUB',
     lowPrice: finalPrice,
     highPrice: product.original_price ?? product.price,
-    offerCount: 1,
     price: finalPrice,
+    offerCount: 1,
     availability: 'https://schema.org/InStock',
+    priceValidUntil: new Date(Date.now() + 12096e5) // +14 дней
+      .toISOString()
+      .split('T')[0],
   };
 
+  /* ------------------------------------------------------------------ */
   return (
     <main aria-label={`Товар ${product.title}`}>
+      {/* --- Product JSON-LD --- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
@@ -152,6 +203,27 @@ export default async function ProductPage({ params }: { params: { id: string } }
           category: product.category_ids.join(',') || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
           offers: offer,
+        }}
+      />
+
+      {/* --- BreadcrumbList JSON-LD --- */}
+      <JsonLd<BreadcrumbList>
+        item={{
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Главная',
+              item: 'https://keytoheart.ru',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: product.title,
+              item: `https://keytoheart.ru/product/${product.id}`,
+            },
+          ],
         }}
       />
 

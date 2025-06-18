@@ -1,14 +1,20 @@
-# *
+# -------- Robots: KEY TO HEART --------
 User-agent: *
 Allow: /
+
+# Админка
 Disallow: /admin
+# Технические или дубли
 Disallow: /product-category/
 Disallow: /products/
 Disallow: /preload
+Disallow: /checkout/
+Disallow: /cart/
+# Скрытые товары
 Disallow: /product/2
 
-# Host
-Host: https://keytoheart.ru
+# Очистка UTM-параметров для Яндекса
+Clean-param: utm_source&utm_medium&utm_campaign /        # NEW
 
-# Sitemaps
+Host: https://keytoheart.ru
 Sitemap: https://keytoheart.ru/sitemap.xml
