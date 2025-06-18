@@ -2,6 +2,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { useCart } from '@context/CartContext';
@@ -108,6 +110,14 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 export default function CartPageClient() {
+  // Яндекс.Метрика: событие начала оформления заказа
+  useEffect(() => {
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'start_checkout');
+    }
+    window.gtag?.('event', 'start_checkout', { event_category: 'cart' });
+  }, []);
+
   let cartContext;
   try {
     cartContext = useCart();
