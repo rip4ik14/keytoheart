@@ -58,6 +58,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const updatedItems = prev.map((i) =>
           i.id === item.id ? { ...i, quantity: newQuantity } : i
         );
+
         toast.success(`${item.title} обновлён в корзине (x${newQuantity})`);
         window.gtag?.('event', 'update_cart_item', {
           event_category: 'cart',
@@ -72,6 +73,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return updatedItems;
       }
+
       toast.success(`${item.title} добавлен в корзину`);
       window.gtag?.('event', 'add_to_cart', {
         event_category: 'cart',
@@ -156,6 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return prev.filter((i) => i.id !== id);
       }
+
       const updatedItems = prev.map((i) =>
         i.id === id ? { ...i, quantity } : i
       );

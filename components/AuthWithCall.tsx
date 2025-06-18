@@ -18,6 +18,7 @@ type Props = {
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
+
   const [step, setStep] = useState<'phone' | 'call' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
   const [checkId, setCheckId] = useState<string | null>(null);
@@ -25,12 +26,23 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const [callPhoneRaw, setCallPhoneRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [banTimer, setBanTimer] = useState(0);
-  const [callTimer, setCallTimer] = useState(300); // 5 минут
+  const [callTimer, setCallTimer] = useState(300);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
+
+  // При входе в шаг ввода телефона шлём метрику
+  useEffect(() => {
+    if (step === 'phone') {
+      window.gtag?.('event', 'enter_phone', { event_category: 'auth' });
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'enter_phone');
+      }
+    }
+  }, [step]);
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -47,24 +59,26 @@ export default function AuthWithCall({ onSuccess }: Props) {
     if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
     return (
       '+7 ' +
-      (cleaned.slice(1, 4) || '') +
+      cleaned.slice(1, 4) +
       (cleaned.length > 1 ? ' ' : '') +
-      (cleaned.slice(4, 7) || '') +
+      cleaned.slice(4, 7) +
       (cleaned.length > 4 ? '-' : '') +
-      (cleaned.slice(7, 9) || '') +
+      cleaned.slice(7, 9) +
       (cleaned.length > 7 ? '-' : '') +
-      (cleaned.slice(9, 11) || '')
-    ).replace(/ $/, '');
+      cleaned.slice(9, 11)
+    ).trim();
   };
 
   const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.replace(/\D/g, '');
-    if (v.length <= 11) setPhone(formatPhone(v));
+    const digits = e.target.value.replace(/\D/g, '');
+    if (digits.length <= 11) {
+      setPhone(formatPhone(digits));
+    }
   };
 
   const startBanTimer = () => {
     setBanTimer(600);
-    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current && clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setBanTimer((t) => {
         if (t <= 1) {
@@ -80,7 +94,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   const startCallTimer = () => {
     setCallTimer(300);
-    if (callTimerRef.current) clearInterval(callTimerRef.current);
+    callTimerRef.current && clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => {
       setCallTimer((t) => {
         if (t <= 1) {
@@ -96,35 +110,27 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   const checkCallStatus = async () => {
     if (!checkId || !phone) return;
-
     setIsCheckingStatus(true);
     try {
       const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
       const res = await fetch(`/api/auth/status?checkId=${checkId}&phone=${encodeURIComponent(clearPhone)}`);
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Ошибка проверки статуса');
-      }
-
+      if (!res.ok) throw new Error(data.error || 'Ошибка проверки статуса');
       if (data.success && data.status === 'VERIFIED') {
         setStep('success');
         onSuccess(clearPhone);
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+        statusCheckRef.current && clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
         if (YM_ID !== undefined) {
           callYm(YM_ID, 'reachGoal', 'auth_success', { phone: clearPhone });
         }
-
-        // Отправляем кастомное событие после успешной авторизации
         window.dispatchEvent(new Event('authChange'));
-
         const redirectTo = searchParams.get('from') || '/account';
         router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
         setStep('phone');
         setError('Время для звонка истекло. Попробуйте снова.');
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+        statusCheckRef.current && clearInterval(statusCheckRef.current);
       } else if (data.error) {
         setError(data.error);
       }
@@ -138,23 +144,22 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
-      const initialDelay = setTimeout(() => {
+      const initial = setTimeout(() => {
         checkCallStatus();
         statusCheckRef.current = setInterval(checkCallStatus, 3000);
       }, 3000);
-
       return () => {
-        clearTimeout(initialDelay);
-        if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+        clearTimeout(initial);
+        statusCheckRef.current && clearInterval(statusCheckRef.current);
       };
     }
-  }, [step, checkId, phone, router]);
+  }, [step, checkId, phone]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (callTimerRef.current) clearInterval(callTimerRef.current);
-      if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+      timerRef.current && clearInterval(timerRef.current);
+      callTimerRef.current && clearInterval(callTimerRef.current);
+      statusCheckRef.current && clearInterval(statusCheckRef.current);
     };
   }, []);
 
@@ -211,8 +216,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        
-        <p className="text-black-400">Введите номер телефона для авторизации и оформления заказа</p>
+        Введите номер телефона для авторизации и оформления заказа
       </motion.h2>
 
       {step === 'phone' && (
@@ -325,7 +329,8 @@ export default function AuthWithCall({ onSuccess }: Props) {
             Превышено число попыток
           </div>
           <div className="text-center mb-2 font-sans">
-            Повторная авторизация будет доступна через {Math.floor(banTimer / 60)}:{('0' + (banTimer % 60)).slice(-2)}
+            Повторная авторизация будет доступна через{' '}
+            {Math.floor(banTimer / 60)}:{('0' + (banTimer % 60)).slice(-2)}
           </div>
           <a
             href={WHATSAPP_LINK}
@@ -341,7 +346,9 @@ export default function AuthWithCall({ onSuccess }: Props) {
 
       {step === 'success' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-          <div className="text-center text-black font-bold font-sans">Авторизация успешна!</div>
+          <div className="text-center text-black font-bold font-sans">
+            Авторизация успешна!
+          </div>
         </motion.div>
       )}
     </motion.div>

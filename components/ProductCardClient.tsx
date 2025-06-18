@@ -4,6 +4,8 @@ import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import { ShoppingCart } from 'lucide-react';
 import { useRef } from 'react';
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
 
 interface Props {
   id: number;
@@ -13,12 +15,19 @@ interface Props {
   productionTime: number | null;
 }
 
-export default function ProductCardClient({ id, title, price, imageUrl, productionTime }: Props) {
+export default function ProductCardClient({
+  id,
+  title,
+  price,
+  imageUrl,
+  productionTime,
+}: Props) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleClick = () => {
+    // 1. Добавляем в корзину
     addItem({
       id: id.toString(),
       title,
@@ -27,9 +36,20 @@ export default function ProductCardClient({ id, title, price, imageUrl, producti
       imageUrl,
       production_time: productionTime,
     });
+
+    // 2. Цель Яндекс.Метрики: add_to_cart
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'add_to_cart');
+    }
+
+    // 3. Анимация полёта товара в корзину
     if (buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
+      triggerCartAnimation(
+        r.left + r.width / 2,
+        r.top + r.height / 2,
+        imageUrl
+      );
     }
   };
 

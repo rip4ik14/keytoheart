@@ -15,6 +15,36 @@ interface Props {
 export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Props) {
   const [timer, setTimer] = useState(15);
 
+  // ✅ Вызов цели Яндекс.Метрики при открытии модалки
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof window.ym === 'function') {
+      window.ym(102737149, 'reachGoal', 'order_success');
+    }
+  }, []);
+
+  useEffect(() => {
+    const timerInterval = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, [onClose]);
+
+  const copyTrackingUrl = () => {
+    if (trackingUrl) {
+      navigator.clipboard.writeText(trackingUrl).then(() => {
+        toast.success('Ссылка скопирована!');
+      }).catch(() => {
+        toast.error('Не удалось скопировать ссылку');
+      });
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.5 } },
@@ -48,29 +78,6 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
   const buttonVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { duration: 0.5, delay: 0.6 } },
-  };
-
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          onClose();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerInterval);
-  }, [onClose]);
-
-  const copyTrackingUrl = () => {
-    if (trackingUrl) {
-      navigator.clipboard.writeText(trackingUrl).then(() => {
-        toast.success('Ссылка скопирована!');
-      }).catch(() => {
-        toast.error('Не удалось скопировать ссылку');
-      });
-    }
   };
 
   return (
