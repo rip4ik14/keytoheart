@@ -2,6 +2,10 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /product-category/
+Disallow: /products/
+Disallow: /preload
+Disallow: /product/2
 
 # Host
 Host: https://keytoheart.ru
