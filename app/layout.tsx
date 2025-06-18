@@ -1,5 +1,5 @@
 // ✅ Путь: app/layout.tsx
-import './styles/globals.min.css';
+import './styles/globals.css';
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
