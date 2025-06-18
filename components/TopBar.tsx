@@ -1,3 +1,4 @@
+// ✅ Путь: components/TopBar.tsx
 'use client';
 
 export default function TopBar() {
@@ -9,23 +10,23 @@ export default function TopBar() {
   ];
 
   return (
-    <nav className="bg-black text-white overflow-hidden" aria-label="Информационная панель">
-      <div className="max-w-5xl mx-auto px-1 py-2">
-        <div
-          className="animate-marquee flex w-max whitespace-nowrap text-sm"
-          aria-roledescription="marquee"
-        >
-          {textItems.map((text, idx) => (
-            <span
-              key={idx}
-              className="mx-6"
-              style={{ fontSize: 'clamp(14px, 3vw, 16px)' }}
-            >
-              {text}
-            </span>
-          ))}
+    <div className="bg-black text-white overflow-hidden">
+      <div className="max-w-5xl mx-auto px-1">
+        <div className="relative">
+          <div
+            className="animate-marquee flex w-max whitespace-nowrap text-sm py-2"
+            aria-roledescription="marquee"
+            aria-label="Информационная панель"
+          >
+            {[...textItems, ...textItems].map((text, idx) => (
+              <span key={idx} className="mx-6">
+                {text}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
-    </nav>
+    </div>
   );
 }
+
