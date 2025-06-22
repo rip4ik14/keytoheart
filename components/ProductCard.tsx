@@ -1,8 +1,5 @@
 'use client';
 
-/* -------------------------------------------------------------------------- */
-/*  Карточка товара: next/image для иконки, aria-live, fetchPriority          */
-/* -------------------------------------------------------------------------- */
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@context/CartContext';
@@ -24,10 +21,8 @@ export default function ProductCard({
 }) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
-
   const [hovered, setHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -47,10 +42,9 @@ export default function ProductCard({
   const discountedPrice = discountPercent
     ? Math.round(product.price * (1 - discountPercent / 100))
     : product.price;
-  const discountAmount =
-    discountPercent
-      ? (originalPrice > product.price ? originalPrice : product.price) - discountedPrice
-      : 0;
+  const discountAmount = discountPercent
+    ? (originalPrice > product.price ? originalPrice : product.price) - discountedPrice
+    : 0;
   const isPopular = product.is_popular;
 
   /* --------------------------- add to cart --------------------------- */
@@ -63,15 +57,11 @@ export default function ProductCard({
       imageUrl,
       production_time: product.production_time ?? null,
     });
-
     YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart');
-
-    /* анимация полёта в корзину */
-    if (isMobile && buttonRef.current) {
+    if (buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
-
     toast.success('Товар добавлен в корзину', { id: `add-${product.id}` });
   };
 
@@ -84,14 +74,14 @@ export default function ProductCard({
   };
 
   return (
-    <div
+    <motion.div
       ref={cardRef}
-      className="relative flex flex-col w-full sm:max-w-[280px] mx-auto bg-white rounded-[18px] border border-gray-200 overflow-visible h-auto focus:outline-none animate-fade-up"
-      style={{
-        display: 'grid',
-        gridTemplateRows: 'auto 1fr auto', // Невидимая сетка
-        minHeight: '0',
-      }}
+      className={`relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 h-auto focus:outline-none animate-fade-up ${
+        hovered ? 'border border-gray-200 shadow-sm' : ''
+      }`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onKeyDown={handleKeyDown}
@@ -99,10 +89,48 @@ export default function ProductCard({
       aria-labelledby={`product-${product.id}-title`}
       tabIndex={0}
       aria-live="polite"
+      style={{ minHeight: isMobile ? '300px' : '320px' }}
     >
+      {/* JSON-LD для SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org/', 
+            '@type': 'Product',
+            name: product.title,
+            image: imageUrl,
+            description: product.description || 'Описание товара отсутствует',
+            sku: product.id.toString(),
+            mpn: product.id.toString(),
+            brand: {
+              '@type': 'Brand',
+              name: 'Labberry',
+            },
+            offers: {
+              '@type': 'Offer',
+              url: `/product/${product.id}`,
+              priceCurrency: 'RUB',
+              price: discountedPrice.toString(),
+              priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .split('T')[0],
+              availability: product.in_stock
+                ? 'https://schema.org/InStock' 
+                : 'https://schema.org/OutOfStock', 
+              itemCondition: 'https://schema.org/NewCondition', 
+            },
+          }),
+        }}
+      />
       {/* ----------- бонусы ----------- */}
       {bonus > 0 && (
-        <div className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100">
+        <motion.div
+          className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+        >
           +{bonus}
           <Image
             src="/icons/gift.svg"
@@ -112,21 +140,26 @@ export default function ProductCard({
             className="ml-1"
             draggable={false}
           />
-        </div>
+        </motion.div>
       )}
-
       {/* ----------- популярное ----------- */}
       {isPopular && (
-        <div className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold">
-          <Star size={isMobile ? 11 : 13} className="text-yellow-400 mr-1" />
+        <motion.div
+          className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Star size={isMobile ? 16 : 13} className="text-yellow-400 mr-1" />
           Популярно
-        </div>
+        </motion.div>
       )}
-
       {/* ----------- изображение товара ----------- */}
       <Link
         href={`/product/${product.id}`}
-        className="block relative w-full h-56 sm:h-64 rounded-t-[16px] overflow-hidden aspect-[3/4]"
+        className={`block relative w-full h-56 sm:h-64 overflow-hidden aspect-[3/4] transition-all duration-200 ${
+          hovered ? 'rounded-[18px]' : 'rounded-t-[18px]'
+        }`}
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
       >
@@ -140,7 +173,6 @@ export default function ProductCard({
           loading={priority ? 'eager' : 'lazy'}
           priority={priority}
         />
-
         {!isMobile && images.length > 1 && (
           <div className="absolute left-1/2 bottom-2 -translate-x-1/2 flex gap-1 z-10">
             {images.map((_, i) => (
@@ -154,82 +186,26 @@ export default function ProductCard({
           </div>
         )}
       </Link>
-
-      {/* ----------- контент / кнопка ----------- */}
-      <div className="flex flex-col flex-1 p-2 sm:p-4">
-        <div className="flex-grow">
-          <h3
-            id={`product-${product.id}-title`}
-            className="text-sm sm:text-[15px] font-medium text-black break-words whitespace-normal"
-            style={{ wordBreak: 'break-word', overflowWrap: 'break-word', maxWidth: '100%' }}
-          >
-            {product.title}
-          </h3>
-        </div>
-
+      {/* ----------- контент ----------- */}
+      <div
+        className="flex flex-col p-2 sm:p-4"
+        style={{
+          display: isMobile ? 'grid' : 'flex',
+          gridTemplateRows: isMobile ? 'auto auto auto min-content 48px' : undefined,
+          minHeight: isMobile ? '180px' : '150px',
+          paddingBottom: isMobile ? '0' : '48px',
+        }}
+      >
+        <h3
+          id={`product-${product.id}-title`}
+          className="text-sm sm:text-[15px] font-medium text-black text-center break-words whitespace-normal max-h-[80px] overflow-y-auto mb-2"
+        >
+          {product.title}
+        </h3>
         {isMobile ? (
-          // Мобильная версия: компактная фиксированная компоновка
-          <div
-            className="flex flex-col sm:flex-row items-center justify-between gap-2"
-            style={{
-              minHeight: '80px',
-              position: 'relative',
-              zIndex: 20,
-            }}
-          >
-            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-              {(discountAmount > 0 || originalPrice > product.price) && (
-                <span className="text-xs text-gray-400 line-through">
-                  {originalPrice > product.price ? originalPrice : product.price}₽
-                </span>
-              )}
-              {discountAmount > 0 && (
-                <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
-                  -{discountAmount}₽
-                </span>
-              )}
-              <span className="text-lg font-bold text-black">
-                {discountAmount > 0 ? discountedPrice : product.price}₽
-              </span>
-            </div>
-
-            {product.production_time != null && (
-              <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-                Время изготовления: {product.production_time}{' '}
-                {product.production_time === 1 ? 'час' : 'часов'}
-              </p>
-            )}
-
-            <AnimatePresence>
-              {(hovered || isMobile) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.22 }}
-                  className="w-full sm:w-auto mt-2 sm:mt-0"
-                >
-                  <button
-                    ref={buttonRef}
-                    onClick={handleAddToCart}
-                    className={`w-full flex items-center justify-center ${
-                      isMobile
-                        ? 'bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base'
-                        : 'bg-white border border-gray-300 text-black py-1 px-3 rounded-lg font-bold shadow-md'
-                    } transition-all duration-200 hover:bg-black hover:text-white active:scale-95`}
-                    aria-label={`Добавить ${product.title} в корзину`}
-                  >
-                    <ShoppingCart size={18} aria-hidden="true" className="mr-1" />
-                    <span className="uppercase tracking-wider text-sm">В корзину</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        ) : (
-          // Десктопная версия: как раньше
           <>
-            <div className="flex items-center justify-center gap-2 mb-1 min-h-[30px]">
+            <div className="flex-grow" />
+            <div className="flex items-center justify-center gap-2 min-h-[30px]">
               {(discountAmount > 0 || originalPrice > product.price) && (
                 <span className="text-xs text-gray-400 line-through">
                   {originalPrice > product.price ? originalPrice : product.price}₽
@@ -244,43 +220,90 @@ export default function ProductCard({
                 {discountAmount > 0 ? discountedPrice : product.price}₽
               </span>
             </div>
-
-            {product.production_time != null && (
+            <div className="min-h-[20px]">
+              {typeof product.production_time === 'number' && product.production_time > 0 && (
+                <p className="text-center text-xs text-gray-500">
+                  Время изготовления: {product.production_time}{' '}
+                  {product.production_time === 1 ? 'час' : 'часов'}
+                </p>
+              )}
+            </div>
+            <motion.div
+              className="w-full"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                ref={buttonRef}
+                onClick={handleAddToCart}
+                className="w-full flex items-center justify-center bg-black text-white py-2 rounded-lg font-bold text-base hover:bg-gray-800 active:scale-95 transition-all duration-200"
+                aria-label={`Добавить ${product.title} в корзину`}
+              >
+                <ShoppingCart size={18} aria-hidden="true" className="mr-2" />
+                <span className="uppercase tracking-wider text-sm">В корзину</span>
+              </button>
+            </motion.div>
+          </>
+        ) : (
+          <div className="flex flex-col flex-1 justify-between" style={{ paddingBottom: '48px' }}>
+            <div className="flex items-center justify-center gap-2 min-h-[30px]">
+              {(discountAmount > 0 || originalPrice > product.price) && (
+                <span className="text-xs text-gray-400 line-through">
+                  {originalPrice > product.price ? originalPrice : product.price}₽
+                </span>
+              )}
+              {discountAmount > 0 && (
+                <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
+                  -{discountAmount}₽
+                </span>
+              )}
+              <span className="text-lg font-bold text-black">
+                {discountAmount > 0 ? discountedPrice : product.price}₽
+              </span>
+            </div>
+            {typeof product.production_time === 'number' && product.production_time > 0 && (
               <p className="text-center text-xs sm:text-sm text-gray-500">
                 Время изготовления: {product.production_time}{' '}
                 {product.production_time === 1 ? 'час' : 'часов'}
               </p>
             )}
-
-            <AnimatePresence>
-              {(hovered || isMobile) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.22 }}
-                  className={`w-full ${isMobile ? 'mt-2' : 'absolute left-0 bottom-0 w-full bg-transparent'}`}
-                  style={{ zIndex: 10 }}
-                >
-                  <button
-                    ref={buttonRef}
-                    onClick={handleAddToCart}
-                    className={`w-full flex items-center justify-center ${
-                      isMobile
-                        ? 'bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base'
-                        : 'bg-white border-t border-x border-b-0 border-gray-300 text-black py-3 rounded-b-[18px] font-bold shadow-md'
-                    } transition-all duration-200 hover:bg-black hover:text-white active:scale-95`}
-                    aria-label={`Добавить ${product.title} в корзину`}
+            <div
+              className="w-full"
+              style={{
+                position: 'absolute',
+                bottom: '0',
+                left: '0',
+                width: '100%',
+                padding: '0 2px',
+              }}
+            >
+              <AnimatePresence>
+                {hovered && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full"
                   >
-                    <ShoppingCart size={20} aria-hidden="true" className="mr-2" />
-                    <span className="uppercase tracking-wider">В корзину</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
+                    <button
+                      ref={buttonRef}
+                      onClick={handleAddToCart}
+                      className="w-full flex items-center justify-center bg-black text-white py-1.5 rounded-lg font-bold text-sm hover:bg-gray-800 active:scale-95 transition-all duration-200"
+                      style={{ height: '40px' }}
+                      aria-label={`Добавить ${product.title} в корзину`}
+                    >
+                      <ShoppingCart size={16} aria-hidden="true" className="mr-1.5" />
+                      <span className="uppercase tracking-wider">В корзину</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
