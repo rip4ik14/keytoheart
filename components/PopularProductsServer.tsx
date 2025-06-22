@@ -15,13 +15,11 @@ export default async function PopularProductsServer() {
     }
     const data = await res.json();
     if (!Array.isArray(data)) return null;
-    const products: Product[] = data
-      .map((item: any) => ({
-        ...item,
-        images: item.images || [],
-        category_ids: item.category_ids || [],
-      }))
-      .slice(0, 6); // Ограничение до 6 товаров
+    const products: Product[] = data.map((item: any) => ({
+      ...item,
+      images: item.images || [],
+      category_ids: item.category_ids || [],
+    }));
     return <PopularProductsClient products={products} />;
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PopularProductsServer error:', err);

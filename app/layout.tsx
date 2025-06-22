@@ -166,8 +166,6 @@ export default async function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <link rel="preload" href="/_next/static/chunks/main-app-5699959ff87e2445.js" as="script" />
-        <link rel="preload" href="/_next/static/css/*.css" as="style" />
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -226,10 +224,21 @@ export default async function RootLayout({
 
         {YM_ID && (
           <script
-            src="https://mc.yandex.ru/metrika/tag.js"
-            async
+            // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{
-              __html: `(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");ym(${YM_ID},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true,trackHash:true,webvisor:true});`,
+              __html: `
+                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
+                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+                ym(${YM_ID}, "init", {
+                  clickmap:true,
+                  trackLinks:true,
+                  accurateTrackBounce:true,
+                  trackHash:true,
+                  webvisor:true
+                });
+              `,
             }}
           />
         )}

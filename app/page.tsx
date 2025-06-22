@@ -100,7 +100,7 @@ export default async function Home() {
     const { data, error } = await supabase
       .from('products')
       .select('id,title,price,discount_percent,in_stock,images,production_time,is_popular')
-      .in('id', productIds.length ? productIds : [-1])
+      .in('id', productIds.length ? productIds : [-1]) // CHANGED: -1 вместо 0
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
@@ -164,6 +164,7 @@ export default async function Home() {
   /* ------------------------------ Рендер ------------------------------ */
   return (
     <main aria-label="Главная страница">
+      {/* -------------- JSON-LD для товаров ---------------- */}
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
@@ -190,6 +191,7 @@ export default async function Home() {
         }}
       />
 
+      {/* -------------- FAQ-сниппет для People Also Ask --------------- */}
       <JsonLd<FAQPage>
         item={{
           '@type': 'FAQPage',
@@ -222,15 +224,16 @@ export default async function Home() {
         }}
       />
 
-      <section style={{ minHeight: '400px' }}>
+      {/* ----------------------- Контент --------------------- */}
+      <section>
         <PromoGridServer />
       </section>
 
-      <section style={{ minHeight: '600px' }}>
+      <section>
         <PopularProductsServer />
       </section>
 
-      <section aria-label="Категории товаров" style={{ minHeight: '800px' }}>
+      <section aria-label="Категории товаров">
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -244,7 +247,7 @@ export default async function Home() {
               .filter((p) =>
                 p.category_ids.some((id) => categoryMap.get(id)?.name === category),
               )
-              .slice(0, 6);
+              .slice(0, 8);
 
             return (
               <React.Fragment key={category}>
