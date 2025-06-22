@@ -14,30 +14,8 @@ export default async function PromoGridServer() {
       return null;
     }
     const data: PromoBlock[] = await res.json();
-    const banners = data
-      .filter((b) => b.type === 'banner')
-      .map(({ id, title, subtitle, button_text, href, image_url, type, order_index }) => ({
-        id,
-        title,
-        subtitle,
-        button_text,
-        href,
-        image_url,
-        type,
-        order_index,
-      }));
-    const cards = data
-      .filter((b) => b.type === 'card')
-      .map(({ id, title, subtitle, button_text, href, image_url, type, order_index }) => ({
-        id,
-        title,
-        subtitle,
-        button_text,
-        href,
-        image_url,
-        type,
-        order_index,
-      }));
+    const banners = data.filter((b) => b.type === 'banner');
+    const cards = data.filter((b) => b.type === 'card');
     return <PromoGridWrapper banners={banners} cards={cards} />;
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PromoGridServer error:', err);

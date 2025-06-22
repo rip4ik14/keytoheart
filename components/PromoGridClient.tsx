@@ -1,3 +1,4 @@
+// ✅ Путь: app/components/PromoGridClient.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -8,6 +9,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
+
 import { PromoBlock } from '@/types/promo';
 
 export default function PromoGridClient({
@@ -46,7 +48,7 @@ export default function PromoGridClient({
         {/* Баннеры/карточки для десктопа */}
         <motion.div
           className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
-          style={{ aspectRatio: '3 / 2', minHeight: '300px' }} // Фиксация для CLS
+          style={{ aspectRatio: '3 / 2' }}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -74,15 +76,14 @@ export default function PromoGridClient({
                         alt={b.title}
                         fill
                         sizes="(max-width: 1024px) 100vw, 66vw"
-                        priority={i === 0}
-                        fetchPriority={i === 0 ? 'high' : 'low'} // Добавлено
+                        priority={i === 0} // Приоритет для первого баннера
                         className="object-cover rounded-2xl lg:rounded-3xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
                       <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
                       <div
                         className="
-                          absolute inset-0 flex flex-col justify-end
+                          absolute inset-0 flex flex-col justify-center
                           items-start
                           px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12
                           text-white text-left
@@ -156,10 +157,11 @@ export default function PromoGridClient({
               ))}
             </Swiper>
           </div>
-          {/* Мобильная версия: Swiper с баннерами и карточками без автопроизведения */}
+          {/* Мобильная версия: Swiper с баннерами и карточками */}
           <div className="block lg:hidden h-full w-full">
             <Swiper
-              modules={[Pagination]}
+              modules={[Autoplay, Pagination]}
+              autoplay={{ delay: 5000 }}
               pagination={{ clickable: true }}
               loop
               spaceBetween={12}
@@ -180,8 +182,7 @@ export default function PromoGridClient({
                         alt={item.title}
                         fill
                         sizes="100vw"
-                        priority={i === 0}
-                        fetchPriority={i === 0 ? 'high' : 'low'} // Добавлено
+                        priority={i === 0} // Приоритет для первого элемента
                         className="object-cover rounded-2xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
@@ -270,13 +271,13 @@ export default function PromoGridClient({
             </Swiper>
           </div>
         </motion.div>
+
         {/* Карточки для десктопа (справа) */}
         <motion.div
           className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-4"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          style={{ minHeight: '600px' }} // Фиксация для CLS
         >
           {cards.slice(0, 4).map((c, i) => (
             <motion.div
@@ -297,8 +298,6 @@ export default function PromoGridClient({
                   alt={c.title}
                   fill
                   sizes="(max-width: 1024px) 50vw, 33vw"
-                  priority={i === 0}
-                  fetchPriority={i === 0 ? 'high' : 'low'} // Добавлено
                   className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
                   style={{ aspectRatio: '3 / 2' }}
                 />

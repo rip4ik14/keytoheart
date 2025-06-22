@@ -3,6 +3,8 @@ import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
+import { JsonLd } from 'react-schemaorg';
+import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
 import { Suspense } from 'react';
 
 import TopBar from '@components/TopBar';
@@ -13,11 +15,11 @@ import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
-import SeoScripts from '@components/SeoScripts'; // Новый компонент
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import { Category } from '@/types/category';
+import { YM_ID } from '@/utils/ym';
 
 /* ------------------------------------------------------------------ */
 /*                          ШРИФТЫ (next/font)                        */
@@ -28,8 +30,10 @@ const golosText = localFont({
   preload: true,
   src: [
     { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
     { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
     { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
   ],
 });
 
@@ -103,7 +107,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'auto',
+  viewportFit: 'cover',
 };
 
 /* ------------------------------------------------------------------ */
@@ -162,9 +166,82 @@ export default async function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <Suspense fallback={null}>
-          <SeoScripts />
-        </Suspense>
+        <JsonLd
+          item={{
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'WebSite',
+                name: 'KEY TO HEART',
+                url: 'https://keytoheart.ru',
+                description:
+                  'Клубничные букеты, цветы и подарки с доставкой в Краснодаре и до 20 км — от 60 минут, с 8:00 до 22:00.',
+              } satisfies WebSite,
+              {
+                '@type': 'LocalBusiness',
+                name: 'KEY TO HEART',
+                url: 'https://keytoheart.ru',
+                telephone: '+7-988-603-38-21',
+                email: 'info@keytoheart.ru',
+                address: {
+                  '@type': 'PostalAddress',
+                  addressLocality: 'Краснодар',
+                  addressRegion: 'Краснодарский край',
+                  addressCountry: 'RU',
+                },
+                openingHours: [
+                  'Mo-Su 08:00-22:00',
+                ],
+                openingHoursSpecification: {
+                  '@type': 'OpeningHoursSpecification',
+                  dayOfWeek: [
+                    'Monday',
+                    'Tuesday',
+                    'Wednesday',
+                    'Thursday',
+                    'Friday',
+                    'Saturday',
+                    'Sunday',
+                  ],
+                  opens: '08:00',
+                  closes: '22:00',
+                },
+              } satisfies LocalBusiness,
+              {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Главная',
+                    item: 'https://keytoheart.ru',
+                  },
+                ],
+              } satisfies BreadcrumbList,
+            ],
+          }}
+        />
+
+        {YM_ID && (
+          <script
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
+                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+                ym(${YM_ID}, "init", {
+                  clickmap:true,
+                  trackLinks:true,
+                  accurateTrackBounce:true,
+                  trackHash:true,
+                  webvisor:true
+                });
+              `,
+            }}
+          />
+        )}
       </head>
 
       <body className="font-sans">
@@ -175,7 +252,7 @@ export default async function RootLayout({
             <TopBar />
             <StickyHeader initialCategories={categories} />
 
-            <Suspense fallback={<div className="text-center py-4">Загрузка категорий и навигации...</div>}>
+            <Suspense fallback={<div>Загрузка…</div>}>
               <ClientBreadcrumbs />
             </Suspense>
 
