@@ -121,7 +121,8 @@ export default function ProductCard({
       {/* ----------- изображение товара ----------- */}
       <Link
         href={`/product/${product.id}`}
-        className="block relative w-full h-56 sm:h-64 rounded-t-[16px] overflow-hidden aspect-[3/4]"
+        className="block relative w-full h-56 sm:h-64 rounded-t-[16px] overflow-hidden"
+        style={{ aspectRatio: '3/4' }} // Фиксированный аспект для предотвращения CLS
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
       >
@@ -132,7 +133,7 @@ export default function ProductCard({
           fetchPriority={priority ? 'high' : 'auto'}
           sizes="(max-width: 640px) 100vw, 280px"
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
-          loading={priority ? 'eager' : 'lazy'}
+          loading={priority ? 'eager' : 'lazy'} // Eager для первого изображения
           priority={priority}
         />
 

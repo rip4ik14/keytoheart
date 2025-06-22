@@ -340,6 +340,15 @@ header .text-sm {
   }
 }
 
+@media (max-width: 640px) {
+  .max-w-7xl {
+    padding: 8px; /* Уменьшенные отступы */
+  }
+  .text-2xl {
+    font-size: 1.5rem; /* Адаптация шрифта */
+  }
+}
+
 /* Страница товара (ProductPage) */
 .product-page {
   @apply py-12 px-4;
