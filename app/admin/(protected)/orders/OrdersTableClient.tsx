@@ -292,11 +292,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     className="border border-gray-300 rounded-lg p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
                     whileHover={{ scale: 1.05 }}
                   >
-                    <option>Ожидает подтверждения</option>
-                    <option>В сборке</option>
-                    <option>Доставляется</option>
-                    <option>Доставлен</option>
-                    <option>Отменён</option>
+                    <option value="Ожидает подтверждения">Ожидает подтверждения</option>
+                    <option value="В сборке">В сборке</option>
+                    <option value="Доставляется">Доставляется</option>
+                    <option value="Доставлен">Доставлен</option>
+                    <option value="Отменён">Отменён</option>
                   </motion.select>
                 </td>
                 <td className="p-3">
@@ -339,11 +339,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 className="border border-gray-300 rounded-lg p-1 text-xs focus:outline-none focus:ring-2 focus:ring-black"
                 whileHover={{ scale: 1.05 }}
               >
-                <option>Ожидает подтверждения</option>
-                <option>В сборке</option>
-                <option>Доставляется</option>
-                <option>Доставлен</option>
-                <option>Отменён</option>
+                <option value="Ожидает подтверждения">Ожидает подтверждения</option>
+                <option value="В сборке">В сборке</option>
+                <option value="Доставляется">Доставляется</option>
+                <option value="Доставлен">Доставлен</option>
+                <option value="Отменён">Отменён</option>
               </motion.select>
             </div>
 

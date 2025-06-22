@@ -9,6 +9,15 @@ import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { Order } from '@/types/order';
 
+// Маппинг английских статусов на русские для отображения
+const displayStatusMap: { [key: string]: string } = {
+  pending: 'Ожидает подтверждения',
+  processing: 'В сборке',
+  delivering: 'Доставляется',
+  delivered: 'Доставлен',
+  canceled: 'Отменён',
+};
+
 interface OrdersListProps {
   orders: Order[] | undefined;
 }
@@ -107,7 +116,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     {orders.length - idx}
                   </td>
                   <td className="px-4 py-3">{o.recipient || 'Не указан'}</td>
-                  <td className="px-4 py-3 capitalize">{o.status}</td>
+                  <td className="px-4 py-3 capitalize">{displayStatusMap[o.status] || 'Неизвестен'}</td>
                   <td className="px-4 py-3">
                     {new Date(o.created_at).toLocaleDateString('ru-RU', {
                       day: 'numeric',
