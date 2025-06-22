@@ -79,7 +79,7 @@ export default function ProductCard({
     <motion.div
       ref={cardRef}
       className={`relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 h-auto focus:outline-none animate-fade-up ${
-        hovered ? 'border border-gray-200 shadow-sm' : ''
+        isMobile ? 'border border-gray-200' : hovered ? 'border border-gray-200 shadow-sm' : ''
       }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -117,9 +117,7 @@ export default function ProductCard({
               priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .split('T')[0],
-              availability: product.in_stock
-                ? 'https://schema.org/InStock' 
-                : 'https://schema.org/OutOfStock', 
+              availability: product.in_stock ? 'https://schema.org/InStock'  : 'https://schema.org/OutOfStock', 
               itemCondition: 'https://schema.org/NewCondition', 
             },
           }),
@@ -163,7 +161,7 @@ export default function ProductCard({
       <Link
         href={`/product/${product.id}`}
         className={`block relative w-full h-56 sm:h-64 overflow-hidden aspect-[3/4] transition-all duration-200 ${
-          hovered ? 'rounded-[18px]' : 'rounded-t-[18px]'
+          !hovered ? 'rounded-[18px]' : 'rounded-t-[18px]'
         }`}
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
@@ -195,7 +193,7 @@ export default function ProductCard({
         className="flex flex-col p-2 sm:p-4"
         style={{
           display: isMobile ? 'grid' : 'flex',
-          gridTemplateRows: isMobile ? 'auto auto min-content auto 48px' : undefined,
+          gridTemplateRows: isMobile ? 'auto auto auto 48px' : undefined,
           minHeight: isMobile ? '180px' : '150px',
           paddingBottom: isMobile ? '0' : '48px',
         }}
@@ -206,38 +204,33 @@ export default function ProductCard({
         >
           {product.title}
         </h3>
-
         {isMobile ? (
           <>
-            {/* Старая цена и скидка */}
             <div className="flex-grow" />
-            <div className="flex flex-col items-center justify-center gap-1 min-h-[60px]">
+            <div className="flex items-center justify-center gap-2 min-h-[30px]">
               {(discountAmount > 0 || originalPrice > product.price) && (
                 <span className="text-xs text-gray-400 line-through">
                   {originalPrice > product.price ? originalPrice : product.price}₽
                 </span>
               )}
               {discountAmount > 0 && (
+                // Изменение здесь: текст стал красным
                 <span className="text-red-500 text-[11px] font-bold">
-                  Скидка -{discountAmount}₽
+                  -{discountAmount}₽
                 </span>
               )}
               <span className="text-lg font-bold text-black">
                 {discountAmount > 0 ? discountedPrice : product.price}₽
               </span>
             </div>
-
-            {/* Время изготовления */}
-            <div className="min-h-[20px]">
-              {typeof product.production_time === 'number' && product.production_time > 0 && (
+            <div className="min-h-[1px]">
+              {product.production_time != null && (
                 <p className="text-center text-xs text-gray-500">
                   Время изготовления: {product.production_time}{' '}
                   {product.production_time === 1 ? 'час' : 'часов'}
                 </p>
               )}
             </div>
-
-            {/* Кнопка "В корзину" */}
             <motion.div
               className="w-full"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -247,17 +240,16 @@ export default function ProductCard({
               <button
                 ref={buttonRef}
                 onClick={handleAddToCart}
-                className="w-full flex items-center justify-center bg-black text-white py-2 rounded-lg font-bold text-base hover:bg-gray-800 active:scale-95 transition-all duration-200"
+                className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base hover:bg-black hover:text-white active:scale-95 transition-all duration-200"
                 aria-label={`Добавить ${product.title} в корзину`}
               >
-                <ShoppingCart size={18} aria-hidden="true" className="mr-2" />
-                <span className="uppercase tracking-wider text-sm">В корзину</span>
+                <ShoppingCart size={20} className="mr-2" />
+                <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
               </button>
             </motion.div>
           </>
         ) : (
           <div className="flex flex-col flex-1 justify-between" style={{ paddingBottom: '48px' }}>
-            {/* Цены */}
             <div className="flex items-center justify-center gap-2 min-h-[30px]">
               {(discountAmount > 0 || originalPrice > product.price) && (
                 <span className="text-xs text-gray-400 line-through">
@@ -273,16 +265,12 @@ export default function ProductCard({
                 {discountAmount > 0 ? discountedPrice : product.price}₽
               </span>
             </div>
-
-            {/* Время изготовления */}
-            {typeof product.production_time === 'number' && product.production_time > 0 && (
+            {product.production_time != null && (
               <p className="text-center text-xs sm:text-sm text-gray-500">
                 Время изготовления: {product.production_time}{' '}
                 {product.production_time === 1 ? 'час' : 'часов'}
               </p>
             )}
-
-            {/* Кнопка "В корзину" */}
             <div
               className="w-full"
               style={{
@@ -305,12 +293,12 @@ export default function ProductCard({
                     <button
                       ref={buttonRef}
                       onClick={handleAddToCart}
-                      className="w-full flex items-center justify-center bg-black text-white py-1.5 rounded-lg font-bold text-sm hover:bg-gray-800 active:scale-95 transition-all duration-200"
+                      className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white active:scale-95 transition-all duration-200"
                       style={{ height: '40px' }}
                       aria-label={`Добавить ${product.title} в корзину`}
                     >
-                      <ShoppingCart size={16} aria-hidden="true" className="mr-1.5" />
-                      <span className="uppercase tracking-wider">В корзину</span>
+                      <ShoppingCart size={20} className="mr-2" />
+                      <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
                     </button>
                   </motion.div>
                 )}
