@@ -2,7 +2,6 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
-
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -124,6 +123,8 @@ export default function ProductPageClient({
             store_hours: transformSchedule(json.data.store_hours),
           });
         }
+      } catch (error) {
+        console.error('Ошибка загрузки настроек магазина:', error);
       } finally {
         setIsStoreSettingsLoading(false);
       }
@@ -172,6 +173,8 @@ export default function ProductPageClient({
         setRecommendedItems(items);
         localStorage.setItem(cacheKey, JSON.stringify(items));
         localStorage.setItem(tsKey, String(Date.now()));
+      } catch (error) {
+        console.error('Ошибка загрузки рекомендуемых товаров:', error);
       } finally {
         setIsLoadingRecommended(false);
       }
@@ -190,9 +193,11 @@ export default function ProductPageClient({
       setEarliestDelivery('Магазин временно не принимает заказы.');
       return;
     }
+
     const now = new Date();
-    now.setHours(now.getHours() + (product.production_time ?? 0));
-    let earliestDate = now;
+    let earliestDate = new Date(now);
+    earliestDate.setHours(earliestDate.getHours() + product.production_time);
+
     let attempts = 0;
     while (attempts < 7) {
       const dayKey = earliestDate
@@ -200,40 +205,52 @@ export default function ProductPageClient({
         .toLowerCase();
       const order = storeSettings.order_acceptance_schedule[dayKey];
       const store = storeSettings.store_hours[dayKey];
-      if (
-        order?.enabled !== false &&
-        store?.enabled !== false &&
-        order.start &&
-        order.end &&
-        store.start &&
-        store.end
-      ) {
-        const start = order.start > store.start ? order.start : store.start;
-        const end = order.end < store.end ? order.end : store.end;
-        const [sH, sM] = start.split(':').map(Number);
-        const [eH, eM] = end.split(':').map(Number);
-        const startDt = new Date(earliestDate);
-        startDt.setHours(sH, sM, 0, 0);
-        const endDt = new Date(earliestDate);
-        endDt.setHours(eH, eM, 0, 0);
-        if (earliestDate < startDt) earliestDate = startDt;
-        if (earliestDate <= endDt) {
+
+      if (order?.enabled === false || store?.enabled === false) {
+        earliestDate.setDate(earliestDate.getDate() + 1);
+        attempts++;
+        continue;
+      }
+
+      if (order?.start && order?.end && store?.start && store?.end) {
+        const [orderStartH, orderStartM] = order.start.split(':').map(Number);
+        const [orderEndH, orderEndM] = order.end.split(':').map(Number);
+        const [storeStartH, storeStartM] = store.start.split(':').map(Number);
+        const [storeEndH, storeEndM] = store.end.split(':').map(Number);
+
+        const orderStartTime = new Date(earliestDate);
+        orderStartTime.setHours(orderStartH, orderStartM, 0, 0);
+        const orderEndTime = new Date(earliestDate);
+        orderEndTime.setHours(orderEndH, orderEndM, 0, 0);
+        const storeStartTime = new Date(earliestDate);
+        storeStartTime.setHours(storeStartH, storeStartM, 0, 0);
+        const storeEndTime = new Date(earliestDate);
+        storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
+
+        // Определяем пересечение интервалов
+        const effectiveStart = orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
+        const effectiveEnd = orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
+
+        if (earliestDate < effectiveStart) {
+          earliestDate = new Date(effectiveStart);
+        }
+
+        if (earliestDate <= effectiveEnd) {
           setEarliestDelivery(
             `Самое раннее время доставки: ${earliestDate.toLocaleDateString(
               'ru-RU',
-            )} в ${earliestDate
-              .toTimeString()
-              .slice(0, 5)}`,
+            )} в ${earliestDate.toTimeString().slice(0, 5)}`,
           );
           return;
         }
       }
+
       earliestDate.setDate(earliestDate.getDate() + 1);
+      earliestDate.setHours(9, 0, 0, 0); // Сбрасываем на начало дня
       attempts++;
     }
-    setEarliestDelivery(
-      'Доставка невозможна в ближайшие 7 дней. Попробуйте позже.',
-    );
+
+    setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
   }, [storeSettings, isStoreSettingsLoading, product.production_time]);
 
   /* GA/YM view_item */
@@ -354,14 +371,14 @@ export default function ProductPageClient({
                   key={id}
                   className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
                   variants={notificationVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              Добавлено в корзину!
-            </motion.div>
-          ),
-        )}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  Добавлено в корзину!
+                </motion.div>
+              ),
+          )}
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">

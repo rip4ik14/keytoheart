@@ -21,7 +21,7 @@ type Product = {
   price: number;
   original_price?: number | null;
   discount_percent: number | null;
-  production_time: number | null;
+  production_time: number | null; // Хранится в минутах
   short_desc: string;
   description: string;
   composition: string;
@@ -128,7 +128,7 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [filteredSubcategories, setFilteredSubcategories] = useState<Subcategory[]>([]);
-  const [productionTime, setProductionTime] = useState('');
+  const [productionTime, setProductionTime] = useState(''); // В минутах
   const [shortDesc, setShortDesc] = useState('');
   const [description, setDescription] = useState('');
   const [composition, setComposition] = useState('');
@@ -270,7 +270,7 @@ export default function EditProductPage() {
         price: productData.price,
         original_price: productData.original_price ?? null,
         discount_percent: productData.discount_percent ?? null,
-        production_time: productData.production_time ?? null,
+        production_time: productData.production_time ?? null, // В минутах
         short_desc: productData.short_desc ?? '',
         description: productData.description ?? '',
         composition: productData.composition ?? '',
@@ -294,7 +294,7 @@ export default function EditProductPage() {
       setDiscountPercent(normalizedData.discount_percent?.toString() ?? '0');
       setCategoryIds(normalizedData.category_ids);
       setSubcategoryIds(normalizedData.subcategory_ids);
-      setProductionTime(normalizedData.production_time?.toString() ?? '');
+      setProductionTime(normalizedData.production_time?.toString() ?? ''); // В минутах
       setShortDesc(normalizedData.short_desc);
       setDescription(normalizedData.description);
       setComposition(normalizedData.composition);
@@ -455,7 +455,7 @@ export default function EditProductPage() {
       }
       const productionTimeNum = productionTime ? parseInt(productionTime) : null;
       if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
-        throw new Error('Время изготовления должно быть ≥ 0');
+        throw new Error('Время изготовления должно быть ≥ 0 минут');
       }
       const bonusNum = bonus ? parseFloat(bonus) : 0;
       if (bonus && (isNaN(bonusNum) || bonusNum < 0)) {
@@ -512,7 +512,7 @@ export default function EditProductPage() {
         price: priceNum,
         original_price: originalPriceNum,
         discount_percent: discountNum,
-        production_time: productionTimeNum,
+        production_time: productionTimeNum, // Сохраняем в минутах
         short_desc: shortDesc.trim(),
         description: description.trim(),
         composition: composition.trim(),
@@ -750,7 +750,7 @@ export default function EditProductPage() {
               </div>
               <div>
                 <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">
-                  Время изготовления (часы):
+                  Время изготовления (минуты):
                 </label>
                 <motion.input
                   id="productionTime"
@@ -758,14 +758,14 @@ export default function EditProductPage() {
                   value={productionTime}
                   onChange={(e) => setProductionTime(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  placeholder="Введите время изготовления"
+                  placeholder="Введите время изготовления в минутах"
                   min="0"
                   step="1"
                   aria-describedby="productionTime-desc"
                   whileFocus={{ scale: 1.01 }}
                 />
                 <p id="productionTime-desc" className="text-sm text-gray-500 mt-1">
-                  Время, необходимое для изготовления товара (в часах).
+                  Время, необходимое для изготовления товара (в минутах).
                 </p>
               </div>
             </section>

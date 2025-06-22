@@ -91,14 +91,14 @@ export default function ProductCard({
       aria-labelledby={`product-${product.id}-title`}
       tabIndex={0}
       aria-live="polite"
-      style={{ minHeight: isMobile ? '300px' : '320px' }}
+      // Убрано min-height: 300px, чтобы высота адаптировалась
     >
       {/* JSON-LD для SEO */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
-            '@context': 'https://schema.org/', 
+            '@context': 'https://schema.org/',
             '@type': 'Product',
             name: product.title,
             image: imageUrl,
@@ -117,8 +117,8 @@ export default function ProductCard({
               priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .split('T')[0],
-              availability: product.in_stock ? 'https://schema.org/InStock'  : 'https://schema.org/OutOfStock', 
-              itemCondition: 'https://schema.org/NewCondition', 
+              availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+              itemCondition: 'https://schema.org/NewCondition',
             },
           }),
         }}
@@ -193,8 +193,8 @@ export default function ProductCard({
         className="flex flex-col p-2 sm:p-4"
         style={{
           display: isMobile ? 'grid' : 'flex',
-          gridTemplateRows: isMobile ? 'auto auto auto 48px' : undefined,
-          minHeight: isMobile ? '180px' : '150px',
+          gridTemplateRows: isMobile ? 'auto 1fr auto 48px' : undefined, // Сохраняем сетку
+          minHeight: isMobile ? undefined : '150px', // Убрано min-height для мобильной версии
           paddingBottom: isMobile ? '0' : '48px',
         }}
       >
@@ -206,7 +206,7 @@ export default function ProductCard({
         </h3>
         {isMobile ? (
           <>
-            <div className="flex-grow" />
+            <div style={{ minHeight: '0' }} /> {/* Пустая строка с минимальной высотой */}
             <div className="flex items-center justify-center gap-2 min-h-[30px]">
               {(discountAmount > 0 || originalPrice > product.price) && (
                 <span className="text-xs text-gray-400 line-through">
@@ -214,7 +214,6 @@ export default function ProductCard({
                 </span>
               )}
               {discountAmount > 0 && (
-                // Изменение здесь: текст стал красным
                 <span className="text-red-500 text-[11px] font-bold">
                   -{discountAmount}₽
                 </span>
@@ -242,6 +241,7 @@ export default function ProductCard({
                 onClick={handleAddToCart}
                 className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base hover:bg-black hover:text-white active:scale-95 transition-all duration-200"
                 aria-label={`Добавить ${product.title} в корзину`}
+                style={{ height: '48px' }}
               >
                 <ShoppingCart size={20} className="mr-2" />
                 <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
