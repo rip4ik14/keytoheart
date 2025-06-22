@@ -65,7 +65,6 @@
 
 /* Базовый стиль BODY */
 body {
-  
   @apply bg-white text-black;
 }
 
@@ -76,7 +75,6 @@ h3,
 h4,
 h5,
 h6 {
-  
   @apply font-bold text-black;
 }
 
@@ -99,15 +97,15 @@ h3 {
 
 /* Кнопки (базовые стили) */
 .btn {
-  @apply px-6 py-3 rounded-lg font-medium transition duration-300;
+  @apply px-6 py-3 rounded-lg font-medium;
 }
 
 .btn-primary {
-  @apply bg-black text-white hover:bg-gray-800;
+  @apply bg-black text-white hover:bg-gray-800 transition-colors duration-200;
 }
 
 .btn-secondary {
-  @apply bg-gray-100 text-black hover:bg-gray-200;
+  @apply bg-gray-100 text-black hover:bg-gray-200 transition-colors duration-200;
 }
 
 /* Шапка (Header) */
@@ -134,20 +132,20 @@ header .text-sm {
 
 /* Стили для круглых иконок (поиск, вход, корзина, WhatsApp, Telegram) */
 .icon-button {
-  @apply flex items-center justify-center w-9 h-9 bg-gray-100 rounded-full transition-colors duration-200;
+  @apply flex items-center justify-center w-9 h-9 bg-gray-100 rounded-full;
 }
 
 .icon-button:hover {
-  @apply bg-black text-white;
+  @apply bg-black text-white transition-colors duration-200;
 }
 
 /* Стили для выбора города */
 .city-selector {
-  @apply text-gray-600 transition-colors duration-200;
+  @apply text-gray-600;
 }
 
 .city-selector:hover {
-  @apply text-black;
+  @apply text-black transition-colors duration-200;
 }
 
 /* Бургер-меню (BurgerMenu) */
@@ -156,7 +154,7 @@ header .text-sm {
 }
 
 .burger-menu button {
-  @apply p-2 hover:bg-gray-100 rounded;
+  @apply p-2 hover:bg-gray-100 rounded transition-colors duration-200;
 }
 
 .burger-menu svg {
@@ -168,7 +166,7 @@ header .text-sm {
 }
 
 .burger-menu .menu a {
-  @apply block py-2 hover:text-black text-gray-600;
+  @apply block py-2 text-gray-600 hover:text-black transition-colors duration-200;
 }
 
 .burger-menu .menu .divider {
@@ -177,7 +175,7 @@ header .text-sm {
 
 /* Навигация (CategoryNav) */
 .category-nav {
-  @apply py-8 transition-colors duration-300 bg-white shadow-md;
+  @apply py-8 bg-white shadow-md transition-colors duration-300;
 }
 
 .category-nav ul {
@@ -189,7 +187,7 @@ header .text-sm {
 }
 
 .category-nav a {
-  @apply text-gray-600 transition-colors duration-200 font-medium;
+  @apply text-gray-600 font-medium transition-colors duration-200;
 }
 
 .category-nav a:hover {
@@ -239,7 +237,7 @@ header .text-sm {
 }
 
 .hero-slider .main-slide .btn {
-  @apply bg-white text-black hover:bg-gray-100;
+  @apply bg-white text-black hover:bg-gray-100 transition-colors duration-200;
 }
 
 .hero-slider .dots {
@@ -286,8 +284,6 @@ header .text-sm {
 .popular-products .product-card button {
   @apply absolute bottom-4 right-4 bg-black text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300;
 }
-
-
 
 /* Секция категорий (CategoryPreview) */
 .category-preview {
@@ -338,9 +334,6 @@ header .text-sm {
   .product-card .flex-1 {
     min-height: 180px; /* Минимальная высота для контента, чтобы кнопка не "въезжала" */
   }
-}
-
-@media (max-width: 640px) {
   .max-w-7xl {
     padding: 8px; /* Уменьшенные отступы */
   }
@@ -395,7 +388,7 @@ header .text-sm {
 }
 
 .product-page .details .btn {
-  @apply bg-black text-white hover:bg-gray-800 w-full;
+  @apply bg-black text-white hover:bg-gray-800 w-full transition-colors duration-200;
 }
 
 /* Футер (Footer) */
@@ -417,7 +410,7 @@ footer a {
 }
 
 footer a {
-  @apply hover:text-black transition-colors;
+  @apply hover:text-black transition-colors duration-200;
 }
 
 /* Дополнительные утилиты */
@@ -438,6 +431,39 @@ footer a {
 
 .animate-marquee {
   animation: marquee 30s linear infinite;
+}
+
+/* ===== Бесконечные бегущие строки  ===== */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes marquee-rev {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(50%); }
+}
+
+.marquee {
+  display: inline-flex;
+  animation: marquee 40s linear infinite;
+}
+.marquee.reverse {
+  display: inline-flex;
+  animation: marquee-rev 50s linear infinite;
+}
+
+.marquee-text-top {
+  font-family: var(--font-marquee);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.8;
+  letter-spacing: -0.02em;
+  font-size: clamp(60px, 11vw, 200px);
+  color: rgb(209 213 219 / 0.9); /* #d1d5db */
+}
+.marquee-text-bottom {
+  composes: marquee-text-top;
+  opacity: 0.7;
 }
 
 /* Промо-баннер (PromoBanner) */
@@ -623,8 +649,6 @@ footer a {
 }
 
 /* globals.css */
-
-
 .font-marquee {
   font-family: 'MontserratMarquee', 'Arial', sans-serif !important;
   text-rendering: geometricPrecision; /* Улучшает четкость текста */
@@ -642,38 +666,12 @@ footer a {
   text-shadow: 0 1px 0 hsla(0, 0%, 67%, 0.596), 0 -1px 0 #d1cdcd; /* Минимизируем тени */
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
+/* Скрытие скроллбара */
+body,
+.marquee {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-
-/* globals.css */
-/* ===== Бесконечные бегущие строки  ===== */
-@keyframes marquee      { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-@keyframes marquee-rev  { 0%{transform:translateX(0)} 100%{transform:translateX( 50%)} }
-
-.marquee       { display:inline-flex; animation:marquee      40s linear infinite; }
-.marquee.reverse{ display:inline-flex; animation:marquee-rev 50s linear infinite; }
-
-.marquee-text-top {
-  font-family: var(--font-marquee);
-  font-weight: 900;
-  text-transform: uppercase;
-  line-height: 0.8;
-  letter-spacing: -0.02em;
-  font-size: clamp(60px, 11vw, 200px);
-  color: rgb(209 213 219 / 0.9);   /* #d1d5db */
+.marquee::-webkit-scrollbar {
+  display: none;
 }
-.marquee-text-bottom {
-  composes: marquee-text-top;
-  opacity: 0.7;
-}
-
-/* скрываем возможные скроллбары */
-body, .marquee { -ms-overflow-style:none; scrollbar-width:none; }
-.marquee::-webkit-scrollbar { display:none; }
-

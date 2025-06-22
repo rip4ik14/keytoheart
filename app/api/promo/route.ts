@@ -1,4 +1,3 @@
-// ✅ Путь: app/api/promo/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -7,6 +6,16 @@ export async function GET() {
   try {
     const data = await prisma.promo_blocks.findMany({
       orderBy: { order_index: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        subtitle: true,
+        button_text: true,
+        href: true,
+        image_url: true,
+        type: true,
+        order_index: true,
+      },
     });
     return NextResponse.json(data);
   } catch (err: any) {
