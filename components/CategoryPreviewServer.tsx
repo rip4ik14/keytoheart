@@ -18,7 +18,8 @@ export default function CategoryPreviewServer({
 }: Props) {
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
-    .map((product) => ({ ...product, images: product.images || [] }));
+    .map((product) => ({ ...product, images: product.images || [] }))
+    .slice(0, 6); // Явно ограничиваем до 6 товаров (3 строки по 2)
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12" aria-labelledby={headingId}>
