@@ -72,7 +72,7 @@ export default function ProductCard({
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
 
-    toast.success('Товар добавлен в корзину', { id: `add-${product.id}` }); // CHANGED: dedup id
+    toast.success('Товар добавлен в корзину', { id: `add-${product.id}` });
   };
 
   /* enter/space → в корзину */
@@ -93,13 +93,13 @@ export default function ProductCard({
       role="article"
       aria-labelledby={`product-${product.id}-title`}
       tabIndex={0}
-      aria-live="polite"                       /* NEW: screen-reader об изменении содержимого */
+      aria-live="polite"
     >
       {/* ----------- бонусы ----------- */}
       {bonus > 0 && (
         <div className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100">
           +{bonus}
-          <Image              /* CHANGED: next/image вместо <img> */
+          <Image
             src="/icons/gift.svg"
             alt=""
             width={13}
@@ -129,7 +129,7 @@ export default function ProductCard({
           src={imageUrl}
           alt={product.title}
           fill
-          fetchPriority={priority ? 'high' : 'auto'}   /* NEW */
+          fetchPriority={priority ? 'high' : 'auto'}
           sizes="(max-width: 640px) 100vw, 280px"
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
           loading={priority ? 'eager' : 'lazy'}
@@ -152,35 +152,37 @@ export default function ProductCard({
 
       {/* ----------- контент / кнопка ----------- */}
       <div className="flex flex-col flex-1 p-2 sm:p-4 min-h-[110px] sm:min-h-[150px]">
-        <h3
-          id={`product-${product.id}-title`}
-          className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-2 mb-2"
-        >
-          {product.title}
-        </h3>
+        <div className="flex-grow">
+          <h3
+            id={`product-${product.id}-title`}
+            className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-2 mb-2"
+          >
+            {product.title}
+          </h3>
 
-        <div className="flex items-center justify-center gap-2 mb-1 min-h-[30px]">
-          {(discountAmount > 0 || originalPrice > product.price) && (
-            <span className="text-xs text-gray-400 line-through">
-              {originalPrice > product.price ? originalPrice : product.price}₽
+          <div className="flex items-center justify-center gap-2 mb-1 min-h-[30px]">
+            {(discountAmount > 0 || originalPrice > product.price) && (
+              <span className="text-xs text-gray-400 line-through">
+                {originalPrice > product.price ? originalPrice : product.price}₽
+              </span>
+            )}
+            {discountAmount > 0 && (
+              <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
+                -{discountAmount}₽
+              </span>
+            )}
+            <span className="text-lg font-bold text-black">
+              {discountAmount > 0 ? discountedPrice : product.price}₽
             </span>
+          </div>
+
+          {product.production_time != null && (
+            <p className="text-center text-xs sm:text-sm text-gray-500">
+              Время изготовления: {product.production_time}{' '}
+              {product.production_time === 1 ? 'час' : 'часов'}
+            </p>
           )}
-          {discountAmount > 0 && (
-            <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
-              -{discountAmount}₽
-            </span>
-          )}
-          <span className="text-lg font-bold text-black">
-            {discountAmount > 0 ? discountedPrice : product.price}₽
-          </span>
         </div>
-
-        {product.production_time != null && (
-          <p className="text-center text-xs sm:text-sm text-gray-500">
-            Время изготовления: {product.production_time}{' '}
-            {product.production_time === 1 ? 'час' : 'часов'}
-          </p>
-        )}
 
         <AnimatePresence>
           {(hovered || isMobile) && (
@@ -189,11 +191,7 @@ export default function ProductCard({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.22 }}
-              className={`w-full ${
-                isMobile
-                  ? 'mt-3'
-                  : 'absolute left-0 bottom-0 w-full bg-transparent'
-              }`}
+              className={`w-full ${isMobile ? 'mt-2' : 'absolute left-0 bottom-0 w-full bg-transparent'}`}
               style={{ zIndex: 10 }}
             >
               <button

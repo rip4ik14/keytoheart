@@ -54,13 +54,24 @@ export default function ProductCardClient({
   };
 
   return (
-    <button
-      ref={buttonRef}
-      onClick={handleClick}
-      className="mt-2 sm:mt-auto flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-300 rounded-lg px-4 py-3 font-bold text-sm uppercase bg-white text-black transition-all duration-200 hover:bg-black hover:text-white active:scale-95 w-full"
-      aria-label={`Добавить ${title} в корзину`}
-    >
-      <ShoppingCart size={19} /> В корзину
-    </button>
+    <div className="relative w-full h-full flex flex-col justify-between border border-gray-300 rounded-lg overflow-hidden">
+      {/* Содержимое карточки (изображение и текст) */}
+      <div className="p-4">
+        <img src={imageUrl} alt={title} className="w-full h-auto" />
+        <div className="mt-2">
+          <h3 className="text-sm font-bold">{title}</h3>
+          <p className="text-sm">{price}₽</p>
+        </div>
+      </div>
+      {/* Кнопка "В корзину" фиксированная внизу */}
+      <button
+        ref={buttonRef}
+        onClick={handleClick}
+        className="w-full flex items-center justify-center gap-1.5 sm:gap-2 border-t border-gray-300 px-4 py-3 font-bold text-sm uppercase bg-white text-black transition-all duration-200 hover:bg-black hover:text-white active:scale-95"
+        aria-label={`Добавить ${title} в корзину`}
+      >
+        <ShoppingCart size={19} /> В корзину
+      </button>
+    </div>
   );
 }
