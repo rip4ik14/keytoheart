@@ -50,6 +50,13 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
 `NEXT_PUBLIC_BASE_URL` is used for admin session checks. Without `SUPABASE_SERVICE_ROLE_KEY` the `/api/upsell/products` endpoint will return an error.
 
+## Supabase Storage Caching
+
+For frequently used images stored in Supabase, enable caching to reduce bandwidth.
+In the Supabase dashboard open your bucket settings and configure a CDN or set
+the `Cache-Control` metadata to `public, max-age=604800`.
+
+
 ## Components
 
 ### CategoryPreviewServer

@@ -114,7 +114,9 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
     const fileName = `${Date.now()}.${fileExt}`;
     const { data, error } = await supabasePublic.storage
       .from('products')
-      .upload(fileName, file);
+      .upload(fileName, file, {
+        cacheControl: 'public, max-age=604800',
+      });
 
     if (error) {
       setError('Ошибка при загрузке изображения');

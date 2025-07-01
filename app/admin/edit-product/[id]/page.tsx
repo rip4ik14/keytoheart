@@ -338,7 +338,9 @@ export default function EditProductPage() {
           const fileName = `${uuidv4()}-${compressed.name}`;
           const { error } = await supabase.storage
             .from('product-image')
-            .upload(fileName, compressed);
+            .upload(fileName, compressed, {
+              cacheControl: 'public, max-age=604800',
+            });
           if (error) throw new Error(error.message);
           const { data: publicData } = supabase.storage
             .from('product-image')

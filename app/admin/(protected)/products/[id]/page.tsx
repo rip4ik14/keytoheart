@@ -488,7 +488,9 @@ export default function EditProductPage() {
           process.env.NODE_ENV !== "production" && console.log('Uploading image to Supabase:', fileName);
           const { data, error } = await supabase.storage
             .from('product-image')
-            .upload(fileName, compressedImage);
+            .upload(fileName, compressedImage, {
+              cacheControl: 'public, max-age=604800',
+            });
 
           if (error) {
             throw new Error('Ошибка загрузки изображения: ' + error.message);

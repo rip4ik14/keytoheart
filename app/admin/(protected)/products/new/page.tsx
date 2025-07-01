@@ -279,7 +279,9 @@ export default function NewProductPage() {
           const fileName = `${uuidv4()}-${compressedImage.name}`;
           const { error } = await supabase.storage
             .from('product-image')
-            .upload(fileName, compressedImage);
+            .upload(fileName, compressedImage, {
+              cacheControl: 'public, max-age=604800',
+            });
           if (error) throw new Error('Ошибка загрузки изображения: ' + error.message);
           const { data: publicData } = supabase.storage
             .from('product-image')

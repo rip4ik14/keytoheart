@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
       .from('product-image')
       .upload(filename, optimizedImage, {
         contentType: 'image/webp',
-        upsert: true
+        upsert: true,
+        cacheControl: 'public, max-age=604800',
       });
 
     if (error) {
