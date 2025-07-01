@@ -3,23 +3,33 @@ import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
-import { JsonLd } from 'react-schemaorg';
-import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 
 import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
 import Footer from '@components/Footer';
-import CookieBanner from '@components/CookieBanner';
-import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
-import PromoFooterBlock from '@components/PromoFooterBlock';
-import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
+
+const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), {
+  ssr: false,
+});
+const CookieBanner = dynamic(() => import('@components/CookieBanner'), {
+  ssr: false,
+  loading: () => null,
+});
+const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), {
+  ssr: false,
+});
+const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), {
+  ssr: false,
+});
+const LayoutScripts = dynamic(() => import('@components/LayoutScripts'), {
+  ssr: false,
+});
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
-import { Category } from '@/types/category';
-import { YM_ID } from '@/utils/ym';
 
 /* ------------------------------------------------------------------ */
 /*                          ШРИФТЫ (next/font)                        */
@@ -113,43 +123,11 @@ export const viewport: Viewport = {
 /* ------------------------------------------------------------------ */
 /*                             LAYOUT                                 */
 /* ------------------------------------------------------------------ */
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  let categories: Category[] = [];
-  try {
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
-      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } }
-    );
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      categories = data.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        is_visible: c.is_visible ?? true,
-        subcategories:
-          c.subcategories
-            ?.filter((s: any) => s.is_visible)
-            .map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              slug: s.slug,
-              is_visible: s.is_visible ?? true,
-            })) ?? [],
-      }));
-    }
-  } catch (e) {
-    process.env.NODE_ENV !== 'production' &&
-      console.warn('[layout] categories fetch error →', e);
-    categories = [];
-  }
 
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
@@ -166,82 +144,7 @@ export default async function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <JsonLd
-          item={{
-            '@context': 'https://schema.org',
-            '@graph': [
-              {
-                '@type': 'WebSite',
-                name: 'KEY TO HEART',
-                url: 'https://keytoheart.ru',
-                description:
-                  'Клубничные букеты, цветы и подарки с доставкой в Краснодаре и до 20 км — от 60 минут, с 8:00 до 22:00.',
-              } satisfies WebSite,
-              {
-                '@type': 'LocalBusiness',
-                name: 'KEY TO HEART',
-                url: 'https://keytoheart.ru',
-                telephone: '+7-988-603-38-21',
-                email: 'info@keytoheart.ru',
-                address: {
-                  '@type': 'PostalAddress',
-                  addressLocality: 'Краснодар',
-                  addressRegion: 'Краснодарский край',
-                  addressCountry: 'RU',
-                },
-                openingHours: [
-                  'Mo-Su 08:00-22:00',
-                ],
-                openingHoursSpecification: {
-                  '@type': 'OpeningHoursSpecification',
-                  dayOfWeek: [
-                    'Monday',
-                    'Tuesday',
-                    'Wednesday',
-                    'Thursday',
-                    'Friday',
-                    'Saturday',
-                    'Sunday',
-                  ],
-                  opens: '08:00',
-                  closes: '22:00',
-                },
-              } satisfies LocalBusiness,
-              {
-                '@type': 'BreadcrumbList',
-                itemListElement: [
-                  {
-                    '@type': 'ListItem',
-                    position: 1,
-                    name: 'Главная',
-                    item: 'https://keytoheart.ru',
-                  },
-                ],
-              } satisfies BreadcrumbList,
-            ],
-          }}
-        />
-
-        {YM_ID && (
-          <script
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
-                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-                ym(${YM_ID}, "init", {
-                  clickmap:true,
-                  trackLinks:true,
-                  accurateTrackBounce:true,
-                  trackHash:true,
-                  webvisor:true
-                });
-              `,
-            }}
-          />
-        )}
+        <LayoutScripts />
       </head>
 
       <body className="font-sans">
@@ -250,7 +153,7 @@ export default async function RootLayout({
         <CartAnimationProvider>
           <CartProvider>
             <TopBar />
-            <StickyHeader initialCategories={categories} />
+            <StickyHeader />
 
             <Suspense fallback={<div>Загрузка…</div>}>
               <ClientBreadcrumbs />
@@ -261,7 +164,7 @@ export default async function RootLayout({
             </main>
 
             <PromoFooterBlock />
-            <Footer categories={categories} />
+            <Footer />
             <CookieBanner />
             <MobileContactFab />
 
