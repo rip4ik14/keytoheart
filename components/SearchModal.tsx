@@ -17,10 +17,6 @@ interface Product {
   category_ids: number[];
 }
 
-interface Category {
-  id: number;
-  name: string;
-}
 
 export default function SearchModal({
   isOpen,
