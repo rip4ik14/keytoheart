@@ -4,9 +4,13 @@ import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCategories } from '@/utils/useCategories';
-export default function Footer() {
-  const categories = useCategories();
+import type { Category } from '@/types/category';
+
+type FooterProps = {
+  categories: Category[];
+};
+
+export default function Footer({ categories }: FooterProps) {
   return (
     <footer
       className="bg-white text-sm text-gray-700 mt-12 border-t border-gray-200"
