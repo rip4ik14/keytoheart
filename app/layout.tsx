@@ -7,17 +7,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
 import { Suspense } from 'react';
 
-import TopBar from '@components/TopBar';
-import StickyHeader from '@components/StickyHeader';
-import Footer from '@components/Footer';
-import CookieBanner from '@components/CookieBanner';
-import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
-import PromoFooterBlock from '@components/PromoFooterBlock';
-import MobileContactFab from '@components/MobileContactFab';
-import SkipLink from '@components/SkipLink';
-
-import { CartProvider } from '@context/CartContext';
-import { CartAnimationProvider } from '@context/CartAnimationContext';
+import LayoutClient from '@components/LayoutClient';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym';
 
@@ -244,54 +234,7 @@ export default async function RootLayout({
         )}
       </head>
 
-      <body className="font-sans">
-        <SkipLink />
-
-        <CartAnimationProvider>
-          <CartProvider>
-            <TopBar />
-            <StickyHeader initialCategories={categories} />
-
-            <Suspense fallback={<div>Загрузка…</div>}>
-              <ClientBreadcrumbs />
-            </Suspense>
-
-            <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">
-              {children}
-            </main>
-
-            <PromoFooterBlock />
-            <Footer categories={categories} />
-            <CookieBanner />
-            <MobileContactFab />
-
-            <section
-              role="region"
-              aria-label="О магазине"
-              className="mx-auto mt-8 mb-12 max-w-5xl px-4 text-[15px] leading-6 text-gray-700"
-            >
-              <h2 className="mb-2 text-lg font-semibold">
-                Почему выбирают KEY TO HEART?
-              </h2>
-              <p className="mb-3">
-                Мы создаём клубничные букеты из свежайшей ягоды и бельгийского шоколада, а также цветочные шедевры и подарочные наборы. Доставка по Краснодару и до 20 км вокруг — от 60 минут!
-              </p>
-              <p className="mb-3">
-                Фото готового заказа присылаем перед доставкой. Работаем с 8:00 до 22:00, бережно упаковываем — от мини-букета до корпоративного подарка.
-              </p>
-              <h3 className="mb-1 font-medium">Популярные поводы</h3>
-              <ul className="list-disc pl-6">
-                <li>8 Марта и 14 Февраля</li>
-                <li>День рождения и юбилей</li>
-                <li>Годовщина и свадьба</li>
-                <li>Выписка из роддома</li>
-                <li>День учителя и День матери</li>
-                <li>Корпоративы и Новый год</li>
-              </ul>
-            </section>
-          </CartProvider>
-        </CartAnimationProvider>
-      </body>
+      <LayoutClient categories={categories}>{children}</LayoutClient>
     </html>
   );
 }
