@@ -53,15 +53,14 @@ export default function PromoGridClient({
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           {/* Десктоп: только баннеры */}
-          <div className="hidden lg:block h-full w-full">
-            <Swiper
-              modules={[Autoplay, Pagination]}
-              autoplay={{ delay: 10000 }}
-              pagination={{ clickable: true }}
-              loop
-              className="h-full w-full"
-              onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
-            >
+          <Swiper
+            modules={[Autoplay, Pagination]}
+            autoplay={{ delay: 10000 }}
+            pagination={{ clickable: true }}
+            loop
+            className="hidden lg:block h-full w-full"
+            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+          >
               {banners.map((b, i) => (
                 <SwiperSlide key={b.id} className="aspect-[3/2]">
                   <Link
@@ -69,7 +68,6 @@ export default function PromoGridClient({
                     className="relative block h-full w-full"
                     title={b.title}
                   >
-                    <div className="relative w-full h-full aspect-[3/2]">
                       <Image
                         src={b.image_url}
                         alt={b.title}
@@ -89,13 +87,12 @@ export default function PromoGridClient({
                           text-white text-left
                         "
                       >
-                        <div className="max-w-full w-full">
-                          <motion.h2
-                            className="
-                              mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                              max-w-[95vw] sm:max-w-[80vw] leading-tight
-                              sm:mb-3 lg:mb-4
-                            "
+                        <motion.h2
+                          className="
+                            mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                            max-w-[95vw] sm:max-w-[80vw] leading-tight
+                            sm:mb-3 lg:mb-4
+                          "
                             variants={textVariants}
                             initial="hidden"
                             animate={activeSlide === i ? 'visible' : 'hidden'}
@@ -150,25 +147,21 @@ export default function PromoGridClient({
                             </span>
                           </motion.div>
                         </div>
-                      </div>
-                    </div>
-                  </Link>
-                </SwiperSlide>
+                    </Link>
+                  </SwiperSlide>
               ))}
             </Swiper>
-          </div>
           {/* Мобильная версия: Swiper с баннерами и карточками */}
-          <div className="block lg:hidden h-full w-full">
-            <Swiper
-              modules={[Autoplay, Pagination]}
-              autoplay={{ delay: 5000 }}
-              pagination={{ clickable: true }}
-              loop
-              spaceBetween={12}
-              slidesPerView={1}
-              className="h-full w-full"
-              onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
-            >
+          <Swiper
+            modules={[Autoplay, Pagination]}
+            autoplay={{ delay: 5000 }}
+            pagination={{ clickable: true }}
+            loop
+            spaceBetween={12}
+            slidesPerView={1}
+            className="block lg:hidden h-full w-full"
+            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+          >
               {mobileItems.map((item, i) => (
                 <SwiperSlide key={item.id} className="aspect-[3/2]">
                   <Link
@@ -176,7 +169,6 @@ export default function PromoGridClient({
                     className="relative block h-full w-full"
                     title={item.title}
                   >
-                    <div className="relative w-full h-full aspect-[3/2]">
                       <Image
                         src={item.image_url}
                         alt={item.title}
@@ -194,13 +186,12 @@ export default function PromoGridClient({
                           text-white text-left
                         "
                       >
-                        <div className="max-w-full w-full">
-                          <motion.h2
-                            className="
-                              mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
-                              max-w-[95vw] sm:max-w-[80vw] leading-tight
-                              sm:mb-3
-                            "
+                        <motion.h2
+                          className="
+                            mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]
+                            max-w-[95vw] sm:max-w-[80vw] leading-tight
+                            sm:mb-3
+                          "
                             variants={textVariants}
                             initial="hidden"
                             animate={activeSlide === i ? 'visible' : 'hidden'}
@@ -256,19 +247,16 @@ export default function PromoGridClient({
                               </span>
                             </motion.div>
                           )}
-                          {item.type === 'card' && (
-                            <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
-                              {item.title}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </SwiperSlide>
+                            {item.type === 'card' && (
+                              <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
+                                {item.title}
+                              </span>
+                            )}
+                          </div>
+                    </Link>
+                  </SwiperSlide>
               ))}
             </Swiper>
-          </div>
         </motion.div>
 
         {/* Карточки для десктопа (справа) */}
@@ -292,16 +280,14 @@ export default function PromoGridClient({
                 title={c.title}
                 role="button"
               >
-                <div className="relative w-full h-full aspect-[3/2]">
-                  <Image
-                    src={c.image_url}
-                    alt={c.title}
-                    fill
-                    sizes="(max-width: 1024px) 50vw, 33vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
-                  />
-                  <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
-                </div>
+                <Image
+                  src={c.image_url}
+                  alt={c.title}
+                  fill
+                  sizes="(max-width: 1024px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
+                />
+                <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
                 <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
                   {c.title}
                 </span>
