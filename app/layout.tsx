@@ -20,6 +20,7 @@ import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym';
+import { getFirstPromoBannerUrl } from '@/lib/promo';
 
 /* ------------------------------------------------------------------ */
 /*                          ШРИФТЫ (next/font)                        */
@@ -121,6 +122,8 @@ export default async function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+  const firstBannerUrl = await getFirstPromoBannerUrl();
+
   let categories: Category[] = [];
   try {
     const res = await fetch(
@@ -166,6 +169,14 @@ export default async function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
+        {firstBannerUrl && (
+          <link
+            rel="preload"
+            as="image"
+            href={firstBannerUrl}
+            fetchPriority="high"
+          />
+        )}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
