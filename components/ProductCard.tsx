@@ -1,6 +1,6 @@
 'use client';
 /* -------------------------------------------------------------------------- */
-/*  Карточка товара: адаптивная, как на https://msk.labberry.shop/             */
+/*  Карточка товара: адаптивная, как на https://msk.labberry.shop/            */
 /* -------------------------------------------------------------------------- */
 import Image from 'next/image';
 import Link from 'next/link';
@@ -78,7 +78,7 @@ export default function ProductCard({
   return (
     <motion.div
       ref={cardRef}
-      className={`relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 h-auto focus:outline-none animate-fade-up ${
+      className={`relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 focus:outline-none animate-fade-up ${
         isMobile ? 'border border-gray-200' : hovered ? 'border border-gray-200 shadow-sm' : ''
       }`}
       initial={{ opacity: 0, y: 20 }}
@@ -91,7 +91,7 @@ export default function ProductCard({
       aria-labelledby={`product-${product.id}-title`}
       tabIndex={0}
       aria-live="polite"
-      // Убрано min-height: 300px, чтобы высота адаптировалась
+      style={{ minHeight: isMobile ? 370 : undefined }}
     >
       {/* JSON-LD для SEO */}
       <script
@@ -105,10 +105,7 @@ export default function ProductCard({
             description: product.description || 'Описание товара отсутствует',
             sku: product.id.toString(),
             mpn: product.id.toString(),
-            brand: {
-              '@type': 'Brand',
-              name: 'Labberry',
-            },
+            brand: { '@type': 'Brand', name: 'Labberry' },
             offers: {
               '@type': 'Offer',
               url: `/product/${product.id}`,
@@ -117,37 +114,32 @@ export default function ProductCard({
               priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .split('T')[0],
-              availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+              availability: product.in_stock
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
               itemCondition: 'https://schema.org/NewCondition',
             },
           }),
         }}
       />
 
-      {/* ----------- бонусы ----------- */}
+      {/* бонусы */}
       {bonus > 0 && (
         <motion.div
-          className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
+          className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100 sm:top-4 sm:left-4"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.2 }}
         >
           +{bonus}
-          <Image
-            src="/icons/gift.svg"
-            alt=""
-            width={13}
-            height={13}
-            className="ml-1"
-            draggable={false}
-          />
+          <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
         </motion.div>
       )}
 
-      {/* ----------- популярное ----------- */}
+      {/* популярно */}
       {isPopular && (
         <motion.div
-          className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold"
+          className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold sm:top-4 sm:right-4"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.2 }}
@@ -157,10 +149,10 @@ export default function ProductCard({
         </motion.div>
       )}
 
-      {/* ----------- изображение товара ----------- */}
+      {/* изображение */}
       <Link
         href={`/product/${product.id}`}
-        className={`block relative w-full h-56 sm:h-64 overflow-hidden aspect-[3/4] transition-all duration-200 ${
+        className={`block relative w-full overflow-hidden aspect-[3/4] transition-all duration-200 ${
           !hovered ? 'rounded-[18px]' : 'rounded-t-[18px]'
         }`}
         tabIndex={-1}
@@ -176,137 +168,112 @@ export default function ProductCard({
           loading={priority ? 'eager' : 'lazy'}
           priority={priority}
         />
-        {!isMobile && images.length > 1 && (
-          <div className="absolute left-1/2 bottom-2 -translate-x-1/2 flex gap-1 z-10">
-            {images.map((_, i) => (
-              <span
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-black' : 'bg-black/20'}`}
-              />
-            ))}
-          </div>
-        )}
       </Link>
 
-      {/* ----------- контент ----------- */}
+      {/* контент */}
       <div
         className="flex flex-col p-2 sm:p-4"
         style={{
-          display: isMobile ? 'grid' : 'flex',
-          gridTemplateRows: isMobile ? 'auto 1fr auto 48px' : undefined, // Сохраняем сетку
-          minHeight: isMobile ? undefined : '150px', // Убрано min-height для мобильной версии
-          paddingBottom: isMobile ? '0' : '48px',
+          paddingBottom: isMobile ? '3rem' : '48px', // запас под кнопку
         }}
       >
         <h3
           id={`product-${product.id}-title`}
-          className="text-sm sm:text-[15px] font-medium text-black text-center break-words whitespace-normal max-h-[80px] overflow-y-auto mb-2"
+          className="text-sm sm:text-[15px] font-medium text-black text-center line-clamp-3 mb-2 leading-tight"
         >
           {product.title}
         </h3>
-        {isMobile ? (
-          <>
-            <div style={{ minHeight: '0' }} /> {/* Пустая строка с минимальной высотой */}
-            <div className="flex items-center justify-center gap-2 min-h-[30px]">
-              {(discountAmount > 0 || originalPrice > product.price) && (
-                <span className="text-xs text-gray-400 line-through">
-                  {originalPrice > product.price ? originalPrice : product.price}₽
-                </span>
-              )}
-              {discountAmount > 0 && (
-                <span className="text-red-500 text-[11px] font-bold">
-                  -{discountAmount}₽
-                </span>
-              )}
-              <span className="text-lg font-bold text-black">
-                {discountAmount > 0 ? discountedPrice : product.price}₽
-              </span>
-            </div>
-            <div className="min-h-[1px]">
-              {product.production_time != null && (
-                <p className="text-center text-xs text-gray-500">
-                  Время изготовления: {product.production_time}{' '}
-                  {product.production_time === 1 ? 'час' : 'часов'}
-                </p>
-              )}
-            </div>
-            <motion.div
-              className="w-full"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.2 }}
+        <div className="flex items-center justify-center gap-2 min-h-[30px]">
+          {(discountAmount > 0 || originalPrice > product.price) && (
+            <span className="text-xs text-gray-400 line-through">
+              {originalPrice > product.price ? originalPrice : product.price}₽
+            </span>
+          )}
+          {discountAmount > 0 && (
+            <span
+              className={`${isMobile ? 'text-red-500' : 'bg-black text-white rounded px-1.5 py-0.5'} text-[11px] font-bold`}
             >
-              <button
-                ref={buttonRef}
-                onClick={handleAddToCart}
-                className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-lg font-bold text-base hover:bg-black hover:text-white active:scale-95 transition-all duration-200"
-                aria-label={`Добавить ${product.title} в корзину`}
-                style={{ height: '48px' }}
-              >
-                <ShoppingCart size={20} className="mr-2" />
-                <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
-              </button>
-            </motion.div>
-          </>
-        ) : (
-          <div className="flex flex-col flex-1 justify-between" style={{ paddingBottom: '48px' }}>
-            <div className="flex items-center justify-center gap-2 min-h-[30px]">
-              {(discountAmount > 0 || originalPrice > product.price) && (
-                <span className="text-xs text-gray-400 line-through">
-                  {originalPrice > product.price ? originalPrice : product.price}₽
-                </span>
-              )}
-              {discountAmount > 0 && (
-                <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
-                  -{discountAmount}₽
-                </span>
-              )}
-              <span className="text-lg font-bold text-black">
-                {discountAmount > 0 ? discountedPrice : product.price}₽
-              </span>
-            </div>
-            {product.production_time != null && (
-              <p className="text-center text-xs sm:text-sm text-gray-500">
-                Время изготовления: {product.production_time}{' '}
-                {product.production_time === 1 ? 'час' : 'часов'}
-              </p>
-            )}
-            <div
-              className="w-full"
-              style={{
-                position: 'absolute',
-                bottom: '0',
-                left: '0',
-                width: '100%',
-                padding: '0 2px',
-              }}
-            >
-              <AnimatePresence>
-                {hovered && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-full"
-                  >
-                    <button
-                      ref={buttonRef}
-                      onClick={handleAddToCart}
-                      className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white active:scale-95 transition-all duration-200"
-                      style={{ height: '40px' }}
-                      aria-label={`Добавить ${product.title} в корзину`}
-                    >
-                      <ShoppingCart size={20} className="mr-2" />
-                      <span className="uppercase tracking-wider font-bold text-[15px]">В корзину</span>
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
+              -{discountAmount}₽
+            </span>
+          )}
+          <span className="text-lg font-bold text-black">
+            {discountAmount > 0 ? discountedPrice : product.price}₽
+          </span>
+        </div>
+        {product.production_time != null && (
+          <p className="text-center text-xs text-gray-500">
+            Время изготовления: {product.production_time}{' '}
+            {product.production_time === 1 ? 'час' : 'часов'}
+          </p>
         )}
       </div>
+
+      {/* мобильная кнопка */}
+      {isMobile && (
+        <motion.div
+          className="w-full"
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            padding: '0 8px',
+            zIndex: 10,
+          }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <button
+            ref={buttonRef}
+            onClick={handleAddToCart}
+            className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200"
+            style={{ height: '2.5rem' }}
+            aria-label={`Добавить ${product.title} в корзину`}
+          >
+            <ShoppingCart size={20} className="mr-2" />
+            <span className="uppercase tracking-wider">В корзину</span>
+          </button>
+        </motion.div>
+      )}
+
+      {/* десктопная кнопка */}
+      {!isMobile && (
+        <div
+          className="w-full"
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            padding: '0 2px',
+            zIndex: 10,
+          }}
+        >
+          <AnimatePresence>
+            {hovered && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.3 }}
+                className="w-full"
+              >
+                <button
+                  ref={buttonRef}
+                  onClick={handleAddToCart}
+                  className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200"
+                  style={{ height: '2.5rem' }}
+                  aria-label={`Добавить ${product.title} в корзину`}
+                >
+                  <ShoppingCart size={20} className="mr-2" />
+                  <span className="uppercase tracking-wider">В корзину</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </motion.div>
   );
 }
