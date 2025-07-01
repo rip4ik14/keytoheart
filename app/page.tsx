@@ -225,9 +225,9 @@ export default async function Home() {
       />
 
       {/* ----------------------- Контент --------------------- */}
-     {/* <section>
+      <section>
         <PromoGridServer />
-      </section> */}
+      </section> 
 
       <section>
         <PopularProductsServer />
