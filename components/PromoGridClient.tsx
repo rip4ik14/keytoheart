@@ -1,4 +1,4 @@
-// ✅ Путь: app/components/PromoGridClient.tsx
+// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -47,8 +47,7 @@ export default function PromoGridClient({
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Баннеры/карточки для десктопа */}
         <motion.div
-          className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
-          style={{ aspectRatio: '3 / 2' }}
+          className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2 aspect-[3/2]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -64,7 +63,7 @@ export default function PromoGridClient({
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
               {banners.map((b, i) => (
-                <SwiperSlide key={b.id}>
+                <SwiperSlide key={b.id} className="aspect-[3/2]">
                   <Link
                     href={b.href || '#'}
                     className="relative block h-full w-full"
@@ -78,7 +77,6 @@ export default function PromoGridClient({
                         sizes="(max-width: 1024px) 100vw, 66vw"
                         priority={i === 0} // Приоритет для первого баннера
                         className="object-cover rounded-2xl lg:rounded-3xl"
-                        style={{ aspectRatio: '3 / 2' }}
                       />
                       <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
                       <div
@@ -170,7 +168,7 @@ export default function PromoGridClient({
               onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
             >
               {mobileItems.map((item, i) => (
-                <SwiperSlide key={item.id}>
+                <SwiperSlide key={item.id} className="aspect-[3/2]">
                   <Link
                     href={item.href || '#'}
                     className="relative block h-full w-full"
@@ -184,7 +182,6 @@ export default function PromoGridClient({
                         sizes="100vw"
                         priority={i === 0} // Приоритет для первого элемента
                         className="object-cover rounded-2xl"
-                        style={{ aspectRatio: '3 / 2' }}
                       />
                       <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
                       <div
@@ -289,19 +286,20 @@ export default function PromoGridClient({
             >
               <Link
                 href={c.href}
-                className="group block h-full w-full"
+                className="group relative block h-full w-full"
                 title={c.title}
                 role="button"
               >
-                <Image
-                  src={c.image_url}
-                  alt={c.title}
-                  fill
-                  sizes="(max-width: 1024px) 50vw, 33vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
-                  style={{ aspectRatio: '3 / 2' }}
-                />
-                <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
+                <div className="relative w-full h-full aspect-[3/2]">
+                  <Image
+                    src={c.image_url}
+                    alt={c.title}
+                    fill
+                    sizes="(max-width: 1024px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
+                  />
+                  <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
+                </div>
                 <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
                   {c.title}
                 </span>
