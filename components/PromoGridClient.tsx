@@ -74,8 +74,8 @@ export default function PromoGridClient({
                         fill
                         sizes="(max-width: 1024px) 100vw, 66vw"
                         priority={i === 0} // Приоритет для первого баннера
-                        loading="eager"
-                        fetchPriority="high"
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : 'auto'}
                         className="object-cover rounded-2xl lg:rounded-3xl"
                       />
                       <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
