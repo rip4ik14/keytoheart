@@ -13,13 +13,8 @@ import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
-import type { Category } from '@/types/category';
 
-type StickyHeaderProps = {
-  initialCategories: Category[];
-};
-
-export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
+export default function StickyHeader() {
   const pathname = usePathname() || '/';
   const router = useRouter();
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
@@ -447,7 +442,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         {flyBall}
 
         <div className="border-t">
-          <CategoryNav initialCategories={initialCategories} />
+          <CategoryNav initialCategories={[]} />
         </div>
       </header>
 
