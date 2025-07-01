@@ -11,15 +11,11 @@ export default function AdvantagesClient() {
   ];
 
   return (
-    <section
-      className="py-6 sm:py-8 md:py-10 bg-white"
-      aria-label="Преимущества KEY TO HEART"
-      style={{ minHeight: 180 }} // Фиксируем минимальную высоту секции для предотвращения CLS
-    >
+    <section className="py-6 sm:py-8 md:py-10 bg-white" aria-label="Преимущества KEY TO HEART">
       <div className="max-w-4xl mx-auto px-2 sm:px-4">
         <div
           className="
-            grid
+            grid 
             grid-cols-1
             xs:grid-cols-2
             sm:grid-cols-2
@@ -27,7 +23,6 @@ export default function AdvantagesClient() {
             gap-4
             sm:gap-6
           "
-          style={{ minHeight: 150 }} // Для любых устройств сохраняем высоту grid
         >
           {advantages.map((advantage, index) => (
             <motion.div
@@ -48,14 +43,12 @@ export default function AdvantagesClient() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              style={{ minHeight: 140 }}
             >
               <motion.div
                 className="mb-3 flex items-center justify-center"
                 aria-hidden="true"
                 whileHover={{ scale: 1.13 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                style={{ height: 48, minHeight: 48 }}
               >
                 <Image
                   src={advantage.icon}
@@ -66,9 +59,7 @@ export default function AdvantagesClient() {
                   priority={index === 0}
                 />
               </motion.div>
-              <p className="text-base sm:text-lg font-medium text-gray-800 leading-tight">
-                {advantage.text}
-              </p>
+              <p className="text-base sm:text-lg font-medium text-gray-800 leading-tight">{advantage.text}</p>
             </motion.div>
           ))}
         </div>

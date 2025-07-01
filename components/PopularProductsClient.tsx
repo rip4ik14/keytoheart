@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -34,7 +35,7 @@ export default function PopularProductsClient({ products }: { products: Product[
       >
         ПОПУЛЯРНОЕ
       </h2>
-      <div className="relative min-h-[400px]"> {/* резервируем место для swiper */}
+      <div className="relative">
         <Swiper
           modules={[Navigation]}
           loop={enableLoop}

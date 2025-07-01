@@ -5,16 +5,8 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
-import dynamic from 'next/dynamic';
-
-const SearchModal = dynamic(() => import('@components/SearchModal'), {
-  ssr: false,
-  loading: () => null,
-});
-const CookieBanner = dynamic(() => import('@components/CookieBanner'), {
-  ssr: false,
-  loading: () => null,
-});
+import SearchModal from '@components/SearchModal';
+import CookieBanner from '@components/CookieBanner';
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import { supabasePublic as supabase } from '@/lib/supabase/public';

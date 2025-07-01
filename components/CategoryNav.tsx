@@ -1,10 +1,10 @@
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { Category } from '@/types/category';
@@ -12,9 +12,7 @@ import { Category } from '@/types/category';
 let categoryCache: Category[] | null = null;
 
 const transliterate = (text: string) => {
-  // ... без изменений ...
   const map: Record<string, string> = {
-    // ... как в твоём коде ...
     а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
     и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
     с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
@@ -25,6 +23,7 @@ const transliterate = (text: string) => {
     .map((char) => map[char.toLowerCase()] || char)
     .join('');
 };
+
 const generateSlug = (name: string) =>
   transliterate(name)
     .toLowerCase()
@@ -38,8 +37,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [subscribed, setSubscribed] = useState(pathname.startsWith('/admin'));
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -104,10 +101,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
     } else {
       fetchCategories();
     }
-  }, [initialCategories]);
-
-  useEffect(() => {
-    if (!subscribed) return;
 
     const channel = supabase
       .channel('categories-subcategories-changes')
@@ -129,30 +122,15 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       )
       .subscribe();
 
-    channelRef.current = channel;
-
     return () => {
       supabase.removeChannel(channel);
-      channelRef.current = null;
     };
-  }, [subscribed]);
+  }, [initialCategories]);
 
-  useEffect(() => {
-    if (pathname.startsWith('/admin')) setSubscribed(true);
-  }, [pathname]);
-
-  // --- ОСНОВНОЕ ИЗМЕНЕНИЕ: ЯВНО ЗАДАЕМ min-height для nav ---
-  // min-height (и на мобильных, и на desktop) соответствует высоте самой навигации в обычном состоянии (например, 48px + отступы).
-  // Ты можешь подстроить значения, если у тебя шрифт/паддинги больше-меньше!
   return (
     <nav
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
       aria-label="Навигация по категориям"
-      style={{
-        minHeight: '56px', // высота блока с категориями, не даёт скачков при смене контента
-      }}
-      onPointerDown={() => setSubscribed(true)}
-      onMouseEnter={() => setSubscribed(true)}
     >
       {/* mobile */}
       <div className="sm:hidden relative">
@@ -161,12 +139,12 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
             {loading
               ? Array.from({ length: 6 }).map((_, i) => (
                   <li key={i} className="flex-shrink-0">
-                    <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" style={{ minHeight: 40 }} />
+                    <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" />
                   </li>
                 ))
               : categories.length === 0
               ? (
-                <li className="text-center text-gray-500 font-sans w-full" style={{ minHeight: 40 }}>
+                <li className="text-center text-gray-500 font-sans w-full">
                   Категории отсутствуют
                 </li>
               )
@@ -193,7 +171,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             ? 'bg-black text-white shadow-sm scale-105'
                             : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
                         } focus:ring-2 focus:ring-gray-500`}
-                        style={{ minHeight: 40, lineHeight: '40px' }}
                         onClick={() => {
                           window.gtag?.('event', 'category_nav_click', {
                             event_category: 'navigation',
@@ -223,12 +200,12 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         {loading
           ? Array.from({ length: 6 }).map((_, i) => (
               <li key={i}>
-                <div className="h-6 w-20 rounded bg-gray-200 animate-pulse" style={{ minHeight: 32 }} />
+                <div className="h-6 w-20 rounded bg-gray-200 animate-pulse" />
               </li>
             ))
           : categories.length === 0
           ? (
-            <li className="text-center text-gray-500 font-sans" style={{ minHeight: 32 }}>
+            <li className="text-center text-gray-500 font-sans">
               Категории отсутствуют
             </li>
           )
@@ -246,7 +223,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                           ? 'text-black underline'
                           : 'text-gray-500 hover:text-black hover:underline'
                       } focus:ring-2 focus:ring-gray-500`}
-                      style={{ minHeight: 32, lineHeight: '32px' }}
                       onClick={() => {
                         window.gtag?.('event', 'category_nav_click', {
                           event_category: 'navigation',
@@ -264,6 +240,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                     >
                       {cat.name}
                     </Link>
+
                     {cat.subcategories.length > 0 && (
                       <div
                         className="
@@ -292,7 +269,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             key={sub.id}
                             href={`/category/${cat.slug}/${sub.slug}`}
                             className="block px-4 py-2 text-sm text-black hover:bg-gray-100 font-sans focus:bg-gray-100 outline-none"
-                            style={{ minHeight: 32, lineHeight: '32px' }}
                             role="menuitem"
                             tabIndex={0}
                             onClick={() => {
@@ -332,7 +308,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       </ul>
 
       {error && (
-        <div className="text-center text-sm text-black py-2 font-sans" style={{ minHeight: 40 }}>
+        <div className="text-center text-sm text-black py-2 font-sans">
           <p>{error}</p>
           <button
             onClick={() => {
