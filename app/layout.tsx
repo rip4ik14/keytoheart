@@ -12,7 +12,7 @@ import StickyHeader from '@components/StickyHeader';
 import Footer from '@components/Footer';
 import CookieBanner from '@components/CookieBanner';
 import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
-//import PromoFooterBlock from '@components/PromoFooterBlock';
+import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
 
@@ -260,7 +260,7 @@ export default async function RootLayout({
               {children}
             </main>
 
-            {/*<PromoFooterBlock />*/}
+            <PromoFooterBlock />
             <Footer categories={categories} />
             <CookieBanner />
             <MobileContactFab />
