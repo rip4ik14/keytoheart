@@ -13,9 +13,9 @@ import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
 import { Product, ComboItem } from './types';
 
-/* ------------------------------------------------------------------
- * types + helpers
- * -----------------------------------------------------------------*/
+/* ------------------------------------------------------------------ */
+/* types + helpers                                                   */
+/* ------------------------------------------------------------------ */
 interface DaySchedule {
   start: string;
   end: string;
@@ -36,13 +36,10 @@ const daysOfWeek = [
   'sunday',
 ];
 const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
-  const result: Record<string, DaySchedule> = daysOfWeek.reduce(
-    (acc, day) => {
-      acc[day] = { start: '09:00', end: '18:00', enabled: true };
-      return acc;
-    },
-    {} as Record<string, DaySchedule>,
-  );
+  const result: Record<string, DaySchedule> = daysOfWeek.reduce((acc, day) => {
+    acc[day] = { start: '09:00', end: '18:00', enabled: true };
+    return acc;
+  }, {} as Record<string, DaySchedule>);
   if (typeof schedule !== 'object' || schedule === null) return result;
   for (const [key, value] of Object.entries(schedule)) {
     if (daysOfWeek.includes(key) && typeof value === 'object' && value) {
@@ -59,9 +56,9 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
   return result;
 };
 
-/* ------------------------------------------------------------------
- * анимации
- * -----------------------------------------------------------------*/
+/* ------------------------------------------------------------------ */
+/* анимации                                                          */
+/* ------------------------------------------------------------------ */
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -87,25 +84,20 @@ export default function ProductPageClient({
   product: Product;
   combos: ComboItem[];
 }) {
-  /* ------------------------- state & hooks ------------------------ */
   const { addItem } = useCart();
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
-  const [comboNotifications, setComboNotifications] = useState<
-    Record<number, boolean>
-  >({});
+  const [comboNotifications, setComboNotifications] = useState<Record<number, boolean>>({});
   const [bonusPercent] = useState(0.025);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
-  const [recommendedItems, setRecommendedItems] =
-    useState<ComboItem[]>(combos);
+  const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos);
   const recommendLoop = recommendedItems.length > 4;
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
 
-  /* ------------------------- side-effects ------------------------- */
   /* загрузка настроек магазина */
   useEffect(() => {
     const fetchSettings = async () => {
@@ -115,11 +107,8 @@ export default function ProductPageClient({
         const json = await res.json();
         if (res.ok && json.success) {
           setStoreSettings({
-            order_acceptance_enabled:
-              json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(
-              json.data.order_acceptance_schedule,
-            ),
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
             store_hours: transformSchedule(json.data.store_hours),
           });
         }
@@ -151,9 +140,7 @@ export default function ProductPageClient({
         const subIds = [171, 173];
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
-            const r = await fetch(
-              `/api/upsell/products?category_id=8&subcategory_id=${sub}`,
-            );
+            const r = await fetch(`/api/upsell/products?category_id=8&subcategory_id=${sub}`);
             if (!r.ok) return [];
             const { success, data } = await r.json();
             return success ? data : [];
@@ -227,7 +214,6 @@ export default function ProductPageClient({
         const storeEndTime = new Date(earliestDate);
         storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
 
-        // Определяем пересечение интервалов
         const effectiveStart = orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
         const effectiveEnd = orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
 
@@ -246,7 +232,7 @@ export default function ProductPageClient({
       }
 
       earliestDate.setDate(earliestDate.getDate() + 1);
-      earliestDate.setHours(9, 0, 0, 0); // Сбрасываем на начало дня
+      earliestDate.setHours(9, 0, 0, 0);
       attempts++;
     }
 
@@ -267,17 +253,13 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
-  /* ------------------------------------------------------------------
-   * вычисления
-   * -----------------------------------------------------------------*/
+  /* ------------------------------------------------------------------ */
+  /* вычисления                                                        */
+  /* ------------------------------------------------------------------ */
   const discountPercent = product.discount_percent ?? 0;
   const discountedPrice =
-    discountPercent > 0
-      ? Math.round(product.price * (1 - discountPercent / 100))
-      : product.price;
-  const bonus = (discountedPrice * bonusPercent)
-    .toFixed(2)
-    .replace('.', ',');
+    discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+  const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
   /* add-to-cart */
   const handleAdd = (
@@ -298,10 +280,7 @@ export default function ProductPageClient({
     });
     if (isCombo) {
       setComboNotifications((p) => ({ ...p, [id]: true }));
-      setTimeout(
-        () => setComboNotifications((p) => ({ ...p, [id]: false })),
-        2000,
-      );
+      setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 2000);
     } else {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2000);
@@ -328,17 +307,12 @@ export default function ProductPageClient({
         })
         .catch(() => {});
     } else {
-      navigator.clipboard
-        .writeText(window.location.href)
-        .then(() => alert('Ссылка скопирована в буфер обмена!'));
+      navigator.clipboard.writeText(window.location.href).then(() => alert('Ссылка скопирована в буфер обмена!'));
     }
   };
 
   const images = Array.isArray(product.images) ? product.images : [];
 
-  /* ================================================================= */
-  /*                              JSX                                  */
-  /* ================================================================= */
   return (
     <section
       className="min-h-screen bg-white text-black"
@@ -406,12 +380,15 @@ export default function ProductPageClient({
                 {images.length ? (
                   images.map((src, i) => (
                     <SwiperSlide key={i}>
-                      <div className="relative aspect-[4/3] w-full bg-gray-100">
+                      <div
+                        className="relative w-full bg-gray-100"
+                        style={{ paddingTop: '75%' }}
+                      >
                         <Image
                           src={src}
                           alt={`${product.title} — фото ${i + 1}`}
                           fill
-                          className="object-cover"
+                          className="object-contain"
                           priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           sizes="(max-width:768px) 100vw, 50vw"
@@ -421,12 +398,15 @@ export default function ProductPageClient({
                   ))
                 ) : (
                   <SwiperSlide>
-                    <div className="relative aspect-[4/3] w-full bg-gray-100">
+                    <div
+                      className="relative w-full bg-gray-100"
+                      style={{ paddingTop: '75%' }}
+                    >
                       <Image
                         src="/placeholder.jpg"
                         alt="Изображение отсутствует"
                         fill
-                        className="object-cover"
+                        className="object-contain"
                         priority
                       />
                     </div>
@@ -463,11 +443,10 @@ export default function ProductPageClient({
                   {images.map((src, i) => (
                     <SwiperSlide key={i} className="cursor-pointer group">
                       <div
-                        className={`relative aspect-[4/3] rounded-xl overflow-hidden border transition ${
-                          activeIndex === i
-                            ? 'border-black shadow-lg'
-                            : 'border-gray-200'
+                        className={`relative rounded-xl overflow-hidden border transition ${
+                          activeIndex === i ? 'border-black shadow-lg' : 'border-gray-200'
                         }`}
+                        style={{ paddingTop: '75%' }}
                         onClick={() =>
                           mainSwiperRef.current && mainSwiperRef.current.slideTo(i)
                         }
@@ -476,7 +455,7 @@ export default function ProductPageClient({
                           src={src}
                           alt={`Миниатюра ${i + 1}`}
                           fill
-                          className="object-cover group-hover:scale-105 transition-transform"
+                          className="object-contain group-hover:scale-105 transition-transform"
                           loading="lazy"
                           sizes="(max-width:768px) 20vw, 8vw"
                         />
@@ -514,23 +493,11 @@ export default function ProductPageClient({
               {product.title}
             </h1>
 
-            <div
-              itemProp="offers"
-              itemScope
-              itemType="https://schema.org/Offer"
-              className="flex flex-col gap-2"
-            >
+            <div itemProp="offers" itemScope itemType="https://schema.org/Offer" className="flex flex-col gap-2">
               <meta itemProp="priceCurrency" content="RUB" />
-              <link
-                itemProp="availability"
-                href="https://schema.org/InStock"
-              />
+              <link itemProp="availability" href="https://schema.org/InStock" />
               <div className="flex items-end gap-4">
-                <span
-                  className="text-3xl sm:text-4xl font-bold"
-                  itemProp="price"
-                  content={String(discountedPrice)}
-                >
+                <span className="text-3xl sm:text-4xl font-bold" itemProp="price" content={String(discountedPrice)}>
                   {discountedPrice} ₽
                 </span>
                 {discountPercent > 0 && (
@@ -545,10 +512,7 @@ export default function ProductPageClient({
                 )}
                 <span className="ml-3 text-base sm:text-lg flex items-center gap-1">
                   + бонус {bonus}₽
-                  <span
-                    className="ml-1 text-gray-600 cursor-pointer"
-                    title="Бонус за оплату заказа"
-                  >
+                  <span className="ml-1 text-gray-600 cursor-pointer" title="Бонус за оплату заказа">
                     ⓘ
                   </span>
                 </span>
@@ -558,12 +522,7 @@ export default function ProductPageClient({
             <div className="flex flex-col gap-2 text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
-                  <Image
-                    src="/icons/clock.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                  />
+                  <Image src="/icons/clock.svg" alt="" width={20} height={20} />
                   <span>
                     Время изготовления: {product.production_time}{' '}
                     {product.production_time === 1 ? 'час' : 'часов'}
@@ -572,12 +531,7 @@ export default function ProductPageClient({
               )}
               {earliestDelivery && (
                 <div className="flex items-center gap-2">
-                  <Image
-                    src="/icons/truck.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                  />
+                  <Image src="/icons/truck.svg" alt="" width={20} height={20} />
                   <span>{earliestDelivery}</span>
                 </div>
               )}
@@ -620,10 +574,7 @@ export default function ProductPageClient({
             {product.description && (
               <section className="space-y-1 pt-3 border-t">
                 <h2 className="font-bold text-lg">О товаре</h2>
-                <p
-                  className="whitespace-pre-line leading-loose"
-                  itemProp="description"
-                >
+                <p className="whitespace-pre-line leading-loose" itemProp="description">
                   {product.description}
                 </p>
               </section>
@@ -646,17 +597,20 @@ export default function ProductPageClient({
                 {
                   name: 'Анна',
                   rating: 5,
-                  text: 'моя подруга осталась очень довольна и счастлива 🤍 привезли прямо к ее работе, а у нее сегодня было плохое настроение. после того, как она неожиданно получила этот подарок(она не знала какой), то расплакалась от счастья и осталась очень довольна💘 спасибо вам, что сегодня сделали мою подругу и меня счастливыми 🙏🏻💖',
+                  text:
+                    'моя подруга осталась очень довольна и счастлива 🤍 привезли прямо к ее работе, а у нее сегодня было плохое настроение. после того, как она неожиданно получила этот подарок(она не знала какой), то расплакался от счастья и осталась очень довольна💘 спасибо вам, что сегодня сделали мою подругу и меня счастливыми 🙏🏻💖',
                 },
                 {
                   name: 'Екатерина',
                   rating: 5,
-                  text: 'Очень благодарна, подарок был для дочери на её день рождения. Очень переживала, что не сделают вовремя, просто был плохой опыт в другом месте. Дочь в восторге, клубника очень вкусная. Благодарю 🙏',
+                  text:
+                    'Очень благодарна, подарок был для дочери на её день рождения. Очень переживала, что не сделают вовремя, просто был плохой опыт в другом месте. Дочь в восторге, клубника очень вкусная. Благодарю 🙏',
                 },
                 {
                   name: 'Ольга',
                   rating: 5,
-                  text: 'Очень вежливое общение и просто сделано все на 10/10. Однозначно буду иметь в виду этот магазин до дальнейших покупок и буду рекомендовать своим знакомым. Огромное спасибо за ваш труд❤️ .',
+                  text:
+                    'Очень вежливое общение и просто сделано все на 10/10. Однозначно буду иметь в виду этот магазин до дальнейших покупок и буду рекомендовать своим знакомым. Огромное спасибо за ваш труд❤️ .',
                 },
               ].map((review, i) => (
                 <div key={i} className="border-t pt-4">
@@ -666,11 +620,7 @@ export default function ProductPageClient({
                       {Array(review.rating)
                         .fill(0)
                         .map((_, j) => (
-                          <Star
-                            key={j}
-                            size={16}
-                            className="text-yellow-500 fill-current"
-                          />
+                          <Star key={j} size={16} className="text-yellow-500 fill-current" />
                         ))}
                     </div>
                   </div>
@@ -688,9 +638,7 @@ export default function ProductPageClient({
             initial="hidden"
             animate="visible"
           >
-            <h2 className="text-2xl font-bold mb-6 tracking-tight">
-              Рекомендуемые товары
-            </h2>
+            <h2 className="text-2xl font-bold mb-6 tracking-tight">Рекомендуемые товары</h2>
             {isLoadingRecommended ? (
               <p className="text-gray-500">Загрузка…</p>
             ) : (
@@ -717,23 +665,19 @@ export default function ProductPageClient({
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.98 }}
                       >
-                        <div className="relative w-full aspect-[4/3] bg-gray-100">
+                        <div className="relative w-full bg-gray-100" style={{ paddingTop: '75%' }}>
                           <Image
                             src={combo.image}
                             alt={combo.title}
                             fill
-                            className="object-cover transition-transform group-hover:scale-105"
+                            className="object-contain transition-transform group-hover:scale-105"
                             loading="lazy"
                             sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
                           />
                         </div>
                         <div className="p-4 flex flex-col flex-1 space-y-2">
-                          <p className="line-clamp-2 h-12 font-semibold">
-                            {combo.title}
-                          </p>
-                          <span className="text-lg font-bold">
-                            {combo.price} ₽
-                          </span>
+                          <p className="line-clamp-2 h-12 font-semibold">{combo.title}</p>
+                          <span className="text-lg font-bold">{combo.price} ₽</span>
                           <motion.button
                             onClick={() =>
                               handleAdd(

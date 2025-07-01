@@ -1,4 +1,3 @@
-// components/NewProductPage.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -67,6 +66,22 @@ export default function NewProductPage() {
     const calculatedBonus = calcBonus(price);
     setBonus(calculatedBonus);
   }, [price]);
+
+  // Функции для перестановки изображений
+  const moveImage = (from: number, to: number) => {
+    setImages(prev => {
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    });
+  };
+  const moveImageLeft = (idx: number) => {
+    if (idx > 0) moveImage(idx, idx - 1);
+  };
+  const moveImageRight = (idx: number) => {
+    if (idx < images.length - 1) moveImage(idx, idx + 1);
+  };
 
   // Мультитач чекбоксы (категории/подкатегории)
   const handleCategoryChange = (id: number, checked: boolean) => {
@@ -280,7 +295,7 @@ export default function NewProductPage() {
       const payload = {
         title: title.trim(),
         price: priceNum,
-        original_price: originalPriceNum, // Может быть undefined
+        original_price: originalPriceNum,
         discount_percent: discountNum,
         category: categoriesData.map(cat => cat.name).join(', '),
         category_ids: categoryIds,
@@ -522,21 +537,55 @@ export default function NewProductPage() {
                   id="images"
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handleImageChange}
                   className="block w-full p-2 border border-gray-300 rounded-lg mb-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
                 <p className="text-sm text-gray-500 mb-2">Максимум 7 файлов (JPEG, PNG, WebP, ≤5MB)</p>
                 {images.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {images.map(image => (
-                      <div key={image.id} className="relative group w-24 h-24 border rounded-lg overflow-hidden shadow-sm bg-gray-50">
+                  <div
+                    className="flex flex-wrap gap-2 mt-2"
+                    onDragOver={e => e.preventDefault()}
+                  >
+                    {images.map((image, index) => (
+                      <div
+                        key={image.id}
+                        draggable
+                        onDragStart={e => e.dataTransfer.setData('index', index.toString())}
+                        onDrop={e => {
+                          const fromIndex = parseInt(e.dataTransfer.getData('index'));
+                          if (fromIndex !== index) {
+                            moveImage(fromIndex, index);
+                          }
+                        }}
+                        className="relative group w-24 h-24 border rounded-lg overflow-hidden shadow-sm bg-gray-50 cursor-move"
+                      >
                         <Image
                           src={URL.createObjectURL(image.file)}
                           alt={image.file.name}
                           fill
                           className="object-cover rounded-lg pointer-events-none"
                         />
+                        <div className="absolute top-1 left-1 flex space-x-1 z-10">
+                          <button
+                            type="button"
+                            onClick={() => moveImageLeft(index)}
+                            disabled={index === 0}
+                            className="bg-white bg-opacity-80 rounded-full p-1 border border-gray-200 disabled:opacity-50"
+                            aria-label="Переместить влево"
+                          >
+                            ←
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveImageRight(index)}
+                            disabled={index === images.length - 1}
+                            className="bg-white bg-opacity-80 rounded-full p-1 border border-gray-200 disabled:opacity-50"
+                            aria-label="Переместить вправо"
+                          >
+                            →
+                          </button>
+                        </div>
                         <button
                           onClick={() => handleRemoveImage(image.id)}
                           type="button"
@@ -594,15 +643,15 @@ export default function NewProductPage() {
                 {loading ? 'Добавление...' : 'Добавить товар'}
               </motion.button>
               <motion.button
-                type="button"
-                onClick={resetForm}
-                className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                aria-label="Сбросить форму"
-              >
-                Сбросить
-              </motion.button>
+  type="button"
+  onClick={resetForm}
+  className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
+  whileHover={{ scale: 1.03 }}
+  whileTap={{ scale: 0.98 }}
+  aria-label="Сбросить форму"
+>
+  Сбросить форму
+</motion.button>
             </div>
           </form>
         </motion.div>
