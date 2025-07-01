@@ -1,12 +1,12 @@
 // ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Pagination } from 'swiper/modules';
+// Swiper and framer-motion are loaded lazily
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let Swiper: any, SwiperSlide: any, Autoplay: any, Pagination: any, motion: any;
 import 'swiper/css';
 import 'swiper/css/pagination';
 
@@ -20,7 +20,29 @@ export default function PromoGridClient({
   cards: PromoBlock[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [libsLoaded, setLibsLoaded] = useState(false);
   const isServer = typeof window === 'undefined';
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [swReact, swModules, fm] = await Promise.all([
+        import('swiper/react'),
+        import('swiper/modules'),
+        import('framer-motion'),
+      ]);
+      if (!mounted) return;
+      Swiper = swReact.Swiper;
+      SwiperSlide = swReact.SwiperSlide;
+      Autoplay = swModules.Autoplay;
+      Pagination = swModules.Pagination;
+      motion = fm.motion;
+      setLibsLoaded(true);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Анимация текста
   const textVariants = {
@@ -34,6 +56,61 @@ export default function PromoGridClient({
   // Для мобилки: баннеры + карточки в один список
   const mobileItems = isServer ? [banners[0]] : [...banners, ...cards];
   const desktopBanners = isServer ? banners.slice(0, 1) : banners;
+
+  if (!libsLoaded) {
+    return (
+      <section
+        className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8"
+        aria-labelledby="promo-grid-title"
+      >
+        <h2 id="promo-grid-title" className="sr-only">
+          Промо-блоки
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+          <div className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2 aspect-[3/2]">
+            <Link
+              href={desktopBanners[0].href || '#'}
+              className="relative block h-full w-full"
+              title={desktopBanners[0].title}
+            >
+              <Image
+                src={desktopBanners[0].image_url}
+                alt={desktopBanners[0].title}
+                fill
+                sizes="(max-width: 1024px) 100vw, 66vw"
+                className="object-cover rounded-2xl lg:rounded-3xl"
+              />
+            </Link>
+          </div>
+          <div className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-4">
+            {cards.slice(0, 4).map((c) => (
+              <div
+                key={c.id}
+                className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2]"
+              >
+                <Link
+                  href={c.href}
+                  className="group relative block h-full w-full"
+                  title={c.title}
+                >
+                  <Image
+                    src={c.image_url}
+                    alt={c.title}
+                    fill
+                    sizes="(max-width: 1024px) 50vw, 33vw"
+                    className="object-cover rounded-2xl lg:rounded-3xl"
+                  />
+                  <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
+                    {c.title}
+                  </span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <motion.section
@@ -61,7 +138,7 @@ export default function PromoGridClient({
             pagination={{ clickable: true }}
             loop
             className="hidden lg:block h-full w-full"
-            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+            onSlideChange={(swiper: any) => setActiveSlide(swiper.realIndex)}
           >
               {desktopBanners.map((b, i) => (
                 <SwiperSlide key={b.id} className="aspect-[3/2]">
@@ -162,7 +239,7 @@ export default function PromoGridClient({
             spaceBetween={12}
             slidesPerView={1}
             className="block lg:hidden h-full w-full"
-            onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+            onSlideChange={(swiper: any) => setActiveSlide(swiper.realIndex)}
           >
               {mobileItems.map((item, i) => (
                 <SwiperSlide key={item.id} className="aspect-[3/2]">
