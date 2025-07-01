@@ -77,6 +77,8 @@ export default function PromoGridClient({
                         fill
                         sizes="(max-width: 1024px) 100vw, 66vw"
                         priority={i === 0} // Приоритет для первого баннера
+                        loading="eager"
+                        fetchPriority="high"
                         className="object-cover rounded-2xl lg:rounded-3xl"
                         style={{ aspectRatio: '3 / 2' }}
                       />
