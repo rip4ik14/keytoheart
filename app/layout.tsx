@@ -3,33 +3,8 @@ import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import LayoutClient from '@components/LayoutClient';
 
-import TopBar from '@components/TopBar';
-import StickyHeader from '@components/StickyHeader';
-import Footer from '@components/Footer';
-import SkipLink from '@components/SkipLink';
-
-const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), {
-  ssr: false,
-});
-const CookieBanner = dynamic(() => import('@components/CookieBanner'), {
-  ssr: false,
-  loading: () => null,
-});
-const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), {
-  ssr: false,
-});
-const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), {
-  ssr: false,
-});
-const LayoutScripts = dynamic(() => import('@components/LayoutScripts'), {
-  ssr: false,
-});
-
-import { CartProvider } from '@context/CartContext';
-import { CartAnimationProvider } from '@context/CartAnimationContext';
 
 /* ------------------------------------------------------------------ */
 /*                          ШРИФТЫ (next/font)                        */
@@ -144,56 +119,10 @@ export default function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <LayoutScripts />
       </head>
 
       <body className="font-sans">
-        <SkipLink />
-
-        <CartAnimationProvider>
-          <CartProvider>
-            <TopBar />
-            <StickyHeader />
-
-            <Suspense fallback={<div>Загрузка…</div>}>
-              <ClientBreadcrumbs />
-            </Suspense>
-
-            <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">
-              {children}
-            </main>
-
-            <PromoFooterBlock />
-            <Footer />
-            <CookieBanner />
-            <MobileContactFab />
-
-            <section
-              role="region"
-              aria-label="О магазине"
-              className="mx-auto mt-8 mb-12 max-w-5xl px-4 text-[15px] leading-6 text-gray-700"
-            >
-              <h2 className="mb-2 text-lg font-semibold">
-                Почему выбирают KEY TO HEART?
-              </h2>
-              <p className="mb-3">
-                Мы создаём клубничные букеты из свежайшей ягоды и бельгийского шоколада, а также цветочные шедевры и подарочные наборы. Доставка по Краснодару и до 20 км вокруг — от 60 минут!
-              </p>
-              <p className="mb-3">
-                Фото готового заказа присылаем перед доставкой. Работаем с 8:00 до 22:00, бережно упаковываем — от мини-букета до корпоративного подарка.
-              </p>
-              <h3 className="mb-1 font-medium">Популярные поводы</h3>
-              <ul className="list-disc pl-6">
-                <li>8 Марта и 14 Февраля</li>
-                <li>День рождения и юбилей</li>
-                <li>Годовщина и свадьба</li>
-                <li>Выписка из роддома</li>
-                <li>День учителя и День матери</li>
-                <li>Корпоративы и Новый год</li>
-              </ul>
-            </section>
-          </CartProvider>
-        </CartAnimationProvider>
+        <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
   );

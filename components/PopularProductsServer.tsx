@@ -1,8 +1,4 @@
-import dynamic from 'next/dynamic';
-
-const PopularProductsClient = dynamic(() => import('@components/PopularProductsClient'), {
-  ssr: false,
-});
+import PopularProductsClientWrapper from './PopularProductsClientWrapper';
 import { Product } from '@/types/product';
 
 export default async function PopularProductsServer() {
@@ -24,7 +20,7 @@ export default async function PopularProductsServer() {
       images: item.images || [],
       category_ids: item.category_ids || [],
     }));
-    return <PopularProductsClient products={products} />;
+    return <PopularProductsClientWrapper products={products} />;
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PopularProductsServer error:', err);
     return null;
