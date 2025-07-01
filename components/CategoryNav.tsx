@@ -5,6 +5,7 @@ import { YM_ID } from '@/utils/ym';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { Category } from '@/types/category';
@@ -37,6 +38,8 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [subscribed, setSubscribed] = useState(pathname.startsWith('/admin'));
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -101,6 +104,10 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
     } else {
       fetchCategories();
     }
+  }, [initialCategories]);
+
+  useEffect(() => {
+    if (!subscribed) return;
 
     const channel = supabase
       .channel('categories-subcategories-changes')
@@ -122,15 +129,24 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
-  }, [initialCategories]);
+  }, [subscribed]);
+
+  useEffect(() => {
+    if (pathname.startsWith('/admin')) setSubscribed(true);
+  }, [pathname]);
 
   return (
     <nav
       className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
       aria-label="Навигация по категориям"
+      onPointerDown={() => setSubscribed(true)}
+      onMouseEnter={() => setSubscribed(true)}
     >
       {/* mobile */}
       <div className="sm:hidden relative">
