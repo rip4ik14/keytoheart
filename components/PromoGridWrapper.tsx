@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-const PromoGridClient = dynamic(() => import('./PromoGridClient'), { ssr: false });
+const PromoGridClient = dynamic(() => import('./PromoGridClient'));
 import { PromoBlock } from '@/types/promo';
 
 export default function PromoGridWrapper({
