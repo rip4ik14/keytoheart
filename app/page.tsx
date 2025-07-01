@@ -12,9 +12,9 @@ import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import Image from 'next/image';
 import type { Database } from '@/lib/supabase/types_new';
 
-/* -------------------------- Типы и настройки -------------------------- */
 interface Product {
   id: number;
   title: string;
@@ -57,7 +57,6 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
-/* ------------------------------ Страница ------------------------------ */
 export default async function Home() {
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
@@ -80,13 +79,11 @@ export default async function Home() {
     },
   );
 
-  /* ------------------ Грузим товары и карты категорий ------------------ */
   let products: Product[] = [];
   try {
     const { data: productCategoryData, error: productCategoryError } = await supabase
       .from('product_categories')
       .select('product_id, category_id');
-
     if (productCategoryError) throw productCategoryError;
 
     const productCategoriesMap = new Map<number, number[]>();
@@ -100,30 +97,28 @@ export default async function Home() {
     const { data, error } = await supabase
       .from('products')
       .select('id,title,price,discount_percent,in_stock,images,production_time,is_popular')
-      .in('id', productIds.length ? productIds : [-1]) // CHANGED: -1 вместо 0
+      .in('id', productIds.length ? productIds : [-1])
       .eq('in_stock', true)
       .not('images', 'is', null)
       .order('id', { ascending: false });
 
     if (error) throw error;
 
-    products =
-      data?.map((item) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        discount_percent: item.discount_percent ?? null,
-        in_stock: item.in_stock ?? false,
-        images: item.images ?? [],
-        production_time: item.production_time ?? null,
-        is_popular: item.is_popular ?? null,
-        category_ids: productCategoriesMap.get(item.id) || [],
-      })) || [];
+    products = data?.map((item) => ({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      discount_percent: item.discount_percent ?? null,
+      in_stock: item.in_stock ?? false,
+      images: item.images ?? [],
+      production_time: item.production_time ?? null,
+      is_popular: item.is_popular ?? null,
+      category_ids: productCategoriesMap.get(item.id) || [],
+    })) || [];
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки товаров:', err);
   }
 
-  /* -------------- Грузим названия/slug категорий одним запросом --------- */
   const categoryIds = [...new Set(products.flatMap((p) => p.category_ids))];
   const { data: categoriesData, error: categoriesError } = await supabase
     .from('categories')
@@ -136,7 +131,6 @@ export default async function Home() {
   const categoryMap = new Map<number, { name: string; slug: string }>();
   categoriesData?.forEach((c) => categoryMap.set(c.id, { name: c.name, slug: c.slug }));
 
-  /* ----------------- Формируем списки категорий для UI ----------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы': 'klubnichnye-boksy',
@@ -161,10 +155,20 @@ export default async function Home() {
     .filter(Boolean)
     .filter((name) => name !== 'Подарки') as string[];
 
-  /* ------------------------------ Рендер ------------------------------ */
   return (
     <main aria-label="Главная страница">
-      {/* -------------- JSON-LD для товаров ---------------- */}
+      {/* ------------------ Принудительный LCP-элемент ------------------ */}
+      <section className="relative w-full aspect-[16/7]">
+        <Image
+          src="/lcp-test-banner.webp"
+          alt="Клубничные букеты с доставкой"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+      </section>
+
       <JsonLd<ItemList>
         item={{
           '@type': 'ItemList',
@@ -191,7 +195,6 @@ export default async function Home() {
         }}
       />
 
-      {/* -------------- FAQ-сниппет для People Also Ask --------------- */}
       <JsonLd<FAQPage>
         item={{
           '@type': 'FAQPage',
@@ -224,10 +227,9 @@ export default async function Home() {
         }}
       />
 
-      {/* ----------------------- Контент --------------------- */}
       <section>
         <PromoGridServer />
-      </section> 
+      </section>
 
       <section>
         <PopularProductsServer />
