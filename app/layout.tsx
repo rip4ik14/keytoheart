@@ -10,12 +10,8 @@ import { Suspense } from 'react';
 import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
 import Footer from '@components/Footer';
-import dynamic from 'next/dynamic';
+import CookieBanner from '@components/CookieBannerDynamic';
 
-const CookieBanner = dynamic(() => import('@components/CookieBanner'), {
-  ssr: false,
-  loading: () => null,
-});
 import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
