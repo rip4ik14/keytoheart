@@ -1,7 +1,9 @@
 'use client';
 
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation } from 'swiper/modules';
+import React, { useEffect, useState } from 'react';
+// Swiper will be loaded lazily
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let Swiper: any, SwiperSlide: any, Navigation: any;
 import 'swiper/css';
 import 'swiper/css/navigation';
 import ProductCard from '@components/ProductCard';
@@ -10,6 +12,25 @@ import { claimPriority } from '@/utils/imagePriority';
 import Image from 'next/image';
 
 export default function PopularProductsClient({ products }: { products: Product[] }) {
+  const [swiperLoaded, setSwiperLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [swReact, swModules] = await Promise.all([
+        import('swiper/react'),
+        import('swiper/modules'),
+      ]);
+      if (!mounted) return;
+      Swiper = swReact.Swiper;
+      SwiperSlide = swReact.SwiperSlide;
+      Navigation = swModules.Navigation;
+      setSwiperLoaded(true);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
   if (!products || products.length === 0) {
     return (
       <section className="mx-auto max-w-7xl px-4 py-12">
@@ -25,6 +46,29 @@ export default function PopularProductsClient({ products }: { products: Product[
   }));
 
   const enableLoop = prepared.length > 4;
+
+  if (!swiperLoaded) {
+    return (
+      <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
+        <h2
+          id="popular-products-title"
+          className="text-center text-2xl md:text-3xl font-sans font-bold mb-8 text-black"
+        >
+          ПОПУЛЯРНОЕ
+        </h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {prepared.map((p, idx) => {
+            const shouldPrioritize = idx === 0 && claimPriority();
+            return (
+              <div key={p.id} className="flex justify-center">
+                <ProductCard product={p} priority={shouldPrioritize} />
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
