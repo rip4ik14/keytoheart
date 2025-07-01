@@ -1,8 +1,4 @@
-import dynamic from 'next/dynamic';
-
-const PopularProductsClient = dynamic(() => import('@components/PopularProductsClient'), {
-  ssr: false,
-});
+import PopularProductsClient from '@components/PopularProductsClient';
 import { Product } from '@/types/product';
 
 export default async function PopularProductsServer() {
