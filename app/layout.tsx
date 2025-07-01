@@ -15,6 +15,7 @@ import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
 import PromoFooterBlock from '@components/PromoFooterBlock';
 import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
+import YandexMetrikaScript from '@components/YandexMetrikaScript';
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
@@ -222,26 +223,7 @@ export default async function RootLayout({
           }}
         />
 
-        {YM_ID && (
-          <script
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
-                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-                ym(${YM_ID}, "init", {
-                  clickmap:true,
-                  trackLinks:true,
-                  accurateTrackBounce:true,
-                  trackHash:true,
-                  webvisor:true
-                });
-              `,
-            }}
-          />
-        )}
+        {YM_ID && <YandexMetrikaScript ymId={YM_ID} />}
       </head>
 
       <body className="font-sans">
