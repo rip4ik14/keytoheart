@@ -175,6 +175,8 @@ export default function PromoGridClient({
                         fill
                         sizes="100vw"
                         priority={i === 0} // Приоритет для первого элемента
+                                                loading={i === 0 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : 'auto'}
                         className="object-cover rounded-2xl"
                       />
                       <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
