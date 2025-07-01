@@ -18,7 +18,6 @@ export default function CookieBanner() {
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error('localStorage is not available:', e);
     }
-
     if (!hasAccepted) {
       setIsVisible(true);
       trackEvent({
@@ -61,7 +60,7 @@ export default function CookieBanner() {
       category: 'cookie_banner',
       action: 'cookie_save_settings',
       type: 'banner',
-      label: `Analytics: ${analyticsCookies}, Functional: ${functionalCookies}`, // Передаём настройки как строку в label
+      label: `Analytics: ${analyticsCookies}, Functional: ${functionalCookies}`,
     });
     if (typeof window !== 'undefined') {
       window.gtag?.('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
@@ -99,6 +98,7 @@ export default function CookieBanner() {
       aria-modal="true"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-desc"
+      style={{ minHeight: showSettings ? 260 : 180 }} // Укажи minHeight чуть больше, если есть настройки
     >
       <h2 id="cookie-banner-title" className="text-lg font-sans font-semibold mb-2">
         Мы используем cookies
@@ -120,7 +120,6 @@ export default function CookieBanner() {
           Политике использования cookies
         </Link>.
       </p>
-
       {showSettings ? (
         <div className="mb-4">
           <div className="flex items-center mb-2">
@@ -151,7 +150,6 @@ export default function CookieBanner() {
           </div>
         </div>
       ) : null}
-
       <div className="flex gap-4 flex-wrap">
         <button
           onClick={handleAcceptAll}
