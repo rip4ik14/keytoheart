@@ -38,6 +38,7 @@ export default async function PromoGridServer() {
     const banners = filtered.filter((b) => b.type === 'banner');
     const cards = filtered.filter((b) => b.type === 'card');
 
+    // First banner will be rendered in static markup for hydration
     return <PromoGridWrapper banners={banners} cards={cards} />;
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PromoGridServer error:', err);

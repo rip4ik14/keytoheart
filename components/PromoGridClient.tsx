@@ -20,6 +20,7 @@ export default function PromoGridClient({
   cards: PromoBlock[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const isServer = typeof window === 'undefined';
 
   // Анимация текста
   const textVariants = {
@@ -31,7 +32,8 @@ export default function PromoGridClient({
   };
 
   // Для мобилки: баннеры + карточки в один список
-  const mobileItems = [...banners, ...cards];
+  const mobileItems = isServer ? [banners[0]] : [...banners, ...cards];
+  const desktopBanners = isServer ? banners.slice(0, 1) : banners;
 
   return (
     <motion.section
@@ -61,7 +63,7 @@ export default function PromoGridClient({
             className="hidden lg:block h-full w-full"
             onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
           >
-              {banners.map((b, i) => (
+              {desktopBanners.map((b, i) => (
                 <SwiperSlide key={b.id} className="aspect-[3/2]">
                   <Link
                     href={b.href || '#'}
