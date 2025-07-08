@@ -1,6 +1,6 @@
 'use client';
 /* -------------------------------------------------------------------------- */
-/*  Карточка товара: адаптивная, как на https://msk.labberry.shop/            */
+/*  Карточка товара: адаптивная + microdata Product → Offer                   */
 /* -------------------------------------------------------------------------- */
 import Image from 'next/image';
 import Link from 'next/link';
@@ -28,7 +28,7 @@ export default function ProductCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  /* ------------------------- mobile / resize ------------------------- */
+  /* ---------------- resize → mobile flag ---------------- */
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     handleResize();
@@ -38,18 +38,22 @@ export default function ProductCard({
 
   const images = Array.isArray(product.images) ? product.images : [];
   const imageUrl = images[0] || '/placeholder.jpg';
+
   const bonus = product.bonus ?? Math.floor(product.price * 0.025);
   const discountPercent = product.discount_percent ?? 0;
   const originalPrice = product.original_price || product.price;
-  const discountedPrice = discountPercent
-    ? Math.round(product.price * (1 - discountPercent / 100))
-    : product.price;
-  const discountAmount = discountPercent
-    ? (originalPrice > product.price ? originalPrice : product.price) - discountedPrice
-    : 0;
+  const discountedPrice =
+    discountPercent > 0
+      ? Math.round(product.price * (1 - discountPercent / 100))
+      : product.price;
+  const discountAmount =
+    discountPercent > 0
+      ? (originalPrice > product.price ? originalPrice : product.price) -
+        discountedPrice
+      : 0;
   const isPopular = product.is_popular;
 
-  /* --------------------------- add to cart --------------------------- */
+  /* ---------------- add-to-cart ---------------- */
   const handleAddToCart = () => {
     addItem({
       id: product.id.toString(),
@@ -67,7 +71,6 @@ export default function ProductCard({
     toast.success('Товар добавлен в корзину', { id: `add-${product.id}` });
   };
 
-  /* enter/space → в корзину */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -79,7 +82,11 @@ export default function ProductCard({
     <motion.div
       ref={cardRef}
       className={`relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 focus:outline-none animate-fade-up ${
-        isMobile ? 'border border-gray-200' : hovered ? 'border border-gray-200 shadow-sm' : ''
+        isMobile
+          ? 'border border-gray-200'
+          : hovered
+          ? 'border border-gray-200 shadow-sm'
+          : ''
       }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -92,8 +99,35 @@ export default function ProductCard({
       tabIndex={0}
       aria-live="polite"
       style={{ minHeight: isMobile ? 370 : undefined }}
+      /* ── microdata Product ── */
+      itemScope
+      itemType="https://schema.org/Product"
     >
-      {/* JSON-LD для SEO */}
+      {/* microdata meta */}
+      <meta itemProp="name" content={product.title} />
+      <meta itemProp="sku" content={String(product.id)} />
+      <link itemProp="image" href={imageUrl} />
+
+      {/* microdata Offer */}
+      <div
+        itemProp="offers"
+        itemScope
+        itemType="https://schema.org/Offer"
+        className="hidden"
+      >
+        <meta itemProp="priceCurrency" content="RUB" />
+        <meta itemProp="price" content={String(discountedPrice)} />
+        <link
+          itemProp="availability"
+          href={
+            product.in_stock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock'
+          }
+        />
+      </div>
+
+      {/* JSON-LD (оставляем) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -103,15 +137,17 @@ export default function ProductCard({
             name: product.title,
             image: imageUrl,
             description: product.description || 'Описание товара отсутствует',
-            sku: product.id.toString(),
-            mpn: product.id.toString(),
+            sku: String(product.id),
+            mpn: String(product.id),
             brand: { '@type': 'Brand', name: 'Labberry' },
             offers: {
               '@type': 'Offer',
               url: `/product/${product.id}`,
               priceCurrency: 'RUB',
               price: discountedPrice.toString(),
-              priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+              priceValidUntil: new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
+              )
                 .toISOString()
                 .split('T')[0],
               availability: product.in_stock
@@ -123,7 +159,7 @@ export default function ProductCard({
         }}
       />
 
-      {/* бонусы */}
+      {/* ---------- бейдж «бонусы» ---------- */}
       {bonus > 0 && (
         <motion.div
           className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100 sm:top-4 sm:left-4"
@@ -132,11 +168,18 @@ export default function ProductCard({
           transition={{ duration: 0.2 }}
         >
           +{bonus}
-          <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
+          <Image
+            src="/icons/gift.svg"
+            alt=""
+            width={13}
+            height={13}
+            className="ml-1"
+            draggable={false}
+          />
         </motion.div>
       )}
 
-      {/* популярно */}
+      {/* ---------- бейдж «популярно» ---------- */}
       {isPopular && (
         <motion.div
           className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold sm:top-4 sm:right-4"
@@ -149,11 +192,11 @@ export default function ProductCard({
         </motion.div>
       )}
 
-      {/* изображение */}
+      {/* ---------- изображение ---------- */}
       <Link
         href={`/product/${product.id}`}
         className={`block relative w-full overflow-hidden aspect-[3/4] transition-all duration-200 ${
-          !hovered ? 'rounded-[18px]' : 'rounded-t-[18px]'
+          hovered ? 'rounded-t-[18px]' : 'rounded-[18px]'
         }`}
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
@@ -170,12 +213,10 @@ export default function ProductCard({
         />
       </Link>
 
-      {/* контент */}
+      {/* ---------- контент ---------- */}
       <div
         className="flex flex-col p-2 sm:p-4"
-        style={{
-          paddingBottom: isMobile ? '3rem' : '48px', // запас под кнопку
-        }}
+        style={{ paddingBottom: isMobile ? '3rem' : '48px' }}
       >
         <h3
           id={`product-${product.id}-title`}
@@ -183,23 +224,31 @@ export default function ProductCard({
         >
           {product.title}
         </h3>
+
         <div className="flex items-center justify-center gap-2 min-h-[30px]">
           {(discountAmount > 0 || originalPrice > product.price) && (
             <span className="text-xs text-gray-400 line-through">
               {originalPrice > product.price ? originalPrice : product.price}₽
             </span>
           )}
+
           {discountAmount > 0 && (
             <span
-              className={`${isMobile ? 'text-red-500' : 'bg-black text-white rounded px-1.5 py-0.5'} text-[11px] font-bold`}
+              className={`${
+                isMobile
+                  ? 'text-red-500'
+                  : 'bg-black text-white rounded px-1.5 py-0.5'
+              } text-[11px] font-bold`}
             >
               -{discountAmount}₽
             </span>
           )}
+
           <span className="text-lg font-bold text-black">
-            {discountAmount > 0 ? discountedPrice : product.price}₽
+            {discountedPrice}₽
           </span>
         </div>
+
         {product.production_time != null && (
           <p className="text-center text-xs text-gray-500">
             Время изготовления: {product.production_time}{' '}
@@ -208,7 +257,7 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* мобильная кнопка */}
+      {/* ---------- кнопка: моб ---------- */}
       {isMobile && (
         <motion.div
           className="w-full"
@@ -237,7 +286,7 @@ export default function ProductCard({
         </motion.div>
       )}
 
-      {/* десктопная кнопка */}
+      {/* ---------- кнопка: десктоп ---------- */}
       {!isMobile && (
         <div
           className="w-full"

@@ -1,8 +1,9 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
@@ -11,11 +12,11 @@ import { useCart } from '@context/CartContext';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
-import { Product, ComboItem } from './types';
+import type { Product, ComboItem } from './types';
 
-/* ------------------------------------------------------------------
- * types + helpers
- * -----------------------------------------------------------------*/
+/* ------------------------------------------------------------------ */
+/*                              helpers                               */
+/* ------------------------------------------------------------------ */
 interface DaySchedule {
   start: string;
   end: string;
@@ -34,34 +35,36 @@ const daysOfWeek = [
   'friday',
   'saturday',
   'sunday',
-];
-const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
-  const result: Record<string, DaySchedule> = daysOfWeek.reduce(
-    (acc, day) => {
-      acc[day] = { start: '09:00', end: '18:00', enabled: true };
-      return acc;
-    },
-    {} as Record<string, DaySchedule>,
-  );
-  if (typeof schedule !== 'object' || schedule === null) return result;
+] as const;
+
+const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
+  const base = Object.fromEntries(
+    daysOfWeek.map((d) => [
+      d,
+      { start: '09:00', end: '18:00', enabled: true },
+    ]),
+  ) as Record<string, DaySchedule>;
+
+  if (typeof schedule !== 'object' || schedule === null) return base;
+
   for (const [key, value] of Object.entries(schedule)) {
-    if (daysOfWeek.includes(key) && typeof value === 'object' && value) {
+    if (daysOfWeek.includes(key as any) && typeof value === 'object' && value) {
       const { start, end, enabled } = value as any;
       if (
         typeof start === 'string' &&
         typeof end === 'string' &&
         (enabled === undefined || typeof enabled === 'boolean')
       ) {
-        result[key] = { start, end, enabled: enabled ?? true };
+        base[key] = { start, end, enabled: enabled ?? true };
       }
     }
   }
-  return result;
+  return base;
 };
 
-/* ------------------------------------------------------------------
- * анимации
- * -----------------------------------------------------------------*/
+/* ------------------------------------------------------------------ */
+/*                              motion                                */
+/* ------------------------------------------------------------------ */
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -77,9 +80,9 @@ const notificationVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.3 } },
 };
 
-/* ================================================================== */
-/*                               COMPONENT                            */
-/* ================================================================== */
+/* =================================================================== */
+/*                               COMPONENT                             */
+/* =================================================================== */
 export default function ProductPageClient({
   product,
   combos,
@@ -104,6 +107,46 @@ export default function ProductPageClient({
   const recommendLoop = recommendedItems.length > 4;
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
+
+  /* ------------------------- derived values ----------------------- */
+  const discountPercent = product.discount_percent ?? 0;
+  const discountedPrice =
+    discountPercent > 0
+      ? Math.round(product.price * (1 - discountPercent / 100))
+      : product.price;
+  const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
+
+  const images = useMemo(
+    () => (Array.isArray(product.images) ? product.images : []),
+    [product.images],
+  );
+
+  /* -------------------------- JSON-LD ----------------------------- */
+  const productLd = useMemo(
+    () => ({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.title,
+      description: product.description ?? '',
+      image: images,
+      sku: String(product.id),
+      brand: { '@type': 'Brand', name: 'KEY TO HEART' },
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'RUB',
+        price: discountedPrice,
+        availability: 'https://schema.org/InStock',
+        url:
+          typeof window !== 'undefined' ? window.location.href : 'https://keytoheart.ru',
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: 5,
+        reviewCount: 3,
+      },
+    }),
+    [product.title, product.description, images, discountedPrice, product.id],
+  );
 
   /* ------------------------- side-effects ------------------------- */
   /* загрузка настроек магазина */
@@ -227,13 +270,13 @@ export default function ProductPageClient({
         const storeEndTime = new Date(earliestDate);
         storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
 
-        // Определяем пересечение интервалов
-        const effectiveStart = orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
-        const effectiveEnd = orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
+        const effectiveStart =
+          orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
+        const effectiveEnd =
+          orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
 
-        if (earliestDate < effectiveStart) {
+        if (earliestDate < effectiveStart)
           earliestDate = new Date(effectiveStart);
-        }
 
         if (earliestDate <= effectiveEnd) {
           setEarliestDelivery(
@@ -246,14 +289,16 @@ export default function ProductPageClient({
       }
 
       earliestDate.setDate(earliestDate.getDate() + 1);
-      earliestDate.setHours(9, 0, 0, 0); // Сбрасываем на начало дня
+      earliestDate.setHours(9, 0, 0, 0);
       attempts++;
     }
 
-    setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
+    setEarliestDelivery(
+      'Доставка невозможна в ближайшие 7 дней. Попробуйте позже.',
+    );
   }, [storeSettings, isStoreSettingsLoading, product.production_time]);
 
-  /* GA/YM view_item */
+  /* GA / YM view_item */
   useEffect(() => {
     try {
       window.gtag?.('event', 'view_item', {
@@ -267,19 +312,7 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
-  /* ------------------------------------------------------------------
-   * вычисления
-   * -----------------------------------------------------------------*/
-  const discountPercent = product.discount_percent ?? 0;
-  const discountedPrice =
-    discountPercent > 0
-      ? Math.round(product.price * (1 - discountPercent / 100))
-      : product.price;
-  const bonus = (discountedPrice * bonusPercent)
-    .toFixed(2)
-    .replace('.', ',');
-
-  /* add-to-cart */
+  /* add-to-cart handler */
   const handleAdd = (
     id: number,
     title: string,
@@ -334,10 +367,8 @@ export default function ProductPageClient({
     }
   };
 
-  const images = Array.isArray(product.images) ? product.images : [];
-
   /* ================================================================= */
-  /*                              JSX                                  */
+  /*                                 JSX                               */
   /* ================================================================= */
   return (
     <section
@@ -346,12 +377,19 @@ export default function ProductPageClient({
       itemScope
       itemType="https://schema.org/Product"
     >
+      {/* встроенный JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }}
+      />
+      {/* microdata meta */}
       <meta itemProp="sku" content={String(product.id)} />
       <meta itemProp="brand" content="KEY TO HEART" />
       <meta itemProp="name" content={product.title} />
       {images[0] && <link itemProp="image" href={images[0]} />}
 
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+        {/* уведомления */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -382,6 +420,7 @@ export default function ProductPageClient({
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
+          {/* ---------- галерея ---------- */}
           <motion.div
             className="w-full mb-2 sm:mb-0"
             variants={containerVariants}
@@ -446,6 +485,7 @@ export default function ProductPageClient({
                 </button>
               </Swiper>
 
+              {/* миниатюры */}
               {images.length > 1 && (
                 <Swiper
                   onSwiper={setThumbsSwiper}
@@ -469,7 +509,8 @@ export default function ProductPageClient({
                             : 'border-gray-200'
                         }`}
                         onClick={() =>
-                          mainSwiperRef.current && mainSwiperRef.current.slideTo(i)
+                          mainSwiperRef.current &&
+                          mainSwiperRef.current.slideTo(i)
                         }
                       >
                         <Image
@@ -488,12 +529,14 @@ export default function ProductPageClient({
             </div>
           </motion.div>
 
+          {/* ---------- правая колонка ---------- */}
           <motion.div
             className="flex flex-col space-y-4 sm:space-y-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
+            {/* бейджи */}
             <div className="flex items-center gap-3">
               {discountPercent > 0 && (
                 <>
@@ -514,6 +557,7 @@ export default function ProductPageClient({
               {product.title}
             </h1>
 
+            {/* offers microdata */}
             <div
               itemProp="offers"
               itemScope
@@ -555,6 +599,7 @@ export default function ProductPageClient({
               </div>
             </div>
 
+            {/* доставка / изготовление */}
             <div className="flex flex-col gap-2 text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
@@ -583,6 +628,7 @@ export default function ProductPageClient({
               )}
             </div>
 
+            {/* кнопки */}
             <div className="flex gap-3">
               <motion.button
                 onClick={() =>
@@ -617,6 +663,7 @@ export default function ProductPageClient({
               </motion.button>
             </div>
 
+            {/* описание */}
             {product.description && (
               <section className="space-y-1 pt-3 border-t">
                 <h2 className="font-bold text-lg">О товаре</h2>
@@ -629,6 +676,7 @@ export default function ProductPageClient({
               </section>
             )}
 
+            {/* состав */}
             {product.composition && (
               <section className="space-y-1">
                 <h2 className="font-bold text-lg">Состав</h2>
@@ -640,23 +688,24 @@ export default function ProductPageClient({
               </section>
             )}
 
+            {/* отзывы */}
             <section className="space-y-4">
               <h2 className="font-bold text-lg">Отзывы клиентов</h2>
               {[
                 {
                   name: 'Анна',
                   rating: 5,
-                  text: 'моя подруга осталась очень довольна и счастлива 🤍 привезли прямо к ее работе, а у нее сегодня было плохое настроение. после того, как она неожиданно получила этот подарок(она не знала какой), то расплакалась от счастья и осталась очень довольна💘 спасибо вам, что сегодня сделали мою подругу и меня счастливыми 🙏🏻💖',
+                  text: 'моя подруга осталась очень довольна и счастлива 🤍 …',
                 },
                 {
                   name: 'Екатерина',
                   rating: 5,
-                  text: 'Очень благодарна, подарок был для дочери на её день рождения. Очень переживала, что не сделают вовремя, просто был плохой опыт в другом месте. Дочь в восторге, клубника очень вкусная. Благодарю 🙏',
+                  text: 'Очень благодарна, подарок был для дочери …',
                 },
                 {
                   name: 'Ольга',
                   rating: 5,
-                  text: 'Очень вежливое общение и просто сделано все на 10/10. Однозначно буду иметь в виду этот магазин до дальнейших покупок и буду рекомендовать своим знакомым. Огромное спасибо за ваш труд❤️ .',
+                  text: 'Очень вежливое общение и просто сделано …',
                 },
               ].map((review, i) => (
                 <div key={i} className="border-t pt-4">
@@ -681,6 +730,7 @@ export default function ProductPageClient({
           </motion.div>
         </div>
 
+        {/* рекомендация */}
         {recommendedItems.length > 0 && (
           <motion.section
             className="mt-4 pt-4 sm:mt-10 sm:pt-10 border-t"

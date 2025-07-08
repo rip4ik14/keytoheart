@@ -1,11 +1,16 @@
+/* ------------------------- Глобальные стили и шрифты ------------------------- */
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type { BreadcrumbList, LocalBusiness, WebSite } from 'schema-dts';
-import { Suspense } from 'react';
+import type {
+  BreadcrumbList,
+  LocalBusiness,
+  Organization,
+  WebSite,
+} from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
 import { Category } from '@/types/category';
@@ -35,63 +40,72 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------------------------------------------ */
-/*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                      */
+/*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                       */
 /* ------------------------------------------------------------------ */
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default: 'Клубничные букеты в Краснодаре | Доставка KEY TO HEART',
-    template: '%s | Клубничные букеты и цветы в Краснодаре | KEY TO HEART',
+    default: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
+    template: '%s | KEY TO HEART',
   },
   description:
-    'Закажите клубничные букеты и цветы с доставкой в Краснодаре и до 20 км вокруг за 60 минут. Свежие ягоды, бельгийский шоколад, фото перед отправкой. Работаем с 8:00 до 22:00.',
+    'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой. Работаем с 8:00 – 22:00.',
   keywords: [
-    'доставка клубничных букетов Краснодар', 'купить букет из клубники Краснодар', 'букет из клубники с шоколадом Краснодар',
-    'доставка цветов Краснодар', 'купить цветы Краснодар', 'букет цветов Краснодар', 'заказать букет Краснодар',
-    'доставка клубничных букетов на день рождения Краснодар', 'купить букет из клубники с доставкой',
-    'доставка цветов в Прикубанский округ', 'цветы с доставкой до 20 км от Краснодара'
+    'доставка клубничных букетов Краснодар',
+    'купить букет из клубники Краснодар',
+    'букет из клубники с шоколадом Краснодар',
+    'доставка цветов Краснодар',
+    'купить цветы Краснодар',
+    'букет цветов Краснодар',
+    'заказать букет Краснодар',
+    'доставка клубничных букетов на день рождения Краснодар',
+    'купить букет из клубники с доставкой',
+    'доставка цветов в Прикубанский округ',
+    'цветы с доставкой до 20 км от Краснодара',
   ],
+  alternates: {
+    canonical: 'https://keytoheart.ru',
+    languages: { ru: 'https://keytoheart.ru' },
+  },
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
-    title: 'Клубничные букеты и цветы с доставкой в Краснодаре и до 20 км',
+    title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
     description:
-      'Закажите клубничные букеты и цветы с доставкой в Краснодаре и до 20 км вокруг за 60 минут. Свежие ягоды, бельгийский шоколад, фото перед отправкой. Работаем с 8:00 до 22:00.',
+      'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничные букеты и цветы KEY TO HEART в Краснодаре',
+        alt: 'Клубничные букеты KEY TO HEART',
         type: 'image/webp',
       },
       {
         url: 'https://keytoheart.ru/og-bouquet.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничный букет с доставкой в Краснодаре',
+        alt: 'Клубничный букет с доставкой',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Клубничные букеты и цветы с доставкой в Краснодаре и до 20 км',
+    title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
     description:
-      'Закажите клубничные букеты и цветы с доставкой в Краснодаре и до 20 км вокруг за 60 минут. Свежие ягоды, бельгийский шоколад, фото перед отправкой. Работаем с 8:00 до 22:00.',
-    images: ['https://keytoheart.ru/og-cover.webp', 'https://keytoheart.ru/og-bouquet.webp'],
+      'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+    images: [
+      'https://keytoheart.ru/og-cover.webp',
+      'https://keytoheart.ru/og-bouquet.webp',
+    ],
   },
-  alternates: { canonical: 'https://keytoheart.ru' },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
-  robots: {
-    index: true,
-    follow: true,
-    noarchive: false,
-  },
+  robots: { index: true, follow: true, noarchive: false },
 };
 
 export const viewport: Viewport = {
@@ -108,6 +122,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  /* ----------------- Подтягиваем категории из Supabase ----------------- */
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -141,21 +156,35 @@ export default async function RootLayout({
     categories = [];
   }
 
+  /* ----------------------------- HTML шаблон ----------------------------- */
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
         <meta charSet="utf-8" />
+        <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta httpEquiv="Content-Language" content="ru" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
+        {/* Геотеги — адрес магазина */}
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
-        <meta name="geo.position" content="45.035470;38.975313" />
+        <meta name="geo.position" content="45.058090;39.037611" />
         <meta name="robots" content="index,follow" />
+        {/* canonical + hreflang */}
+        <link rel="canonical" href="https://keytoheart.ru/" />
+        <link rel="alternate" href="https://keytoheart.ru/" hrefLang="ru" />
+        {/* Preconnect / DNS-prefetch */}
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        {/* PWA / favicon extras */}
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
+        {/* ---------------- JSON-LD: WebSite + Org + LocalBusiness ----------- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -166,7 +195,27 @@ export default async function RootLayout({
                 url: 'https://keytoheart.ru',
                 description:
                   'Клубничные букеты, цветы и подарки с доставкой в Краснодаре и до 20 км — от 60 минут, с 8:00 до 22:00.',
+                potentialAction: {
+                  '@type': 'SearchAction',
+                  target: {
+                    '@type': 'EntryPoint',
+                    urlTemplate:
+                      'https://keytoheart.ru/search?q={search_term_string}',
+                  },
+                  'query-input': 'required name=search_term_string',
+                } as any,
               } satisfies WebSite,
+              {
+                '@type': 'Organization',
+                name: 'KEY TO HEART',
+                url: 'https://keytoheart.ru',
+                logo: 'https://keytoheart.ru/logo.svg',
+                sameAs: [
+                  'https://www.instagram.com/keytoheart.ru/',
+                  'https://t.me/keytoheart',
+                  'https://wa.me/79886033821',
+                ],
+              } satisfies Organization,
               {
                 '@type': 'LocalBusiness',
                 name: 'KEY TO HEART',
@@ -175,13 +224,18 @@ export default async function RootLayout({
                 email: 'info@keytoheart.ru',
                 address: {
                   '@type': 'PostalAddress',
+                  streetAddress: 'ул. Героев-Разведчиков, 17/1',
                   addressLocality: 'Краснодар',
                   addressRegion: 'Краснодарский край',
+                  postalCode: '350028',
                   addressCountry: 'RU',
                 },
-                openingHours: [
-                  'Mo-Su 08:00-22:00',
-                ],
+                geo: {
+                  '@type': 'GeoCoordinates',
+                  latitude: '45.058090',
+                  longitude: '39.037611',
+                },
+                openingHours: ['Mo-Su 08:00-22:00'],
                 openingHoursSpecification: {
                   '@type': 'OpeningHoursSpecification',
                   dayOfWeek: [
@@ -211,10 +265,9 @@ export default async function RootLayout({
             ],
           }}
         />
-
+        {/* --------------------------- Яндекс.Метрика --------------------------- */}
         {YM_ID && (
           <script
-            // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{
               __html: `
                 (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -234,6 +287,7 @@ export default async function RootLayout({
         )}
       </head>
 
+      {/* ----------------------- КЛИЕНТСКАЯ ЧАСТЬ САЙТА ----------------------- */}
       <LayoutClient categories={categories}>{children}</LayoutClient>
     </html>
   );
