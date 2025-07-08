@@ -179,6 +179,8 @@ export default async function RootLayout({
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
+        <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://mc.yandex.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
         {/* PWA / favicon extras */}
         <link rel="manifest" href="/site.webmanifest" />

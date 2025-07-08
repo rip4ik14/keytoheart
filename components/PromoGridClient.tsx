@@ -89,6 +89,7 @@ export default function PromoGridClient({
                           fill
                           sizes="(max-width: 1024px) 100vw, 66vw"
                           priority={i === 0}
+                          fetchPriority={i === 0 ? 'high' : 'auto'}
                           className="object-cover rounded-2xl lg:rounded-3xl"
                           style={{ aspectRatio: '3 / 2' }}
                         />
@@ -178,6 +179,7 @@ export default function PromoGridClient({
                           fill
                           sizes="100vw"
                           priority={i === 0}
+                          fetchPriority={i === 0 ? 'high' : 'auto'}
                           loading={i === 0 ? 'eager' : 'lazy'}  /* <-- изменено */
                           className="object-cover rounded-2xl"
                           style={{ aspectRatio: '3 / 2' }}
@@ -277,6 +279,7 @@ export default function PromoGridClient({
                     alt={c.title}
                     fill
                     sizes="(max-width: 1024px) 50vw, 33vw"
+                    fetchPriority={i === 0 ? 'high' : 'auto'}
                     className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
                     style={{ aspectRatio: '3 / 2' }}
                   />
