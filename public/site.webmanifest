@@ -1,0 +1,13 @@
+{
+  "name": "KEY TO HEART",
+  "short_name": "KEY TO HEART",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}

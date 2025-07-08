@@ -39,17 +39,11 @@ export default function PromoGridClient({
 
   return (
     <>
-      {/* ——— preload LCP image ——— */}
-{lcpImage && (
-  <Head>
-    <link
-      rel="preload"
-      as="image"
-      href={lcpImage}
-      fetchPriority="high"
-    />
-  </Head>
-)}
+      {lcpImage && (
+        <Head>
+          <link rel="preload" as="image" href={lcpImage} fetchPriority="high" />
+        </Head>
+      )}
 
       <motion.section
         className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8"
@@ -184,6 +178,7 @@ export default function PromoGridClient({
                           fill
                           sizes="100vw"
                           priority={i === 0}
+                          loading={i === 0 ? 'eager' : 'lazy'}  /* <-- изменено */
                           className="object-cover rounded-2xl"
                           style={{ aspectRatio: '3 / 2' }}
                         />
@@ -224,7 +219,7 @@ export default function PromoGridClient({
                                 className="flex"
                               >
                                 <span
-                                  className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                                  className="inline-flex items-center border border-[#bdbdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbdbd]"
                                   style={{ minWidth: 'fit-content', maxWidth: '100%' }}
                                   onClick={() => {
                                     window.gtag?.('event', 'click_banner_cta', {
