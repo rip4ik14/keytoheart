@@ -57,7 +57,13 @@ export default function ProductCardClient({
     <div className="relative w-full h-full flex flex-col justify-between border border-gray-300 rounded-lg overflow-hidden">
       {/* Содержимое карточки (изображение и текст) */}
       <div className="p-4">
-        <img src={imageUrl} alt={title} className="w-full h-auto" />
+        <img
+          src={imageUrl}
+          alt={title}
+          width={220}
+          height={220}
+          className="w-full h-auto"
+        />
         <div className="mt-2">
           <h3 className="text-sm font-bold">{title}</h3>
           <p className="text-sm">{price}₽</p>
