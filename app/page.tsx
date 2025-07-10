@@ -1,20 +1,54 @@
 /* -------------------------------------------------------------------------- */
-/*  Главная страница (SEO-boost + TS-fix + Edge runtime)                      */
+/*  Главная страница (SEO-boost + Edge runtime + синхронный FAQ)              */
 /* -------------------------------------------------------------------------- */
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList, FAQPage, WebPage, BreadcrumbList } from 'schema-dts';
-import PromoGridServer from '@components/PromoGridServer';
-import AdvantagesClient from '@components/AdvantagesClient';
-import PopularProductsServer from '@components/PopularProductsServer';
-import CategoryPreviewServer from '@components/CategoryPreviewServer';
-import SkeletonCard from '@components/ProductCardSkeleton';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { Database } from '@/lib/supabase/types_new';
 
-/* -------------------------- Типы и настройки -------------------------- */
+import PromoGridServer         from '@components/PromoGridServer';
+import AdvantagesClient        from '@components/AdvantagesClient';
+import PopularProductsServer   from '@components/PopularProductsServer';
+import CategoryPreviewServer   from '@components/CategoryPreviewServer';
+import SkeletonCard            from '@components/ProductCardSkeleton';
+import FAQSectionWrapper       from '@components/FAQSectionWrapper';
+
+import { createServerClient }  from '@supabase/ssr';
+import { cookies }             from 'next/headers';
+import type { Database }       from '@/lib/supabase/types_new';
+
+/* -------- FAQ – единый источник данных ----------------------------------- */
+const faqList = [
+  {
+    question: 'Какую клубнику вы используете в букетах и наборах?',
+    answer:
+      'Мы используем свежую местную и импортную ягоду в зависимости от сезона — вкус остаётся на высоте в любое время года. Каждая ягода проходит тщательный ручной отбор — в букеты попадает только идеальная клубника.',
+  },
+  {
+    question: 'Какой шоколад вы используете?',
+    answer:
+      'Только премиальный бельгийский шоколад Callebaut: молочный, белый без привкуса какао и тёмный с ярким вкусом какао. Никаких заменителей и глазури.',
+  },
+  {
+    question: 'Как работает программа лояльности?',
+    answer:
+      'За каждый заказ вы получаете от 2,5 % до 15 % бонусами. 1 балл = 1 ₽, их можно использовать при следующих покупках. Дарим 1000 баллов за первый заказ.',
+  },
+  {
+    question: 'Можно ли оформить заказ в день покупки?',
+    answer:
+      'Да, мы доставим ваш заказ от 60 минут — чтобы порадовать вас и ваших близких без ожидания.',
+  },
+];
+
+/* JSON-LD из того же списка */
+const faqEntities = faqList.map((f) => ({
+  '@type': 'Question',
+  name: f.question,
+  acceptedAnswer: { '@type': 'Answer', text: f.answer },
+}));
+
+/* ---------------- Типы ---------------- */
 interface Product {
   id: number;
   title: string;
@@ -27,11 +61,12 @@ interface Product {
   category_ids: number[];
 }
 
+/* ---------- ISR / Edge flags ---------- */
 export const revalidate = 60;
-export const dynamic = 'force-static';
-export const runtime = 'edge';           // ← новая строка
+export const dynamic   = 'force-static';
+export const runtime   = 'edge';
 
-/* ------------------------ базовые мета-данные ------------------------- */
+/* ----------- Метаданные --------------- */
 export const metadata: Metadata = {
   title: 'KEY TO HEART – клубничные букеты с доставкой в Краснодаре',
   description:
@@ -49,18 +84,8 @@ export const metadata: Metadata = {
       'Закажите клубничные букеты и цветы с доставкой 60 мин по Краснодару и до 20 км.',
     url: 'https://keytoheart.ru',
     images: [
-      {
-        url: 'https://keytoheart.ru/og-cover.webp',
-        width: 1200,
-        height: 630,
-        alt: 'Клубничные букеты KEY TO HEART',
-      },
-      {
-        url: 'https://keytoheart.ru/og-bouquet.webp',
-        width: 1200,
-        height: 630,
-        alt: 'Цветы с доставкой в Краснодаре',
-      },
+      { url: 'https://keytoheart.ru/og-cover.webp',  width: 1200, height: 630 },
+      { url: 'https://keytoheart.ru/og-bouquet.webp', width: 1200, height: 630 },
     ],
   },
   twitter: {
@@ -68,51 +93,44 @@ export const metadata: Metadata = {
     title: 'KEY TO HEART – клубничные букеты в Краснодаре',
     description:
       'Свежие клубничные букеты и цветы с доставкой за 60 мин по Краснодару и до 20 км.',
-    images: [
-      'https://keytoheart.ru/og-cover.webp',
-      'https://keytoheart.ru/og-bouquet.webp',
-    ],
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
-/* ------------------------------ Страница ------------------------------ */
+/* =========================  Страница  ========================= */
 export default async function Home() {
-  /* ------------------ Подключаемся к Supabase ------------------ */
+  /* ------------ Supabase SSR-client ------------ */
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return Array.from(cookieStore.getAll()).map((c) => ({
-            name: c.name,
-            value: c.value,
-          }));
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+        getAll: () =>
+          cookieStore.getAll().map((c) => ({ name: c.name, value: c.value })),
+        setAll: (list) =>
+          list.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
-          );
-        },
+          ),
       },
     },
   );
 
-  /* ------------------ Грузим товары и категории ------------------ */
-  const productCategories = await supabase
+  /* ------- product ↔ category связи ------- */
+  const { data: pc } = await supabase
     .from('product_categories')
     .select('product_id, category_id');
 
-  const productCategoriesMap = new Map<number, number[]>();
-  productCategories.data?.forEach(({ product_id, category_id }) => {
-    const list = productCategoriesMap.get(product_id) || [];
-    productCategoriesMap.set(product_id, [...list, category_id]);
+  const pcMap = new Map<number, number[]>();
+  pc?.forEach(({ product_id, category_id }) => {
+    const arr = pcMap.get(product_id) || [];
+    pcMap.set(product_id, [...arr, category_id]);
   });
-  const productIds = [...productCategoriesMap.keys()];
+  const productIds = [...pcMap.keys()];
 
-  const { data: productsRaw } = await supabase
+  /* ---------------- Продукты ---------------- */
+  const { data: pr } = await supabase
     .from('products')
     .select(
       'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
@@ -122,8 +140,7 @@ export default async function Home() {
     .not('images', 'is', null)
     .order('id', { ascending: false });
 
-  /* === TS-FIX №1: null-safety === */
-  const products: Product[] = (productsRaw ?? []).map((p) => ({
+  const products: Product[] = (pr ?? []).map((p) => ({
     id: p.id,
     title: p.title,
     price: p.price,
@@ -132,72 +149,65 @@ export default async function Home() {
     images: p.images ?? [],
     production_time: p.production_time ?? null,
     is_popular: p.is_popular ?? null,
-    category_ids: productCategoriesMap.get(p.id) || [],
+    category_ids: pcMap.get(p.id) || [],
   }));
 
-  const categoryIds = [...new Set(products.flatMap((p) => p.category_ids))];
-  const { data: categoriesData } = await supabase
+  /* ---------------- Категории ---------------- */
+  const catIds = [...new Set(products.flatMap((p) => p.category_ids))];
+  const { data: cat } = await supabase
     .from('categories')
     .select('id,name,slug')
-    .in('id', categoryIds.length ? categoryIds : [-1]);
+    .in('id', catIds.length ? catIds : [-1]);
 
-  /* === TS-FIX №2: null-safety === */
-  const categoryMap = new Map<
-    number,
-    { name: string; slug: string }
-  >((categoriesData ?? []).map((c) => [c.id, { name: c.name, slug: c.slug }]));
+  const catMap = new Map<number, { name: string; slug: string }>(
+    (cat ?? []).map((c) => [c.id, { name: c.name, slug: c.slug }]),
+  );
 
-  /* ----------------- Список категорий для блока ----------------- */
-  const ignoreSlugs = new Set(['balloon', 'postcard']);
+  /* -------- витринные категории -------- */
+  const ignore = new Set(['balloon', 'postcard']);
   const categories = [
     ...new Set(
       products
         .filter(
           (p) =>
             !p.category_ids.some((id) =>
-              ignoreSlugs.has(categoryMap.get(id)?.slug || ''),
+              ignore.has(catMap.get(id)?.slug || ''),
             ),
         )
-        .flatMap((p) => p.category_ids.map((id) => categoryMap.get(id)?.name)),
+        .flatMap((p) => p.category_ids.map((id) => catMap.get(id)?.name)),
     ),
   ].filter(Boolean) as string[];
 
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
-    'Клубничные боксы': 'klubnichnye-boksy',
-    Цветы: 'flowers',
-    'Комбо-наборы': 'combo',
-    Premium: 'premium',
-    Коллекции: 'kollekcii',
-    Повод: 'povod',
-    Подарки: 'podarki',
+    'Клубничные боксы':  'klubnichnye-boksy',
+    Цветы:               'flowers',
+    'Комбо-наборы':      'combo',
+    Premium:             'premium',
+    Коллекции:           'kollekcii',
+    Повод:               'povod',
+    Подарки:             'podarki',
   };
 
-  /* ----------------------- JSON-LD @graph ----------------------- */
-  const priceValidUntil = new Date();
-  priceValidUntil.setFullYear(priceValidUntil.getFullYear() + 1);
+  /* -------------- JSON-LD graph -------------- */
+  const validUntil = new Date();
+  validUntil.setFullYear(validUntil.getFullYear() + 1);
 
-  const ldGraph = [
+  const ldGraph: Array<WebPage | BreadcrumbList | ItemList | FAQPage> = [
     {
       '@id': 'https://keytoheart.ru/#home',
       '@type': 'WebPage',
-      name: 'KEY TO HEART – клубничные букеты в Краснодаре',
-      url: 'https://keytoheart.ru',
-      description:
-        'Клубничные букеты, цветы и подарки с доставкой по Краснодару за 60 мин.',
+      name: metadata.title!,
+      url:  'https://keytoheart.ru',
+      description: metadata.description!,
       inLanguage: 'ru',
-    } satisfies WebPage,
+    },
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Главная',
-          item: 'https://keytoheart.ru',
-        },
+        { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
       ],
-    } satisfies BreadcrumbList,
+    },
     {
       '@type': 'ItemList',
       itemListOrder: 'http://schema.org/ItemListOrderAscending',
@@ -207,69 +217,38 @@ export default async function Home() {
         item: {
           '@type': 'Product',
           name: p.title,
-          url: `https://keytoheart.ru/product/${p.id}`,
+          url:  `https://keytoheart.ru/product/${p.id}`,
           image: p.images[0],
           offers: {
             '@type': 'Offer',
             price: p.price,
             priceCurrency: 'RUB',
-            priceValidUntil: priceValidUntil.toISOString().split('T')[0],
-            availability: p.in_stock
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+            priceValidUntil: validUntil.toISOString().split('T')[0],
+            availability: p.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
           },
         },
       })),
-    } satisfies ItemList,
+    },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'Сколько хранится клубничный букет?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'При температуре 4 °C клубничные букеты сохраняют свежесть до 24 часов.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Доставляете ли вы ночью?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Да. Ночная доставка возможна по договорённости с менеджером при оформлении заказа днём.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Как быстро доставите букет?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Стандартное время доставки — от 60 минут по Краснодару и до 20 км вокруг.',
-          },
-        },
-      ],
-    } satisfies FAQPage,
+      mainEntity: faqEntities,
+    },
   ];
 
-  /* ------------------------------ Render ------------------------------ */
+  /* -------------- Render --------------- */
   return (
     <main aria-label="Главная страница">
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
-      {/* главный заголовок (визуально скрыт, но семантически важен) */}
+      {/* главный заголовок (скрыт визуально) */}
       <h1 className="sr-only">
         KEY TO HEART – клубничные букеты и цветы с доставкой в Краснодаре
       </h1>
 
-      <section>
-        <PromoGridServer />
-      </section>
+      <section><PromoGridServer /></section>
 
       <Suspense fallback={null}>
-        <section>
-          <PopularProductsServer />
-        </section>
+        <section><PopularProductsServer /></section>
       </Suspense>
 
       <section aria-label="Категории товаров">
@@ -280,20 +259,20 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categories.map((category, idx) => {
-            const slug = slugMap[category] || '';
+          categories.map((catName, idx) => {
+            const slug  = slugMap[catName] || '';
             const items = products
               .filter((p) =>
                 p.category_ids.some(
-                  (id) => categoryMap.get(id)?.name === category,
+                  (id) => catMap.get(id)?.name === catName,
                 ),
               )
               .slice(0, 8);
 
             return (
-              <React.Fragment key={category}>
+              <React.Fragment key={catName}>
                 <CategoryPreviewServer
-                  categoryName={category}
+                  categoryName={catName}
                   products={items}
                   seeMoreLink={slug}
                   headingId={`category-preview-${slug || idx}`}
@@ -304,6 +283,9 @@ export default async function Home() {
           })
         )}
       </section>
+
+      {/* FAQ – тот же текст, что и в JSON-LD */}
+      <FAQSectionWrapper />
     </main>
   );
 }

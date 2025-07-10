@@ -13,9 +13,7 @@ import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import type { Category } from '@/types/category';
 
-const StoreInfoSection = dynamic(() => import('@components/StoreInfoSection'), {
-  ssr: false,
-});
+
 
 export default function LayoutClient({
   children,
@@ -41,8 +39,7 @@ export default function LayoutClient({
           <Footer categories={categories} />
           <CookieBanner />
           <MobileContactFab />
-          <StoreInfoSection />
-        </CartProvider>
+          </CartProvider>
       </CartAnimationProvider>
     </body>
   );
