@@ -197,7 +197,7 @@ export default async function Home() {
     {
       '@id': 'https://keytoheart.ru/#home',
       '@type': 'WebPage',
-      name: metadata.title!,
+      name: 'KEY TO HEART – клубничные букеты с доставкой в Краснодаре', // ← plain string!
       url:  'https://keytoheart.ru',
       description: metadata.description!,
       inLanguage: 'ru',
@@ -285,7 +285,7 @@ export default async function Home() {
       </section>
 
       {/* FAQ – тот же текст, что и в JSON-LD */}
-      <FAQSectionWrapper />
+      <FAQSectionWrapper faqList={faqList} />
     </main>
   );
 }
