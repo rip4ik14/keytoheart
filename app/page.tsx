@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/*  Главная страница (SEO-boost + Edge runtime + синхронный FAQ)              */
+/*  Главная страница (SEO-boost + Edge runtime + FAQ)                         */
 /* -------------------------------------------------------------------------- */
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
@@ -14,7 +14,7 @@ import SkeletonCard            from '@components/ProductCardSkeleton';
 import FAQSectionWrapper       from '@components/FAQSectionWrapper';
 
 import { createServerClient }  from '@supabase/ssr';
-import { cookies }             from 'next/headers';
+import { cookies as getCookies } from 'next/headers'; // Импортируем функцию
 import type { Database }       from '@/lib/supabase/types_new';
 
 /* -------- FAQ – единый источник данных ----------------------------------- */
@@ -41,11 +41,10 @@ const faqList = [
   },
 ];
 
-/* JSON-LD для FAQ */
 const faqEntities = faqList.map((f) => ({
-  '@type': 'Question',
+  '@type': 'Question' as const,
   name: f.question,
-  acceptedAnswer: { '@type': 'Answer', text: f.answer },
+  acceptedAnswer: { '@type': 'Answer' as const, text: f.answer },
 }));
 
 /* ---------------- Типы ---------------- */
@@ -101,14 +100,18 @@ export const metadata: Metadata = {
 /* =========================  Страница  ========================= */
 export default async function Home() {
   /* ------------ Supabase SSR-client ------------ */
-  const cookieStore = cookies();
+  // 1. Получаем куки асинхронно
+  const cookieStore = await getCookies();
+  // 2. Получаем сами куки
+  const cookiesArr = cookieStore.getAll();
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll: () =>
-          cookieStore.getAll().map((c: any) => ({ name: c.name, value: c.value })),
+          cookiesArr.map((c: any) => ({ name: c.name, value: c.value })),
         setAll: (list: any[]) =>
           list.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
@@ -123,7 +126,7 @@ export default async function Home() {
     .select('product_id, category_id');
 
   const pcMap = new Map<number, number[]>();
-  pc?.forEach(({ product_id, category_id }: any) => {
+  pc?.forEach(({ product_id, category_id }) => {
     const arr = pcMap.get(product_id) || [];
     pcMap.set(product_id, [...arr, category_id]);
   });
@@ -140,7 +143,7 @@ export default async function Home() {
     .not('images', 'is', null)
     .order('id', { ascending: false });
 
-  const products: Product[] = (pr ?? []).map((p: any) => ({
+  const products: Product[] = (pr ?? []).map((p) => ({
     id: p.id,
     title: p.title,
     price: p.price,
@@ -160,7 +163,7 @@ export default async function Home() {
     .in('id', catIds.length ? catIds : [-1]);
 
   const catMap = new Map<number, { name: string; slug: string }>(
-    (cat ?? []).map((c: any) => [c.id, { name: c.name, slug: c.slug }]),
+    (cat ?? []).map((c) => [c.id, { name: c.name, slug: c.slug }]),
   );
 
   /* -------- витринные категории -------- */
@@ -197,9 +200,9 @@ export default async function Home() {
     {
       '@id': 'https://keytoheart.ru/#home',
       '@type': 'WebPage',
-      name: 'KEY TO HEART – клубничные букеты с доставкой в Краснодаре',
+      name: metadata.title as string,
       url:  'https://keytoheart.ru',
-      description: metadata.description!,
+      description: metadata.description as string,
       inLanguage: 'ru',
     },
     {
@@ -231,14 +234,14 @@ export default async function Home() {
     },
     {
       '@type': 'FAQPage',
-      mainEntity: faqEntities as any, // <-- кастинг ломает типизацию, но сборка проходит!
+      mainEntity: faqEntities,
     },
   ];
 
   /* -------------- Render --------------- */
   return (
     <main aria-label="Главная страница">
-      <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph as any }} />
+      <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
       {/* главный заголовок (скрыт визуально) */}
       <h1 className="sr-only">
