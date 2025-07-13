@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { trackEvent } from '@/lib/analytics';
@@ -10,80 +10,113 @@ export default function CookieBanner() {
   const [showSettings, setShowSettings] = useState(false);
   const [analyticsCookies, setAnalyticsCookies] = useState(false);
   const [functionalCookies, setFunctionalCookies] = useState(false);
+  const isMounted = useRef(false);
 
   useEffect(() => {
+    if (isMounted.current) return; // Предотвращаем повторный вызов в React.StrictMode
+    isMounted.current = true;
+
     let hasAccepted: string | null = null;
     try {
-      hasAccepted = localStorage.getItem('cookieConsent');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        hasAccepted = localStorage.getItem('cookieConsent');
+      }
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error('localStorage is not available:', e);
     }
 
     if (!hasAccepted) {
       setIsVisible(true);
-      trackEvent({
-        category: 'cookie_banner',
-        action: 'cookie_banner_view',
-        type: 'banner',
-      });
+      try {
+        trackEvent({
+          category: 'cookie_banner',
+          action: 'cookie_banner_view',
+          type: 'banner',
+        });
+      } catch (e) {
+        process.env.NODE_ENV !== "production" && console.error('Failed to track cookie banner view:', e);
+      }
     }
+
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
   const handleAcceptAll = () => {
     try {
-      localStorage.setItem('cookieConsent', 'accepted');
-      localStorage.setItem('analyticsCookies', 'true');
-      localStorage.setItem('functionalCookies', 'true');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('cookieConsent', 'accepted');
+        localStorage.setItem('analyticsCookies', 'true');
+        localStorage.setItem('functionalCookies', 'true');
+      }
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
     }
     setIsVisible(false);
-    trackEvent({
-      category: 'cookie_banner',
-      action: 'cookie_accept_all',
-      type: 'banner',
-    });
-    if (typeof window !== 'undefined') {
-      window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+    try {
+      trackEvent({
+        category: 'cookie_banner',
+        action: 'cookie_accept_all',
+        type: 'banner',
+      });
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('consent', 'update', { analytics_storage: 'granted' });
+      }
+    } catch (e) {
+      process.env.NODE_ENV !== "production" && console.error('Failed to track accept all or update gtag:', e);
     }
+    process.env.NODE_ENV !== "production" && console.log('handleAcceptAll called, isVisible set to false');
   };
 
   const handleSaveSettings = () => {
     try {
-      localStorage.setItem('cookieConsent', 'custom');
-      localStorage.setItem('analyticsCookies', analyticsCookies ? 'true' : 'false');
-      localStorage.setItem('functionalCookies', functionalCookies ? 'true' : 'false');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('cookieConsent', 'custom');
+        localStorage.setItem('analyticsCookies', analyticsCookies ? 'true' : 'false');
+        localStorage.setItem('functionalCookies', functionalCookies ? 'true' : 'false');
+      }
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error('Failed to set cookie settings in localStorage:', e);
     }
     setIsVisible(false);
-    trackEvent({
-      category: 'cookie_banner',
-      action: 'cookie_save_settings',
-      type: 'banner',
-      label: `Analytics: ${analyticsCookies}, Functional: ${functionalCookies}`, // Передаём настройки как строку в label
-    });
-    if (typeof window !== 'undefined') {
-      window.gtag?.('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
+    try {
+      trackEvent({
+        category: 'cookie_banner',
+        action: 'cookie_save_settings',
+        type: 'banner',
+        label: `Analytics: ${analyticsCookies}, Functional: ${functionalCookies}`,
+      });
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
+      }
+    } catch (e) {
+      process.env.NODE_ENV !== "production" && console.error('Failed to track save settings or update gtag:', e);
     }
   };
 
   const handleDecline = () => {
     try {
-      localStorage.setItem('cookieConsent', 'declined');
-      localStorage.setItem('analyticsCookies', 'false');
-      localStorage.setItem('functionalCookies', 'false');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('cookieConsent', 'declined');
+        localStorage.setItem('analyticsCookies', 'false');
+        localStorage.setItem('functionalCookies', 'false');
+      }
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
     }
     setIsVisible(false);
-    trackEvent({
-      category: 'cookie_banner',
-      action: 'cookie_decline',
-      type: 'banner',
-    });
-    if (typeof window !== 'undefined') {
-      window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+    try {
+      trackEvent({
+        category: 'cookie_banner',
+        action: 'cookie_decline',
+        type: 'banner',
+      });
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('consent', 'update', { analytics_storage: 'denied' });
+      }
+    } catch (e) {
+      process.env.NODE_ENV !== "production" && console.error('Failed to track decline or update gtag:', e);
     }
   };
 
