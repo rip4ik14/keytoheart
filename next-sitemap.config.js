@@ -1,20 +1,55 @@
 /** @type {import('next-sitemap').IConfig} */
+
+/* ------------------------------------------------------------- *
+ *  Страницы, которые не должны попадать в XML-sitemap / robots   *
+ *  (дубли, корзина, шаги оф-лайна, API и пр.)                   *
+ * ------------------------------------------------------------- */
+const EXCLUDE = [
+  '/admin',
+  '/cart',
+  '/checkout',
+  '/order',
+  '/order/*',
+  '/product-category',
+  '/products',
+  '/preload',
+  '/api/*',
+];
+
 module.exports = {
   siteUrl: 'https://keytoheart.ru',
-  generateRobotsTxt: true,
-  changefreq: 'weekly',      // дефолт для большинства страниц
-  priority: 0.7,             // дефолт для большинства страниц
+
+  /* ---------- Sitemap-общие ---------- */
+  changefreq: 'weekly',
+  priority: 0.7,
   sitemapSize: 5000,
+
+  /* ---------- Что не индексируем ---------- */
+  exclude: EXCLUDE,
+
+  /* ---------- Генерация robots.txt ---------- */
+  generateRobotsTxt: true,
   robotsTxtOptions: {
     policies: [
-      { userAgent: '*', allow: '/', disallow: ['/admin'] },
+      { userAgent: '*', allow: '/', disallow: EXCLUDE },
     ],
+    // если в будущем появятся отдельные sitemaps (например news-sitemap.xml)
+    additionalSitemaps: ['https://keytoheart.ru/sitemap.xml'],
   },
 
-  // ▲ кастомизируем конкретные URL
+  /* ---------- Индивидуальный transform ---------- */
   transform: async (config, url) => {
-    // для главной
-    if (url === config.siteUrl + '/') {
+    // 1) Пропускаем исключённые адреса
+    if (
+      EXCLUDE.some((path) =>
+        url.replace(config.siteUrl, '').startsWith(path.replace('*', '')),
+      )
+    ) {
+      return null; // => не будет в карте
+    }
+
+    // 2) Главная страница — повышенный приоритет
+    if (url === `${config.siteUrl}/`) {
       return {
         loc: url,
         changefreq: 'daily',
@@ -23,7 +58,7 @@ module.exports = {
       };
     }
 
-    // дефолтная запись для остальных
+    // 3) Дефолт для остальных
     return {
       loc: url,
       changefreq: config.changefreq,

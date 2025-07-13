@@ -1,6 +1,8 @@
 /* -------------------------------------------------------------------------- */
-/*  Страница товара (SSR + Supabase, фикс типов cookies + JSON-LD)            */
+/*  Страница товара (SSR + Supabase, JSON-LD Product / Breadcrumb)            */
+/*  Версия: 2025-07-13 – TS fix width/height                                   */
 /* -------------------------------------------------------------------------- */
+
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
@@ -10,6 +12,7 @@ import type {
   Product as SchemaProduct,
   AggregateOffer,
   BreadcrumbList,
+  ImageObject,
 } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
@@ -19,21 +22,15 @@ import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
 import { Product, ComboItem } from './types';
 
-/* ------------------------------------------------------------------ */
-/*  Анонимный клиент (используем в SSG-методах, cookie не нужны)       */
-/* ------------------------------------------------------------------ */
+/* ---------- Supabase анонимный клиент ---------- */
 const supabaseAnon = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-export const revalidate = 3600; // 1 ч
+export const revalidate = 3600;
 
-type RowFull = Database['public']['Tables']['products']['Row'] & {
-  product_categories: { category_id: number }[];
-};
-
-/* ------------------------ SSG: generate paths ---------------------- */
+/* ------------------------ SSG paths ----------------------- */
 export async function generateStaticParams() {
   const { data } = await supabaseAnon
     .from('products')
@@ -43,7 +40,7 @@ export async function generateStaticParams() {
   return data?.map((p) => ({ id: String(p.id) })) ?? [];
 }
 
-/* ----------------------- SSG: generate <head> ---------------------- */
+/* ----------------------- Metadata ------------------------ */
 export async function generateMetadata({
   params,
 }: {
@@ -98,7 +95,7 @@ export async function generateMetadata({
 }
 
 /* ------------------------------------------------------------------ */
-/*                                Page                                */
+/*                               Page                                 */
 /* ------------------------------------------------------------------ */
 export default async function ProductPage({
   params,
@@ -108,31 +105,24 @@ export default async function ProductPage({
   const id = Number(params.id);
   if (Number.isNaN(id)) notFound();
 
-  /* ---------- SSR-клиент Supabase с cookie-контекстом ---------- */
-  const cookieStore = await cookies(); // ← FIX: await, получаем ReadonlyRequestCookies
-
+  /* ---------- Supabase SSR-client с cookie ---------- */
+  const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll().map(({ name, value }) => ({
-            name,
-            value,
-          }));
-        },
+        getAll: () => cookieStore.getAll().map(({ name, value }) => ({ name, value })),
       },
     },
   );
 
-  /* ---------- Продукт + join категорий ---------- */
   const { data, error } = await supabase
     .from('products')
     .select('*, product_categories(category_id)')
     .eq('id', id)
     .eq('is_visible', true)
-    .single<RowFull>();
+    .single();
 
   if (error || !data || data.in_stock === false) notFound();
 
@@ -149,7 +139,7 @@ export default async function ProductPage({
     category_ids: data.product_categories?.map((c) => c.category_id) ?? [],
   };
 
-  /* ---------- Апселлы (fail-silent) ---------- */
+  /* ---------- Upsell ---------- */
   let combos: ComboItem[] = [];
   try {
     const { data: upsells } = await supabase
@@ -164,11 +154,10 @@ export default async function ProductPage({
         image: u.image_url ?? '',
       })) ?? [];
   } catch (e) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('upsell_items →', e);
+    process.env.NODE_ENV !== 'production' && console.error('upsell_items →', e);
   }
 
-  /* ---------- Offer для Schema.org ---------- */
+  /* ---------- Offer ---------- */
   const finalPrice =
     product.discount_percent && product.discount_percent > 0
       ? Math.round(product.price * (1 - product.discount_percent / 100))
@@ -179,25 +168,29 @@ export default async function ProductPage({
     priceCurrency: 'RUB',
     lowPrice: finalPrice,
     highPrice: product.original_price ?? product.price,
-    price: finalPrice,
     offerCount: 1,
-    availability: 'https://schema.org/InStock',
-    priceValidUntil: new Date(Date.now() + 12096e5) // +14 дней
+    priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000)
       .toISOString()
       .split('T')[0],
+    availability: 'https://schema.org/InStock',
   };
 
-  /* ------------------------------------------------------------------ */
+  /* ---------- ImageObject (TS-safe) ---------- */
+  const firstImageUrl = product.images[0];
+  const imageObject: ImageObject | undefined = firstImageUrl
+    ? { '@type': 'ImageObject', url: firstImageUrl }
+    : undefined;
+
+  /* --------------------------- Render --------------------------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
-      {/* --- Product JSON-LD --- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
           sku: String(product.id),
           name: product.title,
           url: `https://keytoheart.ru/product/${product.id}`,
-          image: product.images.length ? product.images : undefined,
+          image: imageObject ? [imageObject] : undefined,
           description: product.description || undefined,
           material: product.composition || undefined,
           category: product.category_ids.join(',') || undefined,
@@ -206,23 +199,12 @@ export default async function ProductPage({
         }}
       />
 
-      {/* --- BreadcrumbList JSON-LD --- */}
       <JsonLd<BreadcrumbList>
         item={{
           '@type': 'BreadcrumbList',
           itemListElement: [
-            {
-              '@type': 'ListItem',
-              position: 1,
-              name: 'Главная',
-              item: 'https://keytoheart.ru',
-            },
-            {
-              '@type': 'ListItem',
-              position: 2,
-              name: product.title,
-              item: `https://keytoheart.ru/product/${product.id}`,
-            },
+            { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
+            { '@type': 'ListItem', position: 2, name: product.title, item: `https://keytoheart.ru/product/${product.id}` },
           ],
         }}
       />

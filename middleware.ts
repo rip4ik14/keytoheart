@@ -1,81 +1,79 @@
-// ✅ Путь: middleware.ts
+/* -------------------------------------------------------------------------- */
+/*  middleware.ts — access guards & redirects (Edge Runtime)                  */
+/*  Версия: 2025-07-13                                                        */
+/* -------------------------------------------------------------------------- */
+
 import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
 
-// ──────────────────────────────────────────────────────────────────────────────
-//  Middleware без CSP-заголовка.
-//  CSP задаётся единственным источником — в next.config.js → headers().
-// ──────────────────────────────────────────────────────────────────────────────
+/* -------------------------- Константы и утилиты --------------------------- */
+const ADMIN_COOKIE  = 'admin_session';
+const SB_COOKIE     = 'sb-gwbeabfkknhewwoesqax-auth-token';
+const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const JWT_SECRET    = process.env.ADMIN_JWT_SECRET!; // ➟ добавьте в .env
 
+const isValidAdminToken = (token?: string) => {
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { exp: number };
+    return decoded.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
+const buildRedirect = (origin: URL, to: string, reason: string, from: string) => {
+  const redirectUrl = new URL(origin.toString());
+  redirectUrl.pathname = to;
+  redirectUrl.searchParams.set('from', from);
+  redirectUrl.searchParams.set('error', reason);
+  return NextResponse.redirect(redirectUrl);
+};
+
+/* -------------------------------------------------------------------------- */
 export async function middleware(req: NextRequest) {
-  const url = req.nextUrl;
-  const pathname = url.pathname;
+  const { pathname } = req.nextUrl;
+  const method = req.method.toUpperCase();
 
-  /* --------------------------------------------------------------------------
-     ADMIN GUARD
-  -------------------------------------------------------------------------- */
+  // Пропускаем все запросы, кроме GET / HEAD
+  if (!['GET', 'HEAD'].includes(method)) return NextResponse.next();
+
+  /* ------------------------------- ADMIN ---------------------------------- */
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = req.cookies.get('admin_session')?.value;
-
-    if (!token) {
-      const login = url.clone();
-      login.pathname = '/admin/login';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(login);
-    }
-
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`,
-        { headers: { Cookie: `admin_session=${token}` } },
+    const token = req.cookies.get(ADMIN_COOKIE)?.value;
+    if (!isValidAdminToken(token)) {
+      return buildRedirect(
+        req.nextUrl,
+        '/admin/login',
+        token ? 'invalid-session' : 'no-session',
+        pathname,
       );
-      const { success } = await res.json();
-      if (!success) throw new Error('invalid');
-    } catch {
-      const login = url.clone();
-      login.pathname = '/admin/login';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'invalid-session');
-      return NextResponse.redirect(login);
     }
   }
 
-  /* --------------------------------------------------------------------------
-     USER GUARD (Supabase)
-  -------------------------------------------------------------------------- */
+  /* --------------------------- USER (Supabase) ---------------------------- */
   if (
     (pathname.startsWith('/account') || pathname.startsWith('/checkout')) &&
     pathname !== '/account'
   ) {
-    const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value;
-
+    const token = req.cookies.get(SB_COOKIE)?.value;
     if (!token) {
-      const login = url.clone();
-      login.pathname = '/account';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(login);
+      return buildRedirect(req.nextUrl, '/account', 'no-session', pathname);
     }
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON },
       });
       if (!res.ok) throw new Error('invalid');
     } catch {
-      const login = url.clone();
-      login.pathname = '/account';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'invalid-session');
-      return NextResponse.redirect(login);
+      return buildRedirect(req.nextUrl, '/account', 'invalid-session', pathname);
     }
   }
 
-  // остальной трафик пропускаем
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/:path*'] };
+export const config = {
+  matcher: ['/admin/:path*', '/account/:path*', '/checkout/:path*'],
+};

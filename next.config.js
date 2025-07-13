@@ -1,93 +1,132 @@
 // ✅ Путь: next.config.js
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'gwbeabfkknhewwoesqax.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '**.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'via.placeholder.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'example.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'keytoheart.ru',
-        pathname: '/**',
-      },
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+/* ------------------------- Content-Security-Policy ------------------------- */
+const buildCsp = () => {
+  const COMMON = {
+    default: ["'self'"],
+    style: ["'self'", "'unsafe-inline'", 'https://yastatic.net', 'https://*.yastatic.net'],
+    img: [
+      "'self'",
+      'data:',
+      'blob:',
+      'https://*.supabase.co',
+      'https://via.placeholder.com',
+      'https://keytoheart.ru',
+      'https://*.yandex.net',
+      'https://*.yandex.ru',
+      'https://mc.yandex.com',
+      'https://mc.yandex.ru',
+      'https://api-maps.yandex.ru',
+      'https://yastatic.net',
+      'https://*.yastatic.net',
     ],
-    formats: ['image/avif', 'image/webp'], // Поддержка AVIF и WebP
-    deviceSizes: [320, 640, 768, 1024, 1280, 1600], // Размеры для разных устройств
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Размеры для inline-изображений
-    minimumCacheTTL: 60, // Минимальное время кэширования изображений (60 секунд)
-    dangerouslyAllowSVG: false, // Безопасность: отключаем SVG, если не нужен
+    connect: [
+      "'self'",
+      'ws:',
+      'wss:',
+      'https://*.supabase.co',
+      'https://mc.yandex.com',
+      'https://mc.yandex.ru',
+      'https://api-maps.yandex.ru',
+      'https://yastatic.net',
+      'https://ymetrica1.com',
+    ],
+    font: ["'self'", 'data:', 'https://yastatic.net', 'https://*.yastatic.net'],
+    frame: ["'self'", 'https://mc.yandex.com', 'https://mc.yandex.ru', 'https://yandex.ru', 'https://*.yandex.ru'],
+  };
+
+  const SCRIPT_SRC = [
+    "'self'",
+    "'unsafe-inline'",
+    'https://mc.yandex.com',
+    'https://mc.yandex.ru',
+    'https://api-maps.yandex.ru',
+    'https://yastatic.net',
+    'https://*.yastatic.net',
+    'https://cdn.turbo.yandex.ru',
+  ];
+
+  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // допуск для hot-reload’а
+
+  return [
+    `default-src ${COMMON.default.join(' ')};`,
+    `script-src ${SCRIPT_SRC.join(' ')};`,
+    `style-src ${COMMON.style.join(' ')};`,
+    `img-src ${COMMON.img.join(' ')};`,
+    `connect-src ${COMMON.connect.join(' ')};`,
+    `font-src ${COMMON.font.join(' ')};`,
+    `frame-src ${COMMON.frame.join(' ')};`,
+    "object-src 'none'; base-uri 'self'; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none';",
+  ].join(' ');
+};
+
+/* --------------------------- Remote image patterns -------------------------- */
+const remotePatterns = [
+  {
+    protocol: 'https',
+    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
+    pathname: '/storage/v1/object/public/**',
   },
+  {
+    protocol: 'https',
+    hostname: '**.supabase.co',
+    pathname: '/storage/v1/object/public/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'via.placeholder.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'keytoheart.ru',
+    pathname: '/**',
+  },
+];
+
+// 👇 дополнительный тестовый домен разрешаем только в dev-режиме
+if (isDev) {
+  remotePatterns.push({
+    protocol: 'https',
+    hostname: 'example.com',
+    pathname: '/**',
+  });
+}
+
+const nextConfig = {
   reactStrictMode: true,
   compress: true,
   output: 'standalone',
-  eslint: {
-    ignoreDuringBuilds: true,
+
+   eslint: { ignoreDuringBuilds: true },
+
+  images: {
+    remotePatterns,
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [320, 640, 768, 1024, 1280, 1600],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 2_592_000, // 30 дней
+    dangerouslyAllowSVG: false,
   },
+
   experimental: {
-    optimizePackageImports: ['framer-motion', 'swiper'], // Оптимизация импортов
-    optimizeCss: true, // Оптимизация CSS
+    optimizePackageImports: ['framer-motion', 'swiper'],
+    optimizeCss: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/icons/:path*',
-        destination: '/icons/:path*',
-      },
-    ];
-  },
+
+  /* ----------------------------- Custom headers ---------------------------- */
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self';",
-              // JS для Яндекс Карт, аналитика, поддержка yastatic
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://yastatic.net https://*.yastatic.net https://cdn.turbo.yandex.ru;",
-              "style-src 'self' 'unsafe-inline' https://yastatic.net https://*.yastatic.net;",
-              "img-src 'self' data: blob: https://*.supabase.co https://via.placeholder.com https://example.com https://keytoheart.ru https://*.yandex.net https://*.yandex.ru https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://yastatic.net https://*.yastatic.net;",
-              "connect-src 'self' ws: wss: https://*.supabase.co wss://*.supabase.co https://mc.yandex.com https://mc.yandex.ru https://api-maps.yandex.ru https://yastatic.net https://ymetrica1.com;",
-              "font-src 'self' data: https://yastatic.net https://*.yastatic.net;",
-              "frame-src 'self' https://mc.yandex.com https://mc.yandex.ru https://yandex.ru https://*.yandex.ru;",
-              "object-src 'none'; base-uri 'self'; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none';",
-            ].join(' '),
-          },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Content-Security-Policy', value: buildCsp() },
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains; preload',
@@ -98,69 +137,28 @@ const nextConfig = {
           },
         ],
       },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/uploads/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/fonts/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/icons/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/about',
+      /* -------- Aggressive caching for static assets -------- */
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
+        (source) => ({
+          source,
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        }),
+      ),
+      /* --------- ISR pages: краткий server-revalidate --------- */
+      ...['/', '/about', '/policy'].map((source) => ({
+        source,
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, s-maxage=60, stale-while-revalidate=300',
           },
         ],
-      },
-      {
-        source: '/policy',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300',
-          },
-        ],
-      },
-      {
-        source: '/',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300',
-          },
-        ],
-      },
+      })),
     ];
   },
 };

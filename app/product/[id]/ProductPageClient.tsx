@@ -14,9 +14,12 @@ import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
 import type { Product, ComboItem } from './types';
 
-/* ------------------------------------------------------------------ */
-/*                              helpers                               */
-/* ------------------------------------------------------------------ */
+/* =====================  Constants & helpers  ===================== */
+
+// ★ однотонный blur-png (10 × 10 px, светло-серый)
+const BLUR_PLACEHOLDER =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
+
 interface DaySchedule {
   start: string;
   end: string;
@@ -44,7 +47,6 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
       { start: '09:00', end: '18:00', enabled: true },
     ]),
   ) as Record<string, DaySchedule>;
-
   if (typeof schedule !== 'object' || schedule === null) return base;
 
   for (const [key, value] of Object.entries(schedule)) {
@@ -62,9 +64,8 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   return base;
 };
 
-/* ------------------------------------------------------------------ */
-/*                              motion                                */
-/* ------------------------------------------------------------------ */
+/* =====================       Motion        ====================== */
+
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -80,9 +81,9 @@ const notificationVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.3 } },
 };
 
-/* =================================================================== */
-/*                               COMPONENT                             */
-/* =================================================================== */
+/* ================================================================= */
+/*                              COMPONENT                            */
+/* ================================================================= */
 export default function ProductPageClient({
   product,
   combos,
@@ -95,15 +96,12 @@ export default function ProductPageClient({
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
-  const [comboNotifications, setComboNotifications] = useState<
-    Record<number, boolean>
-  >({});
+  const [comboNotifications, setComboNotifications] = useState<Record<number, boolean>>({});
   const [bonusPercent] = useState(0.025);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
-  const [recommendedItems, setRecommendedItems] =
-    useState<ComboItem[]>(combos);
+  const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos);
   const recommendLoop = recommendedItems.length > 4;
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const mainSwiperRef = useRef<any>(null);
@@ -136,8 +134,7 @@ export default function ProductPageClient({
         priceCurrency: 'RUB',
         price: discountedPrice,
         availability: 'https://schema.org/InStock',
-        url:
-          typeof window !== 'undefined' ? window.location.href : 'https://keytoheart.ru',
+        url: typeof window !== 'undefined' ? window.location.href : 'https://keytoheart.ru',
       },
       aggregateRating: {
         '@type': 'AggregateRating',
@@ -312,8 +309,7 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
-  /* add-to-cart handler */
-  const handleAdd = (
+    const handleAdd = (
     id: number,
     title: string,
     price: number,
@@ -329,47 +325,52 @@ export default function ProductPageClient({
       imageUrl: img || '',
       production_time: productionTime,
     });
+
     if (isCombo) {
       setComboNotifications((p) => ({ ...p, [id]: true }));
-      setTimeout(
-        () => setComboNotifications((p) => ({ ...p, [id]: false })),
-        2000,
-      );
+      setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 2000);
     } else {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2000);
     }
+
     try {
       window.gtag?.('event', 'add_to_cart', {
         event_category: 'ecommerce',
         event_label: title,
         value: price,
       });
-      if (YM_ID !== undefined) {
-        callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
-      }
+      YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
     } catch {}
   };
 
   const handleShare = () => {
+    if (typeof window === 'undefined') return;
+
+    const url = window.location.href;
+
+    /* Web Share API ─ мобильные Chrome / iOS Safari */
     if (navigator.share) {
       navigator
         .share({
           title: product.title,
-          text: `Посмотрите этот букет: ${product.title} на KEY TO HEART!`,
-          url: window.location.href,
+          text: `Посмотрите букет «${product.title}» на KEY TO HEART!`,
+          url,
         })
-        .catch(() => {});
-    } else {
-      navigator.clipboard
-        .writeText(window.location.href)
-        .then(() => alert('Ссылка скопирована в буфер обмена!'));
+        .catch(() => {});        // пользователь отменил
+      return;
     }
+
+    /* fallback: копируем ссылку */
+    navigator.clipboard
+      .writeText(url)
+      .then(() => alert('Ссылка скопирована в буфер обмена!'))
+      .catch(() => alert('Не удалось скопировать ссылку :('));
   };
 
-  /* ================================================================= */
-  /*                                 JSX                               */
-  /* ================================================================= */
+ /* =================================================================== */
+  /*                                 JSX                                 */
+  /* =================================================================== */
   return (
     <section
       className="min-h-screen bg-white text-black"
@@ -382,14 +383,14 @@ export default function ProductPageClient({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }}
       />
-      {/* microdata meta */}
-      <meta itemProp="sku" content={String(product.id)} />
+      {/* micro-meta */}
+      <meta itemProp="sku"   content={String(product.id)} />
       <meta itemProp="brand" content="KEY TO HEART" />
-      <meta itemProp="name" content={product.title} />
+      <meta itemProp="name"  content={product.title} />
       {images[0] && <link itemProp="image" href={images[0]} />}
 
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* уведомления */}
+        {/* ---------- уведомления ---------- */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -403,8 +404,8 @@ export default function ProductPageClient({
             </motion.div>
           )}
           {Object.entries(comboNotifications).map(
-            ([id, isVisible]) =>
-              isVisible && (
+            ([id, visible]) =>
+              visible && (
                 <motion.div
                   key={id}
                   className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
@@ -420,7 +421,7 @@ export default function ProductPageClient({
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
-          {/* ---------- галерея ---------- */}
+          {/* ===================== GALERY ===================== */}
           <motion.div
             className="w-full mb-2 sm:mb-0"
             variants={containerVariants}
@@ -450,10 +451,12 @@ export default function ProductPageClient({
                           src={src}
                           alt={`${product.title} — фото ${i + 1}`}
                           fill
-                          className="object-cover"
+                          placeholder="blur"
+                          blurDataURL={BLUR_PLACEHOLDER}
                           priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           sizes="(max-width:768px) 100vw, 50vw"
+                          className="object-cover"
                         />
                       </div>
                     </SwiperSlide>
@@ -465,12 +468,16 @@ export default function ProductPageClient({
                         src="/placeholder.jpg"
                         alt="Изображение отсутствует"
                         fill
-                        className="object-cover"
+                        placeholder="blur"
+                        blurDataURL={BLUR_PLACEHOLDER}
                         priority
+                        className="object-cover"
                       />
                     </div>
                   </SwiperSlide>
                 )}
+
+                {/* стрелки */}
                 <button
                   className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
                   aria-label="Предыдущее изображение"
@@ -495,8 +502,8 @@ export default function ProductPageClient({
                   modules={[Navigation, Thumbs]}
                   className="mt-1 sm:mt-3"
                   breakpoints={{
-                    320: { slidesPerView: 4 },
-                    640: { slidesPerView: 5 },
+                    320:  { slidesPerView: 4 },
+                    640:  { slidesPerView: 5 },
                     1024: { slidesPerView: 6 },
                   }}
                 >
@@ -508,18 +515,17 @@ export default function ProductPageClient({
                             ? 'border-black shadow-lg'
                             : 'border-gray-200'
                         }`}
-                        onClick={() =>
-                          mainSwiperRef.current &&
-                          mainSwiperRef.current.slideTo(i)
-                        }
+                        onClick={() => mainSwiperRef.current?.slideTo(i)}
                       >
                         <Image
                           src={src}
                           alt={`Миниатюра ${i + 1}`}
                           fill
-                          className="object-cover group-hover:scale-105 transition-transform"
+                          placeholder="blur"
+                          blurDataURL={BLUR_PLACEHOLDER}
                           loading="lazy"
                           sizes="(max-width:768px) 20vw, 8vw"
+                          className="object-cover group-hover:scale-105 transition-transform"
                         />
                       </div>
                     </SwiperSlide>
@@ -528,6 +534,7 @@ export default function ProductPageClient({
               )}
             </div>
           </motion.div>
+
 
           {/* ---------- правая колонка ---------- */}
           <motion.div

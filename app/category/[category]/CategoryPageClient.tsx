@@ -1,4 +1,5 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
@@ -9,6 +10,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Product } from '@components/CatalogClient';
 
+/* ------------------------ Типы пропсов ------------------------ */
 export interface Subcategory {
   id: number;
   name: string;
@@ -23,6 +25,7 @@ export interface Props {
   subcategories: Subcategory[];
 }
 
+/* -------------------------------------------------------------- */
 export default function CategoryPageClient({
   products,
   apiName,
@@ -35,81 +38,58 @@ export default function CategoryPageClient({
 
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
+  /* ---------- Фильтрация + сортировка ---------- */
   useEffect(() => {
-    let sortedProducts = [...products];
+    let sorted = [...products];
 
-    // Фильтрация по подкатегории
     if (subcategory !== 'all') {
-      const subcategoryId = subcategories.find((sub) => sub.slug === subcategory)?.id;
-      if (subcategoryId) {
-        sortedProducts = sortedProducts.filter(
-          (p) => p.subcategory_ids.includes(subcategoryId)
-        );
-      } else {
-        sortedProducts = [];
-      }
+      const subId = subcategories.find((s) => s.slug === subcategory)?.id;
+      sorted = subId ? sorted.filter((p) => p.subcategory_ids.includes(subId)) : [];
     }
 
-    // Сортировка
-    if (sort === 'price-asc') {
-      sortedProducts.sort((a, b) => a.price - b.price);
-    } else if (sort === 'price-desc') {
-      sortedProducts.sort((a, b) => b.price - a.price);
-    } else {
-      // По новизне (по умолчанию, по ID descending)
-      sortedProducts.sort((a, b) => b.id - a.id);
-    }
+    if (sort === 'price-asc') sorted.sort((a, b) => a.price - b.price);
+    else if (sort === 'price-desc') sorted.sort((a, b) => b.price - a.price);
+    else sorted.sort((a, b) => b.id - a.id); // newest
 
-    process.env.NODE_ENV !== 'production' &&
-      console.log(`Filtered products for subcategory ${subcategory}:`, sortedProducts);
-
-    setFilteredProducts(sortedProducts);
+    setFilteredProducts(sorted);
   }, [sort, subcategory, products, subcategories]);
 
+  /* ---------- Web-аналитика ---------- */
   useEffect(() => {
-    window.gtag?.('event', 'view_category', {
-      event_category: 'category',
-      event_label: apiName,
-    });
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
-    }
+    window.gtag?.('event', 'view_category', { event_category: 'category', event_label: apiName });
+    YM_ID && callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
   }, [apiName]);
 
-  return (
-    <section className="container mx-auto py-6 px-4" aria-label={`Товары в категории ${apiName}`}>
-      <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">{apiName}</h1>
+  /* ---------- Минимальная цена для H1 ---------- */
+  const minPrice = Math.min(...products.map((p) => p.price));
 
-      {/* Фильтры подкатегорий */}
+  return (
+    <section className="container mx-auto py-6 px-4" aria-label={`Товары ${apiName}`}>
+      {/* --- H1 с ключом «купить» и ценой --- */}
+      <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">
+        Купить {apiName.toLowerCase()} в Краснодаре от {minPrice}₽
+      </h1>
+
+      {/* --- Фильтр подкатегорий --- */}
       {subcategories.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
-          <Link
+          <FilterChip
             href={`/category/${slug}?sort=${sort}&subcategory=all`}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-              subcategory === 'all'
-                ? 'bg-black text-white'
-                : 'bg-white text-black border hover:bg-gray-100'
-            }`}
-          >
-            Все
-          </Link>
+            active={subcategory === 'all'}
+            label="Все"
+          />
           {subcategories.map((sub) => (
-            <Link
+            <FilterChip
               key={sub.id}
               href={`/category/${slug}?sort=${sort}&subcategory=${sub.slug}`}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-                subcategory === sub.slug
-                  ? 'bg-black text-white'
-                  : 'bg-white text-black border hover:bg-gray-100'
-              }`}
-            >
-              {sub.name}
-            </Link>
+              active={subcategory === sub.slug}
+              label={sub.name}
+            />
           ))}
         </div>
       )}
 
-      {/* Сортировка */}
+      {/* --- Сортировка --- */}
       <div className="mb-6 flex justify-end">
         <select
           value={sort}
@@ -121,16 +101,14 @@ export default function CategoryPageClient({
           aria-label="Сортировка товаров"
         >
           <option value="newest">По новизне</option>
-          <option value="price-asc">Цена по возрастанию</option>
-          <option value="price-desc">Цена по убыванию</option>
+          <option value="price-asc">Цена ↑</option>
+          <option value="price-desc">Цена ↓</option>
         </select>
       </div>
 
-      {/* Список товаров */}
+      {/* --- Список товаров --- */}
       {filteredProducts.length === 0 ? (
-        <p className="text-gray-500 font-sans">
-          Нет товаров в этой категории или подкатегории.
-        </p>
+        <p className="text-gray-500 font-sans">Нет товаров в этой категории.</p>
       ) : (
         <motion.div
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
@@ -152,5 +130,27 @@ export default function CategoryPageClient({
         </motion.div>
       )}
     </section>
+  );
+}
+
+/* ------------ Мелкий подкомпонент для чипа фильтра ------------- */
+function FilterChip({
+  href,
+  active,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+        active ? 'bg-black text-white' : 'bg-white text-black border hover:bg-gray-100'
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

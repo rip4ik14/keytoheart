@@ -1,23 +1,25 @@
 /* -------------------------------------------------------------------------- */
 /*  Главная страница (SEO-boost + Edge runtime + FAQ)                         */
+/*  Версия: 2025-07-13 — с учётом рекомендаций                                */
 /* -------------------------------------------------------------------------- */
+
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList, FAQPage, WebPage, BreadcrumbList } from 'schema-dts';
 
-import PromoGridServer         from '@components/PromoGridServer';
-import AdvantagesClient        from '@components/AdvantagesClient';
-import PopularProductsServer   from '@components/PopularProductsServer';
-import CategoryPreviewServer   from '@components/CategoryPreviewServer';
-import SkeletonCard            from '@components/ProductCardSkeleton';
-import FAQSectionWrapper       from '@components/FAQSectionWrapper';
+import PromoGridServer       from '@components/PromoGridServer';
+import AdvantagesClient      from '@components/AdvantagesClient';
+import PopularProductsServer from '@components/PopularProductsServer';
+import CategoryPreviewServer from '@components/CategoryPreviewServer';
+import SkeletonCard          from '@components/ProductCardSkeleton';
+import FAQSectionWrapper     from '@components/FAQSectionWrapper';
 
 import { createServerClient }  from '@supabase/ssr';
-import { cookies as getCookies } from 'next/headers'; // Импортируем функцию
+import { cookies as getCookies } from 'next/headers';
 import type { Database }       from '@/lib/supabase/types_new';
 
-/* -------- FAQ – единый источник данных ----------------------------------- */
+/* ----------------------------- FAQ (единый источник) ----------------------------- */
 const faqList = [
   {
     question: 'Какую клубнику вы используете в букетах и наборах?',
@@ -41,13 +43,13 @@ const faqList = [
   },
 ];
 
-const faqEntities = faqList.map((f) => ({
-  '@type': 'Question' as const,
+const faqEntities: FAQPage['mainEntity'] = faqList.map((f) => ({
+  '@type': 'Question',
   name: f.question,
-  acceptedAnswer: { '@type': 'Answer' as const, text: f.answer },
+  acceptedAnswer: { '@type': 'Answer', text: f.answer },
 }));
 
-/* ---------------- Типы ---------------- */
+/* --------------------------------- Типы --------------------------------- */
 interface Product {
   id: number;
   title: string;
@@ -60,22 +62,22 @@ interface Product {
   category_ids: number[];
 }
 
-/* ---------- ISR / Edge flags ---------- */
-export const revalidate = 60;
+/* -------------------------- ISR / Edge flags ---------------------------- */
+export const revalidate = 300;              // ⬆️ более щадящее к origin
 export const dynamic   = 'force-static';
-export const runtime   = 'edge';
 
-/* ----------- Метаданные --------------- */
+/* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
   title: 'KEY TO HEART – клубничные букеты с доставкой в Краснодаре',
   description:
     'Клубничные букеты, цветы и подарки с доставкой по Краснодару и до 20 км за 60 мин. Свежесть гарантируем, фото заказа перед отправкой.',
   keywords: [
-    'доставка клубничных букетов Краснодар',
-    'купить букет из клубники Краснодар',
+    // ≤ 10, чтобы не выглядеть keyword-stuffing
+    'клубничные букеты Краснодар',
+    'букет из клубники купить',
     'доставка цветов Краснодар',
-    'букет на день рождения Краснодар',
-    'клубничные букеты 60 минут',
+    'букет на день рождения',
+    'букеты 60 минут',
   ],
   openGraph: {
     title: 'KEY TO HEART – клубничные букеты с доставкой',
@@ -97,13 +99,11 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
-/* =========================  Страница  ========================= */
+/* ==============================  Страница  ============================== */
 export default async function Home() {
-  /* ------------ Supabase SSR-client ------------ */
-  // 1. Получаем куки асинхронно
+  /* ------------------------ Supabase (SSR) ------------------------ */
   const cookieStore = await getCookies();
-  // 2. Получаем сами куки
-  const cookiesArr = cookieStore.getAll();
+  const cookiesArr  = cookieStore.getAll();
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,8 +111,8 @@ export default async function Home() {
     {
       cookies: {
         getAll: () =>
-          cookiesArr.map((c: any) => ({ name: c.name, value: c.value })),
-        setAll: (list: any[]) =>
+          cookiesArr.map((c) => ({ name: c.name, value: c.value })),
+        setAll: (list) =>
           list.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
           ),
@@ -120,29 +120,27 @@ export default async function Home() {
     },
   );
 
-  /* ------- product ↔ category связи ------- */
-  const { data: pc } = await supabase
-    .from('product_categories')
-    .select('product_id, category_id');
+  /* ---------- Параллельные запросы: продукты + связи ---------- */
+  const [{ data: pc }, { data: pr }] = await Promise.all([
+    supabase.from('product_categories').select('product_id, category_id'),
+    supabase
+      .from('products')
+      .select(
+        'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
+      )
+      .eq('in_stock', true)
+      .not('images', 'is', null)
+      .order('id', { ascending: false }),
+  ]);
 
+  /* -------- product_id → [category_id,…] Map -------- */
   const pcMap = new Map<number, number[]>();
   pc?.forEach(({ product_id, category_id }) => {
     const arr = pcMap.get(product_id) || [];
     pcMap.set(product_id, [...arr, category_id]);
   });
-  const productIds = [...pcMap.keys()];
 
-  /* ---------------- Продукты ---------------- */
-  const { data: pr } = await supabase
-    .from('products')
-    .select(
-      'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
-    )
-    .in('id', productIds.length ? productIds : [-1])
-    .eq('in_stock', true)
-    .not('images', 'is', null)
-    .order('id', { ascending: false });
-
+  /* ---------------------- Продукты ---------------------- */
   const products: Product[] = (pr ?? []).map((p) => ({
     id: p.id,
     title: p.title,
@@ -155,32 +153,34 @@ export default async function Home() {
     category_ids: pcMap.get(p.id) || [],
   }));
 
-  /* ---------------- Категории ---------------- */
-  const catIds = [...new Set(products.flatMap((p) => p.category_ids))];
+  /* ---------------------- Категории --------------------- */
+  const uniqueCatIds = [...new Set(products.flatMap((p) => p.category_ids))];
+
   const { data: cat } = await supabase
     .from('categories')
     .select('id,name,slug')
-    .in('id', catIds.length ? catIds : [-1]);
+    .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]);
 
   const catMap = new Map<number, { name: string; slug: string }>(
     (cat ?? []).map((c) => [c.id, { name: c.name, slug: c.slug }]),
   );
 
-  /* -------- витринные категории -------- */
-  const ignore = new Set(['balloon', 'postcard']);
+  /* ------------- Категории для витрины ------------- */
+  const IGNORE_SLUGS = new Set(['balloon', 'postcard']);
   const categories = [
     ...new Set(
       products
         .filter(
           (p) =>
             !p.category_ids.some((id) =>
-              ignore.has(catMap.get(id)?.slug || ''),
+              IGNORE_SLUGS.has(catMap.get(id)?.slug || ''),
             ),
         )
         .flatMap((p) => p.category_ids.map((id) => catMap.get(id)?.name)),
     ),
   ].filter(Boolean) as string[];
 
+  /* ------------- slug ↔ name маппинг ------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы':  'klubnichnye-boksy',
@@ -192,7 +192,7 @@ export default async function Home() {
     Подарки:             'podarki',
   };
 
-  /* -------------- JSON-LD graph -------------- */
+  /* ------------------- JSON-LD graph ------------------- */
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
@@ -220,14 +220,16 @@ export default async function Home() {
         item: {
           '@type': 'Product',
           name: p.title,
-          url:  `https://keytoheart.ru/product/${p.id}`,
+          url:  `https://keytoheart.ru/product/${p.id}`,  // ✅ фикс шаблона
           image: p.images[0],
           offers: {
             '@type': 'Offer',
             price: p.price,
             priceCurrency: 'RUB',
             priceValidUntil: validUntil.toISOString().split('T')[0],
-            availability: p.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            availability: p.in_stock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
           },
         },
       })),
@@ -238,23 +240,34 @@ export default async function Home() {
     },
   ];
 
-  /* -------------- Render --------------- */
+  /* ------------------------- Render ------------------------- */
   return (
     <main aria-label="Главная страница">
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
-      {/* главный заголовок (скрыт визуально) */}
+      {/* Главный заголовок (скрыт визуально) */}
       <h1 className="sr-only">
         KEY TO HEART – клубничные букеты и цветы с доставкой в Краснодаре
       </h1>
 
-      <section><PromoGridServer /></section>
+      {/* Промо-баннер / hero */}
+      <section role="region" aria-label="Промо-баннер">
+        <PromoGridServer />
+      </section>
 
+      {/* Популярные товары — отложенная загрузка */}
       <Suspense fallback={null}>
-        <section><PopularProductsServer /></section>
+        <section role="region" aria-label="Популярные товары">
+          <PopularProductsServer />
+        </section>
       </Suspense>
 
-      <section aria-label="Категории товаров">
+      {/* Категории товаров */}
+      <section
+        role="region"
+        aria-label="Категории товаров"
+        id="home-categories"
+      >
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -272,14 +285,17 @@ export default async function Home() {
               )
               .slice(0, 8);
 
+            const headingId = `category-preview-${slug || idx}`;
+
             return (
               <React.Fragment key={catName}>
                 <CategoryPreviewServer
                   categoryName={catName}
                   products={items}
                   seeMoreLink={slug}
-                  headingId={`category-preview-${slug || idx}`}
+                  headingId={headingId}
                 />
+                {/* После первой категории — блок преимуществ */}
                 {idx === 0 && <AdvantagesClient />}
               </React.Fragment>
             );
@@ -287,7 +303,7 @@ export default async function Home() {
         )}
       </section>
 
-      {/* FAQ – тот же текст, что и в JSON-LD */}
+      {/* FAQ — тот же текст, что и в JSON-LD */}
       <FAQSectionWrapper />
     </main>
   );

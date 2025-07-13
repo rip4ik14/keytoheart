@@ -1,23 +1,22 @@
-/* ------------------------- Глобальные стили и шрифты ------------------------- */
+/* -------------------------------------------------------------------------- */
+/*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
+/*  Версия: 2025-07-13 — оптимизация ключевых слов, preconnect, sameAs, CSP   */
+/* -------------------------------------------------------------------------- */
+
 import './styles/globals.css';
 import 'react-image-gallery/styles/css/image-gallery.css';
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type {
-  BreadcrumbList,
-  LocalBusiness,
-  Organization,
-  WebSite,
-} from 'schema-dts';
+import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym';
 
 /* ------------------------------------------------------------------ */
-/*                          ШРИФТЫ (next/font)                        */
+/*                                ШРИФТЫ                              */
 /* ------------------------------------------------------------------ */
 const golosText = localFont({
   variable: '--font-golos',
@@ -25,22 +24,22 @@ const golosText = localFont({
   preload: true,
   src: [
     { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2',  weight: '500', style: 'normal' },
     { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2',     weight: '700', style: 'normal' }, // ⬅️ самый тяжёлый вес, preloaded
+    { path: '../public/fonts/golos-text_black.woff2',    weight: '900', style: 'normal' },
   ],
 });
 
 const marqueeFont = localFont({
   variable: '--font-marquee',
   display: 'swap',
-  preload: false,
+  preload: false, // heavy display font загружается лениво
   src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
 /* ------------------------------------------------------------------ */
-/*                       БАЗОВЫЕ SEO-МЕТАДАННЫЕ                       */
+/*                          БАЗОВЫЕ МЕТАДАННЫЕ                        */
 /* ------------------------------------------------------------------ */
 export const revalidate = 3600;
 
@@ -51,19 +50,14 @@ export const metadata: Metadata = {
     template: '%s | KEY TO HEART',
   },
   description:
-    'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой. Работаем с 8:00 – 22:00.',
+    'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+  /* 🎯 trimmed to ≤ 10 keywords */
   keywords: [
-    'доставка клубничных букетов Краснодар',
-    'купить букет из клубники Краснодар',
-    'букет из клубники с шоколадом Краснодар',
+    'клубничные букеты Краснодар',
+    'букет из клубники купить',
     'доставка цветов Краснодар',
-    'купить цветы Краснодар',
-    'букет цветов Краснодар',
-    'заказать букет Краснодар',
-    'доставка клубничных букетов на день рождения Краснодар',
-    'купить букет из клубники с доставкой',
-    'доставка цветов в Прикубанский округ',
-    'цветы с доставкой до 20 км от Краснодара',
+    'букет на день рождения',
+    'букеты 60 минут',
   ],
   alternates: {
     canonical: 'https://keytoheart.ru',
@@ -76,7 +70,7 @@ export const metadata: Metadata = {
     url: 'https://keytoheart.ru',
     title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
     description:
-      'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+      'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
@@ -98,7 +92,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
     description:
-      'Клубничные букеты и цветы с доставкой по Краснодару за 60 мин. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+      'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       'https://keytoheart.ru/og-cover.webp',
       'https://keytoheart.ru/og-bouquet.webp',
@@ -115,13 +109,9 @@ export const viewport: Viewport = {
 };
 
 /* ------------------------------------------------------------------ */
-/*                             LAYOUT                                 */
+/*                                LAYOUT                              */
 /* ------------------------------------------------------------------ */
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   /* ----------------- Подтягиваем категории из Supabase ----------------- */
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -130,7 +120,7 @@ export default async function RootLayout({
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
-      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } }
+      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } },
     );
     const data = await res.json();
     if (Array.isArray(data)) {
@@ -153,38 +143,45 @@ export default async function RootLayout({
   } catch (e) {
     process.env.NODE_ENV !== 'production' &&
       console.warn('[layout] categories fetch error →', e);
-    categories = [];
+    categories = []; // graceful-fallback
   }
 
-  /* ----------------------------- HTML шаблон ----------------------------- */
+  /* ----------------------------- HTML шаблон ---------------------------- */
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
+        {/* базовые метатеги */}
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta httpEquiv="Content-Language" content="ru" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
-        {/* Геотеги — адрес магазина */}
+
+        {/* Геотеги */}
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
         <meta name="robots" content="index,follow" />
+
         {/* canonical + hreflang */}
         <link rel="canonical" href="https://keytoheart.ru/" />
         <link rel="alternate" href="https://keytoheart.ru/" hrefLang="ru" />
+
         {/* Preconnect / DNS-prefetch */}
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />{/* ⬅️ добавлено */}
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
         {/* PWA / favicon extras */}
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
-        {/* ---------------- JSON-LD: WebSite + Org + LocalBusiness ----------- */}
+
+        {/* ---------------- JSON-LD: WebSite + Org + LocalBusiness ---------- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -199,8 +196,7 @@ export default async function RootLayout({
                   '@type': 'SearchAction',
                   target: {
                     '@type': 'EntryPoint',
-                    urlTemplate:
-                      'https://keytoheart.ru/search?q={search_term_string}',
+                    urlTemplate: 'https://keytoheart.ru/search?q={search_term_string}',
                   },
                   'query-input': 'required name=search_term_string',
                 } as any,
@@ -214,6 +210,7 @@ export default async function RootLayout({
                   'https://www.instagram.com/keytoheart.ru/',
                   'https://t.me/keytoheart',
                   'https://wa.me/79886033821',
+                  'https://maps.app.goo.gl/your-google-business-profile', // ⬅️ новый sameAs
                 ],
               } satisfies Organization,
               {
@@ -265,29 +262,29 @@ export default async function RootLayout({
             ],
           }}
         />
-        {/* --------------------------- Яндекс.Метрика --------------------------- */}
+
+        {/* --------------------------- Яндекс.Метрика ----------------------- */}
         {YM_ID && (
           <script
             dangerouslySetInnerHTML={{
               __html: `
-                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
-                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-                ym(${YM_ID}, "init", {
-                  clickmap:true,
-                  trackLinks:true,
-                  accurateTrackBounce:true,
-                  trackHash:true,
-                  webvisor:true
-                });
-              `,
+              (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+              m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+              k.async=1;k.src=r;a.parentNode.insertBefore(k,a);})
+              (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+              ym(${YM_ID}, "init", {
+                clickmap:true,
+                trackLinks:true,
+                accurateTrackBounce:true,
+                trackHash:true,
+                webvisor:true
+              });`,
             }}
           />
         )}
       </head>
 
-      {/* ----------------------- КЛИЕНТСКАЯ ЧАСТЬ САЙТА ----------------------- */}
+      {/* ----------------------- КЛИЕНТСКАЯ ЧАСТЬ ----------------------- */}
       <LayoutClient categories={categories}>{children}</LayoutClient>
     </html>
   );
