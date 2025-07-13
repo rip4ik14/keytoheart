@@ -1,45 +1,47 @@
 'use client';
 
 import React, { useState } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
-import Image from 'next/image';
-import { motion } from 'framer-motion';
+import Head          from 'next/head';
+import Link          from 'next/link';
+import Image         from 'next/image';
+import { motion }    from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Pagination } from 'swiper/modules';
+import { Autoplay, Pagination, Lazy } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
+
 
 import { PromoBlock } from '@/types/promo';
 
 /* ------------------------------------------------------------------ */
-/*  Единый blur-плейсхолдер (10×10 PNG). Положите файл в /public.      */
+/*  Единый blur-плейсхолдер (10×10 PNG)                               */
 /* ------------------------------------------------------------------ */
 const BLUR_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
 
+/* ------------------------------------------------------------------ */
 export default function PromoGridClient({
   banners,
   cards,
 }: {
   banners: PromoBlock[];
-  cards: PromoBlock[];
+  cards:   PromoBlock[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
-  /* ---------- preload LCP-изображения (первый баннер) ---------- */
+  /* ---------- LCP-картинка (первый баннер) ---------- */
   const lcpImage = banners[0]?.image_url;
 
-  // Анимация текста
+  /* ---------- Анимации текста ---------- */
   const textVariants = {
-    hidden: { opacity: 0 },
+    hidden : { opacity: 0 },
     visible: (i: number) => ({
       opacity: 1,
       transition: { duration: 0.8, delay: i * 0.4, ease: 'easeOut' },
     }),
   };
 
-  // Для мобилки: баннеры + карточки в один список
+  /* ---------- Мобайл-список: баннеры + карточки ---------- */
   const mobileItems = [...banners, ...cards];
 
   return (
@@ -62,7 +64,7 @@ export default function PromoGridClient({
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          {/* ---------- Баннеры (десктоп, слева) ---------- */}
+          {/* ---------- Баннеры (десктоп) ---------- */}
           <motion.div
             className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
             style={{ aspectRatio: '3 / 2' }}
@@ -70,38 +72,37 @@ export default function PromoGridClient({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            {/* Десктоп: только баннеры */}
+            {/* desktop: только баннеры */}
             <div className="hidden lg:block h-full w-full">
               <Swiper
-                modules={[Autoplay, Pagination]}
+                modules={[Autoplay, Pagination, Lazy]}
                 autoplay={{ delay: 10000 }}
                 pagination={{ clickable: true }}
+                preloadImages={false}
+                lazy
                 loop
                 className="h-full w-full"
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+                onSlideChange={(s) => setActiveSlide(s.realIndex)}
               >
                 {banners.map((b, i) => (
                   <SwiperSlide key={b.id}>
-                    <Link
-                      href={b.href || '#'}
-                      className="relative block h-full w-full"
-                      title={b.title}
-                    >
+                    <Link href={b.href || '#'} className="relative block h-full w-full" title={b.title}>
                       <div className="relative w-full h-full aspect-[3/2]">
                         <Image
                           src={b.image_url}
                           alt={b.title}
                           fill
-                          sizes="(max-width: 1024px) 100vw, 66vw"
+                          sizes="(max-width:1024px) 100vw, 66vw"
                           priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
-                          className="object-cover rounded-2xl lg:rounded-3xl"
+                          className="object-cover rounded-2xl lg:rounded-3xl swiper-lazy"
                           style={{ aspectRatio: '3 / 2' }}
                         />
-                        <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
+                        <div className="absolute inset-0 bg-black/20 rounded-2xl lg:rounded-3xl transition-all duration-500" />
 
+                        {/* ---- текст ---- */}
                         <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12 text-white text-left">
                           <div className="max-w-full w-full">
                             <motion.h2
@@ -143,9 +144,7 @@ export default function PromoGridClient({
                                     event_category: 'PromoGrid',
                                     event_label: b.title,
                                   });
-                                  window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                    banner: b.title,
-                                  });
+                                  window.ym?.(96644553, 'reachGoal', 'click_banner_cta', { banner: b.title });
                                 }}
                               >
                                 {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
@@ -160,40 +159,40 @@ export default function PromoGridClient({
               </Swiper>
             </div>
 
-            {/* ---------- Мобильный Swiper (баннеры + карточки) ---------- */}
+            {/* ---------- Мобильный свайпер (баннеры + карточки) ---------- */}
             <div className="block lg:hidden h-full w-full">
               <Swiper
-                modules={[Autoplay, Pagination]}
+                modules={[Autoplay, Pagination, Lazy]}
                 autoplay={{ delay: 10000 }}
                 pagination={{ clickable: true }}
+                preloadImages={false}
+                lazy
                 loop
                 spaceBetween={12}
                 slidesPerView={1}
                 className="h-full w-full"
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+                onSlideChange={(s) => setActiveSlide(s.realIndex)}
               >
                 {mobileItems.map((item, i) => (
                   <SwiperSlide key={item.id}>
-                    <Link
-                      href={item.href || '#'}
-                      className="relative block h-full w-full"
-                      title={item.title}
-                    >
+                    <Link href={item.href || '#'} className="relative block h-full w-full" title={item.title}>
                       <div className="relative w-full h-full aspect-[3/2]">
                         <Image
                           src={item.image_url}
                           alt={item.title}
                           fill
-                          sizes="100vw"
+                          /* ↓ определяемся: если экран ≤640 — отдать ≤640  */
+                          sizes="(max-width:640px) 100vw"
                           priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
-                          className="object-cover rounded-2xl"
+                          className="object-cover rounded-2xl swiper-lazy"
                           style={{ aspectRatio: '3 / 2' }}
                         />
-                        <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
+                        <div className="absolute inset-0 bg-black/20 rounded-2xl transition-all duration-500" />
 
+                        {/* ---- подписи / CTA ---- */}
                         <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 sm:py-8 text-white text-left">
                           <div className="max-w-full w-full">
                             <motion.h2
@@ -236,9 +235,7 @@ export default function PromoGridClient({
                                       event_category: 'PromoGrid',
                                       event_label: item.title,
                                     });
-                                    window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                      banner: item.title,
-                                    });
+                                    window.ym?.(96644553, 'reachGoal', 'click_banner_cta', { banner: item.title });
                                   }}
                                 >
                                   {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
@@ -276,24 +273,19 @@ export default function PromoGridClient({
                 transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
                 className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2]"
               >
-                <Link
-                  href={c.href}
-                  className="group block h-full w-full"
-                  title={c.title}
-                  role="button"
-                >
+                <Link href={c.href} className="group block h-full w-full" title={c.title} role="button">
                   <Image
                     src={c.image_url}
                     alt={c.title}
                     fill
-                    sizes="(max-width: 1024px) 50vw, 33vw"
+                    sizes="(max-width:1024px) 50vw, 33vw"
                     loading={i === 0 ? 'eager' : 'lazy'}
                     placeholder="blur"
                     blurDataURL={BLUR_SRC}
-                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl swiper-lazy"
                     style={{ aspectRatio: '3 / 2' }}
                   />
-                  <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/30 rounded-2xl lg:rounded-3xl transition-all" />
                   <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
                     {c.title}
                   </span>
