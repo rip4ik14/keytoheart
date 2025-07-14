@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import ProductCard from './ProductCard';
 import type { Product } from '@/types/product';
-import { claimPriority } from '@/types/imagePriority';
+import { claimPriority } from '@/utils/imagePriority';
 
 interface Props {
   categoryName: string;
