@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { PromoBlock } from '@/types/promo';
 
 const PromoGridClient = dynamic(() => import('./PromoGridClient'), { ssr: false });
@@ -14,26 +15,24 @@ export default function PromoGridWrapper({
   banners: PromoBlock[];
   cards: PromoBlock[];
 }) {
-  if (!banners.length && !cards.length) return null;
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
 
-  // SSR-рендер главного баннера для LCP
+  if (!banners.length && !cards.length) return null;
   const mainBanner = banners[0];
 
   return (
     <section className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
-      <h2 id="promo-grid-title" className="sr-only">
-        Промо-блоки
-      </h2>
-
-      {/* SSR баннер для LCP */}
-      {mainBanner && (
-        <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-4 shadow-lg">
+      <h2 id="promo-grid-title" className="sr-only">Промо-блоки</h2>
+      {/* Пока не гидратировался JS, показываем только первый баннер как SSR-заглушку */}
+      {!hydrated && mainBanner && (
+        <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-4 shadow-lg animate-fadeIn">
           <Link href={mainBanner.href || '#'} title={mainBanner.title} className="block h-full w-full">
             <Image
               src={mainBanner.image_url}
               alt={mainBanner.title}
               fill
-              priority // <--- это очень важно для LCP!
+              priority
               sizes="100vw"
               quality={75}
               placeholder="empty"
@@ -56,12 +55,20 @@ export default function PromoGridWrapper({
                 </span>
               )}
             </div>
+            {/* Фейковые стрелки/пагинация */}
+            {banners.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 pointer-events-none">
+                {banners.map((_, idx) => (
+                  <span key={idx} className={`block w-2 h-2 rounded-full ${idx === 0 ? 'bg-white/90' : 'bg-white/40'}`} />
+                ))}
+              </div>
+            )}
           </Link>
         </div>
       )}
 
-      {/* Остальные баннеры/карточки и Swiper — клиентский компонент */}
-      <PromoGridClient banners={banners} cards={cards} />
+      {/* После гидратации сразу заменяем на полноценный Swiper */}
+      {hydrated && <PromoGridClient banners={banners} cards={cards} />}
     </section>
   );
 }

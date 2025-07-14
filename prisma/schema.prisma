@@ -603,7 +603,7 @@ model promo_blocks {
   order_index Int?    @default(0)
   button_text String? @default("Подробнее")
   subtitle    String?
-
+  slides      Json?   // <-- Вот это добавь!
   @@index([order_index], map: "promo_blocks_order_idx")
   @@schema("public")
 }
