@@ -1,6 +1,6 @@
+// components/LayoutClient.tsx
 'use client';
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
 import Footer from '@components/Footer';
@@ -13,8 +13,6 @@ import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import type { Category } from '@/types/category';
 
-
-
 export default function LayoutClient({
   children,
   categories,
@@ -23,7 +21,7 @@ export default function LayoutClient({
   categories: Category[];
 }) {
   return (
-    <body className="font-sans">
+    <>
       <SkipLink />
       <CartAnimationProvider>
         <CartProvider>
@@ -32,15 +30,15 @@ export default function LayoutClient({
           <Suspense fallback={<div>Загрузка…</div>}>
             <ClientBreadcrumbs />
           </Suspense>
-          <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14">
+          <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14 font-sans">
             {children}
           </main>
           <PromoFooterBlock />
           <Footer categories={categories} />
           <CookieBanner />
           <MobileContactFab />
-          </CartProvider>
+        </CartProvider>
       </CartAnimationProvider>
-    </body>
+    </>
   );
 }

@@ -6,7 +6,6 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import ProductCard from '@components/ProductCard';
 import { Product } from '@/types/product';
-import Image from 'next/image';
 
 export default function PopularProductsClient({ products }: { products: Product[] }) {
   if (!products || products.length === 0) {
@@ -17,13 +16,7 @@ export default function PopularProductsClient({ products }: { products: Product[
     );
   }
 
-  const prepared = products.map((item) => ({
-    ...item,
-    images: item.images || [],
-    category_ids: item.category_ids || [],
-  }));
-
-  const enableLoop = prepared.length > 4;
+  const enableLoop = products.length > 4;
 
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
@@ -46,23 +39,24 @@ export default function PopularProductsClient({ products }: { products: Product[
           }}
           className="group"
         >
-          {prepared.map((p) => (
+          {products.map((p) => (
             <SwiperSlide key={p.id} className="flex justify-center">
-              {/* Здесь priority нигде не передаем! */}
               <ProductCard product={p} />
             </SwiperSlide>
           ))}
           <button
             className="popular-prev absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-3 shadow hover:scale-110 transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Прокрутить популярные товары влево"
+            type="button"
           >
-            <Image src="/icons/chevron-left.svg" alt="Chevron Left" width={20} height={20} />
+            <img src="/icons/chevron-left.svg" alt="Chevron Left" width={20} height={20} />
           </button>
           <button
             className="popular-next absolute right-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-3 shadow hover:scale-110 transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Прокрутить популярные товары вправо"
+            type="button"
           >
-            <Image src="/icons/chevron-right.svg" alt="Chevron Right" width={20} height={20} />
+            <img src="/icons/chevron-right.svg" alt="Chevron Right" width={20} height={20} />
           </button>
         </Swiper>
       </div>

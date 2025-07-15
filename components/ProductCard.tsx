@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,18 +17,8 @@ export default function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  const [hovered, setHovered] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 640);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const images = Array.isArray(product.images) ? product.images : [];
   const imageUrl = images[0] ?? '/placeholder.jpg';
@@ -82,14 +72,14 @@ export default function ProductCard({ product }: { product: Product }) {
       tabIndex={0}
       aria-live="polite"
       aria-labelledby={`product-${product.id}-title`}
-      className={`relative mx-auto w-full max-w-[220px] sm:max-w-[280px] overflow-hidden rounded-[18px] bg-white transition-all duration-200 focus:outline-none animate-fade-up
-        ${isMobile ? 'border border-gray-200' : hovered ? 'border border-gray-200 shadow-sm' : ''}`}
-      style={{ minHeight: isMobile ? 370 : undefined }}
+      className={
+        `relative mx-auto w-full max-w-[220px] sm:max-w-[280px] overflow-hidden rounded-[18px] bg-white transition-all duration-200 focus:outline-none animate-fade-up
+         border border-gray-200 shadow-sm`
+      }
+      style={{ minHeight: 370 }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onKeyDown={handleKeyDown}
       itemScope
       itemType="https://schema.org/Product"
@@ -151,7 +141,7 @@ export default function ProductCard({ product }: { product: Product }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.2 }}
         >
-          <Star size={isMobile ? 16 : 13} className="mr-1 text-yellow-400" />
+          <Star size={13} className="mr-1 text-yellow-400" />
           Популярно
         </motion.div>
       )}
@@ -161,7 +151,7 @@ export default function ProductCard({ product }: { product: Product }) {
         href={`/product/${product.id}`}
         aria-label={`Перейти к товару ${product.title}`}
         tabIndex={-1}
-        className={`block relative aspect-[3/4] w-full overflow-hidden transition-all duration-200 ${hovered ? 'rounded-t-[18px]' : 'rounded-[18px]'}`}
+        className="block relative aspect-[3/4] w-full overflow-hidden rounded-[18px] transition-all duration-200"
       >
         <Image
           src={imageUrl}
@@ -175,7 +165,7 @@ export default function ProductCard({ product }: { product: Product }) {
       </Link>
 
       {/* --------- Контент карточки --------- */}
-      <div className="flex flex-col p-2 sm:p-4" style={{ paddingBottom: isMobile ? '3rem' : '48px' }}>
+      <div className="flex flex-col p-2 sm:p-4" style={{ paddingBottom: '3rem' }}>
         <h3
           id={`product-${product.id}-title`}
           className="mb-2 line-clamp-3 text-center text-sm font-medium leading-tight text-black sm:text-[15px]"
@@ -192,7 +182,7 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
 
           {discountAmount > 0 && (
-            <span className={`${isMobile ? 'text-red-500' : 'bg-black text-white rounded px-1.5 py-0.5'} text-[11px] font-bold`}>
+            <span className="bg-black text-white rounded px-1.5 py-0.5 text-[11px] font-bold">
               -{discountAmount}₽
             </span>
           )}
@@ -210,52 +200,24 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
 
       {/* --------- Кнопка "В корзину" --------- */}
-      {isMobile ? (
-        <motion.div
-          className="w-full"
-          style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '0 8px', zIndex: 10 }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
+      <motion.div
+        className="w-full"
+        style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '0 8px', zIndex: 10 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <button
+          ref={buttonRef}
+          onClick={handleAddToCart}
+          aria-label={`Добавить ${product.title} в корзину`}
+          className="flex w-full items-center justify-center rounded-b-[18px] border border-gray-300 bg-white py-2 text-base font-bold text-black transition-all duration-200 hover:bg-black hover:text-white"
+          style={{ height: '2.5rem' }}
         >
-          <button
-            ref={buttonRef}
-            onClick={handleAddToCart}
-            aria-label={`Добавить ${product.title} в корзину`}
-            className="flex w-full items-center justify-center rounded-b-[18px] border border-gray-300 bg-white py-2 text-base font-bold text-black transition-all duration-200 hover:bg-black hover:text-white"
-            style={{ height: '2.5rem' }}
-          >
-            <ShoppingCart size={20} className="mr-2" />
-            <span className="tracking-wider uppercase">В корзину</span>
-          </button>
-        </motion.div>
-      ) : (
-        <div
-          style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '0 2px', zIndex: 10 }}
-        >
-          <AnimatePresence>
-            {hovered && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <button
-                  ref={buttonRef}
-                  onClick={handleAddToCart}
-                  aria-label={`Добавить ${product.title} в корзину`}
-                  className="flex w-full items-center justify-center rounded-b-[18px] border border-gray-300 bg-white py-2 text-base font-bold text-black transition-all duration-200 hover:bg-black hover:text-white"
-                  style={{ height: '2.5rem' }}
-                >
-                  <ShoppingCart size={20} className="mr-2" />
-                  <span className="tracking-wider uppercase">В корзину</span>
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+          <ShoppingCart size={20} className="mr-2" />
+          <span className="tracking-wider uppercase">В корзину</span>
+        </button>
+      </motion.div>
     </motion.div>
   );
 }
