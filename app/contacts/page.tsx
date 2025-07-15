@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     'цветы',
     'заказ букетов',
     'Краснодар',
+    'Клубника в шоколаде Краснодар'
   ],
   openGraph: {
     title: 'Контакты | KEY TO HEART',

@@ -1,25 +1,28 @@
 'use client';
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
+import { callYm }    from '@/utils/metrics';
+import { YM_ID }     from '@/utils/ym';
 
-import Image from 'next/image';
-import WebpImage from './WebpImage';
-import dynamic from 'next/dynamic';
-import { motion } from 'framer-motion';
-import AnimatedSection from '@components/AnimatedSection';
-import WhyUsMarquee from '@components/WhyUsMarquee';
-import Link from 'next/link';
+import Image         from 'next/image';
+import WebpImage     from './WebpImage';
+import dynamic       from 'next/dynamic';
+import { motion }    from 'framer-motion';
+import AnimatedSection   from '@components/AnimatedSection';
+import WhyUsMarquee      from '@components/WhyUsMarquee';
+import Link              from 'next/link';
 
-const TypeAnimation = dynamic(
-  () => import('react-type-animation').then((mod) => mod.TypeAnimation)
+const TypeAnimation = dynamic(() =>
+  import('react-type-animation').then((mod) => mod.TypeAnimation),
 );
 
 export default function AboutContent() {
   return (
     <>
-      {/* Заголовочная секция */}
+      {/* ───── Заголовочная секция ───── */}
       <AnimatedSection animation="slideInUp">
-        <section className="container mx-auto px-4 py-12 md:py-16">
+        <section
+          className="container mx-auto px-4 py-12 md:py-16"
+          aria-label="О мастерской KEY TO HEART"
+        >
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <motion.div
               className="relative w-full h-[250px] sm:h-[350px] md:h-[450px] rounded-lg overflow-hidden shadow-lg"
@@ -29,55 +32,63 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-main.jpg"
-                alt="KEY TO HEART — клубничные букеты и цветы"
+                alt="KEY TO HEART — клубника в шоколаде и цветы"
                 fill
                 className="object-cover"
                 priority
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             </motion.div>
-            {/* Блок справа с правильным расположением кнопки */}
+
+            {/* Блок текста + CTA  */}
             <div className="flex flex-col gap-4">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-black tracking-tight">
-                О KEY TO HEART
+                О KEY TO HEART
               </h1>
+
               <div className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
                 <TypeAnimation
                   sequence={[
-                    'KEY TO HEART — клубничные букеты и цветы, которые создают настроение.',
-                    1000,
-                    'KEY TO HEART — доставляем эмоции в каждый уголок Краснодара.',
-                    1000,
+                    'Мы делаем клубнику в бельгийском шоколаде и букеты, которые создают настроение.',
+                    1200,
+                    'KEY TO HEART доставляет эмоции по всему Краснодару за 60 минут.',
+                    1200,
                   ]}
                   wrapper="span"
-                  cursor={true}
+                  cursor
                   repeat={Infinity}
                   speed={50}
                   deletionSpeed={75}
                   style={{ display: 'inline-block' }}
                 />
               </div>
+
               <Link
                 href="/catalog"
                 className="inline-block w-max border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                 onClick={() => {
-                  window.gtag?.('event', 'click_cta_about', { event_category: 'CTA', event_label: 'Order Bouquet' });
-                  if (YM_ID !== undefined) {
-                    callYm(YM_ID, 'reachGoal', 'click_cta_about');
-                  }
+                  window.gtag?.('event', 'click_cta_about', {
+                    event_category: 'CTA',
+                    event_label: 'Order Bouquet',
+                  });
+                  YM_ID && callYm(YM_ID, 'reachGoal', 'click_cta_about');
                 }}
               >
-                Заказать букет
+                Заказать клубнику
               </Link>
+
               <p className="text-gray-600 text-sm sm:text-base mt-2">
-                Дарить тепло через вкус и красоту. Каждый букет — это маленький праздник, собранный с заботой для вас и ваших близких.
+                Мы дарим тепло через вкус и красоту. Каждый набор из&nbsp;клубники
+                в&nbsp;шоколаде и&nbsp;каждый цветочный букет&nbsp;— маленький
+                праздник, собранный с&nbsp;заботой для&nbsp;вас и&nbsp;ваших
+                близких.
               </p>
             </div>
           </div>
         </section>
       </AnimatedSection>
 
-      {/* Как всё начиналось */}
+      {/* ───── Как всё начиналось ───── */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16">
           <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -86,9 +97,14 @@ export default function AboutContent() {
                 Как всё начиналось
               </h2>
               <p className="text-gray-600 text-sm sm:text-base">
-                KEY TO HEART родился в 2022 году из мечты создавать подарки, которые запоминаются. С домашней кухни мы выросли до собственной мастерской, но сохранили главное — любовь к деталям. Основательница бренда лично отбирает ягоды и цветы, чтобы каждый заказ был идеальным.
+                KEY TO HEART родился в 2022 году из мечты создавать подарки,
+                которые запоминаются. C домашней кухни мы выросли до собственной
+                мастерской, но сохранили главное — любовь к деталям и к каждой
+                ягоде. Основательница бренда лично отбирает клубнику и цветы,
+                чтобы каждый заказ был безупречным.
               </p>
             </div>
+
             <motion.div
               className="relative w-full h-[250px] sm:h-[350px] md:h-[400px] rounded-lg overflow-hidden shadow-lg"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -97,7 +113,7 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-founder.jpg"
-                alt="Основательница KEY TO HEART за работой"
+                alt="Основательница KEY TO HEART за работой"
                 fill
                 className="object-cover"
                 loading="lazy"
@@ -108,7 +124,7 @@ export default function AboutContent() {
         </section>
       </AnimatedSection>
 
-      {/* Почему клубника и цветы */}
+      {/* ───── Почему клубника и цветы ───── */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16">
           <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -120,26 +136,29 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/strawberry-flowers.jpg"
-                alt="Клубника в шоколаде и цветы"
+                alt="Клубника в шоколаде и свежие цветы"
                 fill
                 className="object-cover"
                 loading="lazy"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             </motion.div>
+
             <div className="space-y-4 order-1 md:order-2">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-black">
-                Почему клубника и цветы?
+                Почему именно клубника и цветы?
               </h2>
               <p className="text-gray-600 text-sm sm:text-base">
-                Клубника в бельгийском шоколаде — это нежность и страсть. Цветы — это эстетика и свежесть. Вместе они создают магию, которая делает любой момент особенным.
+                Клубника в бельгийском шоколаде — нежность и страсть; свежие
+                цветы — эстетика и аромат. Вместе они рождают магию, которая
+                делает любой момент особенным.
               </p>
             </div>
           </div>
         </section>
       </AnimatedSection>
 
-      {/* Почему нам доверяют важные моменты */}
+      {/* ───── Почему нам доверяют ───── */}
       <AnimatedSection animation="slideInUp">
         <section className="py-12 md:py-16">
           <div className="container mx-auto px-4">
@@ -151,23 +170,24 @@ export default function AboutContent() {
         </section>
       </AnimatedSection>
 
-      {/* CTA-блок */}
+      {/* ───── CTA ───── */}
       <AnimatedSection animation="slideInUp">
         <section className="container mx-auto px-4 py-12 md:py-16 text-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-black">
-            KEY TO HEART — эмоции, которые можно подарить
+            KEY TO HEART — эмоции, которые можно подарить
           </h2>
           <Link
             href="/catalog"
             className="border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
             onClick={() => {
-              window.gtag?.('event', 'click_cta_footer', { event_category: 'CTA', event_label: 'Order Bouquet Footer' });
-              if (YM_ID !== undefined) {
-                callYm(YM_ID, 'reachGoal', 'click_cta_footer');
-              }
+              window.gtag?.('event', 'click_cta_footer', {
+                event_category: 'CTA',
+                event_label: 'Order Bouquet Footer',
+              });
+              YM_ID && callYm(YM_ID, 'reachGoal', 'click_cta_footer');
             }}
           >
-            Заказать букет
+            Заказать клубнику
           </Link>
         </section>
       </AnimatedSection>

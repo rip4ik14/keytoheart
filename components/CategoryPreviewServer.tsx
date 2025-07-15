@@ -31,12 +31,11 @@ export default function CategoryPreviewServer({
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {visibleProducts.map((product, idx) => {
-          const shouldPrioritize = idx === 0 && claimPriority();
+          // const shouldPrioritize = idx === 0 && claimPriority();
           return (
             <ProductCard
               key={product.id}
               product={product}
-              priority={shouldPrioritize}
             />
           );
         })}

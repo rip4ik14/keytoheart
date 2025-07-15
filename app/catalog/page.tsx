@@ -7,35 +7,62 @@ import CatalogClient, {
   SubcategoryFromDB,
 } from '@components/CatalogClient';
 
-/* --------------------------- SEO metadata --------------------------- */
+/* ------------------------------------------------------------------ */
+/*                              SEO meta                              */
+/* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
-  title:       'Каталог товаров | KEY TO HEART',
-  description: 'Клубничные букеты и цветы с доставкой по Краснодару. Свежесть, скорость, лучшие цены.',
-  keywords:    ['клубничные букеты', 'цветы', 'доставка Краснодар', 'KEY TO HEART'],
+  title:       'Каталог: клубника в шоколаде, букеты и цветы | KEY TO HEART',
+  description:
+    'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару и до 20 км. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+  keywords: [
+    'клубника в шоколаде',
+    'клубничные букеты Краснодар',
+    'купить клубнику в шоколаде',
+    'доставка цветов Краснодар',
+    'букеты 60 минут',
+    'подарки из клубники',
+  ],
   openGraph: {
-    title:       'Каталог товаров | KEY TO HEART',
-    description: 'Купите клубничные букеты и цветы с доставкой по Краснодару.',
+    title:       'Каталог подарков: клубника в шоколаде и цветы | KEY TO HEART',
+    description:
+      'Выберите свежую клубнику в шоколаде, букеты и комбо‑наборы с быстрой доставкой по Краснодару.',
     url:         'https://keytoheart.ru/catalog',
-    images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
+    images: [{ url: 'https://keytoheart.ru/og-cover.webp', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card:        'summary_large_image',
+    title:       'Каталог KEY TO HEART ― клубника в шоколаде и букеты',
+    description:
+      'Свежая клубника в шоколаде и цветы с доставкой 60 мин по Краснодару.',
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/catalog' },
 };
 
-/* --------------------------- data helpers --------------------------- */
+/* ------------------------------------------------------------------ */
+/*                           data helpers                             */
+/* ------------------------------------------------------------------ */
 const fetchSitePages = async (): Promise<SitePage[]> => {
-  const { data, error } = await supabase.from('site_pages').select('label, href').order('order_index');
+  const { data, error } = await supabase
+    .from('site_pages')
+    .select('label, href')
+    .order('order_index');
   if (error) throw new Error(error.message);
   return data || [];
 };
 
 const fetchCategories = async (): Promise<CategoryFromDB[]> => {
-  const { data, error } = await supabase.from('categories').select('id, name, slug, is_visible');
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, slug, is_visible');
   if (error) throw new Error(error.message);
   return (data || []).map((c) => ({ ...c, is_visible: c.is_visible ?? true }));
 };
 
 const fetchSubcategories = async (): Promise<SubcategoryFromDB[]> => {
-  const { data, error } = await supabase.from('subcategories').select('id, name, slug, is_visible');
+  const { data, error } = await supabase
+    .from('subcategories')
+    .select('id, name, slug, is_visible');
   if (error) throw new Error(error.message);
   return (data || []).map((s) => ({ ...s, is_visible: s.is_visible ?? true }));
 };
@@ -47,7 +74,9 @@ const fetchProducts = async (): Promise<Product[]> => {
     .select('product_id, category_id');
   if (pcErr) throw new Error(pcErr.message);
   const pcMap = new Map<number, number[]>();
-  pc.forEach((row) => pcMap.set(row.product_id, [...(pcMap.get(row.product_id) || []), row.category_id]));
+  pc.forEach((row) =>
+    pcMap.set(row.product_id, [...(pcMap.get(row.product_id) || []), row.category_id]),
+  );
 
   /* --- связи товаров ↔ подкатегории --- */
   const { data: ps, error: psErr } = await supabase
@@ -55,7 +84,9 @@ const fetchProducts = async (): Promise<Product[]> => {
     .select('product_id, subcategory_id');
   if (psErr) throw new Error(psErr.message);
   const psMap = new Map<number, number[]>();
-  ps.forEach((row) => psMap.set(row.product_id, [...(psMap.get(row.product_id) || []), row.subcategory_id]));
+  ps.forEach((row) =>
+    psMap.set(row.product_id, [...(psMap.get(row.product_id) || []), row.subcategory_id]),
+  );
 
   /* --- имена подкатегорий --- */
   const allSubIds = Array.from(new Set(ps.map((p) => p.subcategory_id)));
@@ -104,7 +135,6 @@ const fetchProducts = async (): Promise<Product[]> => {
 /* ------------------------------------------------------------------ */
 /*                               PAGE                                 */
 /* ------------------------------------------------------------------ */
-
 export default async function CatalogPage() {
   const [products, sitePages, subcategoriesDB, categoriesDB] = await Promise.all([
     fetchProducts(),

@@ -1,20 +1,27 @@
+/* -------------------------------------------------------------------------- */
+/*  О нас – SEO‑правка «клубника в шоколаде»                                   */
+/* -------------------------------------------------------------------------- */
+
 import { Metadata } from 'next';
 import { JsonLd, Organization } from 'react-schemaorg';
 import AboutContent from '@components/AboutContent';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'О нас | KEY TO HEART — Клубничные букеты и цветы в Краснодаре',
-  description: 'История KEY TO HEART — студия сладких эмоций. Создаём букеты из клубники в шоколаде и свежих цветов с доставкой по Краснодару.',
-  keywords: ['о нас', 'KEY TO HEART', 'клубничные букеты'],
+  title:
+    'О нас | KEY TO HEART — клубника в шоколаде, букеты и цветы в Краснодаре',
+  description:
+    'История мастерской KEY TO HEART. Мы создаём сладкие эмоции: клубника в шоколаде, клубничные букеты и свежие цветы с доставкой по Краснодару.',
+  keywords: ['клубника в шоколаде', 'о нас', 'KEY TO HEART', 'букеты Краснодар'],
   openGraph: {
     title: 'О нас | KEY TO HEART',
-    description: 'Узнайте историю KEY TO HEART — как мы создаём сладкие и цветочные эмоции.',
+    description:
+      'Узнайте, как в KEY TO HEART превращают клубнику в шоколаде и цветы в незабываемые подарки.',
     url: 'https://keytoheart.ru/about',
     siteName: 'KEY TO HEART',
     images: [
       {
-        url: '/images/about-banner.jpg', // Изменили на локальный путь
+        url: 'https://keytoheart.ru/images/about-banner.jpg',
         width: 1200,
         height: 600,
         alt: 'KEY TO HEART — клубника в шоколаде и цветочные букеты',
@@ -25,8 +32,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'О нас | KEY TO HEART',
-    description: 'История KEY TO HEART — студия сладких эмоций в Краснодаре.',
-    images: ['/images/about-banner.jpg'], // Изменили на локальный путь
+    description:
+      'История KEY TO HEART — студии сладких эмоций в Краснодаре: клубника в шоколаде, букеты и цветы.',
+    images: ['https://keytoheart.ru/images/about-banner.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/about' },
 };
@@ -41,8 +49,12 @@ export default function AboutPage() {
           name: 'KEY TO HEART',
           url: 'https://keytoheart.ru',
           logo: 'https://keytoheart.ru/favicon.ico',
-          sameAs: ['https://t.me/keytoheart'],
-          description: 'KEY TO HEART — студия сладких эмоций. Букеты и подарки с доставкой по Краснодару.',
+          sameAs: [
+            'https://www.instagram.com/keytoheart.ru/',
+            'https://t.me/keytoheart',
+          ],
+          description:
+            'KEY TO HEART — студия сладких эмоций. Клубника в шоколаде, букеты и подарки с доставкой по Краснодару.',
           contactPoint: {
             '@type': 'ContactPoint',
             telephone: '+7-988-603-38-21',
@@ -52,16 +64,18 @@ export default function AboutPage() {
           },
           address: {
             '@type': 'PostalAddress',
-            streetAddress: 'Улица Героев-Разведчиков, 17/1',
+            streetAddress: 'Улица Героев‑Разведчиков, 17/1',
             addressLocality: 'Краснодар',
             addressCountry: 'RU',
           },
           openingHours: 'Mo-Su 09:00-22:00',
         }}
       />
+
       <section>
         <AboutContent />
       </section>
+
       <section className="container mx-auto px-4 py-8 text-center">
         <p className="text-sm">
           Узнайте, как мы защищаем ваши данные в нашей{' '}

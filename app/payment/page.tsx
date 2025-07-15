@@ -1,35 +1,50 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
+import Script            from 'next/script';
 import PaymentPageClient from '@components/PaymentPageClient';
 
+/* ------------------------------------------------------------------ */
+/*                               SEO meta                             */
+/* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
-  title: 'Оплата | KEY TO HEART',
-  description: 'Информация об оплате заказов KEY TO HEART: СБП, онлайн по карте, наличные в мастерской, иностранная карта и безнал для юрлиц. Всё прозрачно и удобно.',
-  keywords: ['оплата', 'KEY TO HEART', 'Краснодар', 'клубничные букеты', 'доставка', 'СБП', 'онлайн-оплата'],
+  title: 'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+  description:
+    'Все способы оплаты заказов KEY TO HEART: СБП (QR‑код), онлайн‑оплата картой, наличные в мастерской, счёт для юрлиц и оплата иностранной картой. Быстро, удобно и безопасно.',
+  keywords: [
+    'клубника в шоколаде',
+    'клубничные букеты',
+    'оплата заказа',
+    'доставка Краснодар',
+    'KEY TO HEART',
+    'СБП',
+    'онлайн-оплата',
+  ],
   openGraph: {
-    title: 'Оплата | KEY TO HEART',
-    description: 'Информация об оплате заказов KEY TO HEART: СБП, онлайн по карте, наличные и другие способы.',
-    url: 'https://keytoheart.ru/payment',
-    siteName: 'KEY TO HEART',
+    title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+    description:
+      'Узнайте, как оплатить клубнику в шоколаде, букеты и подарки KEY TO HEART: СБП, онлайн по карте, наличные и безнал для юрлиц.',
+    url:         'https://keytoheart.ru/payment',
+    siteName:    'KEY TO HEART',
     images: [
       {
-        url: 'https://keytoheart.ru/og-image-payment.jpg',
-        width: 1200,
+        url:    'https://keytoheart.ru/og-image-payment.jpg',
+        width:  1200,
         height: 630,
-        alt: 'Оплата заказов KEY TO HEART',
+        alt:    'Оплата заказов KEY TO HEART',
       },
     ],
     type: 'website',
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Оплата | KEY TO HEART',
-    description: 'Информация об оплате заказов KEY TO HEART: СБП, онлайн по карте, наличные и другие способы.',
+    card:        'summary_large_image',
+    title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+    description:
+      'Все варианты оплаты: СБП, онлайн‑картой, наличные, иностранная карта, счёт для юрлиц.',
     images: ['https://keytoheart.ru/og-image-payment.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/payment' },
 };
 
+/* --------------------------- FAQ schema --------------------------- */
 const schemaPayment = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -39,7 +54,7 @@ const schemaPayment = {
       name: 'Какие способы оплаты доступны в KEY TO HEART?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Мы принимаем оплату через СБП (по QR-коду), онлайн по ссылке (CloudPayments), наличными в мастерской, иностранными картами и по реквизитам для юрлиц.',
+        text: 'Мы принимаем оплату через СБП (QR‑код), онлайн по ссылке (CloudPayments), наличными в мастерской, иностранными картами и по реквизитам для юрлиц.',
       },
     },
     {
@@ -47,12 +62,15 @@ const schemaPayment = {
       name: 'Требуется ли предоплата?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Да, мы работаем по 100% предоплате. Сборка заказа начинается только после подтверждённой оплаты.',
+        text: 'Да, работаем по 100 % предоплате. Сборка заказа начинается только после подтверждённой оплаты.',
       },
     },
   ],
 };
 
+/* ------------------------------------------------------------------ */
+/*                               Page                                 */
+/* ------------------------------------------------------------------ */
 export default function PaymentPage() {
   return (
     <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 max-w-4xl bg-white text-black">

@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
-/*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
-/*  Версия: 2025-07-13 — оптимизация ключевых слов, preconnect, sameAs, CSP   */
+/*  Root Layout – глобальные стили, SEO‑метаданные, JSON‑LD граф              */
+/*  Версия: 2025‑07‑15 — приоритет «клубника в шоколаде»                      */
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
@@ -9,7 +9,12 @@ import 'react-image-gallery/styles/css/image-gallery.css';
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
+import type {
+  BreadcrumbList,
+  LocalBusiness,
+  Organization,
+  WebSite,
+} from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
 import { Category } from '@/types/category';
@@ -26,7 +31,7 @@ const golosText = localFont({
     { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
     { path: '../public/fonts/golos-text_medium.woff2',  weight: '500', style: 'normal' },
     { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2',     weight: '700', style: 'normal' }, // ⬅️ самый тяжёлый вес, preloaded
+    { path: '../public/fonts/golos-text_bold.woff2',     weight: '700', style: 'normal' },
     { path: '../public/fonts/golos-text_black.woff2',    weight: '900', style: 'normal' },
   ],
 });
@@ -34,7 +39,7 @@ const golosText = localFont({
 const marqueeFont = localFont({
   variable: '--font-marquee',
   display: 'swap',
-  preload: false, // heavy display font загружается лениво
+  preload: false,
   src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
@@ -45,38 +50,48 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
+
+  /** ---------- <title> ---------- */
   title: {
-    default: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
+    // ➜ Главный ключ «клубника в шоколаде» первым
+    default: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
     template: '%s | KEY TO HEART',
   },
+
+  /** ---------- Description ---------- */
   description:
-    'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
-  /* 🎯 trimmed to ≤ 10 keywords */
+    'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+
+  /** ---------- Keywords ≤ 10 ---------- */
   keywords: [
+    'клубника в шоколаде',
     'клубничные букеты Краснодар',
-    'букет из клубники купить',
+    'купить клубнику в шоколаде',
     'доставка цветов Краснодар',
     'букет на день рождения',
-    'букеты 60 минут',
+    'подарки за 60 минут',
   ],
+
   alternates: {
     canonical: 'https://keytoheart.ru',
     languages: { ru: 'https://keytoheart.ru' },
   },
+
+  /** ---------- Open Graph ---------- */
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'KEY TO HEART',
     url: 'https://keytoheart.ru',
-    title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
+    title: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
     description:
-      'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+      'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничные букеты KEY TO HEART',
+        alt: 'Клубника в шоколаде KEY TO HEART',
         type: 'image/webp',
       },
       {
@@ -88,16 +103,19 @@ export const metadata: Metadata = {
       },
     ],
   },
+
+  /** ---------- Twitter ---------- */
   twitter: {
     card: 'summary_large_image',
-    title: 'KEY TO HEART – клубничные букеты и цветы в Краснодаре',
+    title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
     description:
-      'Клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       'https://keytoheart.ru/og-cover.webp',
       'https://keytoheart.ru/og-bouquet.webp',
     ],
   },
+
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
   robots: { index: true, follow: true, noarchive: false },
 };
@@ -143,7 +161,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } catch (e) {
     process.env.NODE_ENV !== 'production' &&
       console.warn('[layout] categories fetch error →', e);
-    categories = []; // graceful-fallback
+    categories = []; // graceful‑fallback
   }
 
   /* ----------------------------- HTML шаблон ---------------------------- */
@@ -173,7 +191,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />{/* ⬅️ добавлено */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
 
         {/* PWA / favicon extras */}
@@ -181,7 +199,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
-        {/* ---------------- JSON-LD: WebSite + Org + LocalBusiness ---------- */}
+        {/* -------- JSON‑LD: WebSite + Org + LocalBusiness -------- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -190,8 +208,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 '@type': 'WebSite',
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
+                // ⬇︎ обновили описание
                 description:
-                  'Клубничные букеты, цветы и подарки с доставкой в Краснодаре и до 20 км — от 60 минут, с 8:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 8:00 до 22:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
@@ -210,7 +229,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   'https://www.instagram.com/keytoheart.ru/',
                   'https://t.me/keytoheart',
                   'https://wa.me/79886033821',
-                  'https://maps.app.goo.gl/your-google-business-profile', // ⬅️ новый sameAs
+                  'https://maps.app.goo.gl/your-google-business-profile',
                 ],
               } satisfies Organization,
               {

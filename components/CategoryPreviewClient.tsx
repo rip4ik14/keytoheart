@@ -36,8 +36,8 @@ export default function CategoryPreviewClient({
         {categoryName}
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-        {visibleProducts.map((product, idx) => (
-          <ProductCard key={product.id} product={product} priority={idx < 2} />
+        {visibleProducts.map((product) => (
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
       <div className="text-center mt-6">
