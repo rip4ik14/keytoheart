@@ -15,7 +15,7 @@ export default function YandexMetrikaDelayed() {
       document.head.appendChild(script);
 
       script.onload = () => {
-        // @ts-ignore – тип ym может отличаться
+        // @ts-ignore
         window.ym && window.ym(Number(YM_ID), 'init', {
           clickmap: true,
           trackLinks: true,
