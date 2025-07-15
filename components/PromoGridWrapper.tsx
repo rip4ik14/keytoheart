@@ -19,23 +19,24 @@ export default function PromoGridWrapper({
   useEffect(() => { setHydrated(true); }, []);
 
   if (!banners.length && !cards.length) return null;
+
   const mainBanner = banners[0];
 
   return (
     <section className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
       <h2 id="promo-grid-title" className="sr-only">Промо-блоки</h2>
-      {/* Пока не гидратировался JS, показываем только первый баннер как SSR-заглушку */}
       {!hydrated && mainBanner && (
         <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-4 shadow-lg animate-fadeIn">
           <Link href={mainBanner.href || '#'} title={mainBanner.title} className="block h-full w-full">
             <Image
-              src={mainBanner.image_url}
+              src="/main-lcp-banner.webp" // <<-- путь до файла в public
               alt={mainBanner.title}
               fill
               priority
+              fetchPriority="high"
+              decoding="async"
               sizes="100vw"
               quality={75}
-              placeholder="empty"
               className="object-cover rounded-2xl lg:rounded-3xl"
               style={{ aspectRatio: '3 / 2' }}
             />
@@ -55,7 +56,6 @@ export default function PromoGridWrapper({
                 </span>
               )}
             </div>
-            {/* Фейковые стрелки/пагинация */}
             {banners.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 pointer-events-none">
                 {banners.map((_, idx) => (
@@ -66,8 +66,7 @@ export default function PromoGridWrapper({
           </Link>
         </div>
       )}
-
-      {/* После гидратации сразу заменяем на полноценный Swiper */}
+      {/* После гидратации показываем уже весь Swiper и остальные баннеры, как раньше */}
       {hydrated && <PromoGridClient banners={banners} cards={cards} />}
     </section>
   );

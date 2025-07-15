@@ -1,7 +1,3 @@
-// ✅ Путь: components/ProductCard.tsx
-/* -------------------------------------------------------------------------- */
-/*  Карточка товара: адаптивная + microdata Product → Offer                   */
-/* -------------------------------------------------------------------------- */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,15 +13,11 @@ import { callYm }             from '@/utils/metrics';
 import { YM_ID }              from '@/utils/ym';
 import type { Product }       from '@/types/product';
 
-/* -------------------------------------------------------------------------- */
 export default function ProductCard({
   product,
-  priority = false,
 }: {
   product: Product;
-  priority?: boolean;
 }) {
-  /* -------------------- context / state / refs -------------------- */
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
@@ -35,7 +27,6 @@ export default function ProductCard({
   const cardRef   = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  /* ---------- responsive flag ---------- */
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     handleResize();
@@ -43,7 +34,6 @@ export default function ProductCard({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  /* -------------------- derived -------------------- */
   const images    = Array.isArray(product.images) ? product.images : [];
   const imageUrl  = images[0] ?? '/placeholder.jpg';
 
@@ -63,7 +53,6 @@ export default function ProductCard({
 
   const isPopular = product.is_popular;
 
-  /* -------------------- add-to-cart -------------------- */
   const handleAddToCart = () => {
     addItem({
       id:        String(product.id),
@@ -90,7 +79,6 @@ export default function ProductCard({
     }
   };
 
-  /* ------------------------------------------------------------------ */
   return (
     <motion.div
       ref={cardRef}
@@ -107,23 +95,19 @@ export default function ProductCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onKeyDown={handleKeyDown}
-      /* ── microdata Product ── */
       itemScope
       itemType="https://schema.org/Product"
     >
-      {/* microdata meta */}
       <meta itemProp="name" content={product.title} />
       <meta itemProp="sku"  content={String(product.id)} />
       <link itemProp="image" href={imageUrl} />
 
-      {/* microdata Offer */}
       <div itemProp="offers" itemScope itemType="https://schema.org/Offer" className="hidden">
         <meta itemProp="priceCurrency" content="RUB" />
         <meta itemProp="price"         content={String(discountedPrice)} />
         <link itemProp="availability"  href={product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'} />
       </div>
 
-      {/* JSON-LD (оставляем) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -149,7 +133,6 @@ export default function ProductCard({
         }}
       />
 
-      {/* ---------- бонус-бейдж ---------- */}
       {bonus > 0 && (
         <motion.div
           className="absolute top-2 left-2 z-20 flex items-center rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-black shadow border border-gray-100 sm:top-4 sm:left-4"
@@ -162,7 +145,6 @@ export default function ProductCard({
         </motion.div>
       )}
 
-      {/* ---------- популярно-бейдж ---------- */}
       {isPopular && (
         <motion.div
           className="absolute top-2 right-2 z-20 flex items-center rounded-full bg-black px-2 py-0.5 text-[10px] font-bold text-white sm:text-sm sm:top-4 sm:right-4"
@@ -175,7 +157,6 @@ export default function ProductCard({
         </motion.div>
       )}
 
-      {/* ---------- изображение ---------- */}
       <Link
         href={`/product/${product.id}`}
         aria-label={`Перейти к товару ${product.title}`}
@@ -186,8 +167,6 @@ export default function ProductCard({
           src={imageUrl}
           alt={product.title}
           fill
-          priority={priority}
-          fetchPriority={priority ? 'high' : 'auto'}
           sizes="(max-width:640px) 100vw, 280px"
           className="object-cover transition-transform duration-200 hover:scale-105"
           placeholder="blur"
