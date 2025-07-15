@@ -29,13 +29,13 @@ export default function PromoGridWrapper({
         <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-4 shadow-lg animate-fadeIn">
           <Link href={mainBanner.href || '#'} title={mainBanner.title} className="block h-full w-full">
             <Image
-              src="/main-lcp-banner.webp" // <<-- путь до файла в public
+              src={mainBanner.image_url || '/main-lcp-banner.webp'} // Лучше mainBanner.image_url!
               alt={mainBanner.title}
               fill
               priority
               fetchPriority="high"
               decoding="async"
-              sizes="100vw"
+              sizes="(max-width:1024px) 100vw, 66vw"
               quality={75}
               className="object-cover rounded-2xl lg:rounded-3xl"
               style={{ aspectRatio: '3 / 2' }}

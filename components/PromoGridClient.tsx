@@ -7,14 +7,9 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/pagination';
 
 import { PromoBlock } from '@/types/promo';
 
-/* ------------------------------------------------------------------ */
-/*  Единый blur-плейсхолдер (10×10 PNG). Положите файл в /public.      */
-/* ------------------------------------------------------------------ */
 const BLUR_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
 
@@ -27,7 +22,6 @@ export default function PromoGridClient({
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
 
-  /* ---------- preload LCP-изображения (первый баннер) ---------- */
   const lcpImage = banners[0]?.image_url;
 
   // Анимация текста
@@ -92,7 +86,6 @@ export default function PromoGridClient({
                       <div
                         className="relative w-full h-full aspect-[3/2] min-h-[240px] md:min-h-[350px]"
                         style={{
-                          // Это важно для резервирования места!
                           aspectRatio: '3 / 2',
                         }}
                       >

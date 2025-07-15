@@ -1,4 +1,14 @@
 /* ✅ Путь: app/styles/globals.css */
+
+/* Swiper */
+@import 'swiper/css';
+@import 'swiper/css/navigation';
+@import 'swiper/css/pagination';
+
+/* React Image Gallery */
+@import 'react-image-gallery/styles/css/image-gallery.css';
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

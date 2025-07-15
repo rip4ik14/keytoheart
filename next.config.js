@@ -1,4 +1,8 @@
-// ✅ Путь: next.config.js
+// ✅ Bundle Analyzer
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -101,7 +105,7 @@ const nextConfig = {
   compress: true,
   output: 'standalone',
 
-   eslint: { ignoreDuringBuilds: true },
+  eslint: { ignoreDuringBuilds: true },
 
   images: {
     remotePatterns,
@@ -163,4 +167,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);
