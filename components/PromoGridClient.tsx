@@ -44,6 +44,7 @@ export default function PromoGridClient({
 
   return (
     <>
+      {/* Preload только первого LCP-баннера */}
       {lcpImage && (
         <Head>
           <link rel="preload" as="image" href={lcpImage} fetchPriority="high" />
@@ -65,7 +66,7 @@ export default function PromoGridClient({
           {/* ---------- Баннеры (десктоп, слева) ---------- */}
           <motion.div
             className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
-            style={{ aspectRatio: '3 / 2' }}
+            style={{ aspectRatio: '3 / 2', minHeight: 0 }}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -86,14 +87,22 @@ export default function PromoGridClient({
                       href={b.href || '#'}
                       className="relative block h-full w-full"
                       title={b.title}
+                      tabIndex={0}
                     >
-                      <div className="relative w-full h-full aspect-[3/2]">
+                      <div
+                        className="relative w-full h-full aspect-[3/2] min-h-[240px] md:min-h-[350px]"
+                        style={{
+                          // Это важно для резервирования места!
+                          aspectRatio: '3 / 2',
+                        }}
+                      >
                         <Image
                           src={b.image_url}
                           alt={b.title}
                           fill
                           sizes="(max-width: 1024px) 100vw, 66vw"
                           priority={i === 0}
+                          fetchPriority={i === 0 ? 'high' : 'auto'}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
@@ -136,7 +145,7 @@ export default function PromoGridClient({
                               className="flex"
                             >
                               <span
-                                className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+                                className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbdbd]"
                                 style={{ minWidth: 'fit-content', maxWidth: '100%' }}
                                 onClick={() => {
                                   window.gtag?.('event', 'click_banner_cta', {
@@ -179,13 +188,17 @@ export default function PromoGridClient({
                       className="relative block h-full w-full"
                       title={item.title}
                     >
-                      <div className="relative w-full h-full aspect-[3/2]">
+                      <div
+                        className="relative w-full h-full aspect-[3/2] min-h-[180px]"
+                        style={{ aspectRatio: '3 / 2' }}
+                      >
                         <Image
                           src={item.image_url}
                           alt={item.title}
                           fill
                           sizes="100vw"
                           priority={i === 0}
+                          fetchPriority={i === 0 ? 'high' : 'auto'}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
@@ -274,7 +287,7 @@ export default function PromoGridClient({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
-                className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2]"
+                className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2] min-h-[130px]"
               >
                 <Link
                   href={c.href}
@@ -288,6 +301,7 @@ export default function PromoGridClient({
                     fill
                     sizes="(max-width: 1024px) 50vw, 33vw"
                     loading={i === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={i === 0 ? 'high' : 'auto'}
                     placeholder="blur"
                     blurDataURL={BLUR_SRC}
                     className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"

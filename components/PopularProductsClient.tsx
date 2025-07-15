@@ -48,7 +48,8 @@ export default function PopularProductsClient({ products }: { products: Product[
         >
           {prepared.map((p) => (
             <SwiperSlide key={p.id} className="flex justify-center">
-              <ProductCard product={p} /> {/* <-- убран priority */}
+              {/* Здесь priority нигде не передаем! */}
+              <ProductCard product={p} />
             </SwiperSlide>
           ))}
           <button

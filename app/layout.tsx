@@ -1,6 +1,5 @@
 /* -------------------------------------------------------------------------- */
 /*  Root Layout – глобальные стили, SEO‑метаданные, JSON‑LD граф              */
-/*  Версия: 2025‑07‑15 — приоритет «клубника в шоколаде»                      */
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
@@ -17,12 +16,9 @@ import type {
 } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
+import YandexMetrikaDelayed from '@components/YandexMetrikaDelayed'; // <--- добавлено
 import { Category } from '@/types/category';
-import { YM_ID } from '@/utils/ym';
 
-/* ------------------------------------------------------------------ */
-/*                                ШРИФТЫ                              */
-/* ------------------------------------------------------------------ */
 const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
@@ -43,26 +39,16 @@ const marqueeFont = localFont({
   src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
-/* ------------------------------------------------------------------ */
-/*                          БАЗОВЫЕ МЕТАДАННЫЕ                        */
-/* ------------------------------------------------------------------ */
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
-
-  /** ---------- <title> ---------- */
   title: {
-    // ➜ Главный ключ «клубника в шоколаде» первым
     default: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
     template: '%s | KEY TO HEART',
   },
-
-  /** ---------- Description ---------- */
   description:
     'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
-
-  /** ---------- Keywords ≤ 10 ---------- */
   keywords: [
     'клубника в шоколаде',
     'клубничные букеты Краснодар',
@@ -71,13 +57,10 @@ export const metadata: Metadata = {
     'букет на день рождения',
     'подарки за 60 минут',
   ],
-
   alternates: {
     canonical: 'https://keytoheart.ru',
     languages: { ru: 'https://keytoheart.ru' },
   },
-
-  /** ---------- Open Graph ---------- */
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
@@ -103,8 +86,6 @@ export const metadata: Metadata = {
       },
     ],
   },
-
-  /** ---------- Twitter ---------- */
   twitter: {
     card: 'summary_large_image',
     title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
@@ -115,7 +96,6 @@ export const metadata: Metadata = {
       'https://keytoheart.ru/og-bouquet.webp',
     ],
   },
-
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
   robots: { index: true, follow: true, noarchive: false },
 };
@@ -126,11 +106,8 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-/* ------------------------------------------------------------------ */
-/*                                LAYOUT                              */
-/* ------------------------------------------------------------------ */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  /* ----------------- Подтягиваем категории из Supabase ----------------- */
+  // SSR-загрузка категорий из Supabase для меню/навигации
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -164,7 +141,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     categories = []; // graceful‑fallback
   }
 
-  /* ----------------------------- HTML шаблон ---------------------------- */
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
@@ -174,17 +150,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta httpEquiv="Content-Language" content="ru" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
-
         {/* Геотеги */}
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
         <meta name="robots" content="index,follow" />
-
         {/* canonical + hreflang */}
         <link rel="canonical" href="https://keytoheart.ru/" />
         <link rel="alternate" href="https://keytoheart.ru/" hrefLang="ru" />
-
         {/* Preconnect / DNS-prefetch */}
         <link
           rel="preconnect"
@@ -193,12 +166,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-
         {/* PWA / favicon extras */}
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
-
         {/* -------- JSON‑LD: WebSite + Org + LocalBusiness -------- */}
         <JsonLd
           item={{
@@ -208,7 +179,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 '@type': 'WebSite',
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
-                // ⬇︎ обновили описание
                 description:
                   'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 8:00 до 22:00.',
                 potentialAction: {
@@ -281,30 +251,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ],
           }}
         />
-
-        {/* --------------------------- Яндекс.Метрика ----------------------- */}
-        {YM_ID && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-              (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-              m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-              k.async=1;k.src=r;a.parentNode.insertBefore(k,a);})
-              (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-              ym(${YM_ID}, "init", {
-                clickmap:true,
-                trackLinks:true,
-                accurateTrackBounce:true,
-                trackHash:true,
-                webvisor:true
-              });`,
-            }}
-          />
-        )}
       </head>
-
-      {/* ----------------------- КЛИЕНТСКАЯ ЧАСТЬ ----------------------- */}
-      <LayoutClient categories={categories}>{children}</LayoutClient>
+      <body>
+        <LayoutClient categories={categories}>{children}</LayoutClient>
+        <YandexMetrikaDelayed /> {/* теперь только здесь */}
+      </body>
     </html>
   );
 }
