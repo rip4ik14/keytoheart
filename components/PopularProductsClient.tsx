@@ -16,7 +16,9 @@ export default function PopularProductsClient({ products }: { products: Product[
     );
   }
 
-  const enableLoop = products.length > 4;
+  // Максимальное slidesPerView на desktop
+  const maxSlidesPerView = 4;
+  const enableLoop = products.length > maxSlidesPerView;
 
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12" aria-labelledby="popular-products-title">
@@ -35,7 +37,7 @@ export default function PopularProductsClient({ products }: { products: Product[
           spaceBetween={16}
           breakpoints={{
             640: { slidesPerView: 2.2, spaceBetween: 16 },
-            1024: { slidesPerView: 4, spaceBetween: 24 },
+            1024: { slidesPerView: maxSlidesPerView, spaceBetween: 24 },
           }}
           className="group"
         >
