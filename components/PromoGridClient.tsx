@@ -284,7 +284,7 @@ export default function PromoGridClient({
               >
                 <Link
                   href={c.href}
-                  className="group block h-full w-full"
+                  className="group relative block h-full w-full"
                   title={c.title}
                   role="button"
                 >
