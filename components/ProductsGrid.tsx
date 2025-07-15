@@ -43,7 +43,7 @@ export default function ProductsGrid({
           "
           role="list"
         >
-          {available.map((p, idx) => (
+          {available.map((p) => (
             <div
               key={p.id}
               role="listitem"
@@ -51,7 +51,7 @@ export default function ProductsGrid({
                 flex justify-center
               "
             >
-              <ProductCard product={p} priority={idx < 2} />
+              <ProductCard product={p} />
             </div>
           ))}
         </div>
