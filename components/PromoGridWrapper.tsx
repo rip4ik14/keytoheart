@@ -23,10 +23,10 @@ export default function PromoGridWrapper({
   const mainBanner = banners[0];
 
   return (
-    <section className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
+    <section className="mx-auto mt-0 sm:mt-2 max-w-8xl px-6 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
       <h2 id="promo-grid-title" className="sr-only">Промо-блоки</h2>
       {!hydrated && mainBanner && (
-        <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-4 shadow-lg animate-fadeIn">
+        <div className="relative w-full aspect-[3/2] rounded-2xl lg:rounded-3xl overflow-hidden mb-6 shadow-lg animate-fadeIn">
           <Link href={mainBanner.href || '#'} title={mainBanner.title} className="block h-full w-full">
             <Image
               src={mainBanner.image_url || '/main-lcp-banner.webp'} // Лучше mainBanner.image_url!

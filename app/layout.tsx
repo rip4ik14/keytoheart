@@ -3,7 +3,7 @@
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
-import 'react-image-gallery/styles/css/image-gallery.css';
+
 
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';

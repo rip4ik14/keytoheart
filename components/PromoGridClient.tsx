@@ -7,7 +7,6 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
-
 import { PromoBlock } from '@/types/promo';
 
 const BLUR_SRC =
@@ -21,10 +20,9 @@ export default function PromoGridClient({
   cards: PromoBlock[];
 }) {
   const [activeSlide, setActiveSlide] = useState(0);
-
   const lcpImage = banners[0]?.image_url;
 
-  // Анимация текста
+  /* анимация текста */
   const textVariants = {
     hidden: { opacity: 0 },
     visible: (i: number) => ({
@@ -33,12 +31,14 @@ export default function PromoGridClient({
     }),
   };
 
-  // Для мобилки: баннеры + карточки в один список
-  const mobileItems = [...banners, ...cards];
+  /* мобилка — только баннеры */
+  const mobileItems = banners;
+
+  /* включаем loop только если > 1 слайда */
+  const loopEnabled = banners.length > 1;
 
   return (
     <>
-      {/* Preload только первого LCP-баннера */}
       {lcpImage && (
         <Head>
           <link rel="preload" as="image" href={lcpImage} fetchPriority="high" />
@@ -46,114 +46,97 @@ export default function PromoGridClient({
       )}
 
       <motion.section
-        className="mx-auto mt-8 sm:mt-10 max-w-7xl px-4 sm:px-6 lg:px-8"
+        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
         aria-labelledby="promo-grid-title"
       >
         <h2 id="promo-grid-title" className="sr-only">
-          Промо-блоки
+          Промо‑блоки
         </h2>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          {/* ---------- Баннеры (десктоп, слева) ---------- */}
+        <div
+          className="
+            grid grid-cols-1 gap-4
+            sm:gap-5
+            lg:grid-cols-[2fr_1fr] lg:gap-[28px]
+          "
+        >
+          {/* ───────── Баннеры (слева) ───────── */}
           <motion.div
-            className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:col-span-2"
-            style={{ aspectRatio: '3 / 2', minHeight: 0 }}
+            className="relative overflow-hidden rounded-[32px]"
+            style={{ aspectRatio: '3/2', minHeight: 0 }}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            {/* Десктоп: только баннеры */}
+            {/* --- десктоп: autoplay + loop --- */}
             <div className="hidden lg:block h-full w-full">
               <Swiper
                 modules={[Autoplay, Pagination]}
-                autoplay={{ delay: 10000 }}
+                autoplay={loopEnabled ? { delay: 10000 } : false}
                 pagination={{ clickable: true }}
-                loop
+                loop={loopEnabled}
                 className="h-full w-full"
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+                onSlideChange={(s) => setActiveSlide(s.realIndex)}
               >
                 {banners.map((b, i) => (
                   <SwiperSlide key={b.id}>
                     <Link
                       href={b.href || '#'}
-                      className="relative block h-full w-full"
+                      className="block h-full w-full"
                       title={b.title}
-                      tabIndex={0}
                     >
-                      <div
-                        className="relative w-full h-full aspect-[3/2] min-h-[240px] md:min-h-[350px]"
-                        style={{
-                          aspectRatio: '3 / 2',
-                        }}
-                      >
+                      <div className="relative h-full w-full rounded-[32px] overflow-hidden">
                         <Image
                           src={b.image_url}
                           alt={b.title}
                           fill
                           sizes="(max-width: 1024px) 100vw, 66vw"
                           priority={i === 0}
-                          fetchPriority={i === 0 ? 'high' : 'auto'}
-                          loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
-                          className="object-cover rounded-2xl lg:rounded-3xl"
-                          style={{ aspectRatio: '3 / 2' }}
+                          className="object-cover rounded-[32px]"
                         />
-                        <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl lg:rounded-3xl" />
+                        <div className="absolute inset-0 bg-black/30" />
 
-                        <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 lg:px-16 sm:py-8 lg:py-12 text-white text-left">
-                          <div className="max-w-full w-full">
-                            <motion.h2
-                              className="mb-2 text-lg xs:text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3 lg:mb-4"
+                        {/* тексты + CTA */}
+                        <div className="absolute inset-0 flex flex-col justify-center items-start px-9 py-9 text-white">
+                          <motion.h1
+                            className="mb-4 text-[40px] leading-tight font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] max-w-[680px]"
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={0}
+                          >
+                            {b.title}
+                          </motion.h1>
+
+                          {b.subtitle && (
+                            <motion.p
+                              className="mb-6 text-lg font-medium text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] max-w-[480px]"
                               variants={textVariants}
                               initial="hidden"
                               animate={activeSlide === i ? 'visible' : 'hidden'}
-                              custom={0}
-                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                              custom={1}
                             >
-                              {b.title}
-                            </motion.h2>
+                              {b.subtitle}
+                            </motion.p>
+                          )}
 
-                            {b.subtitle && (
-                              <motion.p
-                                className="mb-3 text-sm xs:text-base sm:text-lg lg:text-xl text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] max-w-[95vw] sm:max-w-[80vw] sm:mb-4 lg:mb-6"
-                                variants={textVariants}
-                                initial="hidden"
-                                animate={activeSlide === i ? 'visible' : 'hidden'}
-                                custom={1}
-                                style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                              >
-                                {b.subtitle}
-                              </motion.p>
-                            )}
-
+                          {b.button_text && (
                             <motion.div
                               variants={textVariants}
                               initial="hidden"
                               animate={activeSlide === i ? 'visible' : 'hidden'}
                               custom={b.subtitle ? 2 : 1}
-                              className="flex"
                             >
-                              <span
-                                className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 font-bold text-xs sm:text-sm lg:text-base uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbdbd]"
-                                style={{ minWidth: 'fit-content', maxWidth: '100%' }}
-                                onClick={() => {
-                                  window.gtag?.('event', 'click_banner_cta', {
-                                    event_category: 'PromoGrid',
-                                    event_label: b.title,
-                                  });
-                                  window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                    banner: b.title,
-                                  });
-                                }}
-                              >
-                                {b.button_text || 'ЗАБРАТЬ ПИОНЫ'}
+                              <span className="inline-flex items-center border border-[#bdbdbd] rounded-[16px] px-8 py-3 font-bold text-base uppercase bg-white text-[#535353] shadow-sm transition hover:bg-[#535353] hover:text-white">
+                                {b.button_text}
                               </span>
                             </motion.div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -162,102 +145,59 @@ export default function PromoGridClient({
               </Swiper>
             </div>
 
-            {/* ---------- Мобильный Swiper (баннеры + карточки) ---------- */}
+            {/* --- мобилка: без autoplay, loop по условию --- */}
             <div className="block lg:hidden h-full w-full">
               <Swiper
-                modules={[Autoplay, Pagination]}
-                autoplay={{ delay: 5000 }}
+                modules={[Pagination]}
                 pagination={{ clickable: true }}
-                loop
-                spaceBetween={12}
+                loop={loopEnabled}
                 slidesPerView={1}
+                spaceBetween={12}
                 className="h-full w-full"
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
+                onSlideChange={(s) => setActiveSlide(s.realIndex)}
               >
-                {mobileItems.map((item, i) => (
-                  <SwiperSlide key={item.id}>
+                {mobileItems.map((b, i) => (
+                  <SwiperSlide key={b.id}>
                     <Link
-                      href={item.href || '#'}
-                      className="relative block h-full w-full"
-                      title={item.title}
+                      href={b.href || '#'}
+                      className="block h-full w-full"
+                      title={b.title}
                     >
-                      <div
-                        className="relative w-full h-full aspect-[3/2] min-h-[180px]"
-                        style={{ aspectRatio: '3 / 2' }}
-                      >
+                      <div className="relative h-full w-full rounded-[24px] overflow-hidden">
                         <Image
-                          src={item.image_url}
-                          alt={item.title}
+                          src={b.image_url}
+                          alt={b.title}
                           fill
                           sizes="100vw"
                           priority={i === 0}
-                          fetchPriority={i === 0 ? 'high' : 'auto'}
-                          loading={i === 0 ? 'eager' : 'lazy'}
                           placeholder="blur"
                           blurDataURL={BLUR_SRC}
-                          className="object-cover rounded-2xl"
-                          style={{ aspectRatio: '3 / 2' }}
+                          className="object-cover rounded-[24px]"
                         />
-                        <div className="absolute inset-0 bg-black/20 transition-all duration-500 rounded-2xl" />
+                        <div className="absolute inset-0 bg-black/20" />
 
-                        <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-12 sm:py-8 text-white text-left">
-                          <div className="max-w-full w-full">
-                            <motion.h2
-                              className="mb-2 text-lg xs:text-xl sm:text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] max-w-[95vw] sm:max-w-[80vw] leading-tight sm:mb-3"
+                        <div className="absolute inset-0 flex flex-col justify-center items-start px-4 py-4 sm:px-8 sm:py-8 text-white">
+                          <motion.h1
+                            className="mb-2 text-xl sm:text-2xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] leading-tight"
+                            variants={textVariants}
+                            initial="hidden"
+                            animate={activeSlide === i ? 'visible' : 'hidden'}
+                            custom={0}
+                          >
+                            {b.title}
+                          </motion.h1>
+
+                          {b.subtitle && (
+                            <motion.p
+                              className="mb-3 text-sm sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                               variants={textVariants}
                               initial="hidden"
                               animate={activeSlide === i ? 'visible' : 'hidden'}
-                              custom={0}
-                              style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                              custom={1}
                             >
-                              {item.title}
-                            </motion.h2>
-
-                            {item.subtitle && item.type === 'banner' && (
-                              <motion.p
-                                className="mb-3 text-sm xs:text-base sm:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] max-w-[95vw] sm:max-w-[80vw] sm:mb-4"
-                                variants={textVariants}
-                                initial="hidden"
-                                animate={activeSlide === i ? 'visible' : 'hidden'}
-                                custom={1}
-                                style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                              >
-                                {item.subtitle}
-                              </motion.p>
-                            )}
-
-                            {item.type === 'banner' && (
-                              <motion.div
-                                variants={textVariants}
-                                initial="hidden"
-                                animate={activeSlide === i ? 'visible' : 'hidden'}
-                                custom={item.subtitle ? 2 : 1}
-                                className="flex"
-                              >
-                                <span
-                                  className="inline-flex items-center border border-[#bdbdbd] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                                  style={{ minWidth: 'fit-content', maxWidth: '100%' }}
-                                  onClick={() => {
-                                    window.gtag?.('event', 'click_banner_cta', {
-                                      event_category: 'PromoGrid',
-                                      event_label: item.title,
-                                    });
-                                    window.ym?.(96644553, 'reachGoal', 'click_banner_cta', {
-                                      banner: item.title,
-                                    });
-                                  }}
-                                >
-                                  {item.button_text || 'ЗАБРАТЬ ПИОНЫ'}
-                                </span>
-                              </motion.div>
-                            )}
-
-                            {item.type === 'card' && (
-                              <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs sm:text-sm font-semibold text-black shadow-sm line-clamp-1">
-                                {item.title}
-                              </span>
-                            )}
-                          </div>
+                              {b.subtitle}
+                            </motion.p>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -267,12 +207,13 @@ export default function PromoGridClient({
             </div>
           </motion.div>
 
-          {/* ---------- Карточки (десктоп, справа) ---------- */}
+          {/* ───────── Карточки (справа, только десктоп) ───────── */}
           <motion.div
-            className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-4"
+            className="hidden lg:grid grid-cols-2 grid-rows-2 gap-[20px] auto-rows-fr"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
+            style={{ minHeight: '320px' }}
           >
             {cards.slice(0, 4).map((c, i) => (
               <motion.div
@@ -280,13 +221,12 @@ export default function PromoGridClient({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
-                className="relative w-full h-full overflow-hidden rounded-2xl lg:rounded-3xl aspect-[3/2] min-h-[130px]"
+                className="relative w-full h-full overflow-hidden rounded-[24px]"
               >
                 <Link
                   href={c.href}
-                  className="group block h-full w-full"
+                  className="group block relative h-full w-full"
                   title={c.title}
-                  role="button"
                 >
                   <Image
                     src={c.image_url}
@@ -297,11 +237,10 @@ export default function PromoGridClient({
                     fetchPriority={i === 0 ? 'high' : 'auto'}
                     placeholder="blur"
                     blurDataURL={BLUR_SRC}
-                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl lg:rounded-3xl"
-                    style={{ aspectRatio: '3 / 2' }}
+                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
                   />
-                  <div className="absolute inset-0 bg-black/10 transition-all group-hover:bg-black/30 rounded-2xl lg:rounded-3xl" />
-                  <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm line-clamp-1">
+                  <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/30" />
+                  <span className="absolute bottom-3 left-3 z-10 max-w-[90%] truncate rounded-full bg-white/80 px-2.5 py-1 text-xs lg:text-sm font-semibold text-black shadow-sm">
                     {c.title}
                   </span>
                 </Link>
