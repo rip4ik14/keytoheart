@@ -57,7 +57,7 @@ export default function CartSummary({
             <span className="font-medium">{subtotal + upsellTotal} ₽</span>
           </div>
           <div className="flex justify-between">
-            <span>Доставка</span>
+            <span> Стоимость доставки рассчитает менеджер после оформления заказа</span>
             <span className="font-medium">{deliveryCost} ₽</span>
           </div>
           {discountAmount > 0 && (
