@@ -1,23 +1,18 @@
 'use client';
-
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
+import CookieBanner from '@components/CookieBanner';
+import ClientBreadcrumbs from '@components/ClientBreadcrumbs';
+import PromoFooterBlock from '@components/PromoFooterBlock';
+import MobileContactFab from '@components/MobileContactFab';
 import SkipLink from '@components/SkipLink';
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
 import type { Category } from '@/types/category';
 
-// Динамические импорты тяжелых и не-critical компонентов
 const Footer = dynamic(() => import('@components/Footer'), { ssr: false });
-const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), { ssr: false });
-const CookieBanner = dynamic(() => import('@components/CookieBanner'), { ssr: false });
-const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
-const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), { ssr: false });
-
-// LazyOnView - отложенный рендер только при появлении в зоне видимости
-import LazyOnView from '@components/LazyOnView';
 
 export default function LayoutClient({
   children,
@@ -39,10 +34,7 @@ export default function LayoutClient({
           <main id="main-content" tabIndex={-1} className="pt-12 sm:pt-14 font-sans">
             {children}
           </main>
-          {/* Отложенная загрузка PromoFooterBlock только при появлении */}
-          <LazyOnView>
-            <PromoFooterBlock />
-          </LazyOnView>
+          <PromoFooterBlock />
           <Footer categories={categories} />
           <CookieBanner />
           <MobileContactFab />
