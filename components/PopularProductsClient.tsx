@@ -80,7 +80,7 @@ export default function PopularProductsClient({
         <div
           ref={scrollRef}
           className="
-            flex gap-7
+            flex gap-8
             overflow-x-auto no-scrollbar
             py-1 px-1
             snap-x snap-mandatory

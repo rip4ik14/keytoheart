@@ -4,7 +4,6 @@
 
 import './styles/globals.css';
 
-
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
@@ -16,8 +15,8 @@ import type {
 } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
-import YandexMetrikaDelayed from '@components/YandexMetrikaDelayed'; // <--- добавлено
 import { Category } from '@/types/category';
+import { YM_ID } from '@/utils/ym'; // ДОБАВЛЕНО для Яндекс.Метрики
 
 const golosText = localFont({
   variable: '--font-golos',
@@ -251,10 +250,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ],
           }}
         />
+        {/* --- Яндекс.Метрика --- */}
+        {YM_ID && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);
+                })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+                ym(${YM_ID}, "init", {
+                  clickmap:true,
+                  trackLinks:true,
+                  accurateTrackBounce:true,
+                  trackHash:true,
+                  webvisor:true
+                });
+              `,
+            }}
+          />
+        )}
       </head>
       <body>
         <LayoutClient categories={categories}>{children}</LayoutClient>
-        <YandexMetrikaDelayed /> {/* теперь только здесь */}
+        {/* <YandexMetrikaDelayed />  - удалено, метрика теперь в head */}
       </body>
     </html>
   );

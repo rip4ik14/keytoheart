@@ -84,12 +84,12 @@ export default function PromoGridClient({
                   aria-hidden={i !== active}
                 >
                   <Link href={b.href || '#'} className="block h-full w-full" title={b.title}>
-                    <div className="relative h-full w-full rounded-[32px] overflow-hidden">
+                    <div className="relative w-full h-full rounded-[32px] overflow-hidden">
                       <Image
                         src={b.image_url}
                         alt={b.title}
                         fill
-                        sizes="100vw"
+                        sizes="(max-width: 1024px) 100vw, 880px"
                         priority={i === 0}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
@@ -160,26 +160,28 @@ export default function PromoGridClient({
           {cards.slice(0, 4).map((c, i) => (
             <div key={c.id} className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300">
               <Link href={c.href} className="group block h-full w-full" title={c.title}>
-                <Image
-                  src={c.image_url}
-                  alt={c.title}
-                  fill
-                  sizes="(max-width: 1024px) 50vw, 33vw"
-                  loading={i === 0 ? 'eager' : 'lazy'}
-                  priority={i === 0}
-                  placeholder="blur"
-                  blurDataURL={BLUR_SRC}
-                  className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
-                />
-                <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/30" />
-                <span className="absolute bottom-3 left-3 z-10 px-3 py-2 bg-white/80 rounded-full text-xs lg:text-sm font-semibold text-black shadow-sm flex items-center whitespace-normal break-words max-w-[calc(100%-24px)] min-h-[28px] transition-all"
-                  style={{
-                    lineHeight: '1.2',
-                    maxWidth: 'calc(100% - 24px)',
-                    minHeight: 28,
-                  }}>
-                  {c.title}
-                </span>
+                <div className="relative w-full h-full rounded-[24px] overflow-hidden">
+                  <Image
+                    src={c.image_url}
+                    alt={c.title}
+                    fill
+                    sizes="(max-width: 1024px) 320px, 240px"
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    priority={i === 0}
+                    placeholder="blur"
+                    blurDataURL={BLUR_SRC}
+                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
+                  />
+                  <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/30" />
+                  <span className="absolute bottom-3 left-3 z-10 px-3 py-2 bg-white/80 rounded-full text-xs lg:text-sm font-semibold text-black shadow-sm flex items-center whitespace-normal break-words max-w-[calc(100%-24px)] min-h-[28px] transition-all"
+                    style={{
+                      lineHeight: '1.2',
+                      maxWidth: 'calc(100% - 24px)',
+                      minHeight: 28,
+                    }}>
+                    {c.title}
+                  </span>
+                </div>
               </Link>
             </div>
           ))}
