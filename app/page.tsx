@@ -276,7 +276,7 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categories.slice(0, 5).map((catName, idx) => {
+          categories.slice(0, 4).map((catName, idx) => {
             const slug  = slugMap[catName] || '';
             const items = products
               .filter((p) =>
