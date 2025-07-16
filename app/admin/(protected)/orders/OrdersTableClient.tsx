@@ -1,14 +1,13 @@
-// ✅ Путь: app/admin/(protected)/orders/OrdersTableClient.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { Phone, MessageCircle, Trash2, Info, X as CloseIcon } from 'lucide-react';
 
-// Расширенный интерфейс Order
 export interface Order {
   id: string;
   created_at: string | null;
@@ -28,19 +27,8 @@ export interface Order {
   postcard_text: string | null;
   promo_id: string | null;
   promo_discount: number | null;
-  items: Array<{
-    id: string;
-    title: string;
-    price: number;
-    quantity: number;
-  }>;
-  upsell_details: Array<{
-    id: string;
-    title: string;
-    price: number;
-    quantity: number;
-    category?: string;
-  }>;
+  items: Array<{ id: string; title: string; price: number; quantity: number }>;
+  upsell_details: Array<{ id: string; title: string; price: number; quantity: number; category?: string }>;
 }
 
 interface Props {
@@ -48,20 +36,41 @@ interface Props {
   loadError: string | null;
 }
 
+// Цвета для бейджей статуса
+const statusColors: Record<string, string> = {
+  pending: 'bg-gray-200 text-gray-700',
+  processing: 'bg-yellow-100 text-yellow-800',
+  delivering: 'bg-blue-100 text-blue-700',
+  delivered: 'bg-green-100 text-green-700',
+  canceled: 'bg-red-100 text-red-700',
+};
+
+const statusOptions = [
+  { value: 'pending', label: 'Ожидает подтверждения' },
+  { value: 'processing', label: 'В сборке' },
+  { value: 'delivering', label: 'Доставляется' },
+  { value: 'delivered', label: 'Доставлен' },
+  { value: 'canceled', label: 'Отменён' },
+] as const;
+
 export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [error, setError] = useState<string | null>(loadError);
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [searchPhone, setSearchPhone] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; name: string } | null>(null);
   const router = useRouter();
 
-  // Проверка сессии на клиенте
+  // Проверка сессии
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/admin-session', { credentials: 'include' });
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error('No admin session');
+        if (!res.ok || !data.success) throw new Error();
       } catch {
         toast.error('Доступ запрещён');
         router.push(`/admin/login?from=${encodeURIComponent('/admin/orders')}`);
@@ -69,53 +78,28 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     })();
   }, [router]);
 
-  // Маппинг русскоязычных статусов на значения в базе
-  const statusMap: { [key: string]: string } = {
-    'Ожидает подтверждения': 'pending',
-    'В сборке': 'processing',
-    'Доставляется': 'delivering',
-    'Доставлен': 'delivered',
-    'Отменён': 'canceled',
-  };
-
-  // Обратный маппинг для отображения
-  const displayStatusMap: { [key: string]: string } = {
-    pending: 'Ожидает подтверждения',
-    processing: 'В сборке',
-    delivering: 'Доставляется',
-    delivered: 'Доставлен',
-    canceled: 'Отменён',
-  };
-
-  const updateStatus = async (id: string, newStatus: string) => {
+  // Обновление статуса
+  const updateStatus = async (id: string, newStatus: typeof statusOptions[number]['value']) => {
     try {
-      const dbStatus = statusMap[newStatus];
-      if (!dbStatus) {
-        throw new Error('Недопустимый статус');
-      }
       const res = await fetch('/api/orders/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ orderId: id, status: dbStatus }),
+        body: JSON.stringify({ orderId: id, status: newStatus }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? 'Ошибка обновления статуса');
-
-      setOrders((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, status: dbStatus } : o))
-      );
-      toast.success(`Статус заказа #${id} обновлён на «${newStatus}»`);
+      setOrders(o => o.map(x => x.id === id ? { ...x, status: newStatus } : x));
+      toast.success(`Заказ #${id} → ${statusOptions.find(s => s.value === newStatus)?.label}`);
     } catch (e: any) {
-      process.env.NODE_ENV !== "production" && console.error('Error updating status:', e);
-      setError(e.message);
       toast.error(e.message);
-      if (/Unauthorized/i.test(e.message)) {
-        router.push('/admin/login?error=unauthorized');
-      }
+      if (/Unauthorized/i.test(e.message)) router.push('/admin/login');
+    } finally {
+      setStatusMenuOpen(null);
     }
   };
 
+  // Удаление заказа
   const deleteOrder = async (id: string) => {
     try {
       const res = await fetch('/api/admin/delete-order', {
@@ -125,193 +109,321 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         body: JSON.stringify({ id }),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? 'Ошибка удаления заказа');
-
-      setOrders((prev) => prev.filter((o) => o.id !== id));
+      if (!res.ok) throw new Error(result.error ?? 'Ошибка удаления');
+      setOrders(o => o.filter(x => x.id !== id));
       toast.success(`Заказ #${id} удалён`);
+      setDeleteModal(null);
     } catch (e: any) {
-      process.env.NODE_ENV !== "production" && console.error('Error deleting order:', e);
-      setError(e.message);
       toast.error(e.message);
-      if (/Unauthorized/i.test(e.message)) {
-        router.push('/admin/login?error=unauthorized');
-      }
     }
   };
 
-  // Фильтрация
-  const visibleOrders = orders.filter((o: Order) => {
-    const byStatus = !statusFilter || displayStatusMap[o.status ?? ''] === statusFilter;
-    const byPhone = !searchPhone || o.phone?.includes(searchPhone);
-    return byStatus && byPhone;
-  });
+  // Поиск и фильтрация
+  const visibleOrders = orders
+    .filter(o => {
+      let ok = true;
+
+      // Поиск по имени, телефону, получателю, адресу
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        ok = [o.phone, o.contact_name, o.recipient, o.address]
+          .some(f => f?.toLowerCase().includes(q));
+      }
+
+      // Фильтр по статусу
+      if (ok && statusFilter) {
+        ok = o.status === statusFilter;
+      }
+
+      // Фильтр по дате
+      if (ok && dateFrom) {
+        ok = !!o.created_at && new Date(o.created_at) >= new Date(dateFrom);
+      }
+      if (ok && dateTo) {
+        ok = !!o.created_at && new Date(o.created_at) <= new Date(dateTo + 'T23:59:59');
+      }
+
+      return ok;
+    });
+
+  // Копировать в буфер
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Скопировано!');
+  };
+
+  // Drag‑to‑scroll
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let isDown = false, startX = 0, scrollLeft = 0;
+    const onDown = (e: MouseEvent) => {
+      isDown = true;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+      el.classList.add('cursor-grabbing');
+    };
+    const onUp = () => {
+      isDown = false;
+      el.classList.remove('cursor-grabbing');
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - el.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      el.scrollLeft = scrollLeft - walk;
+    };
+    el.addEventListener('mousedown', onDown);
+    el.addEventListener('mouseup', onUp);
+    el.addEventListener('mouseleave', onUp);
+    el.addEventListener('mousemove', onMove);
+    return () => {
+      el.removeEventListener('mousedown', onDown);
+      el.removeEventListener('mouseup', onUp);
+      el.removeEventListener('mouseleave', onUp);
+      el.removeEventListener('mousemove', onMove);
+    };
+  }, []);
 
   if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-        <p className="text-red-600 text-sm sm:text-base">Ошибка: {error}</p>
-      </div>
-    );
+    return <div className="p-4 bg-red-50 text-red-600 rounded">{error}</div>;
   }
   if (!visibleOrders.length) {
-    return (
-      <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 text-center">
-        <p className="text-gray-500 text-sm sm:text-base">Заказы не найдены</p>
-      </div>
-    );
+    return <div className="p-4 bg-gray-100 text-gray-600 rounded">Заказы не найдены</div>;
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       <Toaster position="top-center" />
+
       {/* Фильтры */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white rounded-xl shadow"
+      >
         <div>
-          <label htmlFor="statusFilter" className="block mb-1 text-sm font-medium text-gray-700">
-            Фильтр по статусу:
-          </label>
+          <label className="block mb-1 text-sm font-medium text-gray-700">Статус</label>
           <select
-            id="statusFilter"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base"
+            onChange={e => setStatusFilter(e.target.value)}
+            className="w-full p-2 border rounded"
           >
             <option value="">Все</option>
-            <option value="Ожидает подтверждения">Ожидает подтверждения</option>
-            <option value="В сборке">В сборке</option>
-            <option value="Доставляется">Доставляется</option>
-            <option value="Доставлен">Доставлен</option>
-            <option value="Отменён">Отменён</option>
+            {statusOptions.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
           </select>
         </div>
         <div>
-          <label htmlFor="searchPhone" className="block mb-1 text-sm font-medium text-gray-700">
-            Поиск по телефону:
+          <label className="block mb-1 text-sm font-medium text-gray-700">
+            Поиск (имя, телефон, адрес)
           </label>
           <input
-            id="searchPhone"
             type="text"
-            value={searchPhone}
-            onChange={(e) => setSearchPhone(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-sm sm:text-base"
-            placeholder="+7..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Введите текст..."
+            className="w-full p-2 border rounded"
           />
         </div>
-      </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block mb-1 text-sm font-medium text-gray-700">От</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block mb-1 text-sm font-medium text-gray-700">До</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+        </div>
+      </motion.div>
 
-      {/* Таблица для десктопа */}
-      <div className="hidden lg:block overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-        <table className="w-full text-sm text-left border-collapse">
-          <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
-            <tr>
-              <th className="p-3 border-b">Дата</th>
-              <th className="p-3 border-b">Имя</th>
-              <th className="p-3 border-b">Телефон</th>
-              <th className="p-3 border-b">Получатель</th>
-              <th className="p-3 border-b">Телефон получателя</th>
-              <th className="p-3 border-b">Адрес</th>
-              <th className="p-3 border-b">Сумма</th>
-              <th className="p-3 border-b">Оплата</th>
-              <th className="p-3 border-b">Доставка</th>
-              <th className="p-3 border-b">Дата/Время</th>
-              <th className="p-3 border-b">Анонимность</th>
-              <th className="p-3 border-b">WhatsApp</th>
-              <th className="p-3 border-b">Текст открытки</th>
-              <th className="p-3 border-b">Промокод</th>
-              <th className="p-3 border-b">Товары</th>
-              <th className="p-3 border-b">Дополнения</th>
-              <th className="p-3 border-b">Статус</th>
-              <th className="p-3 border-b">Действия</th>
+      {/* Десктоп‑таблица */}
+      <div
+        ref={scrollRef}
+        className="hidden lg:block overflow-x-auto cursor-grab bg-white rounded-xl shadow"
+      >
+        <table className="min-w-[1200px] w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-100 text-gray-700 uppercase text-xs">
+              <th className="p-2 border-b align-middle">№</th>
+              <th className="p-2 border-b align-middle">Дата</th>
+              <th className="p-2 border-b align-middle">Клиент</th>
+              <th className="p-2 border-b align-middle">Телефон</th>
+              <th className="p-2 border-b align-middle">Получатель</th>
+              <th className="p-2 border-b align-middle">Тел. получ.</th>
+              <th className="p-2 border-b align-middle">Адрес</th>
+              <th className="p-2 border-b align-middle">Сумма</th>
+              <th className="p-2 border-b align-middle">Оплата</th>
+              <th className="p-2 border-b align-middle">Доставка</th>
+              <th className="p-2 border-b align-middle">Дата/Время</th>
+              <th className="p-2 border-b align-middle">Анонимно</th>
+              <th className="p-2 border-b align-middle">WhatsApp</th>
+              <th className="p-2 border-b align-middle">Открытка</th>
+              <th className="p-2 border-b align-middle">Промо</th>
+              <th className="p-2 border-b align-middle">Товары</th>
+              <th className="p-2 border-b align-middle">Дополнения</th>
+              <th className="p-2 border-b align-middle">Статус</th>
+              <th className="p-2 border-b align-middle">Действия</th>
             </tr>
           </thead>
           <tbody>
-            {visibleOrders.map((order: Order) => (
+            {visibleOrders.map((o, i) => (
               <motion.tr
-                key={order.id}
+                key={o.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-                className="border-t hover:bg-gray-50 text-sm"
+                transition={{ duration: 0.2, delay: i * 0.02 }}
+                className={i % 2 === 0 ? '' : 'bg-gray-50'}
               >
-                <td className="p-3">
-                  {order.created_at
-                    ? format(new Date(order.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
+                <td className="p-2 border-b align-middle">{i + 1}</td>
+                <td className="p-2 border-b align-middle">
+                  {o.created_at
+                    ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
                     : '-'}
                 </td>
-                <td className="p-3">{order.contact_name || '-'}</td>
-                <td className="p-3">{order.phone || '-'}</td>
-                <td className="p-3">{order.recipient || '-'}</td>
-                <td className="p-3">{order.recipient_phone || '-'}</td>
-                <td className="p-3">{order.address || '-'}</td>
-                <td className="p-3 font-medium">{order.total?.toLocaleString() ?? '0'} ₽</td>
-                <td className="p-3">{order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</td>
-                <td className="p-3">{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</td>
-                <td className="p-3">
-                  {order.delivery_date && order.delivery_time
-                    ? `${order.delivery_date} ${order.delivery_time}`
+                <td className="p-2 border-b align-middle">{o.contact_name || '-'}</td>
+                <td className="p-2 border-b align-middle">
+                  <div className="flex items-center gap-1">
+                    <span className="whitespace-nowrap">{o.phone || '-'}</span>
+                    {o.phone && (
+                      <>
+                        <button
+                          title="Позвонить"
+                          onClick={() => window.open(`tel:${o.phone}`)}
+                          className="text-blue-600 hover:text-blue-800"
+                          tabIndex={-1}
+                        >
+                          <Phone size={16} />
+                        </button>
+                        <button
+                          title="Скопировать"
+                          onClick={() => copyToClipboard(o.phone!)}
+                          className="text-gray-400 hover:text-gray-600"
+                          tabIndex={-1}
+                        >
+                          <Info size={16} />
+                        </button>
+                      </>
+                    )}
+                    {o.whatsapp && o.phone && (
+                      <a
+                        href={`https://wa.me/${o.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-800"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle size={16} />
+                      </a>
+                    )}
+                  </div>
+                </td>
+                <td className="p-2 border-b align-middle">{o.recipient || '-'}</td>
+                <td className="p-2 border-b align-middle">{o.recipient_phone || '-'}</td>
+                <td className="p-2 border-b align-middle max-w-xs break-words">{o.address || '-'}</td>
+                <td className="p-2 border-b align-middle font-semibold">
+                  {o.total?.toLocaleString('ru-RU') ?? 0} ₽
+                </td>
+                <td className="p-2 border-b align-middle">{o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</td>
+                <td className="p-2 border-b align-middle">{o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</td>
+                <td className="p-2 border-b align-middle">
+                  {o.delivery_date && o.delivery_time
+                    ? `${o.delivery_date} ${o.delivery_time}`
                     : '-'}
                 </td>
-                <td className="p-3">{order.anonymous ? 'Да' : 'Нет'}</td>
-                <td className="p-3">{order.whatsapp ? 'Да' : 'Нет'}</td>
-                <td className="p-3">{order.postcard_text || '-'}</td>
-                <td className="p-3">
-                  {order.promo_id
-                    ? `Применён (${order.promo_discount?.toLocaleString() ?? 0} ₽)`
-                    : 'Не применён'}
+                <td className="p-2 border-b align-middle">{o.anonymous ? 'Да' : 'Нет'}</td>
+                <td className="p-2 border-b align-middle">{o.whatsapp ? 'Да' : 'Нет'}</td>
+                <td className="p-2 border-b align-middle max-w-xs break-words">{o.postcard_text || '-'}</td>
+                <td className="p-2 border-b align-middle">
+                  {o.promo_id
+                    ? `Применён (${o.promo_discount?.toLocaleString('ru-RU') ?? 0} ₽)`
+                    : '—'}
                 </td>
-                <td className="p-3">
-                  {order.items.length > 0 ? (
-                    <ul className="list-disc pl-4">
-                      {order.items.map((item, idx) => (
-                        <li key={idx}>
-                          {item.title} ×{item.quantity} — {item.price * item.quantity} ₽
+                <td className="p-2 border-b align-middle max-w-xs">
+                  {o.items.length > 0 ? (
+                    <ul className="list-disc pl-4 space-y-1">
+                      {o.items.map((it, idx) => (
+                        <li key={idx} className="whitespace-nowrap">
+                          {it.title} ×{it.quantity} — {it.price * it.quantity} ₽
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    'Нет товаров'
+                    '—'
                   )}
                 </td>
-                <td className="p-3">
-                  {order.upsell_details.length > 0 ? (
-                    <ul className="list-disc pl-4">
-                      {order.upsell_details.map((item, idx) => (
-                        <li key={idx}>
-                          {item.title} ({item.category}) ×{item.quantity} — {item.price} ₽
+                <td className="p-2 border-b align-middle max-w-xs">
+                  {o.upsell_details.length > 0 ? (
+                    <ul className="list-disc pl-4 space-y-1">
+                      {o.upsell_details.map((it, idx) => (
+                        <li key={idx} className="whitespace-nowrap">
+                          {it.title} ({it.category}) ×{it.quantity} — {it.price} ₽
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    'Нет дополнений'
+                    '—'
                   )}
                 </td>
-                <td className="p-3">
-                  <motion.select
-                    value={displayStatusMap[order.status ?? 'pending'] || 'Ожидает подтверждения'}
-                    onChange={(e) => updateStatus(order.id, e.target.value)}
-                    className="border border-gray-300 rounded-lg p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <option value="Ожидает подтверждения">Ожидает подтверждения</option>
-                    <option value="В сборке">В сборке</option>
-                    <option value="Доставляется">Доставляется</option>
-                    <option value="Доставлен">Доставлен</option>
-                    <option value="Отменён">Отменён</option>
-                  </motion.select>
+                <td className="p-2 border-b align-middle">
+                  <div className="relative inline-block">
+                    <button
+                      onClick={() => setStatusMenuOpen(o.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[o.status ?? 'pending']} border`}
+                    >
+                      {statusOptions.find(s => s.value === o.status)?.label}
+                    </button>
+                    <AnimatePresence>
+                      {statusMenuOpen === o.id && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute left-0 z-20 mt-1 w-40 bg-white border rounded shadow py-1"
+                        >
+                          {statusOptions.map(s => (
+                            <button
+                              key={s.value}
+                              onClick={() => updateStatus(o.id, s.value)}
+                              className={`block w-full text-left px-3 py-1 text-sm ${
+                                o.status === s.value
+                                  ? 'bg-gray-100 font-semibold'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => setStatusMenuOpen(null)}
+                            className="block w-full text-left px-3 py-1 text-xs text-gray-400 hover:text-black"
+                          >
+                            Отмена
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </td>
-                <td className="p-3">
-                  <motion.button
-                    onClick={() => {
-                      if (confirm(`Вы уверены, что хотите удалить заказ #${order.id}?`)) {
-                        deleteOrder(order.id);
-                      }
-                    }}
-                    className="text-red-600 hover:underline text-sm font-medium transition-colors duration-200"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <td className="p-2 border-b align-middle">
+                  <button
+                    onClick={() => setDeleteModal({ id: o.id, name: o.contact_name || '' })}
+                    className="flex items-center gap-1 text-red-600 hover:underline"
                   >
-                    Удалить
-                  </motion.button>
+                    <Trash2 size={16} /> Удалить
+                  </button>
                 </td>
               </motion.tr>
             ))}
@@ -319,150 +431,83 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         </table>
       </div>
 
-      {/* Мобильный вид (карточки) */}
+      {/* Мобильная версия */}
       <div className="lg:hidden space-y-4">
-        {visibleOrders.map((order: Order) => (
+        {visibleOrders.map((o, i) => (
           <motion.div
-            key={order.id}
+            key={o.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3"
+            transition={{ duration: 0.2, delay: i * 0.02 }}
+            className="p-4 bg-white rounded-xl shadow"
           >
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-gray-900">
-                Заказ #{order.id}
-              </h3>
-              <motion.select
-                value={displayStatusMap[order.status ?? 'pending'] || 'Ожидает подтверждения'}
-                onChange={(e) => updateStatus(order.id, e.target.value)}
-                className="border border-gray-300 rounded-lg p-1 text-xs focus:outline-none focus:ring-2 focus:ring-black"
-                whileHover={{ scale: 1.05 }}
-              >
-                <option value="Ожидает подтверждения">Ожидает подтверждения</option>
-                <option value="В сборке">В сборке</option>
-                <option value="Доставляется">Доставляется</option>
-                <option value="Доставлен">Доставлен</option>
-                <option value="Отменён">Отменён</option>
-              </motion.select>
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-semibold">#{i + 1}</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[o.status ?? 'pending']}`}>
+                {statusOptions.find(s => s.value === o.status)?.label}
+              </span>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-              <div>
-                <p className="font-medium">Дата:</p>
-                <p>
-                  {order.created_at
-                    ? format(new Date(order.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
-                    : '-'}
-                </p>
+            <div className="space-y-1 text-sm">
+              <div><strong>Дата:</strong> {o.created_at ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-'}</div>
+              <div><strong>Клиент:</strong> {o.contact_name || '-'}</div>
+              <div className="flex items-center gap-1">
+                <strong>Телефон:</strong> <span>{o.phone || '-'}</span>
               </div>
-              <div>
-                <p className="font-medium">Имя:</p>
-                <p>{order.contact_name || '-'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Телефон:</p>
-                <p>{order.phone || '-'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Получатель:</p>
-                <p>{order.recipient || '-'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Телефон получателя:</p>
-                <p>{order.recipient_phone || '-'}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="font-medium">Адрес:</p>
-                <p>{order.address || '-'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Сумма:</p>
-                <p className="font-medium">{order.total?.toLocaleString() ?? '0'} ₽</p>
-              </div>
-              <div>
-                <p className="font-medium">Оплата:</p>
-                <p>{order.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Доставка:</p>
-                <p>{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Дата/Время:</p>
-                <p>
-                  {order.delivery_date && order.delivery_time
-                    ? `${order.delivery_date} ${order.delivery_time}`
-                    : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">Анонимность:</p>
-                <p>{order.anonymous ? 'Да' : 'Нет'}</p>
-              </div>
-              <div>
-                <p className="font-medium">WhatsApp:</p>
-                <p>{order.whatsapp ? 'Да' : 'Нет'}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="font-medium">Текст открытки:</p>
-                <p>{order.postcard_text || '-'}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="font-medium">Промокод:</p>
-                <p>
-                  {order.promo_id
-                    ? `Применён (${order.promo_discount?.toLocaleString() ?? 0} ₽)`
-                    : 'Не применён'}
-                </p>
-              </div>
-              <div className="col-span-2">
-                <p className="font-medium">Товары:</p>
-                {order.items.length > 0 ? (
-                  <ul className="list-disc pl-4 text-xs">
-                    {order.items.map((item, idx) => (
-                      <li key={idx}>
-                        {item.title} ×{item.quantity} — {item.price * item.quantity} ₽
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Нет товаров</p>
-                )}
-              </div>
-              <div className="col-span-2">
-                <p className="font-medium">Дополнения:</p>
-                {order.upsell_details.length > 0 ? (
-                  <ul className="list-disc pl-4 text-xs">
-                    {order.upsell_details.map((item, idx) => (
-                      <li key={idx}>
-                        {item.title} ({item.category}) ×{item.quantity} — {item.price} ₽
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Нет дополнений</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <motion.button
-                onClick={() => {
-                  if (confirm(`Вы уверены, что хотите удалить заказ #${order.id}?`)) {
-                    deleteOrder(order.id);
-                  }
-                }}
-                className="text-red-600 hover:underline text-xs font-medium transition-colors duration-200"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <div><strong>Получатель:</strong> {o.recipient || '-'}</div>
+              <div><strong>Адрес:</strong> {o.address || '-'}</div>
+              <div><strong>Сумма:</strong> {o.total?.toLocaleString('ru-RU') ?? 0} ₽</div>
+              <button
+                onClick={() => setDeleteModal({ id: o.id, name: o.contact_name || '' })}
+                className="mt-2 text-red-600 hover:underline flex items-center gap-1 text-sm"
               >
-                Удалить
-              </motion.button>
+                <Trash2 size={16} /> Удалить
+              </button>
             </div>
           </motion.div>
         ))}
       </div>
+
+      {/* Модалка удаления */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="flex items-center mb-4">
+                <CloseIcon size={24} className="text-red-500 mr-2" />
+                <h2 className="text-lg font-semibold">Удалить заказ?</h2>
+              </div>
+              <p className="mb-6">
+                Заказ <strong>#{deleteModal.id}</strong> — <em>{deleteModal.name}</em>.<br />
+                Это действие нельзя отменить.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteModal(null)}
+                  className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => deleteOrder(deleteModal.id)}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                >
+                  Удалить
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
