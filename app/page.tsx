@@ -14,6 +14,7 @@ import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard          from '@components/ProductCardSkeleton';
 import FAQSectionWrapper     from '@components/FAQSectionWrapper';
+import YandexReviewsWidget   from '@components/YandexReviewsWidget';
 
 import { createServerClient }  from '@supabase/ssr';
 import { cookies as getCookies } from 'next/headers';
@@ -269,38 +270,41 @@ export default async function Home() {
         id="home-categories"
       >
         {products.length === 0 ? (
-  <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
-    {Array.from({ length: 8 }).map((_, i) => (
-      <SkeletonCard key={i} />
-    ))}
-  </div>
-) : (
-  categories.slice(0, 5).map((catName, idx) => {
-    const slug  = slugMap[catName] || '';
-    const items = products
-      .filter((p) =>
-        p.category_ids.some(
-          (id) => catMap.get(id)?.name === catName,
-        ),
-      )
-      .slice(0, 8);
+          <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : (
+          categories.slice(0, 5).map((catName, idx) => {
+            const slug  = slugMap[catName] || '';
+            const items = products
+              .filter((p) =>
+                p.category_ids.some(
+                  (id) => catMap.get(id)?.name === catName,
+                ),
+              )
+              .slice(0, 8);
 
-    const headingId = `category-preview-${slug || idx}`;
+            const headingId = `category-preview-${slug || idx}`;
 
-    return (
-      <React.Fragment key={catName}>
-        <CategoryPreviewServer
-          categoryName={catName}
-          products={items}
-          seeMoreLink={slug}
-          headingId={headingId}
-        />
-        {idx === 0 && <AdvantagesClient />}
-      </React.Fragment>
-    );
-  })
-)}
+            return (
+              <React.Fragment key={catName}>
+                <CategoryPreviewServer
+                  categoryName={catName}
+                  products={items}
+                  seeMoreLink={slug}
+                  headingId={headingId}
+                />
+                {idx === 0 && <AdvantagesClient />}
+              </React.Fragment>
+            );
+          })
+        )}
       </section>
+
+      {/* Вставляем блок отзывов Яндекс */}
+      <YandexReviewsWidget />
 
       {/* FAQ — тот же текст, что и в JSON-LD */}
       <FAQSectionWrapper />
