@@ -1,14 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
-
+import { useRef } from 'react';
 import ProductCard from '@components/ProductCard';
 import { Product } from '@/types/product';
-import Image from 'next/image';
 
 type ProductWithPriority = Product & { priority?: boolean };
 
@@ -17,6 +11,28 @@ export default function PopularProductsClient({
 }: {
   products: ProductWithPriority[];
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Визуально — всегда 4 карточки на экране
+  // На всякий случай поддерживаем больше карточек в массиве, скролл работает
+
+  const scrollCard = () => {
+    // ширина карточки + gap (280 + 24)
+    return 280 + 24;
+  };
+
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -scrollCard(), behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: scrollCard(), behavior: 'smooth' });
+    }
+  };
+
   if (!products || products.length === 0) {
     return (
       <section className="mx-auto max-w-7xl px-4 py-12">
@@ -26,19 +42,6 @@ export default function PopularProductsClient({
       </section>
     );
   }
-
-  const prepared = useMemo(
-    () =>
-      products.map((p) => ({
-        ...p,
-        images: p.images || [],
-        category_ids: p.category_ids || [],
-      })),
-    [products],
-  );
-
-  /* loop только если товаров больше, чем видимо на десктопе */
-  const loopDesktop = prepared.length > 4;
 
   return (
     <section
@@ -52,51 +55,71 @@ export default function PopularProductsClient({
         ПОПУЛЯРНОЕ
       </h2>
 
-      {/* мобильная сетка 2×N  (Suppress, чтобы не сравнивать стили при гидрации) */}
-      <div
-        key="grid"
-        suppressHydrationWarning
-        className="sm:hidden grid grid-cols-2 gap-4"
-      >
-        {prepared.map((p) => (
+      {/* ---- Mobile: Grid ---- */}
+      <div className="sm:hidden grid grid-cols-2 gap-4">
+        {products.map((p) => (
           <ProductCard key={p.id} product={p} priority={!!p.priority} />
         ))}
       </div>
 
-      {/* tablet/desktop — Swiper */}
-      <div key="swiper" className="relative hidden sm:block">
-        <Swiper
-          modules={[Navigation]}
-          loop={loopDesktop}
-          navigation={{ nextEl: '.popular-next', prevEl: '.popular-prev' }}
-          slidesPerView={2.2}
-          spaceBetween={16}
-          breakpoints={{ 1024: { slidesPerView: 4, spaceBetween: 24 } }}
-          className="group"
+      {/* ---- Desktop: Горизонтальный скролл — ровно 4 карточки ---- */}
+      <div className="hidden sm:block relative">
+        {/* Стрелка влево */}
+        <button
+          className="absolute left-[-28px] top-1/2 z-10 -translate-y-1/2 bg-white border border-gray-200 shadow w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition focus:outline-none"
+          onClick={scrollLeft}
+          aria-label="Назад"
+          type="button"
         >
-          {prepared.map((p) => (
-            <SwiperSlide key={p.id} className="flex justify-center">
-              <ProductCard product={p} priority={!!p.priority} />
-            </SwiperSlide>
-          ))}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18L9 12L15 6" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
 
-          <button
-            className="popular-prev absolute left-0 top-1/2 z-[2] -translate-y-1/2
-                       rounded-full bg-white p-2 shadow hover:bg-gray-100
-                       focus:outline-none focus:ring-2 focus:ring-black"
-            aria-label="Назад"
-          >
-            <Image src="/icons/chevron-left.svg" alt="" width={20} height={20} />
-          </button>
-          <button
-            className="popular-next absolute right-0 top-1/2 z-[2] -translate-y-1/2
-                       rounded-full bg-white p-2 shadow hover:bg-gray-100
-                       focus:outline-none focus:ring-2 focus:ring-black"
-            aria-label="Вперёд"
-          >
-            <Image src="/icons/chevron-right.svg" alt="" width={20} height={20} />
-          </button>
-        </Swiper>
+        {/* Скролл-контейнер, видны ровно 4 карточки */}
+        <div
+          ref={scrollRef}
+          className="
+            flex gap-7
+            overflow-x-auto no-scrollbar
+            py-1 px-1
+            snap-x snap-mandatory
+            justify-start
+            mx-auto
+            w-[1216px]    /* (280 + 24) * 4 - 24 (т.к. последний gap не нужен) = 1216px */
+          "
+          style={{
+            scrollBehavior: 'smooth',
+            maxWidth: '1216px',
+          }}
+        >
+          {products.map((p) => (
+            <div
+              key={p.id}
+              className="
+                flex-shrink-0
+                w-full
+                max-w-[280px]
+                snap-start
+              "
+              style={{ width: 280 }}
+            >
+              <ProductCard product={p} priority={!!p.priority} />
+            </div>
+          ))}
+        </div>
+
+        {/* Стрелка вправо */}
+        <button
+          className="absolute right-[-28px] top-1/2 z-10 -translate-y-1/2 bg-white border border-gray-200 shadow w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition focus:outline-none"
+          onClick={scrollRight}
+          aria-label="Вперёд"
+          type="button"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M9 6L15 12L9 18" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     </section>
   );

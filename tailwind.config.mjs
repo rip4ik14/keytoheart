@@ -23,7 +23,6 @@ export default {
       },
       fontFamily: {
         sans: ['var(--font-golos)', 'Arial', 'sans-serif'],
-        // Добавь свой кастомный шрифт для бегущей строки:
         marquee: ['var(--font-marquee)', 'sans-serif'],
       },
       animation: {
@@ -68,6 +67,7 @@ export default {
   ],
   safelist: [
     'bg-red-500',
-    'text-white',
+      'text-white',
+  '!text-white',
   ],
 };

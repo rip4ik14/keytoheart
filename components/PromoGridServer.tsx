@@ -1,4 +1,5 @@
-import PromoGridWrapper from '@components/PromoGridWrapper';
+// components/PromoGridServer.tsx
+import PromoGridWrapper from './PromoGridWrapper';
 import { PromoBlock } from '@/types/promo';
 
 export default async function PromoGridServer() {
@@ -14,8 +15,8 @@ export default async function PromoGridServer() {
       return null;
     }
     const data: PromoBlock[] = await res.json();
-    const banners = data.filter((b) => b.type === 'banner');
-    const cards = data.filter((b) => b.type === 'card');
+    const banners = (data ?? []).filter((b) => b.type === 'banner');
+    const cards = (data ?? []).filter((b) => b.type === 'card');
     return <PromoGridWrapper banners={banners} cards={cards} />;
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PromoGridServer error:', err);
