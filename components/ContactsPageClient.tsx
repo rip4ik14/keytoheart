@@ -100,9 +100,7 @@ export default function ContactsPageClient() {
           .
         </motion.p>
 
-        {/* Кнопка WhatsApp удалена */}
-
-        {/* Статическая карта Яндекс */}
+        {/* Новая статическая карта Яндекс */}
         <motion.div
           className="overflow-hidden rounded-2xl border"
           style={{ background: '#eee' }}
@@ -112,7 +110,7 @@ export default function ContactsPageClient() {
           viewport={{ once: true }}
         >
           <Image
-            src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.042147,45.059956&z=17&l=map&pt=39.042147,45.059956,pm2rdl"
+            src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.037611,45.058091&z=17&l=map&pt=39.037611,45.058091,pm2rdl"
             alt="Магазин Ключ к Сердцу на карте"
             className="w-full h-[320px] sm:h-[400px] object-cover"
             loading="eager"
@@ -122,7 +120,7 @@ export default function ContactsPageClient() {
           />
           <div className="text-xs p-2 text-center text-gray-500 bg-white border-t">
             <a
-              href="https://yandex.ru/maps/org/klyuch_k_serdtsu/41599607553/?ll=39.042147%2C45.059956&z=17"
+              href="https://yandex.ru/maps/org/klyuch_k_serdtsu/81940019159/?ll=39.037611%2C45.058091&z=17"
               target="_blank"
               rel="noopener noreferrer"
               className="underline"
