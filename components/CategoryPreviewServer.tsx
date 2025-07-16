@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import ProductCard from './ProductCard';
 import type { Product } from '@/types/product';
-import { claimPriority } from '@/utils/imagePriority';
 
 interface Props {
   categoryName: string;
@@ -19,7 +18,7 @@ export default function CategoryPreviewServer({
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
     .map((product) => ({ ...product, images: product.images || [] }))
-    .slice(0, 6); // Явно ограничиваем до 6 товаров (3 строки по 2)
+    .slice(0, 6);
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12" aria-labelledby={headingId}>
@@ -29,16 +28,13 @@ export default function CategoryPreviewServer({
       >
         {categoryName}
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-        {visibleProducts.map((product, idx) => {
-          // const shouldPrioritize = idx === 0 && claimPriority();
-          return (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
-          );
-        })}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 min-h-[500px]"> {/* <= фикс */}
+        {visibleProducts.map((product, idx) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+          />
+        ))}
       </div>
       <div className="text-center mt-6">
         <Link

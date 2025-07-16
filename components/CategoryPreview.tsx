@@ -1,10 +1,11 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-
 import Link from 'next/link';
 import ProductCard from '@components/ProductCard';
 import { Product } from '@/types/product';
+import { useState, useEffect } from 'react';
 
 interface Props {
   categoryName: string;
@@ -21,16 +22,26 @@ export default function CategoryPreview({
   isVisible,
   headingId,
 }: Props) {
+  // Эмуляция асинхронной загрузки (убери если данные всегда есть)
+  const [loading, setLoading] = useState(products.length === 0);
+  useEffect(() => {
+    if (products.length > 0) setLoading(false);
+  }, [products.length]);
+
   if (!isVisible) {
     return null;
   }
 
+  // Ограничим до 6 для мобилки и 8 для desktop
+  const maxMobile = 6;
+  const maxDesktop = 8;
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
     .map((product) => ({
       ...product,
       images: product.images || [],
-    }));
+    }))
+    .slice(0, maxDesktop);
 
   return (
     <section
@@ -43,10 +54,17 @@ export default function CategoryPreview({
       >
         {categoryName}
       </h2>
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6">
-        {visibleProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 min-h-[480px]">
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[220px] rounded-2xl bg-gray-100 animate-pulse w-full"
+              />
+            ))
+          : visibleProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
       </div>
       <div className="text-center mt-6">
         <Link
