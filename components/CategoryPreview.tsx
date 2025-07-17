@@ -33,7 +33,7 @@ export default function CategoryPreview({
   const visibleProducts = products
     .filter((p) => p.in_stock !== false)
     .map((p) => ({ ...p, images: p.images || [] }))
-    .slice(0, 6);
+    .slice(0, 8);
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12" aria-labelledby={headingId}>
