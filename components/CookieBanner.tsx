@@ -13,7 +13,7 @@ export default function CookieBanner() {
   const isMounted = useRef(false);
 
   useEffect(() => {
-    if (isMounted.current) return; // Предотвращаем повторный вызов в React.StrictMode
+    if (isMounted.current) return;
     isMounted.current = true;
 
     let hasAccepted: string | null = null;
@@ -22,7 +22,7 @@ export default function CookieBanner() {
         hasAccepted = localStorage.getItem('cookieConsent');
       }
     } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('localStorage is not available:', e);
+      // ignore
     }
 
     if (!hasAccepted) {
@@ -33,9 +33,7 @@ export default function CookieBanner() {
           action: 'cookie_banner_view',
           type: 'banner',
         });
-      } catch (e) {
-        process.env.NODE_ENV !== "production" && console.error('Failed to track cookie banner view:', e);
-      }
+      } catch (e) { }
     }
 
     return () => {
@@ -50,9 +48,7 @@ export default function CookieBanner() {
         localStorage.setItem('analyticsCookies', 'true');
         localStorage.setItem('functionalCookies', 'true');
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
-    }
+    } catch (e) {}
     setIsVisible(false);
     try {
       trackEvent({
@@ -63,10 +59,11 @@ export default function CookieBanner() {
       if (typeof window !== 'undefined' && window.gtag) {
         window.gtag('consent', 'update', { analytics_storage: 'granted' });
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to track accept all or update gtag:', e);
-    }
-    process.env.NODE_ENV !== "production" && console.log('handleAcceptAll called, isVisible set to false');
+    } catch (e) {}
+  };
+
+  const handleShowSettings = () => {
+    setShowSettings(true);
   };
 
   const handleSaveSettings = () => {
@@ -76,9 +73,7 @@ export default function CookieBanner() {
         localStorage.setItem('analyticsCookies', analyticsCookies ? 'true' : 'false');
         localStorage.setItem('functionalCookies', functionalCookies ? 'true' : 'false');
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to set cookie settings in localStorage:', e);
-    }
+    } catch (e) {}
     setIsVisible(false);
     try {
       trackEvent({
@@ -90,9 +85,7 @@ export default function CookieBanner() {
       if (typeof window !== 'undefined' && window.gtag) {
         window.gtag('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to track save settings or update gtag:', e);
-    }
+    } catch (e) {}
   };
 
   const handleDecline = () => {
@@ -102,9 +95,7 @@ export default function CookieBanner() {
         localStorage.setItem('analyticsCookies', 'false');
         localStorage.setItem('functionalCookies', 'false');
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to set cookieConsent in localStorage:', e);
-    }
+    } catch (e) {}
     setIsVisible(false);
     try {
       trackEvent({
@@ -115,9 +106,7 @@ export default function CookieBanner() {
       if (typeof window !== 'undefined' && window.gtag) {
         window.gtag('consent', 'update', { analytics_storage: 'denied' });
       }
-    } catch (e) {
-      process.env.NODE_ENV !== "production" && console.error('Failed to track decline or update gtag:', e);
-    }
+    } catch (e) {}
   };
 
   if (!isVisible) return null;
@@ -127,20 +116,23 @@ export default function CookieBanner() {
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-white text-black p-6 rounded-lg shadow-lg z-50 border border-gray-200"
+      className="
+        fixed z-50 left-0 right-0 bottom-0 w-full mx-auto
+        bg-white text-black p-4 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.10)]
+        border-t border-gray-200 flex flex-col items-center gap-3
+        sm:max-w-md sm:left-auto sm:right-4 sm:bottom-4 sm:rounded-xl
+      "
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-desc"
     >
-      <h2 id="cookie-banner-title" className="text-lg font-sans font-semibold mb-2">
-        Мы используем cookies
-      </h2>
-      <p id="cookie-banner-desc" className="text-base mb-4">
-        Мы используем cookies для улучшения работы сайта и аналитики. Необходимые cookies обеспечивают базовую функциональность и не могут быть отключены. Вы можете настроить аналитические и функциональные cookies ниже или отклонить их. Подробнее в{' '}
+      <p id="cookie-banner-desc" className="text-sm text-center px-1">
+        Мы используем cookies для улучшения работы сайта и аналитики. Подробнее в{' '}
         <Link
           href="/cookie-policy"
-          className="underline hover:text-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-black"
+          className="underline hover:text-gray-600 transition-colors"
+          aria-label="Перейти к политике использования cookies"
           onClick={() =>
             trackEvent({
               category: 'cookie_banner',
@@ -148,76 +140,68 @@ export default function CookieBanner() {
               type: 'link',
             })
           }
-          aria-label="Перейти к политике использования cookies"
         >
           Политике использования cookies
-        </Link>.
+        </Link>
+        .
       </p>
-
-      {showSettings ? (
-        <div className="mb-4">
+      {!showSettings ? (
+        <div className="flex w-full gap-3 mt-1">
+          <button
+            onClick={handleShowSettings}
+            className="flex-1 py-3 rounded-xl bg-gray-100 border border-gray-300 text-black text-base font-bold hover:bg-gray-200 transition-colors"
+          >
+            Подробнее
+          </button>
+          <button
+            onClick={handleAcceptAll}
+            className="flex-1 py-3 rounded-xl bg-black text-white text-base font-bold shadow hover:bg-gray-900 transition-colors"
+          >
+            Принять все
+          </button>
+        </div>
+      ) : (
+        <div className="w-full mt-2">
           <div className="flex items-center mb-2">
             <input
               type="checkbox"
               id="analytics-cookies"
               checked={analyticsCookies}
-              onChange={(e) => setAnalyticsCookies(e.target.checked)}
+              onChange={e => setAnalyticsCookies(e.target.checked)}
               className="mr-2"
-              aria-label="Разрешить аналитические cookies"
             />
             <label htmlFor="analytics-cookies" className="text-sm">
               Аналитические cookies (Яндекс.Метрика)
             </label>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center mb-4">
             <input
               type="checkbox"
               id="functional-cookies"
               checked={functionalCookies}
-              onChange={(e) => setFunctionalCookies(e.target.checked)}
+              onChange={e => setFunctionalCookies(e.target.checked)}
               className="mr-2"
-              aria-label="Разрешить функциональные cookies"
             />
             <label htmlFor="functional-cookies" className="text-sm">
               Функциональные cookies (предпочтения, регион доставки)
             </label>
           </div>
+          <div className="flex w-full gap-3">
+            <button
+              onClick={handleSaveSettings}
+              className="flex-1 py-3 rounded-xl bg-black text-white text-base font-bold hover:bg-gray-900 transition-colors"
+            >
+              Сохранить
+            </button>
+            <button
+              onClick={handleDecline}
+              className="flex-1 py-3 rounded-xl bg-gray-100 border border-gray-300 text-black text-base font-bold hover:bg-gray-200 transition-colors"
+            >
+              Отклонить
+            </button>
+          </div>
         </div>
-      ) : null}
-
-      <div className="flex gap-4 flex-wrap">
-        <button
-          onClick={handleAcceptAll}
-          className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-          aria-describedby="cookie-banner-desc"
-        >
-          Принять все
-        </button>
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-          aria-describedby="cookie-banner-desc"
-        >
-          {showSettings ? 'Скрыть настройки' : 'Настроить'}
-        </button>
-        {showSettings ? (
-          <button
-            onClick={handleSaveSettings}
-            className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            aria-describedby="cookie-banner-desc"
-          >
-            Сохранить
-          </button>
-        ) : (
-          <button
-            onClick={handleDecline}
-            className="bg-gray-100 border border-gray-300 px-4 py-2 rounded hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            aria-describedby="cookie-banner-desc"
-          >
-            Отклонить
-          </button>
-        )}
-      </div>
+      )}
     </motion.div>
   );
 }

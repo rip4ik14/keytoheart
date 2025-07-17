@@ -31,9 +31,7 @@ export default function SearchModal({
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
-  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(
-    new Map()
-  );
+  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -166,13 +164,8 @@ export default function SearchModal({
       aria-modal="true"
       aria-label="Поиск по сайту"
     >
-      <button
-        onClick={onClose}
-        className="absolute top-2 right-2 p-2 text-black hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-black"
-        aria-label="Закрыть поиск"
-      >
-        <X size={20} />
-      </button>
+      {/* Исправленный крестик */}
+
 
       <div className="flex items-center gap-2 py-3 px-4">
         <Image
