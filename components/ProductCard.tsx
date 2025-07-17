@@ -74,12 +74,18 @@ export default function ProductCard({
     }
   };
 
+  // Определяем класс рамки и тени
+  const cardBorderClass =
+    (hovered || isMobile)
+      ? 'border-gray-200 shadow-sm'
+      : 'border-transparent';
+
   return (
     <motion.div
       ref={cardRef}
       className={[
         'relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] flex flex-col h-full min-h-[370px] sm:min-h-[420px] transition-all duration-200 focus:outline-none overflow-hidden border',
-        (hovered || isMobile) ? 'border-gray-200 shadow-sm' : 'border-transparent',
+        cardBorderClass,
       ].join(' ')}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -122,7 +128,7 @@ export default function ProductCard({
         }}
       />
 
-      {/* Всегда одинаковые заглушки под стикеры */}
+      {/* Стикеры */}
       <div className="absolute top-2 left-2 z-20 w-16 h-6 rounded-full bg-transparent flex items-center justify-start">
         {bonus > 0 && (
           <motion.div
@@ -201,24 +207,39 @@ export default function ProductCard({
 
       {/* Кнопка "В корзину" */}
       <div className="absolute left-0 bottom-0 w-full px-2 sm:px-3 z-10">
-        <AnimatePresence>
-          {(isMobile || hovered) && (
-            <motion.button
-              ref={buttonRef}
-              onClick={handleAddToCart}
-              className="w-full flex items-center justify-center bg-white border border-gray-300 text-black rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200 h-10"
-              aria-label={`Добавить ${product.title} в корзину`}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 15 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              tabIndex={0}
-            >
-              <ShoppingCart size={20} className="mr-2" />
-              <span className="uppercase tracking-wider">В корзину</span>
-            </motion.button>
-          )}
-        </AnimatePresence>
+        {isMobile ? (
+          // На мобильных: кнопка всегда видна, без анимации
+          <button
+            ref={buttonRef}
+            onClick={handleAddToCart}
+            className="w-full flex items-center justify-center bg-white border border-gray-300 text-black rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200 h-10"
+            aria-label={`Добавить ${product.title} в корзину`}
+            tabIndex={0}
+          >
+            <ShoppingCart size={20} className="mr-2" />
+            <span className="uppercase tracking-wider">В корзину</span>
+          </button>
+        ) : (
+          // На десктопе: анимация выпадения только при hover
+          <AnimatePresence>
+            {hovered && (
+              <motion.button
+                ref={buttonRef}
+                onClick={handleAddToCart}
+                className="w-full flex items-center justify-center bg-white border border-gray-300 text-black rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200 h-10"
+                aria-label={`Добавить ${product.title} в корзину`}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 15 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                tabIndex={0}
+              >
+                <ShoppingCart size={20} className="mr-2" />
+                <span className="uppercase tracking-wider">В корзину</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        )}
       </div>
     </motion.div>
   );
