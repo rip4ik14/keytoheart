@@ -65,21 +65,11 @@ export default function Footer({ categories }: FooterProps) {
                 <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
               </a>
             </div>
-            <a
-              href="https://yandex.ru/maps/org/klyuch_k_serdtsu/41599607553/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-xs text-gray-500 hover:underline"
-              aria-label="Рейтинг на Яндекс.Картах"
-              onClick={() => {
-                window.gtag?.('event', 'yandex_maps_click', { event_category: 'footer' });
-                if (YM_ID !== undefined) {
-                  callYm(YM_ID, 'reachGoal', 'yandex_maps_click');
-                }
-              }}
-            >
-              Рейтинг на Яндекс.Картах
-            </a>
+            {/* Яндекс рейтинг на десктопе */}
+            <div className="mb-2">
+              <iframe src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating" width="150" height="50" frameBorder="0"></iframe>
+               </div>
+                          
             <p className="text-xs text-gray-600 mt-4">© 2025 KEY TO HEART. Все права защищены.</p>
             <div className="mt-2 space-y-1">
               <Link
@@ -340,6 +330,10 @@ export default function Footer({ categories }: FooterProps) {
       {/* ======= Микрофутер только для мобильных ======= */}
       <div className="block sm:hidden bg-white border-t border-gray-200 text-xs text-center py-4">
         <div className="flex flex-col items-center gap-2">
+          {/* Яндекс рейтинг на мобилке */}
+          <div className="flex flex-col items-center mb-2">
+            <iframe src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating" width="150" height="50" frameBorder="0"></iframe>
+           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <Link href="/policy" className="text-gray-500 underline">
               Политика
