@@ -42,7 +42,6 @@ export default function PromoGridClient({
 
   // Для анимации слайдом
   useEffect(() => {
-    // Сброс анимации при смене slide
     const timer = setTimeout(() => setDirection(0), 350);
     return () => clearTimeout(timer);
   }, [active]);
@@ -91,6 +90,7 @@ export default function PromoGridClient({
                         fill
                         sizes="(max-width: 1024px) 100vw, 880px"
                         priority={i === 0}
+                        fetchPriority={i === 0 ? 'high' : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover rounded-[32px] transition-transform duration-500"
@@ -168,6 +168,7 @@ export default function PromoGridClient({
                     sizes="(max-width: 1024px) 320px, 240px"
                     loading={i === 0 ? 'eager' : 'lazy'}
                     priority={i === 0}
+                    fetchPriority={i === 0 ? 'high' : undefined}
                     placeholder="blur"
                     blurDataURL={BLUR_SRC}
                     className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
