@@ -26,7 +26,7 @@ export default function DostavkaPageClient() {
           Доставка и оплата
         </motion.h1>
 
-        {/* Секция 1: Доставка по Краснодару и пригороду (текст справа, изображение слева) */}
+        {/* Секция 1: Доставка по Краснодару и пригороду */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
           variants={sectionVariants}
@@ -51,15 +51,15 @@ export default function DostavkaPageClient() {
               Доставка по Краснодару и пригороду
             </h2>
             <p className="text-base sm:text-lg leading-relaxed">
-              Доставка осуществляется по Краснодару и ближайшему пригороду ежедневно с 09:00 до 23:00. Доставка в день заказа.
+              Доставка осуществляется по Краснодару и пригороду (до 30 км) ежедневно с 09:00 до 23:00
             </p>
             <p className="text-base sm:text-lg leading-relaxed">
-              Стоимость доставки рассчитывается по тарифам Яндекс.Доставки — окончательную стоимость уточнит менеджер. Также вы можете самостоятельно заказать доставку через Яндекс.Доставку.
+              Стоимость доставки рассчитывается по тарифам Яндекс.Доставки — окончательную стоимость уточнит менеджер. Также вы можете самостоятельно заказать доставку через Яндекс.Доставку, предупредив менеджера
             </p>
           </div>
         </motion.div>
 
-        {/* Секция 2: Самовывоз (статичная карта вместо iframe) */}
+        {/* Секция 2: Самовывоз — только интерактивная карта */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
           variants={sectionVariants}
@@ -87,33 +87,20 @@ export default function DostavkaPageClient() {
             </p>
           </div>
           <div>
-            <div className="overflow-hidden rounded-lg border">
-              <Image
-                src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.042147,45.059956&z=17&l=map&pt=39.042147,45.059956,pm2rdl"
-                alt="Точка самовывоза Key To Heart"
-                className="w-full h-64 md:h-80 object-cover"
-                loading="eager"
-                width={600}
-                height={400}
-                unoptimized
-              />
-              <div className="text-xs p-2 text-center text-gray-500 bg-white border-t">
-                <TrackedLink
-                  href="https://yandex.ru/maps/org/klyuch_k_serdtsu/41599607553/?ll=39.042147%2C45.059956&z=17"
-                  ariaLabel="Открыть на Яндекс.Картах"
-                  category="Maps"
-                  action="Open Map"
-                  label="Dostavka Page"
-                  className="underline"
-                >
-                  Открыть на Яндекс.Картах
-                </TrackedLink>
-              </div>
+            <div className="overflow-hidden rounded-lg border aspect-[7/5]">
+              <iframe
+                src="https://yandex.ru/map-widget/v1/?z=12&ol=biz&oid=81940019159"
+                width="100%"
+                height="100%"
+                frameBorder={0}
+                style={{ width: '100%', height: '100%' }}
+                allowFullScreen
+                title="Карта самовывоза Key To Heart"
+              ></iframe>
             </div>
           </div>
         </motion.div>
 
-       
         {/* Секция 4: FAQ */}
         <motion.div
           className="space-y-4 max-w-3xl mx-auto"

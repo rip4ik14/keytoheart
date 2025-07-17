@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 import TrackedLink from '@components/TrackedLink';
 import ContactLink from '@components/ContactLink';
@@ -100,34 +99,24 @@ export default function ContactsPageClient() {
           .
         </motion.p>
 
-        {/* Новая статическая карта Яндекс */}
+        {/* Новая интерактивная карта Яндекс */}
         <motion.div
-          className="overflow-hidden rounded-2xl border"
+          className="overflow-hidden rounded-2xl border aspect-[7/5]"
           style={{ background: '#eee' }}
           variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <Image
-            src="https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.037611,45.058091&z=17&l=map&pt=39.037611,45.058091,pm2rdl"
-            alt="Магазин Ключ к Сердцу на карте"
-            className="w-full h-[320px] sm:h-[400px] object-cover"
-            loading="eager"
-            width={450}
-            height={450}
-            unoptimized
-          />
-          <div className="text-xs p-2 text-center text-gray-500 bg-white border-t">
-            <a
-              href="https://yandex.ru/maps/org/klyuch_k_serdtsu/81940019159/?ll=39.037611%2C45.058091&z=17"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline"
-            >
-              Открыть на Яндекс.Картах
-            </a>
-          </div>
+          <iframe
+            src="https://yandex.ru/map-widget/v1/?z=17&ol=biz&oid=81940019159"
+            width="100%"
+            height="100%"
+            frameBorder={0}
+            style={{ width: '100%', height: '100%' }}
+            allowFullScreen
+            title="Магазин Ключ к Сердцу на карте"
+          ></iframe>
         </motion.div>
       </section>
     </ClientAnimatedSection>
