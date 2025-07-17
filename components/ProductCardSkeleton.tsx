@@ -1,5 +1,3 @@
-// components/ProductCardSkeleton.tsx
-
 export default function ProductCardSkeleton() {
   return (
     <div
@@ -11,12 +9,12 @@ export default function ProductCardSkeleton() {
         overflow-hidden
       "
     >
-      {/* Стикеры (имитация бонуса и популярности) */}
+      {/* Стикеры (имитация бонуса и популярности, всегда видны заглушки) */}
       <div className="absolute top-2 left-2 z-20 w-16 h-6 rounded-full bg-gray-100" />
       <div className="absolute top-2 right-2 z-20 w-16 h-6 rounded-full bg-gray-100" />
 
       {/* Картинка */}
-      <div className="block relative w-full aspect-[3/4] rounded-[18px] bg-gray-200 mb-3" />
+      <div className="block relative w-full aspect-[3/4] rounded-[18px] bg-gray-200 overflow-hidden" />
 
       {/* Контент */}
       <div className="flex flex-col p-2 sm:p-4 flex-1 pb-12 sm:pb-14 relative">
