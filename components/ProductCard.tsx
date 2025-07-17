@@ -78,9 +78,8 @@ export default function ProductCard({
     <motion.div
       ref={cardRef}
       className={[
-        'relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] overflow-hidden transition-all duration-200 focus:outline-none',
-        isMobile ? 'border border-gray-200' : hovered ? 'border border-gray-200 shadow-sm' : '',
-        'flex flex-col h-full'
+        'relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px] flex flex-col h-full min-h-[370px] sm:min-h-[420px] transition-all duration-200 focus:outline-none overflow-hidden border',
+        (hovered || isMobile) ? 'border-gray-200 shadow-sm' : 'border-transparent',
       ].join(' ')}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -92,7 +91,6 @@ export default function ProductCard({
       aria-labelledby={`product-${product.id}-title`}
       tabIndex={0}
       aria-live="polite"
-      style={{ minHeight: isMobile ? 370 : undefined }}
     >
       {/* SEO */}
       <script
@@ -124,36 +122,38 @@ export default function ProductCard({
         }}
       />
 
-      {/* Бонусы */}
-      {bonus > 0 && (
-        <motion.div
-          className="absolute top-2 left-2 z-20 flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100 sm:top-4 sm:left-4"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          +{bonus}
-          <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
-        </motion.div>
-      )}
-
-      {/* Популярно */}
-      {isPopular && (
-        <motion.div
-          className="absolute top-2 right-2 z-20 bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold sm:top-4 sm:right-4"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <Star size={isMobile ? 16 : 13} className="text-yellow-400 mr-1" />
-          Популярно
-        </motion.div>
-      )}
+      {/* Всегда одинаковые заглушки под стикеры */}
+      <div className="absolute top-2 left-2 z-20 w-16 h-6 rounded-full bg-transparent flex items-center justify-start">
+        {bonus > 0 && (
+          <motion.div
+            className="flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            +{bonus}
+            <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
+          </motion.div>
+        )}
+      </div>
+      <div className="absolute top-2 right-2 z-20 w-16 h-6 rounded-full bg-transparent flex items-center justify-end">
+        {isPopular && (
+          <motion.div
+            className="bg-black text-white text-[10px] sm:text-sm px-2 py-0.5 rounded-full flex items-center font-bold"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Star size={isMobile ? 16 : 13} className="text-yellow-400 mr-1" />
+            Популярно
+          </motion.div>
+        )}
+      </div>
 
       {/* Картинка */}
       <Link
         href={`/product/${product.id}`}
-        className="block relative w-full overflow-hidden aspect-[3/4] transition-all duration-200 rounded-[18px]"
+        className="block relative w-full aspect-[3/4] transition-all duration-200 rounded-[18px] overflow-hidden"
         tabIndex={-1}
         aria-label={`Перейти к товару ${product.title}`}
       >
@@ -173,7 +173,7 @@ export default function ProductCard({
       <div className="flex flex-col p-2 sm:p-4 flex-1 pb-12 sm:pb-14 relative">
         <h3
           id={`product-${product.id}-title`}
-          className="text-sm sm:text-[15px] font-medium text-black text-center mb-2 leading-tight break-words"
+          className="text-sm sm:text-[15px] font-medium text-black text-center mb-2 leading-tight break-words min-h-[36px] flex items-center justify-center"
         >
           {product.title}
         </h3>
@@ -199,28 +199,26 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* Кнопка "В корзину" (моб/деск) */}
+      {/* Кнопка "В корзину" */}
       <div className="absolute left-0 bottom-0 w-full px-2 sm:px-3 z-10">
-<AnimatePresence>
-  {(isMobile || hovered) && (
-    <motion.button
-      ref={buttonRef}
-      onClick={handleAddToCart}
-      className="w-full flex items-center justify-center bg-white border border-gray-300 text-black py-2 rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200"
-      style={{ height: '2.5rem' }}
-      aria-label={`Добавить ${product.title} в корзину`}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 15 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      tabIndex={0}
-    >
-      <ShoppingCart size={20} className="mr-2" />
-      <span className="uppercase tracking-wider">В корзину</span>
-    </motion.button>
-  )}
-</AnimatePresence>
-
+        <AnimatePresence>
+          {(isMobile || hovered) && (
+            <motion.button
+              ref={buttonRef}
+              onClick={handleAddToCart}
+              className="w-full flex items-center justify-center bg-white border border-gray-300 text-black rounded-b-[18px] font-bold text-base hover:bg-black hover:text-white transition-all duration-200 h-10"
+              aria-label={`Добавить ${product.title} в корзину`}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              tabIndex={0}
+            >
+              <ShoppingCart size={20} className="mr-2" />
+              <span className="uppercase tracking-wider">В корзину</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
