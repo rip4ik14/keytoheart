@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ import Image from 'next/image';
 interface Category {
   id: number;
   name: string;
+  slug: string;
 }
 
 interface Subcategory {
@@ -40,6 +41,11 @@ interface Product {
   bonus?: number | null;
 }
 
+interface ImageFile {
+  id: string;
+  file: File;
+}
+
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
@@ -62,7 +68,7 @@ export default function EditProductPage() {
   const [description, setDescription] = useState('');
   const [composition, setComposition] = useState('');
   const [productionTime, setProductionTime] = useState('');
-  const [images, setImages] = useState<File[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [inStock, setInStock] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
@@ -70,15 +76,21 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(false);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
 
-  // Вычисляем бонус автоматически от цены (2.5%)
-  const calcBonus = (val: string) => {
-    const priceNum = parseFloat(val);
-    return priceNum && priceNum > 0 ? Math.round(priceNum * 2.5) / 100 : 0;
-  };
-  const bonus = calcBonus(price);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Функции для перестановки существующих изображений
-  const moveImage = (from: number, to: number) => {
+  // Вычисляем бонус автоматически (2.5% от цены)
+  const calcBonus = (val: string): string => {
+    const priceNum = parseFloat(val);
+    return priceNum && priceNum > 0 ? (Math.round(priceNum * 2.5) / 100).toString() : '0';
+  };
+
+  const [bonus, setBonus] = useState('0');
+  useEffect(() => {
+    setBonus(calcBonus(price));
+  }, [price]);
+
+  // Функции для перестановки изображений
+  const moveExistingImage = (from: number, to: number) => {
     setExistingImages(prev => {
       const arr = [...prev];
       const [item] = arr.splice(from, 1);
@@ -87,38 +99,34 @@ export default function EditProductPage() {
     });
   };
   const moveImageLeft = (idx: number) => {
-    if (idx > 0) moveImage(idx, idx - 1);
+    if (idx > 0) moveExistingImage(idx, idx - 1);
   };
   const moveImageRight = (idx: number) => {
-    if (idx < existingImages.length - 1) moveImage(idx, idx + 1);
+    if (idx < existingImages.length - 1) moveExistingImage(idx, idx + 1);
   };
 
-  // Авторизация
+  // Фильтрация подкатегорий под выбранные категории
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/admin-session', { credentials: 'include' });
-        const data = await res.json();
-        if (!res.ok || !data.success) throw new Error();
-        setIsAuthenticated(true);
-      } catch {
-        toast.error('Доступ запрещён');
-        setTimeout(() => {
-          router.push(`/admin/login?from=${encodeURIComponent(`/admin/edit-product/${id || ''}`)}`);
-        }, 100);
-      }
-    };
-    checkAuth();
-  }, [router, id]);
+    if (categoryIds.length > 0) {
+      const filtered = subcategories.filter(
+        sub => sub.category_id && categoryIds.includes(sub.category_id)
+      );
+      setFilteredSubcategories(filtered);
+      setSubcategoryIds(prev => prev.filter(id => filtered.some(sub => sub.id === id)));
+    } else {
+      setFilteredSubcategories([]);
+      setSubcategoryIds([]);
+    }
+  }, [categoryIds, subcategories]);
 
-  // Категории/подкатегории
+  // Загрузка категорий/подкатегорий
   useEffect(() => {
     const fetchCategoriesAndSubcategories = async () => {
       try {
         setIsCategoriesLoading(true);
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
-          .select('id, name')
+          .select('id, name, slug')
           .order('name', { ascending: true });
         if (categoriesError) throw new Error(categoriesError.message);
         setCategories(categoriesData || []);
@@ -137,6 +145,22 @@ export default function EditProductPage() {
     };
     fetchCategoriesAndSubcategories();
   }, []);
+
+  // Проверка авторизации
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/admin-session', { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error();
+        setIsAuthenticated(true);
+      } catch {
+        toast.error('Доступ запрещён');
+        router.push(`/admin/login?from=${encodeURIComponent(`/admin/edit-product/${id || ''}`)}`);
+      }
+    };
+    checkAuth();
+  }, [router, id]);
 
   // Данные товара
   useEffect(() => {
@@ -215,6 +239,7 @@ export default function EditProductPage() {
         setInStock(normalizedData.in_stock);
         setIsVisible(normalizedData.is_visible);
         setIsPopular(normalizedData.is_popular);
+        setBonus(calcBonus(normalizedData.price.toString()));
       } catch (err: any) {
         toast.error(err.message);
         setTimeout(() => {
@@ -223,58 +248,60 @@ export default function EditProductPage() {
       }
     };
     fetchProduct();
+    // eslint-disable-next-line
   }, [isAuthenticated, id, router]);
 
-  // Фильтрация подкатегорий
   useEffect(() => {
-    if (categoryIds.length > 0) {
-      const filtered = subcategories.filter(sub =>
-        sub.category_id && categoryIds.includes(sub.category_id)
-      );
-      setFilteredSubcategories(filtered);
-      setSubcategoryIds(prev =>
-        prev.filter(id => filtered.some(sub => sub.id === id))
-      );
-    } else {
-      setFilteredSubcategories([]);
-      setSubcategoryIds([]);
-    }
-  }, [categoryIds, subcategories]);
+    titleInputRef.current?.focus();
+  }, [product]);
 
-  // Обработка новых файлов
+  // Загрузка/обработка новых изображений
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length > 5) {
-      toast.error('Максимум 5 изображений');
+    if (files.length + existingImages.length > 7) {
+      toast.error('Максимум 7 изображений');
       return;
     }
     const maxSize = 5 * 1024 * 1024;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (files.some(f => f.size > maxSize)) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    const invalidTypeFiles = files.filter(file => !allowedTypes.includes(file.type));
+    if (oversizedFiles.length > 0) {
       toast.error('Некоторые файлы превышают 5MB');
       return;
     }
-    if (files.some(f => !allowed.includes(f.type))) {
+    if (invalidTypeFiles.length > 0) {
       toast.error('Поддерживаются только JPEG, PNG, WebP');
       return;
     }
-    setImages(files);
+    const newImages = files.map(file => ({
+      id: uuidv4(),
+      file,
+    }));
+    setImages(prev => [...prev, ...newImages]);
   };
 
-  const handleRemoveImage = async (imageUrl: string) => {
+  // Удаление существующего изображения (с сервера и из массива)
+  const handleRemoveImage = async (url: string) => {
     try {
-      const fileName = decodeURIComponent(imageUrl.split('/').pop()!);
+      const fileName = decodeURIComponent(url.split('/').pop()!);
       const { error } = await supabase.storage
         .from('product-image')
         .remove([fileName]);
       if (error) throw new Error(error.message);
-      setExistingImages(prev => prev.filter(u => u !== imageUrl));
+      setExistingImages(prev => prev.filter(u => u !== url));
       toast.success('Изображение удалено');
     } catch (err: any) {
       toast.error('Ошибка: ' + err.message);
     }
   };
 
+  // Удаление нового изображения (только из формы)
+  const handleRemoveNewImage = (id: string) => {
+    setImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  // Сжатие изображения
   const compressImage = (file: File): Promise<File> =>
     new Promise((resolve, reject) =>
       new Compressor(file, {
@@ -296,10 +323,7 @@ export default function EditProductPage() {
       checked ? [...prev, categoryId] : prev.filter(id => id !== categoryId)
     );
   };
-  const handleSubcategoryChange = (
-    subcategoryId: number,
-    checked: boolean
-  ) => {
+  const handleSubcategoryChange = (subcategoryId: number, checked: boolean) => {
     setSubcategoryIds(prev =>
       checked ? [...prev, subcategoryId] : prev.filter(id => id !== subcategoryId)
     );
@@ -307,6 +331,7 @@ export default function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent, csrfToken: string) => {
     e.preventDefault();
+    const toastId = toast.loading('Сохранение товара...');
     setLoading(true);
     try {
       if (title.trim().length < 3)
@@ -329,22 +354,41 @@ export default function EditProductPage() {
       const productionTimeNum = productionTime
         ? Number(productionTime)
         : null;
+      const bonusNum = parseFloat(bonus);
+      if (isNaN(bonusNum) || bonusNum < 0) {
+        throw new Error('Бонус должен быть ≥ 0');
+      }
 
-      // Загрузка новых изображений
-      let imageUrls = [...existingImages];
+      // Проверяем название категорий (для лейбла)
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('name, slug')
+        .in('id', categoryIds);
+      if (categoriesError || !categoriesData) throw new Error('Ошибка получения категорий');
+
+      // Запрещаем шарики/открытки в популярных
+      if (isPopular && categoriesData.some(cat => ['balloon', 'postcard'].includes(cat.slug))) {
+        throw new Error('Шарики и открытки нельзя сделать популярными товарами');
+      }
+
+      // Загрузка новых картинок
+      let imageUrls: string[] = [...existingImages];
       if (images.length > 0) {
         for (const image of images) {
-          const compressed = await compressImage(image);
-          const fileName = `${uuidv4()}-${compressed.name}`;
+          const compressedImage = await compressImage(image.file);
+          const fileName = `${uuidv4()}-${compressedImage.name}`;
           const { error } = await supabase.storage
             .from('product-image')
-            .upload(fileName, compressed);
-          if (error) throw new Error(error.message);
+            .upload(fileName, compressedImage);
+          if (error) throw new Error('Ошибка загрузки изображения: ' + error.message);
           const { data: publicData } = supabase.storage
             .from('product-image')
             .getPublicUrl(fileName);
-          if (publicData?.publicUrl) imageUrls.push(publicData.publicUrl);
-          else throw new Error('Не удалось получить URL изображения');
+          if (publicData?.publicUrl) {
+            imageUrls.push(publicData.publicUrl);
+          } else {
+            throw new Error('Не удалось получить публичный URL изображения');
+          }
         }
       }
 
@@ -359,29 +403,29 @@ export default function EditProductPage() {
           title: title.trim(),
           price: priceNum,
           original_price: originalPriceNum,
+          discount_percent: discountNum,
+          category: categoriesData.map(cat => cat.name).join(', '),
           category_ids: categoryIds,
           subcategory_ids: subcategoryIds,
+          production_time: productionTimeNum,
           short_desc: shortDesc.trim(),
           description: description.trim(),
           composition: composition.trim(),
+          bonus: bonusNum,
           images: imageUrls,
-          discount_percent: discountNum,
           in_stock: inStock,
           is_visible: isVisible,
           is_popular: isPopular,
-          production_time: productionTimeNum,
-          bonus,
+          order_index: 0,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Ошибка обновления товара');
 
-      toast.success(
-        'Товар успешно обновлён. Изменения появятся на сайте в течение 30 секунд.'
-      );
+      toast.success('Товар успешно обновлён', { id: toastId });
       router.push('/admin/products');
     } catch (err: any) {
-      toast.error('Ошибка: ' + err.message);
+      toast.error('Ошибка: ' + err.message, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -389,7 +433,7 @@ export default function EditProductPage() {
 
   if (isAuthenticated === null || !product || !id) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center text-lg text-gray-600">
         Загрузка...
       </div>
     );
@@ -398,171 +442,203 @@ export default function EditProductPage() {
 
   return (
     <CSRFToken>
-      {csrfToken => (
+      {(csrfToken) => (
         <motion.div
-          className="max-w-4xl mx-auto p-4 sm:p-8 bg-white rounded-2xl shadow-xl my-8"
+          className="max-w-3xl mx-auto p-4 sm:p-8 bg-white rounded-2xl shadow-xl my-8 animate-in fade-in duration-200"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-2xl sm:text-3xl font-bold mb-4">
-            Редактировать товар #{id}
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 tracking-tight">Редактировать товар #{id}</h1>
           <form onSubmit={e => handleSubmit(e, csrfToken)} className="space-y-8">
-            {/* Основная информация */}
+            {/* ——— Основная информация ——— */}
             <section>
-              <h2 className="text-xl font-semibold mb-3">Основная информация</h2>
-              <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-800 mb-3">Основная информация</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block mb-1 font-medium text-gray-600">Название</label>
+                  <label htmlFor="title" className="block mb-1 font-medium text-gray-600">Название:</label>
                   <input
+                    id="title"
+                    ref={titleInputRef}
                     type="text"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Название товара (мин. 3 символа)"
                     required
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-1 font-medium text-gray-600">Цена (₽)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={price}
-                      onChange={e => setPrice(e.target.value)}
-                      className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-medium text-gray-600">Старая цена (₽)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={originalPrice}
-                      onChange={e => setOriginalPrice(e.target.value)}
-                      className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
                 <div>
-                  <label className="block mb-1 font-medium text-gray-600">Скидка (%)</label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={discountPercent}
-                    onChange={e => setDiscountPercent(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1 font-medium text-gray-600">Бонус (₽)</label>
-                  <input
-                    type="number"
-                    value={bonus}
-                    readOnly
-                    className="w-full p-2 border rounded-lg bg-gray-100 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Категории и подкатегории */}
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Категории</h2>
-              {isCategoriesLoading ? (
-                <p>Загрузка категорий...</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-1 font-medium text-gray-600">Категории</label>
+                  <label className="block mb-1 font-medium text-gray-600">Категории:</label>
+                  {isCategoriesLoading ? (
+                    <p className="text-gray-400">Загрузка...</p>
+                  ) : (
                     <div className="flex flex-wrap gap-2">
-                      {categories.map(category => (
+                      {categories.map(cat => (
                         <label
-                          key={category.id}
-                          className={`flex items-center px-2 py-1 bg-gray-100 rounded-lg cursor-pointer select-none hover:bg-gray-200 transition text-gray-700 text-sm ${categoryIds.includes(category.id) ? 'border border-black font-bold' : 'border border-transparent'}`}
+                          key={cat.id}
+                          className={`flex items-center px-2 py-1 bg-gray-100 rounded-lg cursor-pointer select-none hover:bg-gray-200 transition text-gray-700 text-sm ${categoryIds.includes(cat.id) ? 'border border-black font-bold' : 'border border-transparent'}`}
                         >
                           <input
                             type="checkbox"
-                            checked={categoryIds.includes(category.id)}
-                            onChange={e => handleCategoryChange(category.id, e.target.checked)}
+                            checked={categoryIds.includes(cat.id)}
+                            onChange={e => handleCategoryChange(cat.id, e.target.checked)}
                             className="mr-2 accent-black"
                           />
-                          {category.name}
+                          {cat.name}
                         </label>
                       ))}
                     </div>
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-medium text-gray-600">Подкатегории</label>
-                    {filteredSubcategories.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {filteredSubcategories.map(subcategory => (
-                          <label
-                            key={subcategory.id}
-                            className={`flex items-center px-2 py-1 bg-gray-100 rounded-lg cursor-pointer select-none hover:bg-gray-200 transition text-gray-700 text-sm ${subcategoryIds.includes(subcategory.id) ? 'border border-black font-bold' : 'border border-transparent'}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={subcategoryIds.includes(subcategory.id)}
-                              onChange={e => handleSubcategoryChange(subcategory.id, e.target.checked)}
-                              className="mr-2 accent-black"
-                            />
-                            {subcategory.name}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500">Выберите категории для отображения подкатегорий</p>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+                <div className="sm:col-span-2">
+                  <label className="block mb-1 font-medium text-gray-600">Подкатегории:</label>
+                  {filteredSubcategories.length === 0 ? (
+                    <p className="text-gray-400">Сначала выберите категории</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {filteredSubcategories.map(sub => (
+                        <label
+                          key={sub.id}
+                          className={`flex items-center px-2 py-1 bg-gray-100 rounded-lg cursor-pointer select-none hover:bg-gray-200 transition text-gray-700 text-sm ${subcategoryIds.includes(sub.id) ? 'border border-black font-bold' : 'border border-transparent'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={subcategoryIds.includes(sub.id)}
+                            onChange={e => handleSubcategoryChange(sub.id, e.target.checked)}
+                            className="mr-2 accent-black"
+                          />
+                          {sub.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </section>
 
-            {/* Описание */}
+            {/* ——— Цены, скидки, бонусы ——— */}
             <section>
-              <h2 className="text-xl font-semibold mb-3">Описание</h2>
-              <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-800 mb-3">Цены и бонусы</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div>
-                  <label className="block mb-1 font-medium text-gray-600">Краткое описание</label>
-                  <textarea
-                    value={shortDesc}
-                    onChange={e => setShortDesc(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
+                  <label htmlFor="price" className="block mb-1 font-medium text-gray-600">Цена (₽):</label>
+                  <input
+                    id="price"
+                    type="number"
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Цена"
+                    required
+                    min="0.01"
+                    step="0.01"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 font-medium text-gray-600">Полное описание</label>
-                  <textarea
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={5}
+                  <label htmlFor="originalPrice" className="block mb-1 font-medium text-gray-600">Старая цена (₽, опционально):</label>
+                  <input
+                    id="originalPrice"
+                    type="number"
+                    value={originalPrice}
+                    onChange={e => setOriginalPrice(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Старая цена (необязательно)"
+                    min="0.01"
+                    step="0.01"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 font-medium text-gray-600">Состав</label>
-                  <textarea
-                    value={composition}
-                    onChange={e => setComposition(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
+                  <label htmlFor="discountPercent" className="block mb-1 font-medium text-gray-600">Скидка (%):</label>
+                  <input
+                    id="discountPercent"
+                    type="number"
+                    value={discountPercent}
+                    onChange={e => setDiscountPercent(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Скидка (0-100)"
+                    min="0"
+                    max="100"
+                    step="1"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-4">
+                <div>
+                  <label htmlFor="bonus" className="block mb-1 font-medium text-gray-600">Бонус (2,5%):</label>
+                  <input
+                    id="bonus"
+                    type="number"
+                    value={bonus}
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                    disabled
+                  />
+                </div>
+                <div>
+                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (ч):</label>
+                  <input
+                    id="productionTime"
+                    type="number"
+                    value={productionTime}
+                    onChange={e => setProductionTime(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Время изготовления"
+                    min="0"
+                    step="1"
                   />
                 </div>
               </div>
             </section>
 
-            {/* Изображения и настройки */}
+            {/* ——— Описание ——— */}
             <section>
-              <h2 className="text-xl font-semibold mb-3">Изображения и параметры</h2>
+              <h2 className="text-xl font-semibold text-gray-800 mb-3">Описание</h2>
+              <div className="grid grid-cols-1 gap-5">
+                <div>
+                  <label htmlFor="shortDesc" className="block mb-1 font-medium text-gray-600">Краткое описание:</label>
+                  <textarea
+                    id="shortDesc"
+                    value={shortDesc}
+                    onChange={e => setShortDesc(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Краткое описание"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="description" className="block mb-1 font-medium text-gray-600">Полное описание:</label>
+                  <textarea
+                    id="description"
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Полное описание"
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="composition" className="block mb-1 font-medium text-gray-600">Состав:</label>
+                  <textarea
+                    id="composition"
+                    value={composition}
+                    onChange={e => setComposition(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
+                    placeholder="Состав товара (ингредиенты и пр.)"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* ——— Изображения и настройки ——— */}
+            <section>
+              <h2 className="text-xl font-semibold text-gray-800 mb-3">Изображения и параметры</h2>
               <div>
-                <label className="block mb-1 font-medium text-gray-600">Существующие изображения:</label>
-                {existingImages.length > 0 ? (
+                <label htmlFor="images" className="block mb-1 font-medium text-gray-600">Изображения:</label>
+                {/* Существующие изображения */}
+                {existingImages.length > 0 && (
                   <div
-                    className="flex flex-wrap gap-2 mb-4"
+                    className="flex flex-wrap gap-2 mt-2"
                     onDragOver={e => e.preventDefault()}
                   >
                     {existingImages.map((url, index) => (
@@ -573,14 +649,14 @@ export default function EditProductPage() {
                         onDrop={e => {
                           const fromIndex = parseInt(e.dataTransfer.getData('index'));
                           if (fromIndex !== index) {
-                            moveImage(fromIndex, index);
+                            moveExistingImage(fromIndex, index);
                           }
                         }}
-                        className="relative w-24 h-24 border rounded-lg overflow-hidden bg-gray-50 shadow-sm cursor-move"
+                        className="relative group w-24 h-24 border rounded-lg overflow-hidden shadow-sm bg-gray-50 cursor-move"
                       >
                         <Image
                           src={url}
-                          alt={`Image ${index + 1}`}
+                          alt={`Изображение ${index + 1}`}
                           fill
                           className="object-cover rounded-lg pointer-events-none"
                         />
@@ -615,86 +691,93 @@ export default function EditProductPage() {
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-500">Изображения отсутствуют</p>
                 )}
-              </div>
-              <div>
-                <label className="block mb-1 font-medium text-gray-600">
-                  Добавить новые изображения (максимум 5):
-                </label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={handleImageChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                />
+                {/* Новые изображения (выбранные для загрузки) */}
                 {images.length > 0 && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    Выбрано {images.length} файл(ов)
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {images.map((image, index) => (
+                      <div
+                        key={image.id}
+                        className="relative w-24 h-24 border rounded-lg overflow-hidden shadow-sm bg-gray-50"
+                      >
+                        <Image
+                          src={URL.createObjectURL(image.file)}
+                          alt={image.file.name}
+                          fill
+                          className="object-cover rounded-lg pointer-events-none"
+                        />
+                        <button
+                          onClick={() => handleRemoveNewImage(image.id)}
+                          type="button"
+                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 border border-gray-200 hover:bg-red-500 hover:text-white transition z-10 shadow"
+                          aria-label="Удалить изображение"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
+                <input
+                  id="images"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  className="block w-full p-2 border border-gray-300 rounded-lg mb-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                />
+                <p className="text-sm text-gray-500 mb-2">Максимум 7 файлов (JPEG, PNG, WebP, ≤5MB)</p>
               </div>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="block mb-1 font-medium text-gray-600">
-                    Время производства (дней)
-                  </label>
-                  <input
-                    type="number"
-                    value={productionTime}
-                    onChange={e => setProductionTime(e.target.value)}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-4 mt-4 flex-wrap">
+                <label className="inline-flex items-center gap-2 text-gray-700">
                   <input
                     type="checkbox"
                     checked={inStock}
                     onChange={e => setInStock(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-5 h-5 accent-black"
                   />
-                  <label className="font-medium text-gray-600">В наличии</label>
-                </div>
-                <div className="flex items-center space-x-2">
+                  В наличии
+                </label>
+                <label className="inline-flex items-center gap-2 text-gray-700">
                   <input
                     type="checkbox"
                     checked={isVisible}
                     onChange={e => setIsVisible(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-5 h-5 accent-black"
                   />
-                  <label className="font-medium text-gray-600">Видимый</label>
-                </div>
-                <div className="flex items-center space-x-2">
+                  Показать товар
+                </label>
+                <label className="inline-flex items-center gap-2 text-gray-700">
                   <input
                     type="checkbox"
                     checked={isPopular}
                     onChange={e => setIsPopular(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-5 h-5 accent-black"
                   />
-                  <label className="font-medium text-gray-600">Популярный</label>
-                </div>
+                  Популярный
+                </label>
               </div>
             </section>
 
-            {/* Кнопки */}
+            {/* ——— Кнопки ——— */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <motion.button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-3 bg-black text-white rounded-xl shadow-md hover:bg-gray-900 transition-all disabled:bg-gray-400"
+                className="flex-1 py-3 text-lg font-bold bg-black text-white rounded-xl shadow-md hover:bg-gray-900 transition-all disabled:bg-gray-400"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
+                aria-label="Сохранить изменения"
               >
                 {loading ? 'Сохранение...' : 'Сохранить изменения'}
               </motion.button>
               <motion.button
                 type="button"
                 onClick={() => router.push('/admin/products')}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
+                className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
+                aria-label="Отмена"
               >
                 Отмена
               </motion.button>
