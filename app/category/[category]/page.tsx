@@ -1,12 +1,16 @@
 /* -------------------------------------------------------------------------- */
-/*  Категорийная страница (SSR + Supabase + JSON-LD ItemList & Breadcrumb)    */
-/*  Версия: 2025-07-13                                                        */
+/*  Категория (SSR + Supabase + JSON‑LD CollectionPage & Breadcrumb)          */
+/*  Версия: 2025‑07‑18 — для кластеров «Цветы» и «Комбо‑наборы»               */
 /* -------------------------------------------------------------------------- */
 
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type { ItemList, BreadcrumbList } from 'schema-dts';
+import type {
+  ItemList,
+  BreadcrumbList,
+  CollectionPage,
+} from 'schema-dts';
 import { Suspense } from 'react';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
@@ -49,14 +53,14 @@ interface Subcategory {
 /* ------------------------ slug ⇄ отображаемое имя ----------------------- */
 const nameMap: Record<string, string> = {
   'klubnichnye-bukety': 'Клубничные букеты',
-  'klubnichnye-boksy': 'Клубничные боксы',
-  flowers: 'Цветы',
-  combo: 'Комбо-наборы',
-  premium: 'Premium',
-  kollekcii: 'Коллекции',
-  povod: 'Повод',
-  podarki: 'Подарки',
-  // ── подкатегории ниже
+  'klubnichnye-boksy':  'Клубничные боксы',
+  flowers:              'Цветы',
+  combo:                'Комбо‑наборы',
+  premium:              'Premium',
+  kollekcii:            'Коллекции',
+  povod:                'Повод',
+  podarki:              'Подарки',
+  /* --- подкатегории ниже (оставлены без изменений) --- */
   'club-box': 'Club Box',
   roses: 'Roses',
   'mono-bouquets': 'Mono Bouquets',
@@ -83,7 +87,7 @@ const nameMap: Record<string, string> = {
   cards: 'Cards',
 };
 
-/* ------------------------ SEO-метаданные страницы ----------------------- */
+/* ------------------------ SEO‑метаданные страницы ----------------------- */
 export async function generateMetadata({
   params,
 }: {
@@ -92,16 +96,76 @@ export async function generateMetadata({
   const { category } = await params;
   const name = nameMap[category] ?? 'Категория';
 
+  /* --- кастомные кластеры «Цветы» и «Комбо‑наборы» --- */
+  if (category === 'flowers') {
+    return {
+      title:
+        'Доставка цветов и букетов в Краснодаре — купить онлайн | KEY TO HEART',
+      description:
+        'Свежие розы, сборные букеты и композиции с доставкой по Краснодару за 60 минут. Фото перед отправкой, бесплатная открытка и удобная оплата онлайн.',
+      alternates: { canonical: 'https://keytoheart.ru/category/flowers' },
+      openGraph: {
+        title: 'Цветы с доставкой в Краснодаре | KEY TO HEART',
+        description:
+          'Закажите букет цветов онлайн: доставка по Краснодару 60 минут, фото перед отправкой, бесплатная открытка.',
+        url: 'https://keytoheart.ru/category/flowers',
+        images: [
+          {
+            url: 'https://keytoheart.ru/og-flowers.webp',
+            width: 1200,
+            height: 630,
+            alt: 'Букет цветов с доставкой — KEY TO HEART',
+          },
+        ],
+      },
+      twitter: { card: 'summary_large_image' },
+    };
+  }
+
+  if (category === 'combo') {
+    return {
+      title:
+        'Комбо‑наборы: клубника в шоколаде и цветы — доставка в Краснодаре | KEY TO HEART',
+      description:
+        'Уникальные комбо‑наборы: клубника в бельгийском шоколаде + свежие цветы в одной коробке. Доставка по Краснодару 60 минут, фото перед отправкой, бесплатная открытка, оплата онлайн.',
+      alternates: { canonical: 'https://keytoheart.ru/category/combo' },
+      openGraph: {
+        title: 'Комбо‑наборы «Клубника + Цветы» | KEY TO HEART',
+        description:
+          'Сладкое и красивое в одном подарке: клубника в шоколаде и цветы. Быстрая доставка по Краснодару.',
+        url: 'https://keytoheart.ru/category/combo',
+        images: [
+          {
+            url: 'https://keytoheart.ru/og-combo.webp',
+            width: 1200,
+            height: 630,
+            alt: 'Комбо‑набор клубника и цветы — KEY TO HEART',
+          },
+        ],
+      },
+      twitter: { card: 'summary_large_image' },
+    };
+  }
+
+  /* --- дефолт для остальных категорий --- */
   return {
-    title: `${name} — купить с доставкой в Краснодаре`,
-    description: `Свежие ${name.toLowerCase()} с доставкой по Краснодару. Онлайн-заказ за час.`,
-    keywords: [name.toLowerCase(), 'доставка', 'KEY TO HEART'],
+    title: `${name} — купить с доставкой в Краснодаре | KEY TO HEART`,
+    description: `Свежие ${name.toLowerCase()} с доставкой по Краснодару за 60 минут. Фото перед отправкой, бесплатная открытка, оплата онлайн.`,
+    alternates: { canonical: `https://keytoheart.ru/category/${category}` },
     openGraph: {
       title: `${name} | KEY TO HEART`,
-      description: `Закажите ${name.toLowerCase()} с доставкой.`,
+      description: `Закажите ${name.toLowerCase()} с доставкой. Фото перед отправкой, быстрая доставка.`,
       url: `https://keytoheart.ru/category/${category}`,
+      images: [
+        {
+          url: `https://keytoheart.ru/og-${category}.webp`,
+          width: 1200,
+          height: 630,
+          alt: `${name} — KEY TO HEART`,
+        },
+      ],
     },
-    alternates: { canonical: `https://keytoheart.ru/category/${category}` },
+    twitter: { card: 'summary_large_image' },
   };
 }
 
@@ -117,6 +181,7 @@ export default async function CategoryPage({
   params: Promise<{ category: string }>;
   searchParams: Promise<{ sort?: string; subcategory?: string }>;
 }) {
+  /* ------------------ Supabase: init ------------------ */
   const supabase = await createSupabaseServerClient();
   const { category } = await params;
   const {
@@ -124,7 +189,7 @@ export default async function CategoryPage({
     subcategory: initialSubcategory = 'all',
   } = await searchParams;
 
-  /* ---------- Проверяем, что slug существует в карте ---------- */
+  /* ---------- Проверка slug ---------- */
   const apiName = nameMap[category];
   if (!apiName) redirect('/404');
 
@@ -159,7 +224,7 @@ export default async function CategoryPage({
       label: sub.label,
     })) ?? [];
 
-  /* ---------- Проверяем валидность ?subcategory ---------- */
+  /* ---------- Проверяем ?subcategory ---------- */
   if (subcategories.length > 0) {
     const subcategoryFromUrl = subcategories.find(
       (sub) => sub.slug === initialSubcategory,
@@ -169,43 +234,29 @@ export default async function CategoryPage({
     }
   }
 
-  /* ---------- Все продукты категории ---------- */
+  /* ---------- Привязываем товары ---------- */
   const { data: productCategoryData } = await supabase
     .from('product_categories')
     .select('product_id')
     .eq('category_id', categoryId);
 
   const productIds =
-    productCategoryData?.map((item: { product_id: number }) => item.product_id) ??
-    [];
+    productCategoryData?.map((item) => item.product_id) ?? [];
 
   /* ---------- Если товаров нет ---------- */
   if (productIds.length === 0) {
     return (
       <main aria-label={`Категория ${apiName}`}>
-        {/* Публикуем пустой ItemList для robots */}
         <JsonLd<ItemList> item={{ '@type': 'ItemList', itemListElement: [] }} />
-        {/* BreadcrumbList даже для пустой категории */}
         <JsonLd<BreadcrumbList>
           item={{
             '@type': 'BreadcrumbList',
             itemListElement: [
-              {
-                '@type': 'ListItem',
-                position: 1,
-                name: 'Главная',
-                item: 'https://keytoheart.ru',
-              },
-              {
-                '@type': 'ListItem',
-                position: 2,
-                name: apiName,
-                item: `https://keytoheart.ru/category/${category}`,
-              },
+              { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
+              { '@type': 'ListItem', position: 2, name: apiName, item: `https://keytoheart.ru/category/${category}` },
             ],
           }}
         />
-
         <Suspense fallback={<div>Загрузка…</div>}>
           <CategoryPageClient
             products={[]}
@@ -218,7 +269,7 @@ export default async function CategoryPage({
     );
   }
 
-  /* ---------- Продукты + вложенные субкатегории ---------- */
+  /* ---------- Загружаем сами продукты ---------- */
   const { data: productsData } = await supabase
     .from('products')
     .select(
@@ -291,54 +342,45 @@ export default async function CategoryPage({
       };
     }) ?? [];
 
-  /* --------------------------------------------------------------------- */
+  /* ------------------- JSON‑LD graph ------------------- */
+  const ldGraph: Array<CollectionPage | BreadcrumbList | ItemList> = [
+    {
+      '@type': 'CollectionPage',
+      name: apiName,
+      url: `https://keytoheart.ru/category/${category}`,
+      description: `${apiName} с доставкой по Краснодару.`,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
+        { '@type': 'ListItem', position: 2, name: apiName, item: `https://keytoheart.ru/category/${category}` },
+      ],
+    },
+    {
+      '@type': 'ItemList',
+      itemListElement: products.map((p, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        item: {
+          '@type': 'Product',
+          name: p.title,
+          url:  `https://keytoheart.ru/product/${p.id}`,
+          image: p.images?.[0] ?? '',
+          offers: {
+            '@type': 'Offer',
+            price: p.price,
+            priceCurrency: 'RUB',
+          },
+        },
+      })),
+    },
+  ];
+
+  /* ------------------------- Render ------------------------- */
   return (
     <main aria-label={`Категория ${apiName}`}>
-      {/* --- ItemList JSON-LD для поисковиков --- */}
-      <JsonLd<ItemList>
-        item={{
-          '@type': 'ItemList',
-          itemListElement: products.map((p, i) => ({
-            '@type': 'ListItem',
-            position: i + 1,
-            item: {
-              '@type': 'Product',
-              name: p.title,
-              url: `https://keytoheart.ru/product/${p.id}`,
-              image: p.images?.[0] ?? '',
-              offers: {
-                '@type': 'Offer',
-                price: p.price,
-                priceCurrency: 'RUB',
-                availability: p.in_stock
-                  ? 'https://schema.org/InStock'
-                  : 'https://schema.org/OutOfStock',
-              },
-            },
-          })),
-        }}
-      />
-
-      {/* --- BreadcrumbList JSON-LD (новое) --- */}
-      <JsonLd<BreadcrumbList>
-        item={{
-          '@type': 'BreadcrumbList',
-          itemListElement: [
-            {
-              '@type': 'ListItem',
-              position: 1,
-              name: 'Главная',
-              item: 'https://keytoheart.ru',
-            },
-            {
-              '@type': 'ListItem',
-              position: 2,
-              name: apiName,
-              item: `https://keytoheart.ru/category/${category}`,
-            },
-          ],
-        }}
-      />
+      <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
       <Suspense fallback={<div>Загрузка…</div>}>
         <CategoryPageClient
@@ -354,16 +396,10 @@ export default async function CategoryPage({
 
 /* ------------------ SSG: какие пути пререндерить ------------------ */
 export async function generateStaticParams() {
-  const { data, error } = await supabaseAdmin
+  const { data } = await supabaseAdmin
     .from('categories')
     .select('slug')
     .eq('is_visible', true);
-
-  if (error) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('generateStaticParams categories error:', error.message);
-    return [];
-  }
 
   return (data ?? []).map((c: { slug: string }) => ({ category: c.slug }));
 }

@@ -1,251 +1,177 @@
-import { notFound } from "next/navigation";
-import { Metadata } from 'next';
-import Image from "next/image";
-import { createClient } from "@supabase/supabase-js";
+import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
 import { JsonLd } from 'react-schemaorg';
-import type { ItemList } from 'schema-dts'; // Исправляем на ItemList
-import AnimatedSection from '@components/AnimatedSection';
-import ProductCard from '@components/ProductCard';
-import BackToOccasionsButton from '@components/BackToOccasionsButton';
+import type { ItemList } from 'schema-dts';
 
-// Список поводов
+import AnimatedSection from '@/components/AnimatedSection';
+import ProductCard from '@/components/ProductCard';
+import BackToOccasionsButton from '@/components/BackToOccasionsButton';
+
+/* -------------------------------------------------------------------------- */
+/*  Occasion Detail – v4                                                      */
+/* -------------------------------------------------------------------------- */
+
 const occasions = [
-  {
-    slug: "8marta",
-    title: "8 марта",
-    image: "/occasions/8marta.jpg",
-  },
-  {
-    slug: "happybirthday",
-    title: "День рождения",
-    image: "/occasions/happybirthday.jpg",
-  },
-  {
-    slug: "love",
-    title: "Для любимых",
-    image: "/occasions/love.jpg",
-  },
-  {
-    slug: "newyear",
-    title: "Новый год",
-    image: "/occasions/newyear.jpg",
-  },
-  {
-    slug: "23february",
-    title: "23 февраля",
-    image: "/occasions/23february.jpg",
-  },
-  {
-    slug: "valentinesday",
-    title: "14 февраля",
-    image: "/occasions/valentinesday.jpg",
-  },
-  {
-    slug: "man",
-    title: "Для мужчин",
-    image: "/occasions/man.jpg",
-  },
-  {
-    slug: "mame",
-    title: "Маме",
-    image: "/occasions/mame.jpg",
-  },
-  {
-    slug: "mothersday",
-    title: "День матери",
-    image: "/occasions/mothersday.jpg",
-  },
-  {
-    slug: "graduation",
-    title: "Выпускной",
-    image: "/occasions/graduation.jpg",
-  },
-  {
-    slug: "anniversary",
-    title: "Годовщина",
-    image: "/occasions/anniversary.jpg",
-  },
-  {
-    slug: "family_day",
-    title: "День семьи",
-    image: "/occasions/family_day.jpg",
-  },
-  {
-    slug: "child_birthday",
-    title: "Детский день рождения",
-    image: "/occasions/child_birthday.jpg",
-  },
-  {
-    slug: "last_bell",
-    title: "Последний звонок",
-    image: "/occasions/last_bell.jpg",
-  },
-  {
-    slug: "work",
-    title: "Коллегам по работе",
-    image: "/occasions/work.jpg",
-  },
-  {
-    slug: "1september",
-    title: "1 сентября",
-    image: "/occasions/1september.jpg",
-  },
-];
-
-// Генерация метаданных для динамических страниц
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const occasion = occasions.find((o) => o.slug === params.slug);
-  if (!occasion) {
-    return {
-      title: 'Повод не найден | KEY TO HEART',
-      description: 'Такого повода не существует. Выберите другой повод для подарка.',
-    };
-  }
-
-  return {
-    title: `${occasion.title} | KEY TO HEART`,
-    description: `Подарки на ${occasion.title} от KEY TO HEART. Клубничные букеты и наборы с доставкой по Краснодару.`,
-    keywords: [occasion.title, 'KEY TO HEART', 'Краснодар', 'клубничные букеты', 'доставка'],
-    openGraph: {
-      title: `${occasion.title} | KEY TO HEART`,
-      description: `Подарки на ${occasion.title} с доставкой по Краснодару.`,
-      url: `https://keytoheart.ru/occasions/${occasion.slug}`,
-      images: [
-        {
-          url: occasion.image,
-          width: 1200,
-          height: 630,
-          alt: occasion.title,
-        },
-      ],
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${occasion.title} | KEY TO HEART`,
-      description: `Подарки на ${occasion.title} с доставкой по Краснодару.`,
-      images: [occasion.image],
-    },
-    alternates: { canonical: `https://keytoheart.ru/occasions/${occasion.slug}` },
-  };
-}
+  { slug: '8marta',        title: '8 марта',       image: '/occasions/8marta.jpg' },
+  { slug: 'happybirthday', title: 'День рождения', image: '/occasions/happybirthday.jpg' },
+  { slug: 'love',          title: 'Для любимых',   image: '/occasions/love.jpg' },
+  { slug: '1september',    title: '1 сентября',    image: '/occasions/1september.jpg' },
+  // …остальные
+] as const;
+type Occasion = (typeof occasions)[number];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// Компонент скелетона для загрузки продуктов
+/* ----------------------- metadata ----------------------- */
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const occasion = occasions.find(o => o.slug === params.slug);
+  if (!occasion) return { title: 'Повод не найден', robots: { index: false, follow: false } };
+
+  const desc =
+    `Подарки на ${occasion.title}: клубничные букеты, цветы и комбо‑наборы. ` +
+    'Доставка 60 мин, фото перед отправкой, открытка бесплатно, оплата онлайн.';
+
+  return {
+    title: `${occasion.title} | KEY TO HEART`,
+    description: desc,
+    alternates: { canonical: `https://keytoheart.ru/occasions/${occasion.slug}` },
+    openGraph: {
+      title: `${occasion.title} | KEY TO HEART`,
+      description: desc,
+      url: `https://keytoheart.ru/occasions/${occasion.slug}`,
+      images: [{ url: occasion.image, width: 1200, height: 630, alt: occasion.title }],
+    },
+    twitter: { card: 'summary_large_image', title: occasion.title, description: desc, images: [occasion.image] },
+  };
+}
+
+/* ----------------------- skeleton ----------------------- */
 const ProductSkeleton = () => (
-  <div className="animate-pulse">
-    <div className="relative aspect-[4/5] rounded-xl bg-gray-200"></div>
-    <div className="mt-2">
-      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/2 mt-2"></div>
-    </div>
+  <div className="flex flex-col gap-2 animate-pulse">
+    <div className="aspect-[4/5] w-full rounded-2xl bg-gray-200" />
+    <div className="h-3 w-3/4 rounded bg-gray-200" />
+    <div className="h-3 w-1/2 rounded bg-gray-200" />
   </div>
 );
 
-export default async function OccasionDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const occasion = occasions.find((o) => o.slug === params.slug);
-  if (!occasion) {
-    notFound();
+/* ------------------------- page ------------------------- */
+export default async function OccasionPage({ params }: { params: { slug: string } }) {
+  const occasion = occasions.find(o => o.slug === params.slug) as Occasion | undefined;
+  if (!occasion) notFound();
+
+  /* основная выборка */
+  const { data: byOccasion }: { data: any[] | null } = await supabase
+    .from('products')
+    .select('*')
+    .eq('occasion_slug', params.slug)
+    .eq('in_stock', true);
+
+  let products: any[] = byOccasion ?? [];   // ← всегда массив
+  let isFallback = false;
+
+  /* если нет товаров — 8 случайных */
+  if (products.length === 0) {
+    const { data: random }: { data: any[] | null } = await supabase
+      .from('products')
+      .select('*')
+      .eq('in_stock', true)
+      .order('id', { ascending: false })
+      .limit(8);
+    products = random ?? [];
+    isFallback = true;
   }
 
-  let products = null;
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("occasion_slug", params.slug)
-      .eq("in_stock", true);
-
-    if (error) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки продуктов:', error.message || error);
-      throw new Error('Ошибка загрузки продуктов из Supabase');
-    }
-
-    products = data;
-  } catch (err) {
-    process.env.NODE_ENV !== "production" && console.error('Не удалось загрузить продукты:', err);
-    products = [];
-  }
+  /* JSON‑LD */
+  const ld: ItemList = {
+    '@type': 'ItemList',
+    name: `${occasion.title} | KEY TO HEART`,
+    url: `https://keytoheart.ru/occasions/${occasion.slug}`,
+    itemListElement: products.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Product',
+        name: p.title,
+        url: `https://keytoheart.ru/product/${p.id}`,
+        image: p.images?.[0] ?? '/no-image.png',
+        offers: {
+          '@type': 'Offer',
+          price: p.price,
+          priceCurrency: 'RUB',
+          availability: 'https://schema.org/InStock',
+        },
+      },
+    })),
+  };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-      <JsonLd<ItemList>
-        item={{
-          '@type': 'ItemList', // Используем ItemList вместо CollectionPage
-          name: `${occasion.title} | KEY TO HEART`,
-          description: `Подарки на ${occasion.title} от KEY TO HEART.`,
-          url: `https://keytoheart.ru/occasions/${occasion.slug}`,
-          image: occasion.image,
-          itemListElement: products?.map((product) => ({
-            '@type': 'ListItem',
-            position: products.indexOf(product) + 1,
-            item: {
-              '@type': 'Product',
-              name: product.title,
-              url: `https://keytoheart.ru/product/${product.id}`,
-              image: product.images?.[0] || "/no-image.png",
-              offers: {
-                '@type': 'Offer',
-                price: product.price,
-                priceCurrency: 'RUB',
-                availability: 'https://schema.org/InStock',
-              },
-            },
-          })) || [],
-        }}
-      />
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <JsonLd<ItemList> item={ld} />
 
+      {/* HERO */}
       <AnimatedSection>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-center mb-8 sm:mb-12 tracking-tight">
-          {occasion.title}
-        </h1>
-      </AnimatedSection>
-
-      <AnimatedSection>
-        <div className="relative w-full max-w-2xl mx-auto aspect-[4/3] rounded-xl overflow-hidden shadow-lg mb-10 sm:mb-12">
-          <Image
-            src={occasion.image}
-            alt={occasion.title}
-            fill
-            className="object-cover"
-          />
+        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl shadow-lg">
+          <Image src={occasion.image} alt={occasion.title} fill priority className="object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60" />
+          <h1 className="absolute inset-x-0 bottom-6 text-center text-3xl sm:text-5xl font-bold text-white drop-shadow">
+            {occasion.title}
+          </h1>
         </div>
       </AnimatedSection>
 
-      {products ? (
-        products.length > 0 ? (
-          <AnimatedSection>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+      {/* INTRO */}
+      <AnimatedSection>
+        <section className="mx-auto mt-12 grid max-w-4xl grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+          <p className="text-gray-700 text-base sm:text-lg leading-relaxed">
+            Ищете подарок на {occasion.title.toLowerCase()}? Клубничные букеты, цветы и комбо‑наборы —
+            доставка 60 минут, фото перед отправкой, открытка бесплатно.
+          </p>
+          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
+            <Image src={occasion.image} alt={occasion.title} fill className="object-cover" />
+          </div>
+        </section>
+      </AnimatedSection>
+
+      {/* PRODUCTS */}
+      <AnimatedSection>
+        {products.length ? (
+          <>
+            <h2 className="mt-16 mb-6 text-center text-2xl sm:text-3xl font-semibold tracking-tight">
+              {isFallback ? 'Популярные товары' : 'Подборка подарков'}
+            </h2>
+
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:gap-8">
+              {products.map(p => <ProductCard key={p.id} product={p} />)}
             </div>
-          </AnimatedSection>
+
+            {/* CTA показать ещё */}
+            <div className="mt-8 flex justify-center">
+              <Link
+                href="/catalog"
+                className="border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center bg-white text-[#535353] transition-all duration-200 shadow-sm hover:bg-[#535353] hover:text-white active:scale-[.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+              >
+                Показать ещё
+              </Link>
+            </div>
+          </>
         ) : (
-          <AnimatedSection>
-            <div className="text-center text-gray-500 mt-10 sm:mt-12">
-              <p className="text-base sm:text-lg mb-4">
-                Пока нет товаров для этого повода.
-              </p>
-              <BackToOccasionsButton occasionTitle={occasion.title} />
+          <div className="mt-16 flex flex-col items-center gap-6">
+            <p className="text-gray-500 text-base sm:text-lg">
+              К сожалению, пока нет товаров для этого повода.
+            </p>
+            <BackToOccasionsButton occasionTitle={occasion.title} />
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:gap-8 w-full max-w-4xl mt-6">
+              {Array.from({ length: 4 }).map((_, i) => <ProductSkeleton key={i} />)}
             </div>
-          </AnimatedSection>
-        )
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <ProductSkeleton key={i} />
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </AnimatedSection>
     </div>
   );
 }

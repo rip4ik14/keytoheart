@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
-/*  Страница товара (SSR + Supabase, JSON-LD Product / Breadcrumb)            */
-/*  Версия: 2025-07-13 – TS fix width/height                                   */
+/*  Страница товара (SSR + Supabase, JSON‑LD Product / Breadcrumb)            */
+/*  Версия: 2025‑07‑18 – без rating‑полей                                     */
 /* -------------------------------------------------------------------------- */
 
 import { notFound } from 'next/navigation';
@@ -63,10 +63,13 @@ export async function generateMetadata({
     };
   }
 
-  const desc = (data.description ?? '')
+  const cleanDesc = (data.description ?? '')
     .replace(/<[^>]*>/g, '')
-    .trim()
-    .slice(0, 160);
+    .trim();
+
+  const desc =
+    cleanDesc ||
+    'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
 
   const firstImg =
     Array.isArray(data.images) && data.images[0]
@@ -77,12 +80,19 @@ export async function generateMetadata({
 
   return {
     title: `${data.title} | KEY TO HEART`,
-    description: desc || undefined,
+    description: desc.slice(0, 160),
     openGraph: {
       title: data.title,
       description: desc,
       url,
-      images: [{ url: firstImg }],
+      images: [
+        {
+          url: firstImg,
+          width: 1200,
+          height: 630,
+          alt: data.title,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
@@ -105,14 +115,15 @@ export default async function ProductPage({
   const id = Number(params.id);
   if (Number.isNaN(id)) notFound();
 
-  /* ---------- Supabase SSR-client с cookie ---------- */
+  /* ---------- Supabase SSR‑client ---------- */
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => cookieStore.getAll().map(({ name, value }) => ({ name, value })),
+        getAll: () =>
+          cookieStore.getAll().map(({ name, value }) => ({ name, value })),
       },
     },
   );
@@ -154,7 +165,8 @@ export default async function ProductPage({
         image: u.image_url ?? '',
       })) ?? [];
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.error('upsell_items →', e);
+    process.env.NODE_ENV !== 'production' &&
+      console.error('upsell_items →', e);
   }
 
   /* ---------- Offer ---------- */
@@ -175,7 +187,7 @@ export default async function ProductPage({
     availability: 'https://schema.org/InStock',
   };
 
-  /* ---------- ImageObject (TS-safe) ---------- */
+  /* ---------- ImageObject ---------- */
   const firstImageUrl = product.images[0];
   const imageObject: ImageObject | undefined = firstImageUrl
     ? { '@type': 'ImageObject', url: firstImageUrl }
@@ -192,6 +204,15 @@ export default async function ProductPage({
           url: `https://keytoheart.ru/product/${product.id}`,
           image: imageObject ? [imageObject] : undefined,
           description: product.description || undefined,
+          additionalProperty: product.production_time
+            ? [
+                {
+                  '@type': 'PropertyValue',
+                  name: 'Время производства',
+                  value: `${product.production_time} мин`,
+                },
+              ]
+            : undefined,
           material: product.composition || undefined,
           category: product.category_ids.join(',') || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
@@ -203,8 +224,18 @@ export default async function ProductPage({
         item={{
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
-            { '@type': 'ListItem', position: 2, name: product.title, item: `https://keytoheart.ru/product/${product.id}` },
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Главная',
+              item: 'https://keytoheart.ru',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: product.title,
+              item: `https://keytoheart.ru/product/${product.id}`,
+            },
           ],
         }}
       />
