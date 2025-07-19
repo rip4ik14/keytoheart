@@ -8,7 +8,7 @@ import PaymentPageClient from '@components/PaymentPageClient';
 export const metadata: Metadata = {
   title: 'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
   description:
-    'Все способы оплаты заказов KEY TO HEART: СБП (QR‑код), онлайн‑оплата картой, наличные в мастерской, счёт для юрлиц и оплата иностранной картой. Быстро, удобно и безопасно.',
+    'Все способы оплаты заказов KEY TO HEART: СБП (QR‑код), онлайн‑оплата картой, счёт для юрлиц и оплата иностранной картой. Быстро, удобно и безопасно.',
   keywords: [
     'клубника в шоколаде',
     'клубничные букеты',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
     description:
-      'Узнайте, как оплатить клубнику в шоколаде, букеты и подарки KEY TO HEART: СБП, онлайн по карте, наличные и безнал для юрлиц.',
+      'Узнайте, как оплатить клубнику в шоколаде, букеты и подарки KEY TO HEART: СБП, онлайн по карте и безнал для юрлиц.',
     url:         'https://keytoheart.ru/payment',
     siteName:    'KEY TO HEART',
     images: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card:        'summary_large_image',
     title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
     description:
-      'Все варианты оплаты: СБП, онлайн‑картой, наличные, иностранная карта, счёт для юрлиц.',
+      'Все варианты оплаты: СБП, онлайн‑картой, иностранная карта, счёт для юрлиц.',
     images: ['https://keytoheart.ru/og-image-payment.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/payment' },
