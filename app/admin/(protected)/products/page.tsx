@@ -355,6 +355,18 @@ function ProductsContent() {
           >
             Добавить товар
           </motion.a>
+          {/* КНОПКА ДЛЯ СКАЧИВАНИЯ YML */}
+          <motion.a
+            href="/api/yandex-yml"
+            download="keytoheart_yandex.yml"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-yellow-500 text-black font-semibold rounded hover:bg-yellow-600 transition"
+            whileHover={{ scale: 1.04 }}
+            aria-label="Скачать YML для Яндекс.Карт"
+          >
+            Скачать YML для Яндекса
+          </motion.a>
         </div>
       </div>
 
