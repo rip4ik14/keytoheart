@@ -145,7 +145,7 @@ const nextConfig = {
         ],
       },
       /* -------- Aggressive caching for static assets -------- */
-      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*', '/images/:path*', '/og-cover.webp'].map(
         (source) => ({
           source,
           headers: [

@@ -172,6 +172,7 @@ export default function ProductCard({
           className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
           loading={stablePriority ? 'eager' : 'lazy'}
           priority={stablePriority}
+          quality={70}
         />
       </Link>
 

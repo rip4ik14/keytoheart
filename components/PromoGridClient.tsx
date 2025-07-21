@@ -94,6 +94,7 @@ export default function PromoGridClient({
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover rounded-[32px] transition-transform duration-500"
+                        quality={70}
                       />
                       <div className="absolute inset-0 bg-black/30" />
                       <div className="absolute inset-0 flex flex-col justify-center items-start px-6 sm:px-9 py-7 sm:py-9 text-white">
@@ -172,6 +173,7 @@ export default function PromoGridClient({
                     placeholder="blur"
                     blurDataURL={BLUR_SRC}
                     className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
+                    quality={70}
                   />
                   <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/30" />
                   <span className="absolute bottom-3 left-3 z-10 px-3 py-2 bg-white/80 rounded-full text-xs lg:text-sm font-semibold text-black shadow-sm flex items-center whitespace-normal break-words max-w-[calc(100%-24px)] min-h-[28px] transition-all"

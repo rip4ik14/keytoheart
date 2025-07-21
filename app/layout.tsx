@@ -17,6 +17,7 @@ import type {
 import LayoutClient from '@components/LayoutClient';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
+import Script from 'next/script';
 
 /* --------------------------- шрифты через localFont ----------------------- */
 const golosText = localFont({
@@ -241,7 +242,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         {/* -------- Яндекс.Метрика -------- */}
         {YM_ID && (
-          <script
+          <Script
+            id="yandex-metrika"
+            strategy="lazyOnload"
             dangerouslySetInnerHTML={{
               __html: `
                 (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
