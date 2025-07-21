@@ -1,4 +1,5 @@
 // components/PromoGridServer.tsx
+import PromoBannerServer from './PromoBannerServer';
 import PromoGridWrapper from './PromoGridWrapper';
 import { PromoBlock } from '@/types/promo';
 
@@ -17,7 +18,14 @@ export default async function PromoGridServer() {
     const data: PromoBlock[] = await res.json();
     const banners = (data ?? []).filter((b) => b.type === 'banner');
     const cards = (data ?? []).filter((b) => b.type === 'card');
-    return <PromoGridWrapper banners={banners} cards={cards} />;
+
+    // SSR — только первый баннер!
+    return (
+      <div>
+        {banners[0] && <PromoBannerServer banner={banners[0]} />}
+        <PromoGridWrapper banners={banners} cards={cards} />
+      </div>
+    );
   } catch (err) {
     process.env.NODE_ENV !== 'production' && console.error('PromoGridServer error:', err);
     return null;
