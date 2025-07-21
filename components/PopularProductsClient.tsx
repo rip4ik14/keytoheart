@@ -13,13 +13,7 @@ export default function PopularProductsClient({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Визуально — всегда 4 карточки на экране
-  // На всякий случай поддерживаем больше карточек в массиве, скролл работает
-
-  const scrollCard = () => {
-    // ширина карточки + gap (280 + 24)
-    return 280 + 24;
-  };
+  const scrollCard = () => 280 + 24;
 
   const scrollLeft = () => {
     if (scrollRef.current) {
@@ -57,8 +51,8 @@ export default function PopularProductsClient({
 
       {/* ---- Mobile: Grid ---- */}
       <div className="sm:hidden grid grid-cols-2 gap-4">
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} priority={!!p.priority} />
+        {products.map((p, idx) => (
+          <ProductCard key={p.id} product={p} priority={idx === 0} />
         ))}
       </div>
 
@@ -86,14 +80,14 @@ export default function PopularProductsClient({
             snap-x snap-mandatory
             justify-start
             mx-auto
-            w-[1216px]    /* (280 + 24) * 4 - 24 (т.к. последний gap не нужен) = 1216px */
+            w-[1216px]
           "
           style={{
             scrollBehavior: 'smooth',
             maxWidth: '1216px',
           }}
         >
-          {products.map((p) => (
+          {products.map((p, idx) => (
             <div
               key={p.id}
               className="
@@ -104,7 +98,7 @@ export default function PopularProductsClient({
               "
               style={{ width: 280 }}
             >
-              <ProductCard product={p} priority={!!p.priority} />
+              <ProductCard product={p} priority={idx === 0} />
             </div>
           ))}
         </div>

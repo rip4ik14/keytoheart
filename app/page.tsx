@@ -1,24 +1,26 @@
 /* -------------------------------------------------------------------------- */
 /*  Главная страница (SEO boost + Edge runtime + FAQ)                         */
-/*  Версия: 2025‑07‑18 — усилены УТП + кластер “комбо‑наборы”                 */
 /* -------------------------------------------------------------------------- */
 
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { ItemList, FAQPage, WebPage, BreadcrumbList } from 'schema-dts';
+import dynamic from 'next/dynamic';
 
 import PromoGridServer       from '@components/PromoGridServer';
-import AdvantagesClient      from '@components/AdvantagesClient';
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard          from '@components/ProductCardSkeleton';
-import FAQSectionWrapper     from '@components/FAQSectionWrapper';
-import YandexReviewsWidget   from '@components/YandexReviewsWidget';
 
 import { createServerClient }  from '@supabase/ssr';
 import { cookies as getCookies } from 'next/headers';
 import type { Database }       from '@/lib/supabase/types_new';
+
+/* ------------------ Dynamic imports for heavy client components ------------------ */
+const AdvantagesClient = dynamic(() => import('@components/AdvantagesClient'), { ssr: false });
+const YandexReviewsWidget = dynamic(() => import('@components/YandexReviewsWidget'), { ssr: false });
+const FAQSectionWrapper = dynamic(() => import('@components/FAQSectionWrapper'), { ssr: false });
 
 /* ----------------------------- FAQ (единый источник) ----------------------------- */
 const faqList = [
@@ -65,7 +67,7 @@ interface Product {
 
 /* -------------------------- ISR / Edge flags ---------------------------- */
 export const revalidate = 300;
-export const dynamic   = 'force-static';
+export const pageRuntime = 'force-static'; // ⚠️ НЕ используй export const dynamic = ...!
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
@@ -288,6 +290,7 @@ export default async function Home() {
                   seeMoreLink={slug}
                   headingId={headingId}
                 />
+                {/* Преимущества только после первой категории — динамически */}
                 {idx === 0 && <AdvantagesClient />}
               </React.Fragment>
             );
@@ -295,10 +298,10 @@ export default async function Home() {
         )}
       </section>
 
-      {/* Вставляем блок отзывов Яндекс */}
+      {/* Вставляем блок отзывов Яндекс — динамически */}
       <YandexReviewsWidget />
 
-      {/* FAQ — тот же текст, что и в JSON-LD */}
+      {/* FAQ — тоже динамически */}
       <FAQSectionWrapper />
     </main>
   );
