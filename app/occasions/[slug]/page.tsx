@@ -117,7 +117,7 @@ export default async function OccasionPage({ params }: { params: { slug: string 
       {/* HERO */}
       <AnimatedSection>
         <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl shadow-lg">
-          <Image src={occasion.image} alt={occasion.title} fill priority className="object-cover" sizes="(max-width: 600px) 100vw, 600px" quality={70} />
+          <Image src={occasion.image} alt={occasion.title} fill priority className="object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60" />
           <h1 className="absolute inset-x-0 bottom-6 text-center text-3xl sm:text-5xl font-bold text-white drop-shadow">
             {occasion.title}
@@ -133,7 +133,7 @@ export default async function OccasionPage({ params }: { params: { slug: string 
             доставка 60 минут, фото перед отправкой, открытка бесплатно.
           </p>
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
-            <Image src={occasion.image} alt={occasion.title} fill className="object-cover" sizes="(max-width: 600px) 100vw, 600px" quality={70} />
+            <Image src={occasion.image} alt={occasion.title} fill className="object-cover" />
           </div>
         </section>
       </AnimatedSection>
