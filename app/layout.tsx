@@ -5,7 +5,7 @@
 import './styles/globals.css';
 
 import localFont          from 'next/font/local';
-import Script             from 'next/script';            // ⬅ добавлено
+import Script             from 'next/script';
 import { Metadata, Viewport } from 'next';
 import { JsonLd }         from 'react-schemaorg';
 import type {
@@ -16,8 +16,8 @@ import type {
 } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
-import { Category } from '@/types/category';
-import { YM_ID }    from '@/utils/ym';
+import { Category }   from '@/types/category';
+import { YM_ID }      from '@/utils/ym';
 
 /* --------------------------- Шрифты (localFont) --------------------------- */
 const golosText = localFont({
@@ -160,7 +160,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
 
-        {/* preconnect (wildcard достаточно) */}
+        {/* preconnect */}
         <link rel="preconnect" href="https://*.supabase.co" crossOrigin="" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
@@ -180,7 +180,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
                 description:
-                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
@@ -226,23 +226,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
 
-        {/* ---------- Яндекс.Метрика (lazy) ---------- */}
+        {/* ---------- Яндекс.Метрика (lazy, без onLoad пропа) ---------- */}
         {process.env.NODE_ENV === 'production' && YM_ID && (
-          <Script
-            id="ym"
-            strategy="lazyOnload"
-            src="https://mc.yandex.ru/metrika/tag.js"
-            onLoad={() => {
-              // @ts-expect-error ym global
-              ym(YM_ID, 'init', {
-                clickmap: true,
-                trackLinks: true,
-                accurateTrackBounce: true,
-                trackHash: true,
-                webvisor: true,
-              });
-            }}
-          />
+          <>
+            <Script id="ym-lib" src="https://mc.yandex.ru/metrika/tag.js" strategy="lazyOnload" />
+            <Script
+              id="ym-init"
+              strategy="lazyOnload"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                  m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                  k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
+                    (window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
+                  ym(${YM_ID}, 'init', {
+                    clickmap:true, trackLinks:true, accurateTrackBounce:true,
+                    trackHash:true, webvisor:true
+                  });
+                `,
+              }}
+            />
+          </>
         )}
       </head>
 
