@@ -93,8 +93,7 @@ const nextConfig = {
   compress: true,
   output: 'standalone',
 
-  swcMinify: true,                      // ⬅ modern‑minify (убирает полифилы)
-  eslint: { ignoreDuringBuilds: true },
+    eslint: { ignoreDuringBuilds: true },
 
   images: {
     remotePatterns,
