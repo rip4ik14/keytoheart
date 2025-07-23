@@ -64,7 +64,6 @@ interface Product {
 
 /* -------------------------- ISR / Edge flags ---------------------------- */
 export const revalidate = 300;
-// export const dynamic = 'force-static'; // <--- НЕ нужно, если хочешь статик, просто revalidate
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
@@ -237,9 +236,9 @@ export default async function Home() {
     <main aria-label="Главная страница">
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
-      {/* Главный заголовок (скрыт визуально) */}
+      {/* SEO-заголовок: скрытый */}
       <h1 className="sr-only">
-        KEY TO HEART – клубника в шоколаде, букеты, цветы и комбо‑наборы с доставкой в Краснодаре
+        Клубника в шоколаде, букеты и комбо-наборы с доставкой в Краснодаре
       </h1>
 
       {/* Промо-баннер / hero */}
@@ -250,6 +249,7 @@ export default async function Home() {
       {/* Популярные товары — отложенная загрузка */}
       <Suspense fallback={null}>
         <section role="region" aria-label="Популярные товары">
+          <h2 className="sr-only">Популярные товары</h2>
           <PopularProductsServer />
         </section>
       </Suspense>
@@ -260,6 +260,7 @@ export default async function Home() {
         aria-label="Категории товаров"
         id="home-categories"
       >
+        <h2 className="sr-only">Категории товаров</h2>
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -296,10 +297,16 @@ export default async function Home() {
       </section>
 
       {/* Вставляем блок отзывов Яндекс */}
-      <YandexReviewsWidget />
+      <section role="region" aria-label="Отзывы клиентов">
+        <h2 className="sr-only">Отзывы клиентов</h2>
+        <YandexReviewsWidget />
+      </section>
 
       {/* FAQ */}
-      <FAQSectionWrapper />
+      <section role="region" aria-label="Вопросы и ответы">
+        <h2 className="sr-only">Вопросы и ответы</h2>
+        <FAQSectionWrapper />
+      </section>
     </main>
   );
 }

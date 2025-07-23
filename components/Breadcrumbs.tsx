@@ -1,12 +1,13 @@
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useState, Suspense } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
+import { JsonLd } from 'react-schemaorg';
 
+// Типы
 type Category = {
   id: number;
   name: string;
@@ -30,9 +31,9 @@ const staticTitles: Record<string, string> = {
   thank_you: 'Спасибо за заказ',
 };
 
-// Локальный кэш для категорий
 let categoryCache: Category[] | null = null;
 
+// Транслитерация для генерации slug
 const transliterate = (text: string) => {
   const map: Record<string, string> = {
     а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
@@ -67,7 +68,6 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
         setLoading(false);
         return;
       }
-
       setLoading(true);
       const { data, error } = await supabase
         .from('categories')
@@ -189,55 +189,82 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
 
   if (!shouldRender) return null;
 
+  // ---- SCHEMA.ORG JSON-LD ----
+  // Составляем абсолютные ссылки для itemListElement
+  let absOrigin = '';
+  if (typeof window !== 'undefined') {
+    absOrigin = window.location.origin;
+  }
+  // Fallback для SSR — можно подставить домен вручную, если что
+  if (!absOrigin) absOrigin = 'https://keytoheart.ru';
+
+  const jsonLdBreadcrumbs = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: c.label,
+      item: absOrigin + c.href,
+    })),
+  };
+
   return (
-    <nav
-      aria-label="Хлебные крошки"
-      className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
-    >
-      {loading ? (
-        <div>Загрузка...</div>
-      ) : (
-        <ol className="flex flex-wrap gap-1 items-center" role="list">
-          {crumbs.map((c, i) => (
-            <Fragment key={c.href}>
-              {i > 0 && (
-                <span aria-hidden="true" className="mx-1 text-gray-500">
-                  /
-                </span>
-              )}
-              <li role="listitem">
-                {i === crumbs.length - 1 ? (
-                  <span className="text-black font-medium" aria-current="page">
-                    {c.label}
-                  </span>
-                ) : (
-                  <Link
-                    href={c.href}
-                    className="hover:underline text-gray-500"
-                    onClick={() => {
-                      window.gtag?.('event', 'breadcrumb_click', {
-                        event_category: 'navigation',
-                        path: c.href,
-                      });
-                      if (YM_ID !== undefined) {
-                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
-                      }
-                    }}
-                  >
-                    {c.label}
-                  </Link>
-                )}
-              </li>
-              {i === crumbs.length - 1 && segments[0] === 'category' && segments.length >= 2 && (
-                <Suspense fallback={null}>
-                  <SubcategoryCrumb categories={categories} />
-                </Suspense>
-              )}
-            </Fragment>
-          ))}
-        </ol>
+    <>
+      {/* SCHEMA.ORG JSON-LD */}
+      {!loading && shouldRender && (
+        <JsonLd item={jsonLdBreadcrumbs} />
       )}
-    </nav>
+
+      <nav
+        aria-label="Хлебные крошки"
+        className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
+      >
+        {loading ? (
+          <div>Загрузка...</div>
+        ) : (
+          <ol className="flex flex-wrap gap-1 items-center" role="list">
+            {crumbs.map((c, i) => (
+              <Fragment key={c.href}>
+                {i > 0 && (
+                  <span aria-hidden="true" className="mx-1 text-gray-500">
+                    /
+                  </span>
+                )}
+                <li role="listitem">
+                  {i === crumbs.length - 1 ? (
+                    <span className="text-black font-medium" aria-current="page">
+                      {c.label}
+                    </span>
+                  ) : (
+                    <Link
+                      href={c.href}
+                      className="hover:underline text-gray-500"
+                      onClick={() => {
+                        window.gtag?.('event', 'breadcrumb_click', {
+                          event_category: 'navigation',
+                          path: c.href,
+                        });
+                        if (YM_ID !== undefined) {
+                          callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
+                        }
+                      }}
+                    >
+                      {c.label}
+                    </Link>
+                  )}
+                </li>
+                {i === crumbs.length - 1 && segments[0] === 'category' && segments.length >= 2 && (
+                  <Suspense fallback={null}>
+                    <SubcategoryCrumb categories={categories} />
+                  </Suspense>
+                )}
+              </Fragment>
+            ))}
+          </ol>
+        )}
+      </nav>
+    </>
   );
 }
 

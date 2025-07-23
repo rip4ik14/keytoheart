@@ -1,3 +1,5 @@
+// app/occasions/[slug]/page.tsx
+
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -10,16 +12,24 @@ import AnimatedSection from '@/components/AnimatedSection';
 import ProductCard from '@/components/ProductCard';
 import BackToOccasionsButton from '@/components/BackToOccasionsButton';
 
-/* -------------------------------------------------------------------------- */
-/*  Occasion Detail – v4                                                      */
-/* -------------------------------------------------------------------------- */
-
+/* ------------------------- Поводы ------------------------- */
 const occasions = [
-  { slug: '8marta',        title: '8 марта',       image: '/occasions/8marta.jpg' },
-  { slug: 'happybirthday', title: 'День рождения', image: '/occasions/happybirthday.jpg' },
-  { slug: 'love',          title: 'Для любимых',   image: '/occasions/love.jpg' },
-  { slug: '1september',    title: '1 сентября',    image: '/occasions/1september.jpg' },
-  // …остальные
+  { slug: '8marta',         title: '8 марта',                  image: '/occasions/8marta.jpg' },
+  { slug: 'happybirthday',  title: 'День рождения',            image: '/occasions/happybirthday.jpg' },
+  { slug: 'love',           title: 'Для любимых',              image: '/occasions/love.jpg' },
+  { slug: 'newyear',        title: 'Новый год',                image: '/occasions/newyear.jpg' },
+  { slug: '23february',     title: '23 февраля',               image: '/occasions/23february.jpg' },
+  { slug: 'valentinesday',  title: '14 февраля',               image: '/occasions/valentinesday.jpg' },
+  { slug: 'man',            title: 'Для мужчин',               image: '/occasions/man.jpg' },
+  { slug: 'mame',           title: 'Маме',                     image: '/occasions/mame.jpg' },
+  { slug: 'mothersday',     title: 'День матери',              image: '/occasions/mothersday.jpg' },
+  { slug: 'graduation',     title: 'Выпускной',                image: '/occasions/graduation.jpg' },
+  { slug: 'anniversary',    title: 'Годовщина',                image: '/occasions/anniversary.jpg' },
+  { slug: 'family_day',     title: 'День семьи',               image: '/occasions/family_day.jpg' },
+  { slug: 'child_birthday', title: 'Детский день рождения',    image: '/occasions/child_birthday.jpg' },
+  { slug: 'last_bell',      title: 'Последний звонок',         image: '/occasions/last_bell.jpg' },
+  { slug: 'work',           title: 'Коллегам по работе',       image: '/occasions/work.jpg' },
+  { slug: '1september',     title: '1 сентября',               image: '/occasions/1september.jpg' },
 ] as const;
 type Occasion = (typeof occasions)[number];
 
@@ -27,6 +37,26 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
+
+/* --------------------- SEO‑абзацы для каждого повода --------------------- */
+const occasionSeoText: Record<string, string> = {
+  '8marta': `Подарите незабываемые эмоции женщинам на 8 марта! Клубничные букеты, изысканные цветы и оригинальные наборы для поздравления мамы, жены или коллеги. Бесплатная открытка к каждому заказу, доставка за 60 минут по Краснодару. <a href='/category/flowers' class='underline hover:text-black'>Свежие букеты</a> и <a href='/category/combo' class='underline hover:text-black'>комбо-наборы</a>.`,
+  happybirthday: `Лучшие подарки ко дню рождения — клубника в шоколаде, оригинальные букеты и сладкие наборы. Удивите именинника быстрой доставкой и красивым оформлением! <a href='/category/klubnichnye-bukety' class='underline hover:text-black'>Клубничные букеты</a> на любой вкус и возраст.`,
+  love: `Подарите любовь в каждой детали! Романтические букеты, клубника в шоколаде и эксклюзивные сладкие композиции для любимых. Доставка по Краснодару за 60 минут. <a href='/category/klubnichnye-bukety' class='underline hover:text-black'>Букеты для двоих</a> и <a href='/category/combo' class='underline hover:text-black'>подарочные наборы</a>.`,
+  newyear: `В Новый год дарите не только радость, но и вкус! Клубника в шоколаде, подарочные боксы и цветы для праздничного стола или как знак внимания коллегам и близким. <a href='/category/podarki' class='underline hover:text-black'>Подарки и сладкие букеты</a>.`,
+  '23february': `Подарите мужчинам внимание и вкус на 23 февраля! Оригинальные сладкие наборы, клубника в шоколаде, брутальные букеты. Закажите доставку за 60 минут по Краснодару. <a href='/category/man' class='underline hover:text-black'>Подарки для мужчин</a>.`,
+  valentinesday: `14 февраля — идеальный повод для романтики! Клубника в шоколаде, букеты и комбо-наборы для любимых. Быстрая доставка, открытка в подарок. <a href='/category/love' class='underline hover:text-black'>Романтические букеты</a>.`,
+  man: `Оригинальные подарки для мужчин: клубника в шоколаде, брутальные букеты, сладкие наборы с доставкой по Краснодару. <a href='/category/podarki' class='underline hover:text-black'>Все подарки</a>.`,
+  mame: `Поздравьте маму с особым событием — клубничные букеты, цветы и сладкие наборы. В каждой композиции — забота и внимание. <a href='/category/flowers' class='underline hover:text-black'>Букеты для мамы</a>.`,
+  mothersday: `День матери — отличный повод порадовать заботой и вкусом! Свежие букеты, клубника в шоколаде, открытка бесплатно. <a href='/category/flowers' class='underline hover:text-black'>Букеты для мамы</a>.`,
+  graduation: `Выпускной запомнится надолго с красивым и вкусным подарком! Клубника в шоколаде, цветочные букеты и подарочные боксы для выпускников и учителей. <a href='/category/klubnichnye-bukety' class='underline hover:text-black'>Сладкие букеты</a>.`,
+  anniversary: `Годовщина — время подарить эмоции! Клубника в шоколаде, цветы и эксклюзивные наборы для влюблённых и семейных пар. <a href='/category/love' class='underline hover:text-black'>Романтика</a>.`,
+  family_day: `Семейный праздник с доставкой счастья: клубника в шоколаде, букеты и сладкие наборы для всех возрастов. <a href='/category/combo' class='underline hover:text-black'>Комбо для семьи</a>.`,
+  child_birthday: `Детский день рождения — праздник ярких вкусов! Сладкие букеты, клубника в шоколаде, оригинальные подарки. <a href='/category/klubnichnye-boksy' class='underline hover:text-black'>Сладкие боксы</a>.`,
+  last_bell: `Последний звонок — отличный повод для необычного подарка учителю или выпускнику. Клубника в шоколаде и цветочные композиции с доставкой. <a href='/category/flowers' class='underline hover:text-black'>Букеты учителю</a>.`,
+  work: `Коллегам по работе: необычные подарки и сладкие букеты для корпоративных праздников и событий. Быстрая доставка по Краснодару. <a href='/category/podarki' class='underline hover:text-black'>Подарки для коллег</a>.`,
+  '1september': `1 сентября — новый учебный год, новые эмоции! Сладкие букеты, клубника в шоколаде, подарки для учителей и школьников. <a href='/category/klubnichnye-bukety' class='underline hover:text-black'>Подарки учителю</a>.`,
+};
 
 /* ----------------------- metadata ----------------------- */
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
@@ -65,17 +95,17 @@ export default async function OccasionPage({ params }: { params: { slug: string 
   const occasion = occasions.find(o => o.slug === params.slug) as Occasion | undefined;
   if (!occasion) notFound();
 
-  /* основная выборка */
+  // Основная выборка
   const { data: byOccasion }: { data: any[] | null } = await supabase
     .from('products')
     .select('*')
     .eq('occasion_slug', params.slug)
     .eq('in_stock', true);
 
-  let products: any[] = byOccasion ?? [];   // ← всегда массив
+  let products: any[] = byOccasion ?? [];
   let isFallback = false;
 
-  /* если нет товаров — 8 случайных */
+  // Fallback — если товаров нет, 8 случайных
   if (products.length === 0) {
     const { data: random }: { data: any[] | null } = await supabase
       .from('products')
@@ -87,7 +117,7 @@ export default async function OccasionPage({ params }: { params: { slug: string 
     isFallback = true;
   }
 
-  /* JSON‑LD */
+  // JSON‑LD
   const ld: ItemList = {
     '@type': 'ItemList',
     name: `${occasion.title} | KEY TO HEART`,
@@ -125,13 +155,18 @@ export default async function OccasionPage({ params }: { params: { slug: string 
         </div>
       </AnimatedSection>
 
-      {/* INTRO */}
+      {/* SEO‑текст */}
       <AnimatedSection>
         <section className="mx-auto mt-12 grid max-w-4xl grid-cols-1 sm:grid-cols-2 gap-8 items-center">
-          <p className="text-gray-700 text-base sm:text-lg leading-relaxed">
-            Ищете подарок на {occasion.title.toLowerCase()}? Клубничные букеты, цветы и комбо‑наборы —
-            доставка 60 минут, фото перед отправкой, открытка бесплатно.
-          </p>
+          <div>
+            <p
+              className="text-gray-700 text-base sm:text-lg leading-relaxed"
+              dangerouslySetInnerHTML={{
+                __html: occasionSeoText[params.slug] ||
+                  `В нашем магазине — только свежая клубника в шоколаде, оригинальные букеты и подарочные наборы с быстрой доставкой по Краснодару.`
+              }}
+            />
+          </div>
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
             <Image src={occasion.image} alt={occasion.title} fill className="object-cover" />
           </div>
@@ -145,12 +180,9 @@ export default async function OccasionPage({ params }: { params: { slug: string 
             <h2 className="mt-16 mb-6 text-center text-2xl sm:text-3xl font-semibold tracking-tight">
               {isFallback ? 'Популярные товары' : 'Подборка подарков'}
             </h2>
-
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:gap-8">
               {products.map(p => <ProductCard key={p.id} product={p} />)}
             </div>
-
-            {/* CTA показать ещё */}
             <div className="mt-8 flex justify-center">
               <Link
                 href="/catalog"

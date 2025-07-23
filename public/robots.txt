@@ -1,18 +1,12 @@
-# *
 User-agent: *
 Allow: /
+
 Disallow: /admin
 Disallow: /cart
 Disallow: /checkout
 Disallow: /order
 Disallow: /order/*
-Disallow: /product-category
-Disallow: /products
 Disallow: /preload
-Disallow: /api/*
 
-# Host
 Host: https://keytoheart.ru
-
-# Sitemaps
 Sitemap: https://keytoheart.ru/sitemap.xml
