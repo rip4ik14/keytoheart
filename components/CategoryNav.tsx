@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-import { Category } from '@/types/category';
+import type { Category } from '@/types/category';
 
 let categoryCache: Category[] | null = null;
 
@@ -168,9 +168,10 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                         href={href}
                         className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
                           active
-                            ? 'bg-black text-white shadow-sm scale-105'
+                            ? 'bg-black text-white !text-white shadow-sm scale-105'
                             : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
                         } focus:ring-2 focus:ring-gray-500`}
+                        aria-current={active ? 'page' : undefined}
                         onClick={() => {
                           window.gtag?.('event', 'category_nav_click', {
                             event_category: 'navigation',
@@ -184,7 +185,6 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             });
                           }
                         }}
-                        aria-current={active ? 'page' : undefined}
                       >
                         {cat.name}
                       </Link>
