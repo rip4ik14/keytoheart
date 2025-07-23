@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Категория (SSR + Supabase + JSON‑LD CollectionPage & Breadcrumb)          */
-/*  Версия: slug-only, July 2025                                              */
+/*  Версия: slug-only, July 2025 (fixed types)                                */
 /* -------------------------------------------------------------------------- */
 
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server';
@@ -15,35 +15,33 @@ import { Suspense } from 'react';
 import CategoryPageClient from './CategoryPageClient';
 import { redirect } from 'next/navigation';
 import type { Tables } from '@/lib/supabase/types_new';
+import { CATEGORY_META } from '../../seo/categoryMeta';
 
 /* ------------------------ SEO‑метаданные страницы ----------------------- */
-// (Оставляем только для "цветы" и "комбо" спец-варианты; всё остальное на базе)
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ category: string }>;
+  params: { category: string };
 }): Promise<Metadata> {
-  const { category: slug } = await params;
+  const { category: slug } = params;
 
-  // --- Категории со спец-метаданными
-  if (slug === 'flowers') {
+  // 1. Спец‑мета из CATEGORY_META
+  const meta = CATEGORY_META[slug];
+  if (meta) {
     return {
-      title:
-        'Доставка цветов и букетов в Краснодаре — купить онлайн | KEY TO HEART',
-      description:
-        'Свежие розы, сборные букеты и композиции с доставкой по Краснодару за 60 минут. Фото перед отправкой, бесплатная открытка и удобная оплата онлайн.',
-      alternates: { canonical: 'https://keytoheart.ru/category/flowers' },
+      title: meta.title,
+      description: meta.description,
+      alternates: { canonical: `https://keytoheart.ru/category/${slug}` },
       openGraph: {
-        title: 'Цветы с доставкой в Краснодаре | KEY TO HEART',
-        description:
-          'Закажите букет цветов онлайн: доставка по Краснодару 60 минут, фото перед отправкой, бесплатная открытка.',
-        url: 'https://keytoheart.ru/category/flowers',
+        title: meta.title,
+        description: meta.description,
+        url: `https://keytoheart.ru/category/${slug}`,
         images: [
           {
-            url: 'https://keytoheart.ru/og-flowers.webp',
+            url: `https://keytoheart.ru/og-${slug}.webp`,
             width: 1200,
             height: 630,
-            alt: 'Букет цветов с доставкой — KEY TO HEART',
+            alt: `${meta.h1} — KEY TO HEART`,
           },
         ],
       },
@@ -51,32 +49,7 @@ export async function generateMetadata({
     };
   }
 
-  if (slug === 'combo') {
-    return {
-      title:
-        'Комбо‑наборы: клубника в шоколаде и цветы — доставка в Краснодаре | KEY TO HEART',
-      description:
-        'Уникальные комбо‑наборы: клубника в бельгийском шоколаде + свежие цветы в одной коробке. Доставка по Краснодару 60 минут, фото перед отправкой, бесплатная открытка, оплата онлайн.',
-      alternates: { canonical: 'https://keytoheart.ru/category/combo' },
-      openGraph: {
-        title: 'Комбо‑наборы «Клубника + Цветы» | KEY TO HEART',
-        description:
-          'Сладкое и красивое в одном подарке: клубника в шоколаде и цветы. Быстрая доставка по Краснодару.',
-        url: 'https://keytoheart.ru/category/combo',
-        images: [
-          {
-            url: 'https://keytoheart.ru/og-combo.webp',
-            width: 1200,
-            height: 630,
-            alt: 'Комбо‑набор клубника и цветы — KEY TO HEART',
-          },
-        ],
-      },
-      twitter: { card: 'summary_large_image' },
-    };
-  }
-
-  // --- Дефолт: тянем данные из БД (название)
+  // 2. Дефолт: тянем данные из БД (название)
   const supabase = await createSupabaseServerClient();
   const { data: category } = await supabase
     .from('categories')
@@ -117,14 +90,14 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ category: string }>;
-  searchParams: Promise<{ sort?: string; subcategory?: string }>;
+  params: { category: string };
+  searchParams: { sort?: string; subcategory?: string };
 }) {
-  const { category: slug } = await params;
+  const { category: slug } = params;
   const {
     sort: sortParam = 'newest',
     subcategory: initialSubcategory = 'all',
-  } = await searchParams;
+  } = searchParams;
 
   const supabase = await createSupabaseServerClient();
 
@@ -180,8 +153,13 @@ export default async function CategoryPage({
 
   // Если товаров нет
   if (productIds.length === 0) {
+    // H1 из meta, иначе из apiName
+    const meta = CATEGORY_META[slug];
     return (
       <main aria-label={`Категория ${apiName}`}>
+        <h1 className="text-3xl font-bold mb-6">
+          {meta?.h1 || apiName}
+        </h1>
         <JsonLd<ItemList> item={{ '@type': 'ItemList', itemListElement: [] }} />
         <JsonLd<BreadcrumbList>
           item={{
@@ -313,10 +291,13 @@ export default async function CategoryPage({
   ];
 
   // Render
+  const meta = CATEGORY_META[slug];
   return (
     <main aria-label={`Категория ${apiName}`}>
+      <h1 className="text-3xl font-bold mb-6">
+        {meta?.h1 || apiName}
+      </h1>
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
-
       <Suspense fallback={<div>Загрузка…</div>}>
         <CategoryPageClient
           products={products}

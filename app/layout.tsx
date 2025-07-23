@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/*  Root Layout – глобальные стили, SEO‑метаданные, JSON‑LD граф              */
+/*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
@@ -42,7 +42,7 @@ const marqueeFont = localFont({
 /* ------------------------------ ISR -------------------------------------- */
 export const revalidate = 3600;
 
-/* --------------------------- META‑ДАННЫЕ ---------------------------------- */
+/* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     template: '%s | KEY TO HEART',
   },
   description:
-    'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+    'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
   alternates: {
     canonical: 'https://keytoheart.ru',
     languages: { ru: 'https://keytoheart.ru' },
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     url: 'https://keytoheart.ru',
     title: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
     description:
-      'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
+      'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
@@ -84,7 +84,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
     description:
-      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Фото перед отправкой, доставка 9‑22.',
+      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
@@ -99,10 +99,10 @@ export const viewport: Viewport = {
 };
 
 /* -------------------------------------------------------------------------- */
-/*                                ROOT LAYOUT                                */
+/*                                ROOT LAYOUT                                */
 /* -------------------------------------------------------------------------- */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  /* --- SSR‑загрузка категорий из Supabase для меню — ошибки не валят страницу --- */
+  /* --- SSR-загрузка категорий из Supabase для меню — ошибки не валят страницу --- */
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -160,10 +160,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
 
-        {/* canonical + hreflang (дублирует alternates, но ок) */}
-        <link rel="canonical" href="https://keytoheart.ru/" />
-        <link rel="alternate" href="https://keytoheart.ru/" hrefLang="ru" />
-
         {/* preconnect */}
         <link
           rel="preconnect"
@@ -178,7 +174,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
-        {/* ---------- JSON‑LD: WebSite + Org + LocalBusiness + Breadcrumbs ----- */}
+        {/* ---------- JSON-LD: WebSite + Org + LocalBusiness + Breadcrumbs ----- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -188,7 +184,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
                 description:
-                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
@@ -216,7 +212,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 telephone: '+7-988-603-38-21',
                 address: {
                   '@type': 'PostalAddress',
-                  streetAddress: 'ул. Героев‑Разведчиков, 17/1',
+                  streetAddress: 'ул. Героев-Разведчиков, 17/1',
                   addressLocality: 'Краснодар',
                   addressRegion: 'Краснодарский край',
                   postalCode: '350028',

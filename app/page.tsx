@@ -157,21 +157,23 @@ export default async function Home() {
   );
 
   /* ------------- Категории для витрины ------------- */
-  const IGNORE_SLUGS = new Set(['balloon', 'postcard']);
+  /**  IGNORE_SLUGS исправлено по аудиту: real slugs 'balloons' и 'cards'  */
+  const IGNORE_SLUGS = new Set(['balloons', 'cards']);
+
   const categories = [
     ...new Set(
       products
         .filter(
           (p) =>
-            !p.category_ids.some((id) =>
-              IGNORE_SLUGS.has(catMap.get(id)?.slug || ''),
+            !p.category_ids.some(
+              (id) => IGNORE_SLUGS.has(catMap.get(id)?.slug || ''),
             ),
         )
         .flatMap((p) => p.category_ids.map((id) => catMap.get(id)?.name)),
     ),
   ].filter(Boolean) as string[];
 
-  /* ------------- slug ↔ name маппинг ------------- */
+  /* ------------- slug ↔ name маппинг ------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
     'Клубничные боксы':  'klubnichnye-boksy',

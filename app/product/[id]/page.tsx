@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Страница товара (SSR + Supabase, JSON‑LD Product / Breadcrumb)            */
-/*  Версия: 2025‑07‑18 – без rating‑полей                                     */
+/*  Версия: 2025‑07‑25 – трёхзвенный хлеб + TS‑фиксы                           */
 /* -------------------------------------------------------------------------- */
 
 import { notFound } from 'next/navigation';
@@ -11,7 +11,6 @@ import { JsonLd } from 'react-schemaorg';
 import type {
   Product as SchemaProduct,
   AggregateOffer,
-  BreadcrumbList,
   ImageObject,
 } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
@@ -63,10 +62,7 @@ export async function generateMetadata({
     };
   }
 
-  const cleanDesc = (data.description ?? '')
-    .replace(/<[^>]*>/g, '')
-    .trim();
-
+  const cleanDesc = (data.description ?? '').replace(/<[^>]*>/g, '').trim();
   const desc =
     cleanDesc ||
     'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
@@ -85,14 +81,7 @@ export async function generateMetadata({
       title: data.title,
       description: desc,
       url,
-      images: [
-        {
-          url: firstImg,
-          width: 1200,
-          height: 630,
-          alt: data.title,
-        },
-      ],
+      images: [{ url: firstImg, width: 1200, height: 630, alt: data.title }],
     },
     twitter: {
       card: 'summary_large_image',
@@ -128,6 +117,7 @@ export default async function ProductPage({
     },
   );
 
+  /* ---------- Товар + категории ---------- */
   const { data, error } = await supabase
     .from('products')
     .select('*, product_categories(category_id)')
@@ -136,6 +126,25 @@ export default async function ProductPage({
     .single();
 
   if (error || !data || data.in_stock === false) notFound();
+
+  const categoryIds: number[] =
+    data.product_categories?.map((c) => c.category_id) ?? [];
+  const firstCatId = categoryIds[0];
+
+  /* ---------- Получаем первую категорию ---------- */
+  let categorySlug = '';
+  let categoryName = '';
+  if (firstCatId) {
+    const { data: cat } = await supabase
+      .from('categories')
+      .select('name, slug')
+      .eq('id', firstCatId)
+      .single();
+    if (cat) {
+      categorySlug = cat.slug;
+      categoryName = cat.name;
+    }
+  }
 
   const product: Product = {
     id: data.id,
@@ -147,7 +156,7 @@ export default async function ProductPage({
     description: data.description ?? '',
     composition: data.composition ?? '',
     production_time: data.production_time ?? null,
-    category_ids: data.product_categories?.map((c) => c.category_id) ?? [],
+    category_ids: categoryIds,
   };
 
   /* ---------- Upsell ---------- */
@@ -196,6 +205,7 @@ export default async function ProductPage({
   /* --------------------------- Render --------------------------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
+      {/* ---------- JSON‑LD Product ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
@@ -214,13 +224,14 @@ export default async function ProductPage({
               ]
             : undefined,
           material: product.composition || undefined,
-          category: product.category_ids.join(',') || undefined,
+          category: categoryIds.join(',') || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
           offers: offer,
         }}
       />
 
-      <JsonLd<BreadcrumbList>
+      {/* ---------- JSON‑LD BreadcrumbList (до 3‑х звеньев) ---------- */}
+      <JsonLd
         item={{
           '@type': 'BreadcrumbList',
           itemListElement: [
@@ -230,20 +241,32 @@ export default async function ProductPage({
               name: 'Главная',
               item: 'https://keytoheart.ru',
             },
+            ...(categorySlug
+              ? [
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: categoryName,
+                    item: `https://keytoheart.ru/category/${categorySlug}`,
+                  },
+                ]
+              : []),
             {
               '@type': 'ListItem',
-              position: 2,
+              position: categorySlug ? 3 : 2,
               name: product.title,
               item: `https://keytoheart.ru/product/${product.id}`,
             },
-          ],
+          ] as any, // ⬅️ снимаем строгую проверку schema-dts
         }}
       />
 
+      {/* ---------- Визуальные хлебные крошки ---------- */}
       <Suspense fallback={null}>
         <Breadcrumbs productTitle={product.title} />
       </Suspense>
 
+      {/* ---------- Основной контент ---------- */}
       <Suspense fallback={<div className="text-center py-8">Загрузка…</div>}>
         <ProductPageClient product={product} combos={combos} />
       </Suspense>
