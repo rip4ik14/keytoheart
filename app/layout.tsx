@@ -1,13 +1,12 @@
 /* -------------------------------------------------------------------------- */
-/*  Root Layout – глобальные стили, SEO‑метаданные, JSON‑LD граф              */
+/*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
 
-import localFont          from 'next/font/local';
-import Script             from 'next/script';
+import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
-import { JsonLd }         from 'react-schemaorg';
+import { JsonLd } from 'react-schemaorg';
 import type {
   BreadcrumbList,
   LocalBusiness,
@@ -16,10 +15,10 @@ import type {
 } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
-import { Category }   from '@/types/category';
-import { YM_ID }      from '@/utils/ym';
+import { Category } from '@/types/category';
+import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
 
-/* --------------------------- Шрифты (localFont) --------------------------- */
+/* --------------------------- шрифты через localFont ----------------------- */
 const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
@@ -43,7 +42,7 @@ const marqueeFont = localFont({
 /* ------------------------------ ISR -------------------------------------- */
 export const revalidate = 3600;
 
-/* --------------------------- META‑ДАННЫЕ ---------------------------------- */
+/* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
@@ -85,14 +84,14 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
     description:
-      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Фото перед отправкой, доставка 9‑22.',
+      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
   robots: { index: true, follow: true },
 };
 
-/* --------------------------- Viewport ------------------------------------- */
+/* --------------------------- viewport ------------------------------------- */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -103,7 +102,7 @@ export const viewport: Viewport = {
 /*                                ROOT LAYOUT                                */
 /* -------------------------------------------------------------------------- */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  /* --- SSR‑загрузка категорий из Supabase --- */
+  /* --- SSR-загрузка категорий из Supabase для меню — ошибки не валят страницу --- */
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -134,12 +133,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } catch (e) {
     process.env.NODE_ENV !== 'production' &&
       console.warn('[layout] categories fetch error →', e);
+    categories = [];
   }
 
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
-        {/* preload основного шрифта для WebKit */}
+        {/* preload основного шрифта для WebKit (Safari) */}
         <link
           rel="preload"
           href="/fonts/golos-text_regular.woff2"
@@ -161,16 +161,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.position" content="45.058090;39.037611" />
 
         {/* preconnect */}
-        <link rel="preconnect" href="https://*.supabase.co" crossOrigin="" />
+        <link
+          rel="preconnect"
+          href="https://gwbeabfkknhewwoesqax.supabase.co"
+          crossOrigin="anonymous"
+        />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
 
-        {/* PWA / manifest */}
+        {/* PWA / favicon extras */}
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
-        {/* ---------- JSON‑LD (WebSite, Org, LocalBusiness) ---------- */}
+        {/* ---------- JSON-LD: WebSite + Org + LocalBusiness + Breadcrumbs ----- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
@@ -180,7 +184,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
                 description:
-                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 60 минут, с 9:00 до 22:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
@@ -208,7 +212,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 telephone: '+7-988-603-38-21',
                 address: {
                   '@type': 'PostalAddress',
-                  streetAddress: 'ул. Героев‑Разведчиков, 17/1',
+                  streetAddress: 'ул. Героев-Разведчиков, 17/1',
                   addressLocality: 'Краснодар',
                   addressRegion: 'Краснодарский край',
                   postalCode: '350028',
@@ -219,34 +223,37 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {
                 '@type': 'BreadcrumbList',
                 itemListElement: [
-                  { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Главная',
+                    item: 'https://keytoheart.ru',
+                  },
                 ],
               } as BreadcrumbList,
             ],
           }}
         />
 
-        {/* ---------- Яндекс.Метрика (lazy, без onLoad пропа) ---------- */}
-        {process.env.NODE_ENV === 'production' && YM_ID && (
-          <>
-            <Script id="ym-lib" src="https://mc.yandex.ru/metrika/tag.js" strategy="lazyOnload" />
-            <Script
-              id="ym-init"
-              strategy="lazyOnload"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                  m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
-                  k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
-                    (window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
-                  ym(${YM_ID}, 'init', {
-                    clickmap:true, trackLinks:true, accurateTrackBounce:true,
-                    trackHash:true, webvisor:true
-                  });
-                `,
-              }}
-            />
-          </>
+        {/* -------- Яндекс.Метрика -------- */}
+        {YM_ID && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];
+                k.async=1;k.src=r;a.parentNode.insertBefore(k,a);})
+                  (window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
+                ym(${YM_ID}, 'init', {
+                  clickmap:true,
+                  trackLinks:true,
+                  accurateTrackBounce:true,
+                  trackHash:true,
+                  webvisor:true
+                });
+              `,
+            }}
+          />
         )}
       </head>
 

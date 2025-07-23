@@ -1,4 +1,4 @@
-// ✅ Bundle Analyzer
+// ✅ Bundle Analyzer
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
@@ -7,7 +7,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-/* ------------------------- Content Security Policy ------------------------- */
+/* ------------------------- Content-Security-Policy ------------------------- */
 const buildCsp = () => {
   const COMMON = {
     default: ["'self'"],
@@ -45,20 +45,15 @@ const buildCsp = () => {
   const SCRIPT_SRC = [
     "'self'",
     "'unsafe-inline'",
-    // ⬇ Метрика и карты подключаем только в production
-    ...(!isDev
-      ? [
-          'https://mc.yandex.com',
-          'https://mc.yandex.ru',
-          'https://api-maps.yandex.ru',
-          'https://yastatic.net',
-          'https://*.yastatic.net',
-          'https://cdn.turbo.yandex.ru',
-        ]
-      : []),
+    'https://mc.yandex.com',
+    'https://mc.yandex.ru',
+    'https://api-maps.yandex.ru',
+    'https://yastatic.net',
+    'https://*.yastatic.net',
+    'https://cdn.turbo.yandex.ru',
   ];
 
-  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // допуск для HMR
+  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // допуск для hot-reload’а
 
   return [
     `default-src ${COMMON.default.join(' ')};`,
@@ -72,20 +67,37 @@ const buildCsp = () => {
   ].join(' ');
 };
 
-/* --------------------------- Remote image patterns -------------------------- */
+/* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
   {
     protocol: 'https',
-    hostname: '**.supabase.co', // универсальный pattern (дубли убраны)
+    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
     pathname: '/storage/v1/object/public/**',
   },
-  { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
-  { protocol: 'https', hostname: 'keytoheart.ru',       pathname: '/**' },
+  {
+    protocol: 'https',
+    hostname: '**.supabase.co',
+    pathname: '/storage/v1/object/public/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'via.placeholder.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'keytoheart.ru',
+    pathname: '/**',
+  },
 ];
 
-// 👇 тестовый домен — только dev
+// 👇 дополнительный тестовый домен разрешаем только в dev-режиме
 if (isDev) {
-  remotePatterns.push({ protocol: 'https', hostname: 'example.com', pathname: '/**' });
+  remotePatterns.push({
+    protocol: 'https',
+    hostname: 'example.com',
+    pathname: '/**',
+  });
 }
 
 const nextConfig = {
@@ -93,48 +105,66 @@ const nextConfig = {
   compress: true,
   output: 'standalone',
 
-    eslint: { ignoreDuringBuilds: true },
+  eslint: { ignoreDuringBuilds: true },
 
   images: {
     remotePatterns,
-    formats: ['image/webp'],            // AVIF убран, если вы его не генерите
+    formats: ['image/avif', 'image/webp'],
     deviceSizes: [320, 640, 768, 1024, 1280, 1600],
-    imageSizes:  [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 2_592_000,         // 30 дней
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 2_592_000, // 30 дней
     dangerouslyAllowSVG: false,
   },
 
   experimental: {
-    optimizePackageImports: ['swiper'], // framer-motion снят (не трекаем)
+    optimizePackageImports: ['framer-motion', 'swiper'],
     optimizeCss: true,
   },
 
-  /* ----------------------------- Custom headers ---------------------------- */
+  /* ----------------------------- Custom headers ---------------------------- */
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options',       value: 'DENY' },
-          { key: 'Referrer-Policy',       value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Content-Security-Policy', value: buildCsp() },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
-          { key: 'Permissions-Policy', value: 'geolocation=(), microphone=(), camera=()' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'geolocation=(), microphone=(), camera=()',
+          },
+          // === Добавлено для изоляции вкладки браузера ===
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          // { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' }, // если понадобится
         ],
       },
-      /* Aggressive static caching */
+      /* -------- Aggressive caching for static assets -------- */
       ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
         (source) => ({
           source,
-          headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
         }),
       ),
-      /* Short revalidate for ISR routes */
+      /* --------- ISR pages: краткий server-revalidate --------- */
       ...['/', '/about', '/policy'].map((source) => ({
         source,
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        ],
       })),
     ];
   },
