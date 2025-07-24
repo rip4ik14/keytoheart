@@ -201,7 +201,7 @@ export default function ScratchPredictionPremium() {
       {/* Подсказка “Проведите...” */}
       {!revealed && (
         <div className="mt-2 text-xs text-neutral-500 text-center animate-pulse select-none font-bold px-3" style={{fontFamily: "'Golos Text', Arial, sans-serif"}}>
-          Проведите пальцем или мышкой по билетику, чтобы узнать свой бонус!
+          Потрите по билетику, чтобы узнать предсказание дня!
         </div>
       )}
     </div>
