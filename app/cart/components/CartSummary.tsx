@@ -1,5 +1,4 @@
 'use client';
-
 import { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -41,17 +40,20 @@ export default function CartSummary({
   return (
     <motion.aside
       aria-label="Сумма заказа"
-      className="w-full p-6 bg-white border border-gray-300 rounded-lg shadow-sm"
+      className="
+        w-full
+        p-4 xs:p-6 bg-white border border-gray-300 rounded-lg shadow-sm
+        flex flex-col gap-2
+      "
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="mb-4 text-lg font-bold text-gray-900">Итого</h2>
-
+      <h2 className="mb-2 xs:mb-4 text-base xs:text-lg font-bold text-gray-900">Итого</h2>
       {items.length + selectedUpsells.length === 0 ? (
         <p className="text-center text-gray-500">Корзина пуста</p>
       ) : (
-        <div className="flex flex-col space-y-4 text-sm text-gray-700">
+        <div className="flex flex-col space-y-2 xs:space-y-4 text-xs xs:text-sm text-gray-700">
           <div className="flex justify-between">
             <span>Товары</span>
             <span className="font-medium">{subtotal + upsellTotal} ₽</span>
@@ -74,13 +76,13 @@ export default function CartSummary({
 
           {isAuthenticated && (
             <motion.div
-              className="pt-4"
+              className="pt-2 xs:pt-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-900">
+              <div className="flex items-center justify-between bg-gray-50 p-2 xs:p-3 rounded-md">
+                <label className="flex items-center gap-2 text-xs xs:text-sm font-medium text-gray-900">
                   <motion.input
                     type="checkbox"
                     checked={useBonuses}
@@ -95,7 +97,7 @@ export default function CartSummary({
                 </label>
                 {useBonuses && bonusesUsed > 0 && (
                   <motion.span
-                    className="text-sm font-semibold text-green-600"
+                    className="text-xs xs:text-sm font-semibold text-green-600"
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.2 }}
@@ -105,7 +107,7 @@ export default function CartSummary({
                 )}
               </div>
               <motion.p
-                className="mt-2 text-xs text-gray-500"
+                className="mt-1 xs:mt-2 text-[11px] xs:text-xs text-gray-500"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
@@ -117,7 +119,7 @@ export default function CartSummary({
             </motion.div>
           )}
 
-          <div className="flex justify-between items-center pt-4 text-xs text-gray-500 border-t">
+          <div className="flex justify-between items-center pt-2 xs:pt-4 text-[11px] xs:text-xs text-gray-500 border-t">
             <span>+ начислим {bonusAccrual} бонусов</span>
             <Image
               src="/icons/info-circle.svg"
@@ -128,7 +130,7 @@ export default function CartSummary({
             />
           </div>
 
-          <div className="mt-6 flex justify-between items-center text-xl font-bold text-gray-900 border-t pt-4">
+          <div className="mt-3 xs:mt-6 flex justify-between items-center text-lg xs:text-xl font-bold text-gray-900 border-t pt-3 xs:pt-4">
             <span>Итого</span>
             <span>{finalTotal} ₽</span>
           </div>

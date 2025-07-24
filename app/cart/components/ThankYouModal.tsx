@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import TrackedLink from '@components/TrackedLink';
+import ScratchPrediction from './ScratchPrediction';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
@@ -15,7 +16,7 @@ interface Props {
 export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Props) {
   const [timer, setTimer] = useState(15);
 
-  // ✅ Вызов цели Яндекс.Метрики при открытии модалки
+  // Яндекс.Метрика при открытии модалки
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof window.ym === 'function') {
       window.ym(102737149, 'reachGoal', 'order_success');
@@ -168,7 +169,10 @@ export default function ThankYouModal({ onClose, orderNumber, trackingUrl }: Pro
             Мы свяжемся с вами для подтверждения в ближайшее время.
           </motion.p>
 
-          <motion.div className="flex justify-center" variants={buttonVariants}>
+          {/* Интерактивный "Потри билетик" */}
+          <ScratchPrediction />
+
+          <motion.div className="flex justify-center mt-3" variants={buttonVariants}>
             <TrackedLink
               href="/"
               onClick={onClose}

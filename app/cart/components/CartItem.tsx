@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/components/CartItem.tsx
 'use client';
 
 import Image from 'next/image';
@@ -21,7 +20,6 @@ export default function CartItem({
     if (updateQuantity && item.quantity > 1) {
       updateQuantity(item.id, item.quantity - 1);
     } else if (updateQuantity && item.quantity === 1) {
-      // Если количество становится 0, удаляем товар
       removeItem(item.id);
     }
   };
@@ -40,14 +38,20 @@ export default function CartItem({
 
   return (
     <motion.div
-      className="flex items-center gap-3 py-2 border-b last:border-b-0"
+      className="
+        flex items-center gap-2 sm:gap-3 py-2 border-b last:border-b-0
+        w-full
+      "
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3 }}
     >
       {/* Фото */}
-      <div className="relative w-20 h-20 flex-shrink-0 rounded overflow-hidden border">
+      <div className="
+        relative flex-shrink-0 rounded overflow-hidden border
+        w-16 h-16 xs:w-20 xs:h-20
+      ">
         <Image
           src={imageSrc}
           alt={item.title || "Фото товара"}
@@ -59,9 +63,14 @@ export default function CartItem({
 
       {/* Основная информация */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Название и цена в одну строку */}
+        {/* Название и цена */}
         <div className="flex items-center justify-between min-w-0">
-          <span className="text-sm font-medium text-black truncate max-w-[120px]">{item.title}</span>
+          <span className="
+            text-xs xs:text-sm font-medium text-black truncate
+            max-w-[80px] xs:max-w-[120px]
+          ">
+            {item.title}
+          </span>
           <span className="text-base font-semibold text-black whitespace-nowrap">{item.price.toLocaleString()} ₽</span>
         </div>
         {/* Контролы */}
@@ -79,7 +88,7 @@ export default function CartItem({
               >
                 <Minus size={18} />
               </motion.button>
-              <span className="px-3 text-base">{item.quantity}</span>
+              <span className="px-2 xs:px-3 text-base">{item.quantity}</span>
               <motion.button
                 onClick={handlePlus}
                 className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-black transition"

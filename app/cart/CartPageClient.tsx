@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -26,7 +25,7 @@ import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Анимации
+// --- animation configs ---
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -41,21 +40,12 @@ const stepVariants = {
   exit: { opacity: 0, x: -100, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
 };
 
-// Модалка ошибки
 interface ErrorModalProps {
   message: string;
   onRetry: () => Promise<void>;
   onClose: () => void;
 }
 const ErrorModal = ErrorModalComponent as React.FC<ErrorModalProps>;
-
-// Типы для Yandex Maps
-interface YandexMaps {
-  suggest: (
-    query: string,
-    options: { boundedBy: number[][]; strictBounds: boolean; results: number }
-  ) => Promise<{ value: string }[]>;
-}
 
 interface DaySchedule {
   start: string;
@@ -71,7 +61,6 @@ interface StoreSettings {
 }
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
-// Телефон нормализация
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');
   if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) return `+${cleanPhone}`;
@@ -203,7 +192,6 @@ export default function CartPageClient() {
     setStep4ErrorMessage(errorMessage);
   }, []);
 
-  // Обработчик изменения телефона
   const handlePhoneChange = useCallback(
     (value: string) => {
       const normalized = normalizePhone(value);
@@ -213,19 +201,26 @@ export default function CartPageClient() {
     [onFormChange, setPhoneError]
   );
 
+  // --- Layout fix: overflow-x-hidden только на мобильных ---
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      document.body.classList.add('overflow-x-hidden');
+      return () => {
+        document.body.classList.remove('overflow-x-hidden');
+      };
+    }
+  }, []);
+
   // Проверка корзины и удаление невалидных товаров
   useEffect(() => {
     const validateAndCleanCart = async () => {
       if (items.length === 0) return;
-
       try {
         const productIds = items
           .filter((item: CartItemType) => !item.isUpsell)
           .map((item: CartItemType) => parseInt(item.id, 10))
           .filter((id: number) => !isNaN(id));
-
         if (productIds.length === 0) return;
-
         const res = await fetch('/api/products/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -238,7 +233,6 @@ export default function CartPageClient() {
           }),
         });
         const json = await res.json();
-
         if (!json.valid) {
           const invalidItems = json.invalidItems || [];
           const itemsToRemove = invalidItems
@@ -248,13 +242,11 @@ export default function CartPageClient() {
               invalidItem.reason === 'Товар не доступен для заказа'
             )
             .map((invalidItem: { id: number }) => invalidItem.id.toString());
-
           if (itemsToRemove.length > 0) {
             const removedTitles = items
               .filter((item: CartItemType) => itemsToRemove.includes(item.id))
               .map((item: CartItemType) => item.title)
               .join(', ');
-
             const updatedItems = items.filter((item: CartItemType) => !itemsToRemove.includes(item.id));
             clearCart();
             if (updatedItems.length > 0) {
@@ -268,7 +260,6 @@ export default function CartPageClient() {
         toast.error('Не удалось проверить товары в корзине.');
       }
     };
-
     validateAndCleanCart();
   }, [items, clearCart, addMultipleItems]);
 
@@ -276,15 +267,12 @@ export default function CartPageClient() {
   useEffect(() => {
     const syncCartPrices = async () => {
       if (items.length === 0) return;
-
       try {
         const productIds = items
           .filter((item: CartItemType) => !item.isUpsell)
           .map((item: CartItemType) => parseInt(item.id, 10))
           .filter((id: number) => !isNaN(id));
-
         if (productIds.length === 0) return;
-
         const res = await fetch('/api/products/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -297,7 +285,6 @@ export default function CartPageClient() {
           }),
         });
         const json = await res.json();
-
         if (!json.valid) {
           const updatedItems = [...items];
           json.invalidItems.forEach((invalidItem: { id: number; reason: string }) => {
@@ -313,7 +300,6 @@ export default function CartPageClient() {
               }
             }
           });
-
           clearCart();
           addMultipleItems(updatedItems);
         }
@@ -322,7 +308,6 @@ export default function CartPageClient() {
         toast.error('Не удалось синхронизировать цены корзины');
       }
     };
-
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
@@ -364,7 +349,6 @@ export default function CartPageClient() {
     if (step === 1) {
       const isValid = validateStep1();
       if (!isValid) {
-        // Ошибка уже отобразится через toast.error в validateStep1
         return;
       }
       nextStep();
@@ -603,7 +587,6 @@ export default function CartPageClient() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
-      
       process.env.NODE_ENV !== "production" && console.log('handleApplyPromo: Result from API:', result);
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
@@ -662,35 +645,29 @@ export default function CartPageClient() {
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
       return;
     }
-
     const isFormValid = validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(agreed);
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
-
     if (!canPlaceOrder) {
       toast.error('Магазин временно не принимает заказы. Попробуйте позже или свяжитесь с поддержкой.');
       return;
     }
-
     if (items.length === 0 && selectedUpsells.length === 0) {
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
-
     if (!(await checkItems())) {
       toast.error('Некоторые товары недоступны. Пожалуйста, обновите корзину и попробуйте снова.');
       return;
     }
-
     if (!phone) {
       setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
       setIsAuthenticated(false);
       setStep(0);
       return;
     }
-
     setIsSubmittingOrder(true);
     try {
       const cartItems = items.map((item: CartItemType) => ({
@@ -808,12 +785,12 @@ export default function CartPageClient() {
     step,
   ]);
 
-  // Рендеринг
+  // --- Layout and rendering ---
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 pb-[80px] md:pb-12">
+    <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-6 pb-[80px] md:pb-12">
       <StoreBanner />
       <motion.h1
-        className="mb-10 text-center text-4xl sm:text-5xl font-bold tracking-tight uppercase"
+        className="mb-8 text-center text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight uppercase"
         initial={{ opacity: 0, y: -25 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -831,43 +808,16 @@ export default function CartPageClient() {
       )}
 
       <motion.div
-        className="mb-6 flex items-center justify-center gap-2 sticky top-0 z-30 bg-white py-2 md:static"
+        className="
+          flex flex-col gap-4 
+          md:grid md:grid-cols-3 md:gap-10 
+          w-full max-w-full
+        "
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {[0, 1, 2, 3, 4, 5].map((s) => (
-          <motion.div key={s} className="flex items-center" variants={containerVariants}>
-            <motion.div
-              className={`flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-medium hover:scale-105 transition-transform duration-200 ${
-                step >= s ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
-              }`}
-              initial={{ scale: 0.8 }}
-              animate={{ scale: step >= s ? 1 : 0.8 }}
-              transition={{ duration: 0.3 }}
-              aria-label={`Шаг ${s}`}
-            >
-              {s}
-            </motion.div>
-            {s < 5 && (
-              <motion.div
-                className={`w-6 h-1 mx-1 sm:w-8 ${step > s ? 'bg-black' : 'bg-gray-200'}`}
-                initial={{ width: '0%', opacity: 0 }}
-                animate={{ width: step > s ? '100%' : '0%', opacity: 1 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-              />
-            )}
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <motion.div
-        className="flex flex-wrap gap-4 mt-6 md:grid md:grid-cols-3 md:gap-10"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <div className="w-full md:col-span-2 space-y-6">
+        <div className="w-full max-w-full md:col-span-2 space-y-4">
           <AnimatePresence mode="wait">
             <motion.div key={step} variants={stepVariants} initial="initial" animate="animate" exit="exit">
               {step === 0 && (
@@ -954,62 +904,31 @@ export default function CartPageClient() {
           </AnimatePresence>
         </div>
 
-        <div className="space-y-6">
+        <div className="w-full max-w-full space-y-4">
           {/* Кнопки "Открытка" и "Шары" над CartItem */}
-          <div
-            className="
-              flex gap-4 mb-4 
-              md:flex-row md:gap-8
-              w-full justify-center
-            "
-          >
+          <div className="flex flex-col xs:flex-row gap-3 mb-4 w-full justify-center md:flex-row">
             {/* Открытка */}
             <motion.button
               type="button"
               onClick={() => setShowPostcard(true)}
-              className="
-                inline-flex items-center justify-center gap-2
-                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                bg-white text-[#535353] transition-all duration-200 shadow-sm
-                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-              "
+              className="w-full xs:w-1/2 md:w-auto flex items-center justify-center gap-2 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               aria-label="Добавить открытку"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Image
-                src="/icons/postcard.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform duration-200"
-                priority={false}
-              />
+              <Image src="/icons/postcard.svg" alt="" width={20} height={20} className="transition-transform" />
               <span>Добавить открытку</span>
             </motion.button>
-
             {/* Шары */}
             <motion.button
               type="button"
               onClick={() => setShowBalloons(true)}
-              className="
-                inline-flex items-center justify-center gap-2
-                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                bg-white text-[#535353] transition-all duration-200 shadow-sm
-                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-              "
+              className="w-full xs:w-1/2 md:w-auto flex items-center justify-center gap-2 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
               aria-label="Добавить шары"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Image
-                src="/icons/balloon.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform duration-200"
-                priority={false}
-              />
+              <Image src="/icons/balloon.svg" alt="" width={20} height={20} className="transition-transform" />
               <span>Добавить шары</span>
             </motion.button>
           </div>
@@ -1030,12 +949,7 @@ export default function CartPageClient() {
           <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <motion.button
               onClick={() => setShowPromoField(!showPromoField)}
-              className="
-                inline-flex items-center gap-1
-                border border-[#bdbdbd] rounded-[10px] px-4 sm:px-6 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                bg-white text-[#535353] transition-all duration-200 shadow-sm
-                hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-              "
+              className="inline-flex items-center gap-1 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] w-full"
               aria-expanded={showPromoField}
               aria-controls="promo-field"
               whileHover={{ scale: 1.02 }}
@@ -1054,7 +968,7 @@ export default function CartPageClient() {
               {showPromoField && (
                 <motion.div
                   id="promo-field"
-                  className="mt-3 p-4 bg-gray-50 rounded-lg shadow-sm"
+                  className="mt-3 p-3 bg-gray-50 rounded-lg shadow-sm"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -1066,17 +980,12 @@ export default function CartPageClient() {
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Введите промокод"
-                      className="flex-1 min-w-0 w-full py-3 px-4 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-sm sm:text-base"
+                      className="flex-1 min-w-0 w-full py-3 px-3 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-sm"
                       aria-label="Введите промокод"
                     />
                     <motion.button
                       onClick={handleApplyPromo}
-                      className="
-                        w-full sm:w-[130px] flex-shrink-0
-                        border border-[#bdbdbd] rounded-[10px] px-4 py-2 sm:py-3 font-bold text-xs sm:text-sm uppercase tracking-tight text-center 
-                        bg-white text-[#535353] transition-all duration-200 shadow-sm
-                        hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-                      "
+                      className="w-full sm:w-[110px] flex-shrink-0 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
                       aria-label="Применить промокод"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Категория (SSR + Supabase + JSON‑LD CollectionPage & Breadcrumb)          */
-/*  Версия: slug-only, July 2025 (fixed types)                                */
+/*  Версия: slug-only, July 2025 (fixed types, Next.js 15+)                   */
 /* -------------------------------------------------------------------------- */
 
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server';
@@ -21,9 +21,9 @@ import { CATEGORY_META } from '../../seo/categoryMeta';
 export async function generateMetadata({
   params,
 }: {
-  params: { category: string };
+  params: Promise<{ category: string }>; // теперь params - Promise!
 }): Promise<Metadata> {
-  const { category: slug } = params;
+  const { category: slug } = await params;
 
   // 1. Спец‑мета из CATEGORY_META
   const meta = CATEGORY_META[slug];
@@ -90,14 +90,14 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: {
-  params: { category: string };
-  searchParams: { sort?: string; subcategory?: string };
+  params: Promise<{ category: string }>;
+  searchParams: Promise<{ sort?: string; subcategory?: string }>;
 }) {
-  const { category: slug } = params;
+  const { category: slug } = await params;
   const {
     sort: sortParam = 'newest',
     subcategory: initialSubcategory = 'all',
-  } = searchParams;
+  } = await searchParams;
 
   const supabase = await createSupabaseServerClient();
 
