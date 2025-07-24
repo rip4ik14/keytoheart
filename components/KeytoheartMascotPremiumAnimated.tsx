@@ -8,7 +8,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
   const heartControls = useAnimation();
   useEffect(() => {
     heartControls.start({
-      scale: [1, 1.13, 0.92, 1.09, 1],
+      scale: [1, 1.12, 0.98, 1.08, 1],
       transition: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' },
     });
   }, [heartControls]);
@@ -17,8 +17,8 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
   const keyControls = useAnimation();
   useEffect(() => {
     keyControls.start({
-      rotate: [0, -19, 14, 0],
-      x: [0, 6, -6, 0],
+      rotate: [0, -16, 11, 0],
+      x: [0, 5, -5, 0],
       y: [0, 1.6, -1.6, 0],
       transition: { duration: 2.1, repeat: Infinity, ease: 'easeInOut' }
     });
@@ -29,7 +29,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
   useEffect(() => {
     shineControls.start({
       opacity: [0, 1, 0],
-      scale: [0.7, 1.39, 0.6],
+      scale: [0.7, 1.33, 0.6],
       transition: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.1 }
     });
   }, [shineControls]);
@@ -39,8 +39,8 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
   useEffect(() => {
     const blink = async () => {
       while (true) {
-        await eyeControls.start({ scaleY: 0.22 }, { duration: 0.12, ease: 'circIn' });
-        await eyeControls.start({ scaleY: 1 }, { duration: 0.13, ease: 'circOut', delay: Math.random() * 1.2 + 0.6 });
+        await eyeControls.start({ scaleY: 0.19 }, { duration: 0.11, ease: 'circIn' });
+        await eyeControls.start({ scaleY: 1 }, { duration: 0.13, ease: 'circOut', delay: Math.random() * 1.4 + 0.5 });
       }
     };
     blink();
@@ -81,8 +81,18 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
       <ellipse cx="110" cy="200" rx="38" ry="10" fill="#dec898" opacity="0.33" />
       {/* Сердце и тело */}
       <motion.g animate={heartControls}>
+        {/* КРАСИВОЕ СИММЕТРИЧНОЕ СЕРДЦЕ */}
         <path
-          d="M54 82 Q40 38 92 32 Q117 29 133 56 Q170 8 201 66 Q209 83 191 120 L111 195 L39 120 Q10 82 54 82 Z"
+          d="
+            M110,185
+            L58,122
+            Q30,92 52,64
+            Q73,37 110,63
+            Q147,37 168,64
+            Q190,92 162,122
+            L110,185
+            Z
+          "
           fill="#E24132"
           stroke="#191716"
           strokeWidth="6"
@@ -90,7 +100,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Левая рука */}
         <path
-          d="M41 126 Q17 142 26 105 Q33 85 49 109"
+          d="M66 132 Q30 156 50 112"
           fill="none"
           stroke="#191716"
           strokeWidth="7"
@@ -98,47 +108,60 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Правая рука (к ключу) */}
         <path
-          d="M180 93 Q218 88 182 72"
+          d="M154 110 Q210 105 170 90"
           fill="none"
           stroke="#191716"
           strokeWidth="7"
           strokeLinecap="round"
         />
-        {/* Ключ */}
+        {/* Ключ — Четко круглый с зубчиками */}
         <motion.g animate={keyControls}>
+          {/* Круглая головка ключа */}
           <ellipse
-            cx="192"
-            cy="72"
-            rx="11"
-            ry="10"
+            cx="176"
+            cy="90"
+            rx="13"
+            ry="13"
             fill="#FFDF6C"
             stroke="#191716"
             strokeWidth="5"
           />
+          {/* Вал ключа */}
           <rect
-            x="185"
-            y="66"
-            width="23"
-            height="8"
-            rx="3.5"
+            x="170"
+            y="86"
+            width="30"
+            height="6"
+            rx="2"
             fill="#FFDF6C"
             stroke="#191716"
             strokeWidth="3"
           />
+          {/* Зубчики ключа */}
           <rect
-            x="200"
-            y="70"
-            width="5"
-            height="8"
-            rx="1.7"
+            x="196"
+            y="86"
+            width="4"
+            height="11"
+            rx="1"
+            fill="#FFDF6C"
+            stroke="#191716"
+            strokeWidth="2"
+          />
+          <rect
+            x="201"
+            y="86"
+            width="4"
+            height="7"
+            rx="1"
             fill="#FFDF6C"
             stroke="#191716"
             strokeWidth="2"
           />
           {/* Сияние */}
           <motion.circle
-            cx="208"
-            cy="74"
+            cx="183"
+            cy="90"
             r="5"
             fill="#fffbe9"
             opacity={0.7}
@@ -147,7 +170,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         </motion.g>
         {/* Левая нога */}
         <path
-          d="M73 164 Q41 194 64 170 Q57 186 91 170"
+          d="M87 164 Q50 196 80 170 Q65 191 110 175"
           fill="none"
           stroke="#191716"
           strokeWidth="7"
@@ -155,7 +178,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Правая нога */}
         <path
-          d="M134 173 Q178 195 152 160 Q163 175 121 167"
+          d="M130 171 Q170 200 140 170 Q163 185 110 175"
           fill="none"
           stroke="#191716"
           strokeWidth="7"
@@ -163,8 +186,8 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Глаза */}
         <ellipse
-          cx="90"
-          cy="110"
+          cx="97"
+          cy="115"
           rx="11"
           ry="12"
           fill="#fff"
@@ -172,8 +195,8 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
           strokeWidth="4"
         />
         <ellipse
-          cx="141"
-          cy="110"
+          cx="125"
+          cy="115"
           rx="11"
           ry="12"
           fill="#fff"
@@ -182,15 +205,15 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Зрачки */}
         <ellipse
-          cx="95"
-          cy="115"
+          cx="102"
+          cy="120"
           rx="5"
           ry="6"
           fill="#191716"
         />
         <motion.ellipse
-          cx="143"
-          cy="115"
+          cx="130"
+          cy="120"
           rx="5"
           ry="6"
           fill="#191716"
@@ -198,7 +221,7 @@ export default function KeytoheartMascotPremiumAnimated({ className = '', style 
         />
         {/* Улыбка */}
         <path
-          d="M104 132 Q112 140 129 132"
+          d="M104 135 Q110 142 122 135"
           stroke="#191716"
           strokeWidth="4"
           strokeLinecap="round"
