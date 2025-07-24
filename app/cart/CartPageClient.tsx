@@ -821,19 +821,19 @@ export default function CartPageClient() {
           <AnimatePresence mode="wait">
             <motion.div key={step} variants={stepVariants} initial="initial" animate="animate" exit="exit">
               {step === 0 && (
-                <OrderStep step={0} currentStep={step} title="Авторизация">
-                  <AuthWithCall
-                    onSuccess={(phone: string) => {
-                      setIsAuthenticated(true);
-                      setPhone(normalizePhone(phone));
-                      setStep(1);
-                      onFormChange({
-                        target: { name: 'phone', value: normalizePhone(phone) },
-                      } as React.ChangeEvent<HTMLInputElement>);
-                    }}
-                  />
-                </OrderStep>
-              )}
+  <OrderStep step={0} currentStep={step} title="Авторизация">
+    <AuthWithCall
+      onSuccess={(phone: string) => {
+        setIsAuthenticated(true);              // Пользователь авторизован
+        setPhone(normalizePhone(phone));       // Сохраняем номер
+        setStep(1);                           // Переходим к следующему шагу корзины
+        onFormChange({
+          target: { name: 'phone', value: normalizePhone(phone) },
+        } as React.ChangeEvent<HTMLInputElement>);
+      }}
+    />
+  </OrderStep>
+)}
               {step === 1 && (
                 <OrderStep step={1} currentStep={step} title="Ваши контакты" onNext={handleNextStep}>
                   <Step1ContactDetails

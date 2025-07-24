@@ -1,12 +1,12 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -14,9 +14,8 @@ type Props = {
   onSuccess: (phone: string) => void;
 };
 
-// Функция маски ввода телефона: +7 999 999-99-99
+// Маска телефона
 function maskPhone(value: string) {
-  // Только цифры, не больше 11
   let cleaned = value.replace(/\D/g, '').slice(0, 11);
   if (!cleaned) return '';
   if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
@@ -31,7 +30,6 @@ function maskPhone(value: string) {
 
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const [step, setStep] = useState<'phone' | 'call' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');
@@ -66,6 +64,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   }, [searchParams]);
 
+  // Таймеры блокировки и звонка
   const startBanTimer = () => {
     setBanTimer(600);
     timerRef.current && clearInterval(timerRef.current);
@@ -98,6 +97,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }, 1000);
   };
 
+  // Проверка статуса звонка
   const checkCallStatus = async () => {
     if (!checkId || !phone) return;
     setIsCheckingStatus(true);
@@ -108,15 +108,13 @@ export default function AuthWithCall({ onSuccess }: Props) {
       if (!res.ok) throw new Error(data.error || 'Ошибка проверки статуса');
       if (data.success && data.status === 'VERIFIED') {
         setStep('success');
-        onSuccess(clearPhone);
+        onSuccess(clearPhone); // <-- Только вызвать callback!
         statusCheckRef.current && clearInterval(statusCheckRef.current);
         window.gtag?.('event', 'auth_success', { event_category: 'auth', phone: clearPhone });
         if (YM_ID !== undefined) {
           callYm(YM_ID, 'reachGoal', 'auth_success', { phone: clearPhone });
         }
         window.dispatchEvent(new Event('authChange'));
-        const redirectTo = searchParams.get('from') || '/account';
-        router.push(redirectTo);
       } else if (data.status === 'EXPIRED') {
         setStep('phone');
         setError('Время для звонка истекло. Попробуйте снова.');
@@ -132,6 +130,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   };
 
+  // Автопроверка статуса при звонке
   useEffect(() => {
     if (step === 'call' && checkId && phone) {
       const initial = setTimeout(() => {
@@ -145,6 +144,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     }
   }, [step, checkId, phone]);
 
+  // Очищаем все таймеры на размонтирование
   useEffect(() => {
     return () => {
       timerRef.current && clearInterval(timerRef.current);
@@ -153,6 +153,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     };
   }, []);
 
+  // Запросить звонок
   const handleSendCall = async () => {
     setError('');
     setIsLoading(true);
