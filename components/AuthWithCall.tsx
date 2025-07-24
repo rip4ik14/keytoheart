@@ -1,7 +1,6 @@
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -14,6 +13,21 @@ const WHATSAPP_LINK = 'https://wa.me/79886033821';
 type Props = {
   onSuccess: (phone: string) => void;
 };
+
+// Функция маски ввода телефона: +7 999 999-99-99
+function maskPhone(value: string) {
+  // Только цифры, не больше 11
+  let cleaned = value.replace(/\D/g, '').slice(0, 11);
+  if (!cleaned) return '';
+  if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
+  if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
+  let out = '+7';
+  if (cleaned.length > 1) out += ' ' + cleaned.slice(1, 4);
+  if (cleaned.length > 4) out += ' ' + cleaned.slice(4, 7);
+  if (cleaned.length > 7) out += '-' + cleaned.slice(7, 9);
+  if (cleaned.length > 9) out += '-' + cleaned.slice(9, 11);
+  return out;
+}
 
 export default function AuthWithCall({ onSuccess }: Props) {
   const searchParams = useSearchParams();
@@ -34,7 +48,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusCheckRef = useRef<NodeJS.Timeout | null>(null);
 
-  // При входе в шаг ввода телефона шлём метрику
   useEffect(() => {
     if (step === 'phone') {
       window.gtag?.('event', 'enter_phone', { event_category: 'auth' });
@@ -52,29 +65,6 @@ export default function AuthWithCall({ onSuccess }: Props) {
       setError('Сессия истекла. Пожалуйста, авторизуйтесь заново.');
     }
   }, [searchParams]);
-
-  const formatPhone = (value: string) => {
-    let cleaned = value.replace(/\D/g, '');
-    if (cleaned.startsWith('8')) cleaned = '7' + cleaned.slice(1);
-    if (!cleaned.startsWith('7')) cleaned = '7' + cleaned;
-    return (
-      '+7 ' +
-      cleaned.slice(1, 4) +
-      (cleaned.length > 1 ? ' ' : '') +
-      cleaned.slice(4, 7) +
-      (cleaned.length > 4 ? '-' : '') +
-      cleaned.slice(7, 9) +
-      (cleaned.length > 7 ? '-' : '') +
-      cleaned.slice(9, 11)
-    ).trim();
-  };
-
-  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '');
-    if (digits.length <= 11) {
-      setPhone(formatPhone(digits));
-    }
-  };
 
   const startBanTimer = () => {
     setBanTimer(600);
@@ -203,6 +193,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setIsLoading(false);
   };
 
+  // --- JSX ---
   return (
     <motion.div
       className="w-full max-w-xs mx-auto p-6 bg-white rounded-2xl shadow-xl flex flex-col gap-5 border border-black"
@@ -226,15 +217,16 @@ export default function AuthWithCall({ onSuccess }: Props) {
           </label>
           <input
             id="phone-input"
+            type="tel"
             className="w-full border border-black rounded-lg px-4 py-2 font-sans text-base outline-none focus:ring-2 focus:ring-black"
             inputMode="tel"
-            value={phone}
             placeholder="+7 (___) ___-__-__"
-            onChange={handlePhoneInput}
-            maxLength={16}
-            disabled={isLoading}
             autoFocus
             aria-label="Введите номер телефона"
+            maxLength={17}
+            value={phone}
+            disabled={isLoading}
+            onChange={e => setPhone(maskPhone(e.target.value))}
           />
           <motion.button
             className="w-full mt-4 py-2 rounded-xl border border-black bg-black text-white font-sans font-bold transition-all hover:bg-white hover:text-black hover:shadow disabled:opacity-50"
