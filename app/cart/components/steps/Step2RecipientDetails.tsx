@@ -102,11 +102,13 @@ export default function Step2RecipientDetails({
             value={form.recipient}
             onChange={onFormChange}
             placeholder="Имя получателя"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               recipientError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!recipientError}
             required
+            inputMode="text"
+            autoComplete="name"
           />
         </div>
         {recipientError && <p className="text-red-500 text-xs">{recipientError}</p>}
@@ -130,11 +132,13 @@ export default function Step2RecipientDetails({
             value={displayPhone(form.recipientPhone)}
             onChange={e => handlePhone(e.target.value)}
             placeholder="(xxx) xxx-xx-xx"
-            className={`w-full pl-12 pr-3 py-2 border rounded-md ${
+            className={`w-full pl-12 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               recipientPhoneError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!recipientPhoneError}
             required
+            inputMode="tel"
+            autoComplete="tel"
           />
         </div>
         {recipientPhoneError && <p className="text-red-500 text-xs">{recipientPhoneError}</p>}
@@ -156,7 +160,7 @@ export default function Step2RecipientDetails({
             value={postcardText}
             onChange={e => setPostcardText(e.target.value)}
             placeholder="Напишите ваше поздравление"
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px]"
+            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px] text-base sm:text-sm"
             aria-label="Текст открытки"
           />
         </motion.div>

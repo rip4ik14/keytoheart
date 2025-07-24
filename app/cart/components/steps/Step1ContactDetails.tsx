@@ -1,4 +1,4 @@
-// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
+// ✅ app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -16,7 +16,7 @@ interface Props {
   phoneError: string;
   emailError: string;
   nameError: string;
-  agreedToTermsError: string; // Добавляем проп для ошибки согласия
+  agreedToTermsError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handlePhoneChange: (value: string) => void;
 }
@@ -61,12 +61,14 @@ export default function Step1ContactDetails({
             value={form.phone}
             onChange={e => handlePhoneChange(e.target.value)}
             placeholder="+7 (___) ___-__-__"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               phoneError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             disabled
             aria-label="Номер телефона"
             aria-invalid={!!phoneError}
+            inputMode="tel"
+            autoComplete="tel"
           />
         </div>
         {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
@@ -92,11 +94,13 @@ export default function Step1ContactDetails({
             value={form.name}
             onChange={onFormChange}
             placeholder="Введите ваше имя"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               nameError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-label="Ваше имя"
             aria-invalid={!!nameError}
+            inputMode="text"
+            autoComplete="name"
           />
         </div>
         {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
@@ -122,11 +126,13 @@ export default function Step1ContactDetails({
             value={form.email}
             onChange={onFormChange}
             placeholder="Введите ваш email"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-sm ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               emailError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-label="Ваш email"
             aria-invalid={!!emailError}
+            inputMode="email"
+            autoComplete="email"
           />
         </div>
         {emailError && <p className="text-red-500 text-xs">{emailError}</p>}

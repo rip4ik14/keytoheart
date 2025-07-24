@@ -97,11 +97,13 @@ export default function Step3Address({
                 value={form.street}
                 onChange={handleAddressChange}
                 placeholder="Введите улицу"
-                className={`w-full pl-10 pr-3 py-2 border rounded-md ${
+                className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
                   addressError ? 'border-red-500' : 'border-gray-300'
                 } focus:outline-none focus:ring-2 focus:ring-black`}
                 aria-invalid={!!addressError}
                 aria-autocomplete="list"
+                inputMode="text"
+                autoComplete="street-address"
               />
               {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
               {showSuggestions && (
@@ -141,7 +143,9 @@ export default function Step3Address({
                   value={(form as any)[field]}
                   onChange={onFormChange}
                   placeholder={field === 'house' ? 'Дом' : field === 'apartment' ? 'Кв.' : 'Подъезд'}
-                  className="w-full pl-3 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full pl-3 pr-3 py-2 border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  inputMode={field === 'apartment' || field === 'house' ? 'numeric' : 'text'}
+                  autoComplete={field === 'house' ? 'address-line2' : undefined}
                 />
               </div>
             ))}
@@ -157,7 +161,7 @@ export default function Step3Address({
               value={form.deliveryInstructions}
               onChange={handleInstr}
               placeholder="Например: позвонить за 30 минут"
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px]"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px] text-base sm:text-sm"
             />
           </div>
         </motion.div>

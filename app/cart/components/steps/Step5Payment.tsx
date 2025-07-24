@@ -29,7 +29,7 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
         variants={containerVariants}
       >
         <Image src="/icons/credit-card.svg" alt="Оплата" width={16} height={16} loading="lazy" />
-        <span className="text-sm text-gray-700">Оплата после подтверждения заказа</span>
+        <span className="text-base sm:text-sm text-gray-700">Оплата после подтверждения заказа</span>
       </motion.div>
 
       <motion.label
@@ -47,7 +47,7 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
           required
           aria-label="Согласен с политикой"
         />
-        <span className="text-sm text-gray-700">
+        <span className="text-base sm:text-sm text-gray-700">
           Я согласен с{' '}
           <TrackedLink
             href="/policy"

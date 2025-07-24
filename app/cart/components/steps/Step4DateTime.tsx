@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/components/steps/Step4DateTime.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -318,11 +317,13 @@ export default function Step4DateTime({
             value={form.date}
             onChange={onDate}
             min={minDate}
-            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               dateError || validationError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!dateError || !!validationError}
             disabled={!storeSettings.order_acceptance_enabled}
+            inputMode="numeric"
+            autoComplete="off"
           />
         </div>
         {dateError && <p className="text-red-500 text-xs">{dateError}</p>}
@@ -350,11 +351,13 @@ export default function Step4DateTime({
             onChange={onTime}
             min={minTime}
             max={latestEnd}
-            className={`w-full pl-10 pr-3 py-2 border rounded-md ${
+            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               timeError || !isTimeValid ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
             aria-invalid={!!timeError || !isTimeValid}
             disabled={!storeSettings.order_acceptance_enabled || !isDateValid()}
+            inputMode="numeric"
+            autoComplete="off"
           />
         </div>
         <p className="text-xs text-gray-500">
