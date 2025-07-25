@@ -2,7 +2,6 @@
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-
 import { useEffect, useState } from 'react';
 import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
@@ -10,7 +9,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Product } from '@components/CatalogClient';
 
-/* ------------------------ Типы пропсов ------------------------ */
 export interface Subcategory {
   id: number;
   name: string;
@@ -20,15 +18,14 @@ export interface Subcategory {
 
 export interface Props {
   products: Product[];
-  apiName: string;
+  h1: string; // !! Добавил сюда
   slug: string;
   subcategories: Subcategory[];
 }
 
-/* -------------------------------------------------------------- */
 export default function CategoryPageClient({
   products,
-  apiName,
+  h1,
   slug,
   subcategories,
 }: Props) {
@@ -38,7 +35,6 @@ export default function CategoryPageClient({
 
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
-  /* ---------- Фильтрация + сортировка ---------- */
   useEffect(() => {
     let sorted = [...products];
 
@@ -54,26 +50,26 @@ export default function CategoryPageClient({
     setFilteredProducts(sorted);
   }, [sort, subcategory, products, subcategories]);
 
-  /* ---------- Web-аналитика ---------- */
   useEffect(() => {
-    window.gtag?.('event', 'view_category', { event_category: 'category', event_label: apiName });
-    YM_ID && callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
-  }, [apiName]);
+    window.gtag?.('event', 'view_category', { event_category: 'category', event_label: h1 });
+    YM_ID && callYm(YM_ID, 'reachGoal', 'view_category', { category: h1 });
+  }, [h1]);
 
-  /* ---------- Минимальная цена для вывода --- */
-  const minPrice = Math.min(...products.map((p) => p.price));
+  const minPrice = filteredProducts.length > 0 ? Math.min(...filteredProducts.map((p) => p.price)) : 0;
 
   return (
-    <section className="container mx-auto py-6 px-4" aria-label={`Товары ${apiName}`}>
-      {/* --- H1 только для названия категории (один раз на страницу!) --- */}
+    <section className="container mx-auto py-6 px-4" aria-label={`Товары ${h1}`}>
+      {/* --- H1: только продающий заголовок из meta --- */}
       <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">
-        {apiName}
+        {h1}
       </h1>
 
-      {/* --- H2 для продающего заголовка с ключом и ценой --- */}
-      <h2 className="text-xl sm:text-2xl font-sans font-bold mb-4">
-        Купить {apiName.toLowerCase()} в Краснодаре{isFinite(minPrice) && minPrice > 0 ? ` от ${minPrice}₽` : ''}
-      </h2>
+      {/* --- H2: подзаголовок, не дублирующий h1 --- */}
+      {filteredProducts.length > 0 && minPrice > 0 && (
+        <h2 className="text-xl sm:text-2xl font-sans font-semibold mb-4">
+          В наличии от {minPrice}₽ — доставка по Краснодару
+        </h2>
+      )}
 
       {/* --- Фильтр подкатегорий --- */}
       {subcategories.length > 0 && (
@@ -138,7 +134,6 @@ export default function CategoryPageClient({
   );
 }
 
-/* ------------ Мелкий подкомпонент для чипа фильтра ------------- */
 function FilterChip({
   href,
   active,

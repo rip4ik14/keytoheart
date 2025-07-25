@@ -21,7 +21,7 @@ import { CATEGORY_META } from '../../seo/categoryMeta';
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ category: string }>; // теперь params - Promise!
+  params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category: slug } = await params;
 
@@ -173,7 +173,7 @@ export default async function CategoryPage({
         <Suspense fallback={<div>Загрузка…</div>}>
           <CategoryPageClient
             products={[]}
-            apiName={apiName}
+            h1={meta?.h1 || apiName}
             slug={slug}
             subcategories={subcategories}
           />
@@ -301,7 +301,7 @@ export default async function CategoryPage({
       <Suspense fallback={<div>Загрузка…</div>}>
         <CategoryPageClient
           products={products}
-          apiName={apiName}
+          h1={meta?.h1 || apiName}
           slug={slug}
           subcategories={subcategories}
         />
