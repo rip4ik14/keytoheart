@@ -60,15 +60,20 @@ export default function CategoryPageClient({
     YM_ID && callYm(YM_ID, 'reachGoal', 'view_category', { category: apiName });
   }, [apiName]);
 
-  /* ---------- Минимальная цена для H1 ---------- */
+  /* ---------- Минимальная цена для вывода --- */
   const minPrice = Math.min(...products.map((p) => p.price));
 
   return (
     <section className="container mx-auto py-6 px-4" aria-label={`Товары ${apiName}`}>
-      {/* --- H1 с ключом «купить» и ценой --- */}
+      {/* --- H1 только для названия категории (один раз на страницу!) --- */}
       <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">
-        Купить {apiName.toLowerCase()} в Краснодаре от {minPrice}₽
+        {apiName}
       </h1>
+
+      {/* --- H2 для продающего заголовка с ключом и ценой --- */}
+      <h2 className="text-xl sm:text-2xl font-sans font-bold mb-4">
+        Купить {apiName.toLowerCase()} в Краснодаре{isFinite(minPrice) && minPrice > 0 ? ` от ${minPrice}₽` : ''}
+      </h2>
 
       {/* --- Фильтр подкатегорий --- */}
       {subcategories.length > 0 && (
