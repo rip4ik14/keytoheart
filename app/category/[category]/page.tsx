@@ -157,9 +157,6 @@ export default async function CategoryPage({
     const meta = CATEGORY_META[slug];
     return (
       <main aria-label={`Категория ${apiName}`}>
-        <h1 className="text-3xl font-bold mb-6">
-          {meta?.h1 || apiName}
-        </h1>
         <JsonLd<ItemList> item={{ '@type': 'ItemList', itemListElement: [] }} />
         <JsonLd<BreadcrumbList>
           item={{
@@ -294,9 +291,6 @@ export default async function CategoryPage({
   const meta = CATEGORY_META[slug];
   return (
     <main aria-label={`Категория ${apiName}`}>
-      <h1 className="text-3xl font-bold mb-6">
-        {meta?.h1 || apiName}
-      </h1>
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
       <Suspense fallback={<div>Загрузка…</div>}>
         <CategoryPageClient
