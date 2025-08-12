@@ -240,7 +240,7 @@ export default async function Home() {
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
       {/* SEO-заголовок: теперь видим на sm+ как компактный текст */}
-      <h1 className="sr-only sm:not-sr-only text-sm sm:mt-3 sm:mb-2 sm:text-gray-800">
+      <h1 className="sr-only sm:not-sr-only text-sm sm:mt-3 sm:mb-2 sm:text-white">
         Клубника в шоколаде, букеты и комбо-наборы с доставкой в Краснодаре
       </h1>
 
