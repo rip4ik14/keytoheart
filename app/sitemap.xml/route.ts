@@ -3,110 +3,55 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-export const runtime = 'nodejs';      // не edge
-export const revalidate = 3600;       // 1 час
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://keytoheart.ru';
+const PAGE_SIZE = 10000; // товаров на один файл карты
 
-const BASE = 'https://keytoheart.ru';
-const tag = (loc: string) => `<url><loc>${loc}</loc></url>`;
-
-const STATIC_PAGES = [
-  '/',
-  '/about',
-  '/contacts',
-  '/dostavka',
-  '/payment',
-  '/faq',
-  '/loyalty',
-  '/occasions',
-  '/catalog',
-  '/cookie-policy',
-  '/policy',
-  '/offer',
-  '/terms',
-];
-
-// Минимально необходимые типы
-type CategorySlug = { slug: string };
-type ProductId = { id: string };
-
-// PromiseLike-safe таймаут
-function withTimeout<T>(p: PromiseLike<T>, ms = 3000): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    p.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); }
-    );
-  });
-}
+export const revalidate = 3600;
 
 export async function GET() {
-  const pages = STATIC_PAGES.map((p) => tag(`${BASE}${p}`));
+  try {
+    const supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
 
-  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Считаем кол-во товаров (видимых и в наличии) для пагинации
+    const { count } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_visible', true)
+      .eq('in_stock', true);
 
-  // Если ENV нет — отдаем только статику
-  if (!supaUrl || !supaKey) {
-    const body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${pages.join('')}
-</urlset>`.trim();
+    const total = count ?? 0;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const now = new Date().toISOString();
 
-    console.error('Sitemap: Supabase ENV missing, serving static only');
-    return new NextResponse(body, {
+    const urls: string[] = [
+      `${BASE}/sitemap-static.xml`,
+      `${BASE}/sitemap-categories.xml`,
+      ...Array.from({ length: pages }).map((_, i) => `${BASE}/sitemap-products/${i + 1}.xml`),
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls
+  .map(
+    (u) => `  <sitemap>
+    <loc>${u}</loc>
+    <lastmod>${now}</lastmod>
+  </sitemap>`,
+  )
+  .join('\n')}
+</sitemapindex>`;
+
+    return new NextResponse(xml, {
       headers: {
-        'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=300',
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
-  }
-
-  const supabase = createClient<Database>(supaUrl, supaKey);
-
-  let catsXml = '';
-  let prodsXml = '';
-
-  try {
-    const catRes = await withTimeout(
-      supabase
-        .from('categories')
-        .select('slug')
-        .eq('is_visible', true) as unknown as PromiseLike<{ data: CategorySlug[] | null }>,
-      3000
-    );
-    catsXml = (catRes.data ?? [])
-      .map((c: CategorySlug) => tag(`${BASE}/category/${c.slug}`))
-      .join('');
   } catch (e) {
-    console.error('Sitemap categories error:', e);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>`;
+    return new NextResponse(xml, { status: 200, headers: { 'content-type': 'application/xml; charset=utf-8' } });
   }
-
-  try {
-    const prodRes = await withTimeout(
-      supabase
-        .from('products')
-        .select('id')
-        .eq('is_visible', true)
-        .eq('in_stock', true) as unknown as PromiseLike<{ data: ProductId[] | null }>,
-      3000
-    );
-    prodsXml = (prodRes.data ?? [])
-      .map((p: ProductId) => tag(`${BASE}/product/${p.id}`))
-      .join('');
-  } catch (e) {
-    console.error('Sitemap products error:', e);
-  }
-
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${pages.join('')}${catsXml}${prodsXml}
-</urlset>`.trim();
-
-  return new NextResponse(body, {
-    headers: {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=300',
-    },
-  });
 }
