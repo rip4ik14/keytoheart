@@ -4,7 +4,6 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 /** @type {import('next').NextConfig} */
-
 const isDev = process.env.NODE_ENV !== 'production';
 
 /* ------------------------- Content-Security-Policy ------------------------- */
@@ -53,7 +52,7 @@ const buildCsp = () => {
     'https://cdn.turbo.yandex.ru',
   ];
 
-  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // для hot-reload’а
+  if (isDev) SCRIPT_SRC.push("'unsafe-eval'");
 
   return [
     `default-src ${COMMON.default.join(' ')};`,
@@ -69,35 +68,14 @@ const buildCsp = () => {
 
 /* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
-  {
-    protocol: 'https',
-    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
-    pathname: '/storage/v1/object/public/**',
-  },
-  {
-    protocol: 'https',
-    hostname: '**.supabase.co',
-    pathname: '/storage/v1/object/public/**',
-  },
-  {
-    protocol: 'https',
-    hostname: 'via.placeholder.com',
-    pathname: '/**',
-  },
-  {
-    protocol: 'https',
-    hostname: 'keytoheart.ru',
-    pathname: '/**',
-  },
+  { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/object/public/**' },
+  { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
+  { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
+  { protocol: 'https', hostname: 'keytoheart.ru', pathname: '/**' },
 ];
 
-// 👇 дополнительный тестовый домен разрешаем только в dev-режиме
 if (isDev) {
-  remotePatterns.push({
-    protocol: 'https',
-    hostname: 'example.com',
-    pathname: '/**',
-  });
+  remotePatterns.push({ protocol: 'https', hostname: 'example.com', pathname: '/**' });
 }
 
 const nextConfig = {
@@ -112,7 +90,7 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [320, 640, 768, 1024, 1280, 1600],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 2_592_000, // 30 дней
+    minimumCacheTTL: 2_592_000,
     dangerouslyAllowSVG: false,
   },
 
@@ -121,33 +99,31 @@ const nextConfig = {
     optimizeCss: true,
   },
 
+  /* ----------------------------- Rewrites ----------------------------- */
+  async rewrites() {
+    return [
+      // /sitemap-products/1.xml -> /sitemap-products/1 (route handler вернёт XML)
+      { source: '/sitemap-products/:page.xml', destination: '/sitemap-products/:page' },
+    ];
+  },
+
   /* ----------------------------- Custom headers ---------------------------- */
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
-          // ⚠️ Оставляем ТОЛЬКО CSP на стороне Next
           { key: 'Content-Security-Policy', value: buildCsp() },
-          // (опционально) общий короткий кэш для ISR-страниц — можно убрать, если не нужен
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      // Агрессивный кэш для статики
-      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
-        (source) => ({
-          source,
-          headers: [
-            { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-          ],
-        }),
-      ),
-      // Примеры route-специфичного кэша (можно удалить/изменить)
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map((source) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      })),
       ...['/', '/about', '/policy'].map((source) => ({
         source,
-        headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
       })),
     ];
   },
