@@ -1,6 +1,7 @@
 /* -------------------------------------------------------------------------- */
-/*  Страница товара (SSR + Supabase, JSON‑LD Product / Breadcrumb)            */
-/*  Версия: 2025‑07‑25 – трёхзвенный хлеб + TS‑фиксы                           */
+/*  Страница товара (SSR + Supabase, JSON-LD Product / Breadcrumb)            */
+/*  Версия: 2025-08-12 – shippingDetails в offers (AggregateOffer)            */
+/*           category = читаемое имя, 3-зв. крошки                            */
 /* -------------------------------------------------------------------------- */
 
 import { notFound } from 'next/navigation';
@@ -65,7 +66,7 @@ export async function generateMetadata({
   const cleanDesc = (data.description ?? '').replace(/<[^>]*>/g, '').trim();
   const desc =
     cleanDesc ||
-    'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
+    'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
 
   const firstImg =
     Array.isArray(data.images) && data.images[0]
@@ -104,7 +105,7 @@ export default async function ProductPage({
   const id = Number(params.id);
   if (Number.isNaN(id)) notFound();
 
-  /* ---------- Supabase SSR‑client ---------- */
+  /* ---------- Supabase SSR-client ---------- */
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -184,6 +185,7 @@ export default async function ProductPage({
       ? Math.round(product.price * (1 - product.discount_percent / 100))
       : product.price;
 
+  // shippingDetails по схеме принадлежит Offer/AggregateOffer, не Product
   const offer: AggregateOffer = {
     '@type': 'AggregateOffer',
     priceCurrency: 'RUB',
@@ -194,6 +196,29 @@ export default async function ProductPage({
       .toISOString()
       .split('T')[0],
     availability: 'https://schema.org/InStock',
+    shippingDetails: {
+      '@type': 'OfferShippingDetails',
+      shippingRate: {
+        '@type': 'MonetaryAmount',
+        value: '0',
+        currency: 'RUB',
+      },
+      // Важно: оставляем только разрешённые типом свойства
+      shippingDestination: {
+        '@type': 'DefinedRegion',
+        addressCountry: 'RU',
+        addressRegion: 'Краснодарский край',
+      },
+      deliveryTime: {
+        '@type': 'ShippingDeliveryTime',
+        handlingTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 0,
+          maxValue: 60,
+          unitCode: 'MIN',
+        },
+      },
+    },
   };
 
   /* ---------- ImageObject ---------- */
@@ -205,7 +230,7 @@ export default async function ProductPage({
   /* --------------------------- Render --------------------------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
-      {/* ---------- JSON‑LD Product ---------- */}
+      {/* ---------- JSON-LD Product (category = имя, shipping внутри offers) ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
@@ -224,13 +249,13 @@ export default async function ProductPage({
               ]
             : undefined,
           material: product.composition || undefined,
-          category: categoryIds.join(',') || undefined,
+          category: categoryName || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
           offers: offer,
         }}
       />
 
-      {/* ---------- JSON‑LD BreadcrumbList (до 3‑х звеньев) ---------- */}
+      {/* ---------- JSON-LD BreadcrumbList (до 3-х звеньев) ---------- */}
       <JsonLd
         item={{
           '@type': 'BreadcrumbList',
@@ -257,7 +282,7 @@ export default async function ProductPage({
               name: product.title,
               item: `https://keytoheart.ru/product/${product.id}`,
             },
-          ] as any, // ⬅️ снимаем строгую проверку schema-dts
+          ] as any,
         }}
       />
 

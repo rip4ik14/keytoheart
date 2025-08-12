@@ -1,4 +1,3 @@
-# public/robots.txt
 User-agent: *
 Disallow: /admin
 Disallow: /cart
@@ -6,6 +5,7 @@ Disallow: /checkout
 Disallow: /order
 Disallow: /preload
 Disallow: /api/
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid /
 
 Sitemap: https://keytoheart.ru/sitemap.xml
 Host: keytoheart.ru

@@ -84,7 +84,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
     description:
-      'Клубника в шоколаде, букеты и цветы с доставкой по Краснодару за 60 минут. Фото перед отправкой, доставка 9-22.',
+      'Клубника в шоколаде, букеты и цветы с доставкой за 60 мин по Краснодару. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
@@ -139,10 +139,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
-        {/* preload основного шрифта для WebKit (Safari) */}
+        {/* preload основного шрифта */}
         <link
           rel="preload"
           href="/fonts/golos-text_regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        {/* при необходимости можно дополнительно прелоадить medium, если участвует в LCP */}
+        <link
+          rel="preload"
+          href="/fonts/golos-text_medium.woff2"
           as="font"
           type="font/woff2"
           crossOrigin="anonymous"
@@ -160,14 +168,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
 
-        {/* preconnect */}
+        {/* preconnect / dns-prefetch */}
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link
+          rel="dns-prefetch"
+          href="https://gwbeabfkknhewwoesqax.supabase.co"
+        />
+        <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
         {/* PWA / favicon extras */}
         <link rel="manifest" href="/site.webmanifest" />
@@ -207,9 +219,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               } as Organization,
               {
                 '@type': 'LocalBusiness',
+                '@id': 'https://keytoheart.ru/#local',
                 name: 'KEY TO HEART',
                 url: 'https://keytoheart.ru',
+                image: 'https://keytoheart.ru/og-square.webp',
                 telephone: '+7-988-603-38-21',
+                priceRange: '₽₽',
                 address: {
                   '@type': 'PostalAddress',
                   streetAddress: 'ул. Героев-Разведчиков, 17/1',
@@ -218,7 +233,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   postalCode: '350028',
                   addressCountry: 'RU',
                 },
-                openingHours: ['Mo-Su 09:00-22:00'],
+                geo: { '@type': 'GeoCoordinates', latitude: 45.05809, longitude: 39.037611 },
+                openingHoursSpecification: [{
+                  '@type': 'OpeningHoursSpecification',
+                  dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+                  opens: '09:00', closes: '22:00'
+                }],
+                areaServed: { '@type': 'City', name: 'Краснодар' },
+                hasMap: 'https://yandex.ru/maps/?ll=39.037611%2C45.058090&z=16',
+                sameAs: [
+                  'https://www.instagram.com/keytoheart.ru/',
+                  'https://t.me/keytoheart',
+                  'https://wa.me/79886033821',
+                ],
               } as LocalBusiness,
               {
                 '@type': 'BreadcrumbList',
@@ -258,6 +285,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
 
       <body>
+        {/* noscript-пиксель Метрики */}
+        {YM_ID && (
+          <noscript>
+            <div>
+              <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: '-9999px' }} alt="" />
+            </div>
+          </noscript>
+        )}
+
         <LayoutClient categories={categories}>{children}</LayoutClient>
       </body>
     </html>

@@ -53,7 +53,7 @@ const buildCsp = () => {
     'https://cdn.turbo.yandex.ru',
   ];
 
-  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // допуск для hot-reload’а
+  if (isDev) SCRIPT_SRC.push("'unsafe-eval'"); // для hot-reload’а
 
   return [
     `default-src ${COMMON.default.join(' ')};`,
@@ -127,43 +127,26 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // ⚠️ Оставляем ТОЛЬКО CSP на стороне Next
           { key: 'Content-Security-Policy', value: buildCsp() },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'geolocation=(), microphone=(), camera=()',
-          },
-          // === Добавлено для изоляции вкладки браузера ===
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          // { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' }, // если понадобится
+          // (опционально) общий короткий кэш для ISR-страниц — можно убрать, если не нужен
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      /* -------- Aggressive caching for static assets -------- */
+      // Агрессивный кэш для статики
       ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
         (source) => ({
           source,
           headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable',
-            },
+            { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
           ],
         }),
       ),
-      /* --------- ISR pages: краткий server-revalidate --------- */
+      // Примеры route-специфичного кэша (можно удалить/изменить)
       ...['/', '/about', '/policy'].map((source) => ({
         source,
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300',
-          },
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       })),
     ];
