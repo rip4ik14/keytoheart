@@ -46,7 +46,9 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    default: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
+    // важно: оставляем чистый бренд как default,
+    // а приклейка бренда делается через template один раз.
+    default: 'KEY TO HEART',
     template: '%s | KEY TO HEART',
   },
   description:
@@ -137,7 +139,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
+    <html lang="ру" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
         {/* preload основного шрифта */}
         <link
