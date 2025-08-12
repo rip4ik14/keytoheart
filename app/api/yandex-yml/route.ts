@@ -24,18 +24,21 @@ function stripHtml(input = ''): string {
 }
 
 function truncateAtWord(input: string, limit: number): string {
-  const text = String(input);
-  if (text.length <= limit) return text;
-  const sliced = text.slice(0, limit);
+  if (input.length <= limit) return input;
+  const sliced = input.slice(0, limit);
   const lastSpace = sliced.lastIndexOf(' ');
   return (lastSpace > 120 ? sliced.slice(0, lastSpace) : sliced).trim() + '…';
 }
 
-/** XML comment cannot contain `--` or end with `-` before `>` */
 function sanitizeForXmlComment(input: string): string {
   return String(input)
-    .replace(/--/g, '–')     // заменяем двойной дефис на короткое тире, чтобы не ломать комментарий
-    .replace(/-\s*$/g, '–'); // конец на одинарный дефис тоже чиним
+    .replace(/--/g, '–')
+    .replace(/-\s*$/g, '–');
+}
+
+function formatDateForYml(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /* ------------------------------ YML -------------------------------- */
@@ -53,19 +56,15 @@ type ProductRow = {
 
 type CategoryRow = { id: number; name: string };
 
-/** Собираем YML-каталог */
 function buildYml(products: ProductRow[], categories: CategoryRow[]) {
-  const now = new Date().toISOString().slice(0, 19);
+  const now = formatDateForYml(new Date());
 
-  // карта категорий
   const catMap = new Map<number, string>();
   categories.forEach((c) => catMap.set(c.id, c.name));
 
   const categoriesXml =
     categories.length > 0
-      ? categories
-          .map((c) => `<category id="${c.id}">${escapeXml(c.name)}</category>`)
-          .join('\n      ')
+      ? categories.map((c) => `<category id="${c.id}">${escapeXml(c.name)}</category>`).join('\n      ')
       : `<category id="1">Клубника в шоколаде</category>`;
 
   const offersXml = products
@@ -73,35 +72,30 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
       const title = escapeXml(p.title ?? `Товар #${p.id}`);
       const url = `https://keytoheart.ru/product/${p.slug || p.id}`;
 
-      // категория: первый id из связки или 1 (дефолт)
       const firstCatId =
         p.product_categories?.[0]?.category_id ??
         (categories.length ? categories[0].id : 1);
       const categoryId = catMap.has(firstCatId) ? firstCatId : 1;
 
-      // изображение: берём только первое
       const firstImage = p.images && p.images.length ? p.images[0] : null;
       const pictureXml = firstImage ? `<picture>${escapeXml(firstImage)}</picture>` : '';
 
-      // цены/наличие
       const price = Math.max(0, Number(p.price ?? 0));
       const available = p.in_stock ? 'true' : 'false';
 
-      // исходные тексты
+      // Полное описание (в комментарий)
       const fullTextRaw =
         (p.description && p.description.trim()) ||
         (p.short_desc && p.short_desc.trim()) ||
         '';
       const fullTextClean = stripHtml(fullTextRaw);
-      const fullForComment = sanitizeForXmlComment(fullTextClean.slice(0, 5000)); // safety
+      const fullForComment = sanitizeForXmlComment(fullTextClean.slice(0, 5000));
 
-      const shortTextSource =
-        (p.short_desc && p.short_desc.trim()) ||
-        (fullTextClean && fullTextClean.trim()) ||
-        '';
-      const shortClean = stripHtml(shortTextSource);
+      // Короткое описание (в description и param)
+      const shortSource = (p.short_desc?.trim() || fullTextClean || '');
+      const shortClean = stripHtml(shortSource);
       const short250 = truncateAtWord(shortClean, 250);
-      const shortDescXml = escapeXml(short250);
+      const shortXml = escapeXml(short250);
 
       return `
       <offer id="${p.id}" available="${available}">
@@ -111,9 +105,9 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
         <categoryId>${categoryId}</categoryId>
         ${pictureXml}
         <name>${title}</name>
-        <description>${shortDescXml}</description>
+        <description>${shortXml}</description>
         <!-- FULL_DESCRIPTION: ${fullForComment} -->
-        <param name="Краткое описание">${shortDescXml}</param>
+        <param name="Краткое описание">${shortXml}</param>
       </offer>`;
     })
     .join('\n');
@@ -140,7 +134,6 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
 export async function GET() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // категории
   const { data: categories, error: catErr } = await supabase
     .from('categories')
     .select('id, name')
@@ -150,7 +143,6 @@ export async function GET() {
     return NextResponse.json({ error: catErr.message }, { status: 500 });
   }
 
-  // товары + привязка к категориям
   const { data: products, error: prodErr } = await supabase
     .from('products')
     .select(
@@ -168,8 +160,7 @@ export async function GET() {
   return new NextResponse(yml, {
     status: 200,
     headers: {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="keytoheart_yandex.yml"',
+      'Content-Type': 'application/xml; charset=utf-8'
     },
   });
 }

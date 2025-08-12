@@ -370,6 +370,20 @@ function ProductsContent() {
         </div>
       </div>
 
+      {/* КНОПКА ДЛЯ ЭКСПОРТА CSV */}
+<motion.a
+  href="/api/products-export.csv"
+  download="products_export.csv"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="px-4 py-2 bg-green-500 text-white font-semibold rounded hover:bg-green-600 transition"
+  whileHover={{ scale: 1.04 }}
+  aria-label="Экспортировать товары в CSV"
+>
+  Экспорт CSV
+</motion.a>
+
+
       {/* Фильтры */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-gray-100 p-4 rounded-lg">
         <div>
