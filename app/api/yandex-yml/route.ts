@@ -2,90 +2,100 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// ENV
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-function escapeXml(str: string) {
-  return String(str)
+// ------- utils -------
+const stripTags = (html = '') =>
+  html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const truncateByWord = (s: string, max = 250) => {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 120 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+};
+
+const escapeXml = (str = '') =>
+  str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
 
-type ProductRow = {
-  id: number;
-  title: string;
-  price: number;
-  images: string[] | null;
-  in_stock: boolean | null;
-  slug: string | null;
-  short_desc: string | null;
-  description: string | null;
-  composition: string | null;
-  product_categories?: { category_id: number }[] | null;
+// Формируем «короткое» превью до 250 символов
+const makeShort = (short_desc?: string | null, description?: string | null) => {
+  const base = stripTags(short_desc || '') || stripTags(description || '');
+  return truncateByWord(base, 250);
 };
 
-type CategoryRow = { id: number; name: string };
+// Готовим «длинное» описание для <description> (до 3000, допускается простой HTML).
+// Здесь легкая нормализация перевода строк → <br/>
+const makeLong = (short_desc?: string | null, description?: string | null) => {
+  const raw = (description || short_desc || '').trim();
+  const normalized = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n/g, '<br/>')
+    .slice(0, 3000);
+  // Яндекс допускает CDATA — так безопаснее.
+  return `<![CDATA[${normalized}]]>`;
+};
 
-function buildYml(products: ProductRow[], categoriesMap: Map<number, string>) {
-  const date = new Date().toISOString().slice(0, 19);
+// ------- YML builder -------
+function buildYml({
+  products,
+  categoriesMap,
+}: {
+  products: any[];
+  categoriesMap: Map<number, { id: number; name: string }>;
+}) {
+  const now = new Date().toISOString().slice(0, 19);
 
-  // Подготовим XML категорий: используем только задействованные, плюс "прочее" при необходимости
+  // Выведем только те категории, которые реально встречаются
   const usedCatIds = new Set<number>();
-  products.forEach((p) => {
-    const cid = p.product_categories?.[0]?.category_id;
-    if (typeof cid === 'number') usedCatIds.add(cid);
-  });
+  for (const p of products) if (p.__catId) usedCatIds.add(p.__catId);
 
-  // Если у каких-то товаров нет категории — добавим спец.категорию 99999
-  const needFallback = products.some((p) => !(p.product_categories?.[0]?.category_id));
-  const categoriesXml =
-    (Array.from(usedCatIds)
-      .map((id) => {
-        const name = categoriesMap.get(id) ?? `Категория #${id}`;
-        return `      <category id="${id}">${escapeXml(name)}</category>`;
-      })
-      .join('\n')) +
-    (needFallback
-      ? `\n      <category id="99999">Прочее</category>`
-      : '');
+  const categoriesXml = [...usedCatIds]
+    .map((cid) => {
+      const c = categoriesMap.get(cid);
+      if (!c) return '';
+      return `      <category id="${c.id}">${escapeXml(c.name)}</category>`;
+    })
+    .join('\n');
 
   const offersXml = products
     .map((p) => {
-      // Описание: полное > краткое; добавляем состав
-      const full = (p.description || '').trim();
-      const short = (p.short_desc || '').trim();
-      const comp = (p.composition || '').trim();
+      const url = `https://keytoheart.ru/product/${p.slug || p.id}`;
+      const shortText = makeShort(p.short_desc, p.description);
+      const longText = makeLong(p.short_desc, p.description);
 
-      let desc = full || short || '';
-      if (comp) {
-        desc += (desc ? '\n\nСостав:\n' : 'Состав:\n') + comp;
-      }
-      if (desc.length > 2900) desc = desc.slice(0, 2900) + '…';
-
-      const picture =
-        p.images?.[0] ? `<picture>${escapeXml(p.images[0])}</picture>` : '';
-
-      const categoryId =
-        p.product_categories?.[0]?.category_id ?? 99999; // fallback
+      const pictures =
+        Array.isArray(p.images) && p.images.length
+          ? p.images
+              .slice(0, 10)
+              .map((src: string) => `        <picture>${escapeXml(src)}</picture>`)
+              .join('\n')
+          : '';
 
       return `
       <offer id="${p.id}" available="${p.in_stock ? 'true' : 'false'}">
-        <url>https://keytoheart.ru/product/${escapeXml(p.slug || String(p.id))}</url>
+        <url>${escapeXml(url)}</url>
         <price>${p.price}</price>
         <currencyId>RUR</currencyId>
-        <categoryId>${categoryId}</categoryId>
-        ${picture}
-        <name>${escapeXml(p.title)}</name>
-        <description>${escapeXml(desc)}</description>
+        <categoryId>${p.__catId || 1}</categoryId>
+${pictures}
+        <name>${escapeXml(p.title || `Товар ${p.id}`)}</name>
+        <description>${longText}</description>
+        <param name="Краткое описание">${escapeXml(shortText)}</param>
       </offer>`;
     })
     .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<yml_catalog date="${date}">
+<yml_catalog date="${now}">
   <shop>
     <name>KEY TO HEART</name>
     <company>Ключ к Сердцу</company>
@@ -94,58 +104,64 @@ function buildYml(products: ProductRow[], categoriesMap: Map<number, string>) {
       <currency id="RUR" rate="1"/>
     </currencies>
     <categories>
-${categoriesXml}
+${categoriesXml || '      <category id="1">Клубника в шоколаде</category>'}
     </categories>
     <offers>${offersXml}
     </offers>
   </shop>
-</yml_catalog>`;
+</yml_catalog>
+`;
 }
 
+// ------- route handler -------
 export async function GET() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // 1) Товары + привязки категорий
-  const { data: products, error: prodErr } = await supabase
+  // 1) Категории (в карту)
+  const { data: cats, error: catsErr } = await supabase
+    .from('categories')
+    .select('id,name')
+    .order('name', { ascending: true });
+
+  if (catsErr) {
+    return NextResponse.json({ error: catsErr.message }, { status: 500 });
+  }
+  const categoriesMap = new Map<number, { id: number; name: string }>();
+  (cats || []).forEach((c) => categoriesMap.set(c.id, c));
+
+  // 2) Товары + первая категория из связки
+  const { data: prods, error: prodsErr } = await supabase
     .from('products')
     .select(
-      'id, title, price, images, in_stock, slug, short_desc, description, composition, product_categories(category_id)'
+      `
+      id,
+      title,
+      price,
+      images,
+      in_stock,
+      slug,
+      short_desc,
+      description,
+      product_categories:product_categories(category_id)
+    `
     )
     .eq('is_visible', true)
     .order('id', { ascending: true });
 
-  if (prodErr) {
-    return NextResponse.json({ error: prodErr.message }, { status: 500 });
+  if (prodsErr) {
+    return NextResponse.json({ error: prodsErr.message }, { status: 500 });
   }
 
-  const list = (products || []) as ProductRow[];
+  // Проставим __catId = первая категория (если есть)
+  const products = (prods || []).map((p: any) => {
+    const firstCatId =
+      Array.isArray(p.product_categories) && p.product_categories.length
+        ? p.product_categories[0].category_id
+        : undefined;
+    return { ...p, __catId: firstCatId };
+  });
 
-  // 2) Собираем id категорий, чтобы получить их имена
-  const catIds = Array.from(
-    new Set(
-      list
-        .map((p) => p.product_categories?.[0]?.category_id)
-        .filter((v): v is number => typeof v === 'number')
-    )
-  );
-
-  let categoriesMap = new Map<number, string>();
-  if (catIds.length) {
-    const { data: cats, error: catErr } = await supabase
-      .from('categories')
-      .select('id, name')
-      .in('id', catIds);
-
-    if (catErr) {
-      return NextResponse.json({ error: catErr.message }, { status: 500 });
-    }
-
-    (cats || []).forEach((c: CategoryRow) => {
-      categoriesMap.set(c.id, c.name);
-    });
-  }
-
-  const yml = buildYml(list, categoriesMap);
+  const yml = buildYml({ products, categoriesMap });
 
   return new NextResponse(yml, {
     status: 200,
