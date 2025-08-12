@@ -252,7 +252,7 @@ export default function NewProductPage() {
       if (discountNum < 0 || discountNum > 100) throw new Error('Скидка должна быть от 0 до 100%');
       const productionTimeNum = productionTime ? parseInt(productionTime) : null;
       if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
-        throw new Error('Время изготовления должно быть ≥ 0');
+        throw new Error('Время изготовления должно быть ≥ 0 минут');
       }
       const bonusNum = parseFloat(bonus);
       if (isNaN(bonusNum) || bonusNum < 0) {
@@ -473,14 +473,14 @@ export default function NewProductPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (ч):</label>
+                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (минуты):</label>
                   <input
                     id="productionTime"
                     type="number"
                     value={productionTime}
                     onChange={e => setProductionTime(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
-                    placeholder="Время изготовления"
+                    placeholder="Время изготовления в минутах"
                     min="0"
                     step="1"
                   />
@@ -643,15 +643,15 @@ export default function NewProductPage() {
                 {loading ? 'Добавление...' : 'Добавить товар'}
               </motion.button>
               <motion.button
-  type="button"
-  onClick={resetForm}
-  className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
-  whileHover={{ scale: 1.03 }}
-  whileTap={{ scale: 0.98 }}
-  aria-label="Сбросить форму"
->
-  Сбросить форму
-</motion.button>
+                type="button"
+                onClick={resetForm}
+                className="flex-1 py-3 text-lg font-semibold bg-gray-200 text-gray-700 rounded-xl shadow hover:bg-gray-300 transition-all"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                aria-label="Сбросить форму"
+              >
+                Сбросить форму
+              </motion.button>
             </div>
           </form>
         </motion.div>

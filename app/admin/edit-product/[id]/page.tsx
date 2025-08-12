@@ -354,6 +354,9 @@ export default function EditProductPage() {
       const productionTimeNum = productionTime
         ? Number(productionTime)
         : null;
+      if (productionTime && (isNaN(productionTimeNum!) || productionTimeNum! < 0)) {
+        throw new Error('Время изготовления должно быть ≥ 0 минут');
+      }
       const bonusNum = parseFloat(bonus);
       if (isNaN(bonusNum) || bonusNum < 0) {
         throw new Error('Бонус должен быть ≥ 0');
@@ -575,14 +578,14 @@ export default function EditProductPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (ч):</label>
+                  <label htmlFor="productionTime" className="block mb-1 font-medium text-gray-600">Время изготовления (минуты):</label>
                   <input
                     id="productionTime"
                     type="number"
                     value={productionTime}
                     onChange={e => setProductionTime(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black shadow"
-                    placeholder="Время изготовления"
+                    placeholder="Время изготовления в минутах"
                     min="0"
                     step="1"
                   />

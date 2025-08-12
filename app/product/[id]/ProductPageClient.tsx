@@ -309,6 +309,26 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
+  function declineWord(num: number, words: [string, string, string]): string {
+    const cases = [2, 0, 1, 1, 1, 2];
+    return words[(num % 100 > 4 && num % 100 < 20) ? 2 : cases[(num % 10 < 5) ? num % 10 : 5]];
+  }
+  
+  function formatProductionTime(minutes: number | null): string | null {
+    if (minutes == null || minutes <= 0) return null;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    let result = '';
+    if (hours > 0) {
+      result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
+    }
+    if (mins > 0) {
+      if (result) result += ' ';
+      result += `${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
+    }
+    return result || 'Мгновенно';
+  }
+
     const handleAdd = (
     id: number,
     title: string,
@@ -617,8 +637,7 @@ export default function ProductPageClient({
                     height={20}
                   />
                   <span>
-                    Время изготовления: {product.production_time}{' '}
-                    {product.production_time === 1 ? 'час' : 'часов'}
+                    Время изготовления: {formatProductionTime(product.production_time) || 'Не указано'}
                   </span>
                 </div>
               )}

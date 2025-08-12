@@ -1,7 +1,5 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import { useState, useEffect, useRef } from 'react';
@@ -11,6 +9,8 @@ import { Star, ShoppingCart } from 'lucide-react';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import type { Product } from '@/types/product';
+import Image from 'next/image';
+import Link from 'next/link';
 
 export default function ProductCard({
   product,
@@ -79,6 +79,26 @@ export default function ProductCard({
     (hovered || isMobile)
       ? 'border-gray-200 shadow-sm'
       : 'border-transparent';
+
+  function declineWord(num: number, words: [string, string, string]): string {
+    const cases = [2, 0, 1, 1, 1, 2];
+    return words[(num % 100 > 4 && num % 100 < 20) ? 2 : cases[(num % 10 < 5) ? num % 10 : 5]];
+  }
+  
+  function formatProductionTime(minutes: number | null): string | null {
+    if (minutes == null || minutes <= 0) return null;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    let result = '';
+    if (hours > 0) {
+      result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
+    }
+    if (mins > 0) {
+      if (result) result += ' ';
+      result += `${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
+    }
+    return result || 'Мгновенно';
+  }
 
   return (
     <motion.div
@@ -200,7 +220,7 @@ export default function ProductCard({
         </div>
         {product.production_time != null && (
           <p className="text-center text-xs text-gray-500">
-            Время изготовления: {product.production_time} {product.production_time === 1 ? 'час' : 'часов'}
+            Время изготовления: {formatProductionTime(product.production_time) || 'Не указано'}
           </p>
         )}
       </div>
