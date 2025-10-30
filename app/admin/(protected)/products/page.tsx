@@ -367,6 +367,19 @@ function ProductsContent() {
           >
             Скачать YML для Яндекса
           </motion.a>
+          {/* КНОПКА ДЛЯ VK (XML, +10%) */}
+<motion.a
+  href="/vk.xml"
+  download="keytoheart_vk.xml"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="px-4 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition"
+  whileHover={{ scale: 1.04 }}
+  aria-label="Скачать XML для VK (цены +10%)"
+>
+  Скачать XML для VK (+10%)
+</motion.a>
+
         </div>
       </div>
 
