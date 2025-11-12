@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import AdminLayout from '../layout';  
+import AdminLayout from '../layout';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import CSRFToken from '@components/CSRFToken';
@@ -44,11 +44,9 @@ export default function PromoAdminPage() {
       try {
         const res = await fetch('/api/admin-session', { credentials: 'include' });
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'Доступ запрещён');
-        }
+        if (!res.ok || !data.success) throw new Error(data.message || 'Доступ запрещён');
         setIsAuthenticated(true);
-      } catch (err: any) {
+      } catch {
         toast.error('Доступ запрещён');
         router.push(`/admin/login?from=${encodeURIComponent('/admin/promo')}`);
       }
@@ -56,16 +54,16 @@ export default function PromoAdminPage() {
     checkAuth();
   }, [router]);
 
-  // Загрузка промо-блоков и списка страниц
+  // Загрузка данных после авторизации
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchBlocks();
-    fetchHrefOptions();
+    fetchHrefOptions(); // первичная загрузка
   }, [isAuthenticated]);
 
   async function fetchBlocks() {
     try {
-      const res = await fetch('/api/promo');
+      const res = await fetch('/api/promo', { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки промо-блоков');
       setBlocks(data || []);
@@ -76,14 +74,20 @@ export default function PromoAdminPage() {
 
   async function fetchHrefOptions() {
     try {
-      const res = await fetch('/api/site-pages');
+      const res = await fetch('/api/site-pages', { cache: 'no-store' }); // важное изменение
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки списка страниц');
-      const options = data.map((page: { label: string; href: string }) => ({
-        label: page.label,
-        value: page.href,
+
+      // Нормализация, дедуп и сортировка по алфавиту
+      const raw: HrefOption[] = (data as Array<{ label: string; href: string }>).map(p => ({
+        label: p.label,
+        value: p.href,
       }));
-      setHrefOptions(options);
+
+      const dedup = Array.from(new Map(raw.map(o => [o.value, o])).values());
+      dedup.sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+
+      setHrefOptions(dedup);
     } catch (err: any) {
       toast.error('Ошибка загрузки списка страниц: ' + err.message);
     }
@@ -91,7 +95,7 @@ export default function PromoAdminPage() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
-    setForm((f) => ({
+    setForm(f => ({
       ...f,
       [name]: name === 'order_index' ? Number(value) : value,
     }));
@@ -100,7 +104,6 @@ export default function PromoAdminPage() {
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] || null;
     if (f) {
-      // Проверка размера (макс. 5MB) и формата
       if (f.size > 5 * 1024 * 1024) {
         toast.error('Изображение слишком большое (макс. 5MB)');
         return;
@@ -117,7 +120,7 @@ export default function PromoAdminPage() {
   function clearImage() {
     setFile(null);
     setPreviewImage(null);
-    setForm((f) => ({ ...f, image_url: '' }));
+    setForm(f => ({ ...f, image_url: '' }));
   }
 
   function handleEdit(block: PromoBlock) {
@@ -130,7 +133,7 @@ export default function PromoAdminPage() {
   async function handleDelete(id: number) {
     if (!confirm('Удалить блок?')) return;
     try {
-      const block = blocks.find((b) => b.id === id);
+      const block = blocks.find(b => b.id === id);
       if (!block) throw new Error('Блок не найден');
 
       const res = await fetch('/api/promo', {
@@ -155,7 +158,6 @@ export default function PromoAdminPage() {
       if (!form.href) throw new Error('Ссылка (href) обязательна');
       if (!form.image_url && !file) throw new Error('Изображение обязательно');
 
-      // Санитизация ввода
       const sanitizedTitle = DOMPurify.sanitize(form.title?.trim() || '');
       const sanitizedSubtitle = DOMPurify.sanitize(form.subtitle?.trim() || '');
       const sanitizedButtonText = DOMPurify.sanitize(form.button_text?.trim() || '');
@@ -164,9 +166,7 @@ export default function PromoAdminPage() {
       if (file) {
         const formData = new FormData();
         formData.append('file', file);
-        if (editingId && form.image_url) {
-          formData.append('oldImageUrl', form.image_url);
-        }
+        if (editingId && form.image_url) formData.append('oldImageUrl', form.image_url);
 
         const uploadRes = await fetch('/api/promo/upload-image', {
           method: 'POST',
@@ -179,11 +179,20 @@ export default function PromoAdminPage() {
         image_url = uploadData.image_url;
       }
 
-      const payload: { id?: number; title: string; subtitle: string; button_text: string; href: string; image_url: string; type: "card" | "banner"; order_index: number } = {
+      const payload: {
+        id?: number;
+        title: string;
+        subtitle: string;
+        button_text: string;
+        href: string;
+        image_url: string;
+        type: 'card' | 'banner';
+        order_index: number;
+      } = {
         title: sanitizedTitle,
         subtitle: sanitizedSubtitle,
         button_text: sanitizedButtonText,
-        href: form.href,
+        href: form.href!,
         image_url,
         type: form.type || 'card',
         order_index: form.order_index || 0,
@@ -193,26 +202,18 @@ export default function PromoAdminPage() {
         payload.id = editingId;
         const res = await fetch('/api/promo', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
-          },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
           body: JSON.stringify(payload),
         });
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Ошибка обновления блока');
         toast.success('Блок обновлён');
       } else {
         const res = await fetch('/api/promo', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
-          },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
           body: JSON.stringify(payload),
         });
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Ошибка добавления блока');
         toast.success('Блок добавлен');
@@ -238,7 +239,6 @@ export default function PromoAdminPage() {
   if (isAuthenticated === null) {
     return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
   }
-
   if (!isAuthenticated) return null;
 
   return (
@@ -257,10 +257,9 @@ export default function PromoAdminPage() {
             <div className="space-y-8 mb-6">
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <h2 className="col-span-full text-xl font-semibold">Основная информация</h2>
+
                 <div>
-                  <label htmlFor="title" className="font-medium">
-                    Название
-                  </label>
+                  <label htmlFor="title" className="font-medium">Название</label>
                   <motion.input
                     id="title"
                     name="title"
@@ -276,10 +275,9 @@ export default function PromoAdminPage() {
                     Название промо-блока, отображаемое на сайте.
                   </p>
                 </div>
+
                 <div>
-                  <label htmlFor="subtitle" className="font-medium">
-                    Подзаголовок
-                  </label>
+                  <label htmlFor="subtitle" className="font-medium">Подзаголовок</label>
                   <motion.input
                     id="subtitle"
                     name="subtitle"
@@ -290,14 +288,11 @@ export default function PromoAdminPage() {
                     aria-describedby="subtitle-desc"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="subtitle-desc" className="text-sm text-gray-500 mt-1">
-                    Дополнительный текст для промо-блока.
-                  </p>
+                  <p id="subtitle-desc" className="text-sm text-gray-500 mt-1">Дополнительный текст для промо-блока.</p>
                 </div>
+
                 <div>
-                  <label htmlFor="button_text" className="font-medium">
-                    Текст кнопки
-                  </label>
+                  <label htmlFor="button_text" className="font-medium">Текст кнопки</label>
                   <motion.input
                     id="button_text"
                     name="button_text"
@@ -308,19 +303,17 @@ export default function PromoAdminPage() {
                     aria-describedby="button_text-desc"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="button_text-desc" className="text-sm text-gray-500 mt-1">
-                    Текст кнопки в промо-блоке.
-                  </p>
+                  <p id="button_text-desc" className="text-sm text-gray-500 mt-1">Текст кнопки в промо-блоке.</p>
                 </div>
+
                 <div>
-                  <label htmlFor="href" className="font-medium">
-                    Ссылка (href)
-                  </label>
+                  <label htmlFor="href" className="font-medium">Ссылка (href)</label>
                   <motion.select
                     id="href"
                     name="href"
                     value={form.href || ''}
                     onChange={handleChange}
+                    onFocus={fetchHrefOptions} /* рефетч при открытии */
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                     aria-describedby="href-desc"
@@ -335,12 +328,18 @@ export default function PromoAdminPage() {
                   </motion.select>
                   <p id="href-desc" className="text-sm text-gray-500 mt-1">
                     Ссылка, на которую ведёт промо-блок.
+                    <button
+                      type="button"
+                      onClick={fetchHrefOptions}
+                      className="ml-2 underline text-blue-600 hover:text-blue-800"
+                    >
+                      Обновить список
+                    </button>
                   </p>
                 </div>
+
                 <div>
-                  <label htmlFor="type" className="font-medium">
-                    Тип блока
-                  </label>
+                  <label htmlFor="type" className="font-medium">Тип блока</label>
                   <motion.select
                     id="type"
                     name="type"
@@ -357,10 +356,9 @@ export default function PromoAdminPage() {
                     Формат промо-блока (карточка или баннер).
                   </p>
                 </div>
+
                 <div>
-                  <label htmlFor="order_index" className="font-medium">
-                    Порядок (order_index)
-                  </label>
+                  <label htmlFor="order_index" className="font-medium">Порядок (order_index)</label>
                   <motion.input
                     id="order_index"
                     type="number"
@@ -381,9 +379,7 @@ export default function PromoAdminPage() {
               <section>
                 <h2 className="text-xl font-semibold mb-4">Изображение</h2>
                 <div>
-                  <label htmlFor="image" className="font-medium">
-                    Изображение
-                  </label>
+                  <label htmlFor="image" className="font-medium">Изображение</label>
                   <input
                     id="image"
                     type="file"
@@ -432,7 +428,7 @@ export default function PromoAdminPage() {
                 >
                   <Image
                     src={previewImage}
-                    alt={form.title}
+                    alt={form.title!}
                     width={form.type === 'card' ? 200 : 600}
                     height={form.type === 'card' ? 150 : 200}
                     className="rounded object-cover mb-2"
@@ -478,7 +474,7 @@ export default function PromoAdminPage() {
                 <p className="text-gray-500">Промо-блоки отсутствуют</p>
               ) : (
                 <ul className="space-y-4">
-                  {blocks.map((block) => (
+                  {blocks.map(block => (
                     <motion.li
                       key={block.id}
                       className="border p-4 rounded shadow flex justify-between items-center"
