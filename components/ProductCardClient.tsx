@@ -1,4 +1,3 @@
-// components/ProductCardClient.tsx
 'use client';
 
 import { useCart } from '@context/CartContext';
@@ -44,24 +43,20 @@ export default function ProductCardClient({
 
     if (buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      triggerCartAnimation(
-        r.left + r.width / 2,
-        r.top + r.height / 2,
-        imageUrl
-      );
+      triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-between border border-gray-300 rounded-lg overflow-hidden bg-white">
-      {/* Содержимое карточки (изображение и текст) */}
-      <div className="p-4 pb-0">
+    <div className="relative w-full h-full flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white">
+      {/* Верхняя часть: картинка + контентная колонка */}
+      <div className="p-4 pb-0 flex flex-col flex-1">
         <div className="relative w-full aspect-[3/4] rounded-[12px] overflow-hidden">
           <Image
             src={imageUrl}
             alt={title}
-            width={220} // максимальная ширина карточки (замени на свою!)
-            height={293} // 220 * 4 / 3 = 293
+            width={220}
+            height={293}
             sizes="(max-width:640px) 100vw, 220px"
             className="object-cover w-full h-full rounded-[12px]"
             placeholder="blur"
@@ -69,12 +64,40 @@ export default function ProductCardClient({
             priority={false}
           />
         </div>
-        <div className="mt-2">
-          <h3 className="text-sm font-bold">{title}</h3>
-          <p className="text-sm">{price}₽</p>
+
+        {/* Контентная колонка: заголовок -> (spacer) -> цена -> время */}
+        <div className="mt-2 flex flex-col flex-1">
+          {/* Фиксируем высоту заголовка (3 строки) и обрезаем многоточием */}
+          <h3
+            className="text-sm font-bold leading-5"
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,          // можно 2, если так в макете
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              minHeight: '3.75rem',        // 3 строки * 1.25rem (leading-5)
+            }}
+            title={title}
+          >
+            {title}
+          </h3>
+
+          {/* spacer тянет колонку, прижимая мета-блок к низу */}
+          <div className="mt-auto" />
+
+          {/* Мета-блок - ВСЕГДА непосредственно над кнопкой */}
+          <div className="mt-2">
+            <p className="text-sm font-semibold">{price}₽</p>
+            {typeof productionTime === 'number' && (
+              <p className="text-xs text-gray-500">
+                Время изготовления: {productionTime} час{productionTime === 1 ? '' : 'а'}
+              </p>
+            )}
+          </div>
         </div>
       </div>
-      {/* Кнопка "В корзину" фиксированная внизу */}
+
+      {/* Кнопка всегда в самом низу карточки */}
       <button
         ref={buttonRef}
         onClick={handleClick}
