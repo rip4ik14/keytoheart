@@ -235,9 +235,8 @@ export default function ProductPageClient({
     }
 
     const now = new Date();
-    let earliestDate = new Date(now);
-    earliestDate.setHours(earliestDate.getHours() + product.production_time);
-
+    const totalMinutes = product.production_time + 30; // 🔸 +30 минут на доставку
+    let earliestDate = new Date(now.getTime() + totalMinutes * 60 * 1000);
     let attempts = 0;
     while (attempts < 7) {
       const dayKey = earliestDate
