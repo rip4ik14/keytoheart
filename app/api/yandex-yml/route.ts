@@ -5,6 +5,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// базовый URL сайта для ссылок во фиде
+const BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://keytoheart.ru';
+
 /* ----------------------------- helpers ----------------------------- */
 function escapeXml(input: string): string {
   return String(input)
@@ -38,7 +42,9 @@ function sanitizeForXmlComment(input: string): string {
 
 function formatDateForYml(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /* ------------------------------ YML -------------------------------- */
@@ -64,21 +70,31 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
 
   const categoriesXml =
     categories.length > 0
-      ? categories.map((c) => `<category id="${c.id}">${escapeXml(c.name)}</category>`).join('\n      ')
+      ? categories
+          .map(
+            (c) =>
+              `<category id="${c.id}">${escapeXml(c.name)}</category>`
+          )
+          .join('\n      ')
       : `<category id="1">Клубника в шоколаде</category>`;
 
   const offersXml = products
     .map((p) => {
       const title = escapeXml(p.title ?? `Товар #${p.id}`);
-      const url = `https://keytoheart.ru/product/${p.slug || p.id}`;
+
+      // ВАЖНО: всегда используем id, без slug
+      const url = `${BASE_URL}/product/${p.id}`;
 
       const firstCatId =
         p.product_categories?.[0]?.category_id ??
         (categories.length ? categories[0].id : 1);
       const categoryId = catMap.has(firstCatId) ? firstCatId : 1;
 
-      const firstImage = p.images && p.images.length ? p.images[0] : null;
-      const pictureXml = firstImage ? `<picture>${escapeXml(firstImage)}</picture>` : '';
+      const firstImage =
+        p.images && p.images.length ? p.images[0] : null;
+      const pictureXml = firstImage
+        ? `<picture>${escapeXml(firstImage)}</picture>`
+        : '';
 
       const price = Math.max(0, Number(p.price ?? 0));
       const available = p.in_stock ? 'true' : 'false';
@@ -89,10 +105,13 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
         (p.short_desc && p.short_desc.trim()) ||
         '';
       const fullTextClean = stripHtml(fullTextRaw);
-      const fullForComment = sanitizeForXmlComment(fullTextClean.slice(0, 5000));
+      const fullForComment = sanitizeForXmlComment(
+        fullTextClean.slice(0, 5000)
+      );
 
       // Короткое описание (в description и param)
-      const shortSource = (p.short_desc?.trim() || fullTextClean || '');
+      const shortSource =
+        p.short_desc?.trim() || fullTextClean || '';
       const shortClean = stripHtml(shortSource);
       const short250 = truncateAtWord(shortClean, 250);
       const shortXml = escapeXml(short250);
@@ -117,7 +136,7 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
   <shop>
     <name>KEY TO HEART</name>
     <company>Ключ к Сердцу</company>
-    <url>https://keytoheart.ru</url>
+    <url>${BASE_URL}</url>
     <currencies>
       <currency id="RUR" rate="1"/>
     </currencies>
@@ -140,7 +159,10 @@ export async function GET() {
     .order('id', { ascending: true });
 
   if (catErr) {
-    return NextResponse.json({ error: catErr.message }, { status: 500 });
+    return NextResponse.json(
+      { error: catErr.message },
+      { status: 500 }
+    );
   }
 
   const { data: products, error: prodErr } = await supabase
@@ -152,15 +174,21 @@ export async function GET() {
     .order('id', { ascending: true });
 
   if (prodErr) {
-    return NextResponse.json({ error: prodErr.message }, { status: 500 });
+    return NextResponse.json(
+      { error: prodErr.message },
+      { status: 500 }
+    );
   }
 
-  const yml = buildYml((products || []) as ProductRow[], (categories || []) as CategoryRow[]);
+  const yml = buildYml(
+    (products || []) as ProductRow[],
+    (categories || []) as CategoryRow[]
+  );
 
   return new NextResponse(yml, {
     status: 200,
     headers: {
-      'Content-Type': 'application/xml; charset=utf-8'
+      'Content-Type': 'application/xml; charset=utf-8',
     },
   });
 }
