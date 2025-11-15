@@ -21,7 +21,7 @@ function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
   if (t.length < 20) return t;
 
-  // Регэксп: вся строка = (какой-то текст)(ровно такой же текст)
+  // Вся строка = (какой-то текст)(тот же самый текст)
   const match = t.match(/^(.+)\1$/);
   if (match && match[1].trim().length > 10) {
     return match[1].trim();
@@ -46,10 +46,10 @@ export default function ProductCard({
 
   const stablePriority = useRef(priority).current;
 
-  // нормализованный заголовок (без дублирования)
+  // нормализованный заголовок
   const title = normalizeTitle(product.title || '');
 
-  // Mobile detection
+  // определяем мобильную ширину
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     handleResize();
@@ -99,9 +99,7 @@ export default function ProductCard({
 
   function declineWord(num: number, words: [string, string, string]): string {
     const cases = [2, 0, 1, 1, 1, 2];
-    return words[
-      num % 100 > 4 && num % 100 < 20 ? 2 : cases[num % 10 < 5 ? num % 10 : 5]
-    ];
+    return words[num % 100 > 4 && num % 100 < 20 ? 2 : cases[num % 10 < 5 ? num % 10 : 5]];
   }
 
   function formatProductionTime(minutes: number | null): string | null {
@@ -157,9 +155,7 @@ export default function ProductCard({
               url: `/product/${product.id}`,
               priceCurrency: 'RUB',
               price: discountedPrice.toString(),
-              priceValidUntil: new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000
-              )
+              priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .split('T')[0],
               availability: product.in_stock
@@ -225,10 +221,10 @@ export default function ProductCard({
         />
       </Link>
 
-      {/* Контент: заголовок + цена + время */}
+      {/* Контент */}
       <div className="flex flex-col p-2 sm:p-4 flex-1 pb-12 sm:pb-14 relative">
         <div className="flex flex-col justify-between flex-1">
-          {/* Заголовок фиксированной высоты, без дублирования */}
+          {/* Заголовок фиксированной высоты */}
           <h3
             id={`product-${product.id}-title`}
             className="
@@ -241,7 +237,7 @@ export default function ProductCard({
             {title}
           </h3>
 
-          {/* Блок цены + времени изготовления, тоже фиксированная высота */}
+          {/* Цена + время изготовления */}
           <div className="mt-1 sm:mt-2 flex flex-col items-center justify-start min-h-[52px] sm:min-h-[56px]">
             <div className="flex items-center justify-center gap-2">
               {(discountAmount > 0 || originalPrice > product.price) && (
@@ -266,10 +262,23 @@ export default function ProductCard({
             </div>
 
             {product.production_time != null && (
-              <p className="mt-1 text-center text-xs text-gray-500 leading-snug line-clamp-1">
-                Время изготовления:{' '}
-                {formatProductionTime(product.production_time) || 'Не указано'}
-              </p>
+              <>
+                {/* Мобильная версия — показываем полностью, без обрезки */}
+                <p
+                  className="sm:hidden mt-1 text-center text-xs text-gray-500 leading-snug whitespace-normal break-words"
+                >
+                  Время изготовления:{' '}
+                  {formatProductionTime(product.production_time) || 'Не указано'}
+                </p>
+
+                {/* Десктоп — одна строка, для ровного низа */}
+                <p
+                  className="hidden sm:block mt-1 text-center text-xs text-gray-500 leading-snug line-clamp-1"
+                >
+                  Время изготовления:{' '}
+                  {formatProductionTime(product.production_time) || 'Не указано'}
+                </p>
+              </>
             )}
           </div>
         </div>
