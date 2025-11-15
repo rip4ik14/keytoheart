@@ -19,13 +19,18 @@ import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
 
 /* --------------------------- шрифты через localFont ----------------------- */
+/**
+ * Golos подключаем как CSS-переменную через next/font/local.
+ * preload:true – пусть Next сам создаёт корректные <link rel="preload">
+ * с хэшированными путями. Ручные <link> больше не нужны.
+ */
 const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
   preload: true,
   src: [
-    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2',  weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_regular.woff2',  weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2',   weight: '500', style: 'normal' },
     { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
     { path: '../public/fonts/golos-text_bold.woff2',     weight: '700', style: 'normal' },
     { path: '../public/fonts/golos-text_black.woff2',    weight: '900', style: 'normal' },
@@ -36,7 +41,13 @@ const marqueeFont = localFont({
   variable: '--font-marquee',
   display: 'swap',
   preload: false,
-  src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
+  src: [
+    {
+      path: '../public/fonts/MontserratMarquee.woff2',
+      weight: '900',
+      style: 'normal',
+    },
+  ],
 });
 
 /* ------------------------------ ISR -------------------------------------- */
@@ -103,7 +114,11 @@ export const viewport: Viewport = {
 /* -------------------------------------------------------------------------- */
 /*                                ROOT LAYOUT                                */
 /* -------------------------------------------------------------------------- */
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   /* --- SSR-загрузка категорий из Supabase для меню — ошибки не валят страницу --- */
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -112,7 +127,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
-      { headers: { apikey: supabaseKey }, next: { revalidate: 3600 } },
+      {
+        headers: { apikey: supabaseKey },
+        next: { revalidate: 3600 },
+      },
     );
     const data = await res.json();
     if (Array.isArray(data)) {
@@ -139,25 +157,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="ру" className={`${golosText.variable} ${marqueeFont.variable}`}>
+    <html
+      lang="ru"
+      className={`${golosText.variable} ${marqueeFont.variable}`}
+    >
       <head>
-        {/* preload основного шрифта */}
-        <link
-          rel="preload"
-          href="/fonts/golos-text_regular.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        {/* при необходимости можно дополнительно прелоадить medium, если участвует в LCP */}
-        <link
-          rel="preload"
-          href="/fonts/golos-text_medium.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-
         {/* базовые метатеги */}
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -180,7 +184,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="dns-prefetch"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
         />
-        <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://mc.yandex.ru"
+          crossOrigin="anonymous"
+        />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
         {/* PWA / favicon extras */}
@@ -203,7 +211,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@type': 'SearchAction',
                   target: {
                     '@type': 'EntryPoint',
-                    urlTemplate: 'https://keytoheart.ru/search?q={search_term_string}',
+                    urlTemplate:
+                      'https://keytoheart.ru/search?q={search_term_string}',
                   },
                   'query-input': 'required name=search_term_string',
                 },
@@ -235,14 +244,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   postalCode: '350028',
                   addressCountry: 'RU',
                 },
-                geo: { '@type': 'GeoCoordinates', latitude: 45.05809, longitude: 39.037611 },
-                openingHoursSpecification: [{
-                  '@type': 'OpeningHoursSpecification',
-                  dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
-                  opens: '09:00', closes: '22:00'
-                }],
+                geo: {
+                  '@type': 'GeoCoordinates',
+                  latitude: 45.05809,
+                  longitude: 39.037611,
+                },
+                openingHoursSpecification: [
+                  {
+                    '@type': 'OpeningHoursSpecification',
+                    dayOfWeek: [
+                      'Monday',
+                      'Tuesday',
+                      'Wednesday',
+                      'Thursday',
+                      'Friday',
+                      'Saturday',
+                      'Sunday',
+                    ],
+                    opens: '09:00',
+                    closes: '22:00',
+                  },
+                ],
                 areaServed: { '@type': 'City', name: 'Краснодар' },
-                hasMap: 'https://yandex.ru/maps/?ll=39.037611%2C45.058090&z=16',
+                hasMap:
+                  'https://yandex.ru/maps/?ll=39.037611%2C45.058090&z=16',
                 sameAs: [
                   'https://www.instagram.com/keytoheart.ru/',
                   'https://t.me/keytoheart',
@@ -291,7 +316,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {YM_ID && (
           <noscript>
             <div>
-              <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: '-9999px' }} alt="" />
+              <img
+                src={`https://mc.yandex.ru/watch/${YM_ID}`}
+                style={{ position: 'absolute', left: '-9999px' }}
+                alt=""
+              />
             </div>
           </noscript>
         )}
