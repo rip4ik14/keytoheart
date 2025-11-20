@@ -38,7 +38,6 @@ export default function PromoAdminPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // Проверка авторизации
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -54,11 +53,10 @@ export default function PromoAdminPage() {
     checkAuth();
   }, [router]);
 
-  // Загрузка данных после авторизации
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchBlocks();
-    fetchHrefOptions(); // первичная загрузка
+    fetchHrefOptions();
   }, [isAuthenticated]);
 
   async function fetchBlocks() {
@@ -74,12 +72,11 @@ export default function PromoAdminPage() {
 
   async function fetchHrefOptions() {
     try {
-      const res = await fetch('/api/site-pages', { cache: 'no-store' }); // важное изменение
+      const res = await fetch('/api/site-pages', { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки списка страниц');
 
-      // Нормализация, дедуп и сортировка по алфавиту
-      const raw: HrefOption[] = (data as Array<{ label: string; href: string }>).map(p => ({
+      const raw: HrefOption[] = data.map((p: any) => ({
         label: p.label,
         value: p.href,
       }));
@@ -179,16 +176,7 @@ export default function PromoAdminPage() {
         image_url = uploadData.image_url;
       }
 
-      const payload: {
-        id?: number;
-        title: string;
-        subtitle: string;
-        button_text: string;
-        href: string;
-        image_url: string;
-        type: 'card' | 'banner';
-        order_index: number;
-      } = {
+      const payload: any = {
         title: sanitizedTitle,
         subtitle: sanitizedSubtitle,
         button_text: sanitizedButtonText,
@@ -253,7 +241,6 @@ export default function PromoAdminPage() {
           >
             <h1 className="text-2xl font-bold mb-6">Промо-блоки на главной</h1>
 
-            {/* Форма создания/редактирования */}
             <div className="space-y-8 mb-6">
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <h2 className="col-span-full text-xl font-semibold">Основная информация</h2>
@@ -268,12 +255,8 @@ export default function PromoAdminPage() {
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Введите название"
                     required
-                    aria-describedby="title-desc"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="title-desc" className="text-sm text-gray-500 mt-1">
-                    Название промо-блока, отображаемое на сайте.
-                  </p>
                 </div>
 
                 <div>
@@ -284,11 +267,9 @@ export default function PromoAdminPage() {
                     value={form.subtitle || ''}
                     onChange={handleChange}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Введите подзаголовок (опционально)"
-                    aria-describedby="subtitle-desc"
+                    placeholder="Введите подзаголовок"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="subtitle-desc" className="text-sm text-gray-500 mt-1">Дополнительный текст для промо-блока.</p>
                 </div>
 
                 <div>
@@ -299,35 +280,39 @@ export default function PromoAdminPage() {
                     value={form.button_text || ''}
                     onChange={handleChange}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Текст кнопки (опционально)"
-                    aria-describedby="button_text-desc"
+                    placeholder="Текст кнопки"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="button_text-desc" className="text-sm text-gray-500 mt-1">Текст кнопки в промо-блоке.</p>
                 </div>
 
+                {/* 🔥 Новый ввод ссылки + datalist */}
                 <div>
                   <label htmlFor="href" className="font-medium">Ссылка (href)</label>
-                  <motion.select
+                  <motion.input
                     id="href"
                     name="href"
+                    list="href-options"
                     value={form.href || ''}
                     onChange={handleChange}
-                    onFocus={fetchHrefOptions} /* рефетч при открытии */
+                    onFocus={fetchHrefOptions}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Введите свою ссылку или выберите из списка"
                     required
-                    aria-describedby="href-desc"
                     whileFocus={{ scale: 1.02 }}
-                  >
-                    <option value="">Выберите ссылку</option>
+                  />
+
+                  <datalist id="href-options">
                     {hrefOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        label={option.label}
+                      />
                     ))}
-                  </motion.select>
-                  <p id="href-desc" className="text-sm text-gray-500 mt-1">
-                    Ссылка, на которую ведёт промо-блок.
+                  </datalist>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    Можно вписать любую ссылку вручную.
                     <button
                       type="button"
                       onClick={fetchHrefOptions}
@@ -346,19 +331,15 @@ export default function PromoAdminPage() {
                     value={form.type || 'card'}
                     onChange={handleChange}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-describedby="type-desc"
                     whileFocus={{ scale: 1.02 }}
                   >
                     <option value="card">Карточка</option>
                     <option value="banner">Баннер</option>
                   </motion.select>
-                  <p id="type-desc" className="text-sm text-gray-500 mt-1">
-                    Формат промо-блока (карточка или баннер).
-                  </p>
                 </div>
 
                 <div>
-                  <label htmlFor="order_index" className="font-medium">Порядок (order_index)</label>
+                  <label htmlFor="order_index" className="font-medium">Порядок</label>
                   <motion.input
                     id="order_index"
                     type="number"
@@ -367,12 +348,8 @@ export default function PromoAdminPage() {
                     onChange={handleChange}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
-                    aria-describedby="order_index-desc"
                     whileFocus={{ scale: 1.02 }}
                   />
-                  <p id="order_index-desc" className="text-sm text-gray-500 mt-1">
-                    Порядок отображения блока на странице.
-                  </p>
                 </div>
               </section>
 
@@ -386,27 +363,22 @@ export default function PromoAdminPage() {
                     accept="image/*"
                     onChange={handleFile}
                     className="w-full border p-2 rounded"
-                    aria-describedby="image-desc"
                   />
-                  <p id="image-desc" className="text-sm text-gray-500 mt-1">
-                    Выберите изображение (JPEG, PNG, WebP, макс. 5MB).
-                  </p>
+
                   {previewImage && (
                     <div className="mt-2 relative inline-block">
                       <Image
                         src={previewImage}
-                        alt="Предпросмотр промо-блока"
+                        alt="preview"
                         width={120}
                         height={80}
                         className="rounded object-cover"
-                        loading="lazy"
                       />
                       <motion.button
                         type="button"
                         onClick={clearImage}
                         className="absolute top-0 right-0 bg-white text-red-500 px-1 rounded-full text-xs"
                         whileHover={{ scale: 1.1 }}
-                        aria-label="Удалить изображение"
                       >
                         ✕
                       </motion.button>
@@ -416,72 +388,31 @@ export default function PromoAdminPage() {
               </section>
             </div>
 
-            {/* Предварительный просмотр */}
-            {form.title && previewImage && (
-              <section className="mb-6">
-                <h2 className="text-lg font-semibold mb-2">Предпросмотр</h2>
-                <motion.div
-                  className={`border rounded p-4 ${form.type === 'card' ? 'max-w-sm' : 'w-full'}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Image
-                    src={previewImage}
-                    alt={form.title!}
-                    width={form.type === 'card' ? 200 : 600}
-                    height={form.type === 'card' ? 150 : 200}
-                    className="rounded object-cover mb-2"
-                    loading="lazy"
-                  />
-                  <h3 className="text-lg font-semibold">{form.title}</h3>
-                  {form.subtitle && <p className="text-sm text-gray-500">{form.subtitle}</p>}
-                  {form.button_text && (
-                    <button className="mt-2 px-4 py-2 bg-black text-white rounded">
-                      {form.button_text}
-                    </button>
-                  )}
-                </motion.div>
-              </section>
-            )}
-
-            {/* Кнопки */}
             <div className="flex gap-4">
               <motion.button
                 onClick={() => handleSubmit(csrfToken)}
                 className="bg-black text-white py-2 px-4 rounded hover:bg-gray-800 transition"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label={editingId ? 'Сохранить изменения промо-блока' : 'Добавить новый промо-блок'}
               >
                 {editingId ? 'Сохранить изменения' : 'Добавить блок'}
               </motion.button>
+
               <motion.button
                 onClick={resetForm}
                 className="bg-gray-200 text-gray-700 py-2 px-4 rounded hover:bg-gray-300 transition"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label="Сбросить форму"
               >
                 Сбросить
               </motion.button>
             </div>
 
-            {/* Список блоков */}
             <section className="mt-10">
               <h2 className="text-xl font-semibold mb-4">Список промо-блоков</h2>
+
               {blocks.length === 0 ? (
                 <p className="text-gray-500">Промо-блоки отсутствуют</p>
               ) : (
                 <ul className="space-y-4">
                   {blocks.map(block => (
-                    <motion.li
-                      key={block.id}
-                      className="border p-4 rounded shadow flex justify-between items-center"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
+                    <li key={block.id} className="border p-4 rounded shadow flex justify-between items-center">
                       <div className="flex items-center gap-4">
                         {block.image_url && (
                           <Image
@@ -490,36 +421,31 @@ export default function PromoAdminPage() {
                             width={80}
                             height={60}
                             className="rounded object-cover"
-                            loading="lazy"
                           />
                         )}
                         <div>
                           <h3 className="font-semibold">{block.title}</h3>
-                          <p className="text-sm text-gray-500">
-                            Тип: {block.type === 'card' ? 'Карточка' : 'Баннер'}, порядок: {block.order_index}
-                          </p>
+                          <p className="text-sm text-gray-500">Тип: {block.type}</p>
                           <p className="text-sm text-gray-500">Ссылка: {block.href}</p>
                         </div>
                       </div>
+
                       <div className="flex gap-2">
-                        <motion.button
+                        <button
                           onClick={() => handleEdit(block)}
                           className="text-blue-600 hover:underline text-sm"
-                          whileHover={{ scale: 1.05 }}
-                          aria-label={`Редактировать промо-блок ${block.title}`}
                         >
                           Редактировать
-                        </motion.button>
-                        <motion.button
+                        </button>
+
+                        <button
                           onClick={() => handleDelete(block.id)}
                           className="text-red-600 hover:underline text-sm"
-                          whileHover={{ scale: 1.05 }}
-                          aria-label={`Удалить промо-блок ${block.title}`}
                         >
                           Удалить
-                        </motion.button>
+                        </button>
                       </div>
-                    </motion.li>
+                    </li>
                   ))}
                 </ul>
               )}

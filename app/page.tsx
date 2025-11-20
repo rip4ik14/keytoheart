@@ -15,9 +15,9 @@ import AdvantagesClient      from '@components/AdvantagesClient';
 import YandexReviewsWidget   from '@components/YandexReviewsWidget';
 import FAQSectionWrapper     from '@components/FAQSectionWrapper';
 
-import { createServerClient }  from '@supabase/ssr';
+import { createServerClient }   from '@supabase/ssr';
 import { cookies as getCookies } from 'next/headers';
-import type { Database }       from '@/lib/supabase/types_new';
+import type { Database }        from '@/lib/supabase/types_new';
 
 /* ----------------------------- FAQ (единый источник) ----------------------------- */
 const faqList = [
@@ -67,7 +67,8 @@ export const revalidate = 300;
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
-  title: 'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+  title:
+    'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
   description:
     'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
   openGraph: {
@@ -76,8 +77,18 @@ export const metadata: Metadata = {
       'Закажите клубнику в шоколаде, цветы и комбо-наборы с доставкой 60 мин по Краснодару и до 20 км. Фото перед отправкой, бесплатная открытка, оплата онлайн.',
     url: 'https://keytoheart.ru',
     images: [
-      { url: 'https://keytoheart.ru/og-cover.webp',  width: 1200, height: 630, alt: 'Клубника в шоколаде – KEY TO HEART' },
-      { url: 'https://keytoheart.ru/og-bouquet.webp', width: 1200, height: 630, alt: 'Клубничный букет – KEY TO HEART' },
+      {
+        url: 'https://keytoheart.ru/og-cover.webp',
+        width: 1200,
+        height: 630,
+        alt: 'Клубника в шоколаде – KEY TO HEART',
+      },
+      {
+        url: 'https://keytoheart.ru/og-bouquet.webp',
+        width: 1200,
+        height: 630,
+        alt: 'Клубничный букет – KEY TO HEART',
+      },
     ],
   },
   twitter: {
@@ -90,11 +101,72 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru' },
 };
 
+/* ---------------------- JSON-LD генератор ---------------------- */
+function buildLdGraph(products: Product[]): Array<
+  WebPage | BreadcrumbList | ItemList | FAQPage
+> {
+  const validUntil = new Date();
+  validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+  const itemList: ItemList = {
+    '@type': 'ItemList',
+    itemListOrder: 'http://schema.org/ItemListOrderAscending',
+    itemListElement: products.slice(0, 12).map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Product',
+        name: p.title,
+        url: `https://keytoheart.ru/product/${p.id}`,
+        image: p.images[0],
+        offers: {
+          '@type': 'Offer',
+          price: p.price,
+          priceCurrency: 'RUB',
+          priceValidUntil: validUntil.toISOString().split('T')[0],
+          availability: p.in_stock
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+        },
+      },
+    })),
+  };
+
+  const webPage: WebPage = {
+    '@id': 'https://keytoheart.ru/#home',
+    '@type': 'WebPage',
+    name: 'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+    url: 'https://keytoheart.ru',
+    description:
+      'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
+    inLanguage: 'ru',
+  };
+
+  const breadcrumbs: BreadcrumbList = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Главная',
+        item: 'https://keytoheart.ru',
+      },
+    ],
+  };
+
+  const faqPage: FAQPage = {
+    '@type': 'FAQPage',
+    mainEntity: faqEntities,
+  };
+
+  return [webPage, breadcrumbs, itemList, faqPage];
+}
+
 /* ==============================  Страница  ============================== */
 export default async function Home() {
   /* ------------------------ Supabase (SSR) ------------------------ */
   const cookieStore = await getCookies();
-  const cookiesArr  = cookieStore.getAll();
+  const cookiesArr = cookieStore.getAll();
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,7 +184,10 @@ export default async function Home() {
   );
 
   /* ---------- Параллельные запросы: продукты + связи ---------- */
-  const [{ data: pc }, { data: pr }] = await Promise.all([
+  const [
+    { data: pc, error: pcError },
+    { data: pr, error: prError },
+  ] = await Promise.all([
     supabase.from('product_categories').select('product_id, category_id'),
     supabase
       .from('products')
@@ -121,18 +196,27 @@ export default async function Home() {
       )
       .eq('in_stock', true)
       .not('images', 'is', null)
-      .order('id', { ascending: false }),
+      .order('is_popular', { ascending: false }) // сначала популярные
+      .order('id', { ascending: false })
+      .limit(120), // ограничиваем выборку для главной
   ]);
+
+  if (pcError || prError) {
+    console.error('Supabase error on home products', pcError || prError);
+  }
+
+  const pcSafe = pc ?? [];
+  const prSafe = pr ?? [];
 
   /* -------- product_id → [category_id,…] Map -------- */
   const pcMap = new Map<number, number[]>();
-  pc?.forEach(({ product_id, category_id }) => {
+  pcSafe.forEach(({ product_id, category_id }) => {
     const arr = pcMap.get(product_id) || [];
     pcMap.set(product_id, [...arr, category_id]);
   });
 
   /* ---------------------- Продукты ---------------------- */
-  const products: Product[] = (pr ?? []).map((p) => ({
+  const products: Product[] = prSafe.map((p) => ({
     id: p.id,
     title: p.title,
     price: p.price,
@@ -147,92 +231,60 @@ export default async function Home() {
   /* ---------------------- Категории --------------------- */
   const uniqueCatIds = [...new Set(products.flatMap((p) => p.category_ids))];
 
-  const { data: cat } = await supabase
+  const { data: cat, error: catError } = await supabase
     .from('categories')
     .select('id,name,slug')
     .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]);
 
+  if (catError) {
+    console.error('Supabase error on home categories', catError);
+  }
+
+  const catSafe = cat ?? [];
+
   const catMap = new Map<number, { name: string; slug: string }>(
-    (cat ?? []).map((c) => [c.id, { name: c.name, slug: c.slug }]),
+    catSafe.map((c) => [c.id, { name: c.name, slug: c.slug }]),
   );
 
   /* ------------- Категории для витрины ------------- */
-  /**  IGNORE_SLUGS исправлено по аудиту: real slugs 'balloons' и 'cards'  */
-  const IGNORE_SLUGS = new Set(['balloons', 'cards']);
+  // Категории/подкатегории, которые не должны попадать в превью на главной
+  const IGNORE_SLUGS = new Set([
+    'podarki',          // категория "Подарки"
+    'myagkie-igrushki', // подкатегория "Мягкие игрушки"
+    'vazy',             // подкатегория "Вазы"
+    'cards',            // подкатегория "Открытки"
+    'balloons',         // подкатегория "Шары"
+  ]);
+
+  const allowedCategoryIds = uniqueCatIds.filter((id) => {
+    const slug = catMap.get(id)?.slug;
+    return slug && !IGNORE_SLUGS.has(slug);
+  });
+
+  const allowedCategorySet = new Set(allowedCategoryIds);
 
   const categories = [
     ...new Set(
-      products
-        .filter(
-          (p) =>
-            !p.category_ids.some(
-              (id) => IGNORE_SLUGS.has(catMap.get(id)?.slug || ''),
-            ),
-        )
-        .flatMap((p) => p.category_ids.map((id) => catMap.get(id)?.name)),
+      allowedCategoryIds
+        .map((id) => catMap.get(id)?.name)
+        .filter(Boolean),
     ),
-  ].filter(Boolean) as string[];
+  ] as string[];
 
   /* ------------- slug ↔ name маппинг ------------- */
   const slugMap: Record<string, string> = {
     'Клубничные букеты': 'klubnichnye-bukety',
-    'Клубничные боксы':  'klubnichnye-boksy',
-    Цветы:               'flowers',
-    'Комбо-наборы':      'combo',
-    Premium:             'premium',
-    Коллекции:           'kollekcii',
-    Повод:               'povod',
-    Подарки:             'podarki',
+    'Клубничные боксы': 'klubnichnye-boksy',
+    Цветы: 'flowers',
+    'Комбо-наборы': 'combo',
+    Premium: 'premium',
+    Коллекции: 'kollekcii',
+    Повод: 'povod',
+    Подарки: 'podarki',
   };
 
   /* ------------------- JSON-LD graph ------------------- */
-  const validUntil = new Date();
-  validUntil.setFullYear(validUntil.getFullYear() + 1);
-
-  const ldGraph: Array<WebPage | BreadcrumbList | ItemList | FAQPage> = [
-    {
-      '@id': 'https://keytoheart.ru/#home',
-      '@type': 'WebPage',
-      name: 'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
-      url:  'https://keytoheart.ru',
-      description:
-        'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
-      inLanguage: 'ru',
-    },
-    {
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
-      ],
-    },
-    {
-      '@type': 'ItemList',
-      itemListOrder: 'http://schema.org/ItemListOrderAscending',
-      itemListElement: products.slice(0, 12).map((p, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        item: {
-          '@type': 'Product',
-          name: p.title,
-          url:  `https://keytoheart.ru/product/${p.id}`,
-          image: p.images[0],
-          offers: {
-            '@type': 'Offer',
-            price: p.price,
-            priceCurrency: 'RUB',
-            priceValidUntil: validUntil.toISOString().split('T')[0],
-            availability: p.in_stock
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
-          },
-        },
-      })),
-    },
-    {
-      '@type': 'FAQPage',
-      mainEntity: faqEntities,
-    },
-  ];
+  const ldGraph = buildLdGraph(products);
 
   /* ------------------------- Render ------------------------- */
   return (
@@ -272,16 +324,21 @@ export default async function Home() {
           </div>
         ) : (
           categories.slice(0, 4).map((catName, idx) => {
-            const slug  = slugMap[catName] || '';
+            const slug = slugMap[catName] || '';
+
             const items = products
               .filter((p) =>
-                p.category_ids.some(
-                  (id) => catMap.get(id)?.name === catName,
-                ),
+                p.category_ids.some((id) => {
+                  if (!allowedCategorySet.has(id)) return false;
+                  const catEntry = catMap.get(id);
+                  return catEntry?.name === catName;
+                }),
               )
               .slice(0, 8);
 
             const headingId = `category-preview-${slug || idx}`;
+
+            if (items.length === 0) return null;
 
             return (
               <React.Fragment key={catName}>
