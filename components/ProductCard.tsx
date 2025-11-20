@@ -6,8 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Star, ShoppingCart } from 'lucide-react';
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
+import { trackAddToCart } from '@/utils/ymEvents'; // ⭐ Новый e-commerce импорт
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -21,7 +20,6 @@ function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
   if (t.length < 20) return t;
 
-  // Вся строка = (какой-то текст)(тот же самый текст)
   const match = t.match(/^(.+)\1$/);
   if (match && match[1].trim().length > 10) {
     return match[1].trim();
@@ -46,7 +44,6 @@ export default function ProductCard({
 
   const stablePriority = useRef(priority).current;
 
-  // нормализованный заголовок
   const title = normalizeTitle(product.title || '');
 
   // определяем мобильную ширину
@@ -71,6 +68,7 @@ export default function ProductCard({
   const isPopular = product.is_popular;
 
   const handleAddToCart = () => {
+    // добавление товара в корзину
     addItem({
       id: product.id.toString(),
       title,
@@ -79,11 +77,22 @@ export default function ProductCard({
       imageUrl,
       production_time: product.production_time ?? null,
     });
-    YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart');
+
+    // ⭐ Новый e-commerce трекинг
+    trackAddToCart({
+      id: product.id,
+      name: title,
+      price: discountedPrice,
+      quantity: 1,
+    });
+
+    // анимация полёта в корзину
     if (buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
+
+    // тост об успешном добавлении
     toast.success('Товар добавлен в корзину', { id: `add-${product.id}` });
   };
 
@@ -188,6 +197,7 @@ export default function ProductCard({
           </motion.div>
         )}
       </div>
+
       <div className="absolute top-2 right-2 z-20 w-16 h-6 rounded-full bg-transparent flex items-center justify-end">
         {isPopular && (
           <motion.div
@@ -224,7 +234,6 @@ export default function ProductCard({
       {/* Контент */}
       <div className="flex flex-col p-2 sm:p-4 flex-1 pb-12 sm:pb-14 relative">
         <div className="flex flex-col justify-between flex-1">
-          {/* Заголовок фиксированной высоты */}
           <h3
             id={`product-${product.id}-title`}
             className="
@@ -237,7 +246,6 @@ export default function ProductCard({
             {title}
           </h3>
 
-          {/* Цена + время изготовления */}
           <div className="mt-1 sm:mt-2 flex flex-col items-center justify-start min-h-[52px] sm:min-h-[56px]">
             <div className="flex items-center justify-center gap-2">
               {(discountAmount > 0 || originalPrice > product.price) && (
@@ -263,18 +271,12 @@ export default function ProductCard({
 
             {product.production_time != null && (
               <>
-                {/* Мобильная версия — показываем полностью, без обрезки */}
-                <p
-                  className="sm:hidden mt-1 text-center text-xs text-gray-500 leading-snug whitespace-normal break-words"
-                >
+                <p className="sm:hidden mt-1 text-center text-xs text-gray-500 leading-snug whitespace-normal break-words">
                   Время изготовления:{' '}
                   {formatProductionTime(product.production_time) || 'Не указано'}
                 </p>
 
-                {/* Десктоп — одна строка, для ровного низа */}
-                <p
-                  className="hidden sm:block mt-1 text-center text-xs text-gray-500 leading-snug line-clamp-1"
-                >
+                <p className="hidden sm:block mt-1 text-center text-xs text-gray-500 leading-snug line-clamp-1">
                   Время изготовления:{' '}
                   {formatProductionTime(product.production_time) || 'Не указано'}
                 </p>

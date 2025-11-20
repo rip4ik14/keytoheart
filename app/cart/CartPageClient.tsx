@@ -2,10 +2,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+
 import { useCart } from '@context/CartContext';
 import OrderStep from '@components/OrderStep';
 import StoreBanner from '@components/StoreBanner';
@@ -25,6 +24,13 @@ import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 import AuthWithCall from '@components/AuthWithCall';
+
+// 🔹 Новый импорт e-commerce трекинга
+import {
+  trackCheckoutStart,
+  trackCheckoutStep,
+  trackOrderSuccess,
+} from '@/utils/ymEvents';
 
 // --- animation configs ---
 const containerVariants = {
@@ -61,7 +67,6 @@ interface StoreSettings {
   store_hours: Record<string, DaySchedule>;
 }
 
-// Шага 0 больше нет
 type Step = 1 | 2 | 3 | 4 | 5;
 
 const normalizePhone = (phone: string): string => {
@@ -102,12 +107,12 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
 };
 
 export default function CartPageClient() {
-  // Яндекс.Метрика: событие начала оформления заказа
+  // 🔹 Старт оформления заказа: Метрика + gtag
   useEffect(() => {
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'start_checkout');
-    }
+    // Yandex.Metrica
+    trackCheckoutStart();
 
+    // GA / gtag (если есть)
     if (typeof window !== 'undefined') {
       (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
     }
@@ -127,7 +132,7 @@ export default function CartPageClient() {
   const { items, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [phone, setPhone] = useState<string | null>(null); // телефон из авторизации (если есть)
+  const [phone, setPhone] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number>(0);
   const [useBonuses, setUseBonuses] = useState<boolean>(false);
@@ -184,18 +189,18 @@ export default function CartPageClient() {
     resetForm,
   } = useCheckoutForm();
 
-  // 🔄 Автоскролл к активному шагу (особенно полезен на мобилке)
+  // 🔄 Автоскролл к активному шагу
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const el = document.getElementById(`order-step-${step}-title`);
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const offset = 90; // небольшой отступ от шапки
+    const offset = 90;
     const top = rect.top + window.scrollY - offset;
     window.scrollTo({ top, behavior: 'smooth' });
   }, [step]);
 
-  // --- Layout fix: overflow-x-hidden только на мобильных ---
+  // overflow-x-hidden на мобилках
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 768) {
@@ -259,7 +264,7 @@ export default function CartPageClient() {
     validateAndCleanCart();
   }, [items, clearCart, addMultipleItems]);
 
-  // Синхронизация цен в корзине с базой данных
+  // Синхронизация цен в корзине
   useEffect(() => {
     const syncCartPrices = async () => {
       if (items.length === 0) return;
@@ -307,7 +312,7 @@ export default function CartPageClient() {
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // Проверка сессии и профиля (авторизация по звонку - опциональна)
+  // Проверка сессии/профиля (авторизация по звонку)
   useEffect(() => {
     let isMounted = true;
     const checkSession = async () => {
@@ -329,7 +334,6 @@ export default function CartPageClient() {
           if (isMounted && bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.data.bonus_balance || 0);
           }
-          // Стартуем всё равно с шага 1, авторизация не блокирует заказ
         }
       } catch (err) {
         process.env.NODE_ENV !== 'production' && console.error('Ошибка проверки сессии:', err);
@@ -341,7 +345,7 @@ export default function CartPageClient() {
     };
   }, [onFormChange]);
 
-  // nextStep со строгой проверкой шага 1 и шага 4
+  // Локальный nextStep с проверкой шагов
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       const isValid = validateStep1();
@@ -361,7 +365,7 @@ export default function CartPageClient() {
     }
   }, [step, validateStep1, validateStep4, nextStep]);
 
-  // Вычисления для заказа
+  // 💰 Вычисления для заказа
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.price * i.quantity, 0), [items]);
   const upsellTotal = useMemo(
@@ -383,11 +387,21 @@ export default function CartPageClient() {
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
   const bonusesToUse = useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
   }, [bonusesToUse]);
+
   const finalTotal = Math.max(0, totalBeforeDiscounts - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
+
+  // 🔹 Трекинг шагов чекаута в Метрику
+  useEffect(() => {
+    trackCheckoutStep(step, {
+      total: finalTotal,
+      itemsCount: items.length,
+    });
+  }, [step, finalTotal, items.length]);
 
   // Загрузка настроек магазина
   useEffect(() => {
@@ -420,7 +434,6 @@ export default function CartPageClient() {
     };
   }, []);
 
-  // Доступность оформления заказа
   const canPlaceOrder = useMemo(() => {
     if (!storeSettings || isStoreSettingsLoading) return true;
     if (!storeSettings.order_acceptance_enabled) {
@@ -525,13 +538,12 @@ export default function CartPageClient() {
     };
   }, []);
 
-  // Upsell (подарки/открытки)
+  // Upsell (удаление/обновление)
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
   }, []);
 
-  // ✅ обновление количества для апсейлов (открытки и шары)
   const updateUpsellQuantity = useCallback((id: string, quantity: number) => {
     setSelectedUpsells((prev) =>
       prev.map((item) =>
@@ -654,7 +666,7 @@ export default function CartPageClient() {
     }
   }, [items]);
 
-  // Отправка заказа
+  // 🔴 Отправка заказа
   const submitOrder = useCallback(async () => {
     if (!validateStep5(agreed)) {
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
@@ -741,6 +753,8 @@ export default function CartPageClient() {
         );
         return;
       }
+
+      // 🔹 Списание бонусов
       if (bonusesUsed > 0 && isAuthenticated) {
         try {
           const bonusRes = await fetch('/api/redeem-bonus', {
@@ -762,6 +776,20 @@ export default function CartPageClient() {
           toast.error('Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.');
         }
       }
+
+      // 🔹 Метрика: успешный заказ
+      trackOrderSuccess({
+        orderId: json.order_number ?? json.order_id,
+        revenue: finalTotal,
+        promoCode: promoCode || undefined,
+        products: [...cartItems, ...upsellItemsPayload].map((p) => ({
+          id: p.id,
+          name: p.title,
+          price: p.price,
+          quantity: p.quantity,
+        })),
+      });
+
       setOrderDetails({
         orderId: json.order_id,
         orderNumber: json.order_number,
@@ -813,6 +841,7 @@ export default function CartPageClient() {
     step,
     isAuthenticated,
     setStep,
+    promoCode,
   ]);
 
   // --- Layout and rendering ---
@@ -955,9 +984,8 @@ export default function CartPageClient() {
         </div>
 
         <div className="w-full max-w-full space-y-4">
-          {/* Кнопки "Открытка" и "Шары" над CartItem */}
+          {/* Кнопки "Открытка" и "Шары" */}
           <div className="flex flex-col xs:flex-row gap-3 mb-4 w-full justify-center md:flex-row">
-            {/* Открытка */}
             <motion.button
               type="button"
               onClick={() => setShowPostcard(true)}
@@ -969,7 +997,7 @@ export default function CartPageClient() {
               <Image src="/icons/postcard.svg" alt="" width={20} height={20} className="transition-transform" />
               <span>Добавить открытку</span>
             </motion.button>
-            {/* Шары */}
+
             <motion.button
               type="button"
               onClick={() => setShowBalloons(true)}
