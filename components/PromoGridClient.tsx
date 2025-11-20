@@ -13,16 +13,11 @@ export default function PromoGridClient({
   cards,
 }: {
   banners: PromoBlock[];
-  cards:   PromoBlock[];
+  cards: PromoBlock[];
 }) {
-  const [active, setActive]     = useState(0);
-  const [direction, setDirection] = useState(0); // -1 влево, 1 вправо
-
-  /* ---------------------- навигация слайдов ---------------------- */
-  const goTo  = (idx: number) =>
-    idx !== active && (setDirection(idx > active ? 1 : -1), setActive(idx));
-  const prev  = () => goTo(active === 0 ? banners.length - 1 : active - 1);
-  const next  = () => goTo(active === banners.length - 1 ? 0 : active + 1);
+  const [active, setActive] = useState(0);
+  const [direction, setDirection] = useState(0); // -1 влево, 1 вправо
+  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(false);
 
   /* ---------------------- swipe для мобилки ---------------------- */
   const touchStartX = useRef<number | null>(null);
@@ -31,16 +26,55 @@ export default function PromoGridClient({
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current == null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (dx > 40)  prev();
+    if (dx > 40) prev();
     if (dx < -40) next();
     touchStartX.current = null;
   };
+
+  /* ---------------------- навигация слайдов ---------------------- */
+  const goTo = (idx: number, userInitiated = false) => {
+    if (idx === active) return;
+    if (userInitiated) setIsAutoplayEnabled(false); // стопим автоплей при действиях пользователя
+    setDirection(idx > active ? 1 : -1);
+    setActive(idx);
+  };
+
+  const prev = () =>
+    goTo(active === 0 ? banners.length - 1 : active - 1, true);
+
+  const next = () =>
+    goTo(active === banners.length - 1 ? 0 : active + 1, true);
 
   /* ----------------------- сброс анимации ------------------------ */
   useEffect(() => {
     const t = setTimeout(() => setDirection(0), 350);
     return () => clearTimeout(t);
   }, [active]);
+
+  /* ----------------------- автоплей (desktop) -------------------- */
+  // 1) через 4 секунды после гидратации включаем автоплей
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setTimeout(() => {
+      setIsAutoplayEnabled(true);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [banners.length]);
+
+  // 2) сам автоплей – крутится только если включён, LCP уже отрисован
+  useEffect(() => {
+    if (!isAutoplayEnabled || banners.length <= 1) return;
+
+    const intervalId = setInterval(() => {
+      // Автоплей всегда листает вперёд
+      setDirection(1);
+      setActive((prevIndex) =>
+        prevIndex === banners.length - 1 ? 0 : prevIndex + 1,
+      );
+    }, 4500);
+
+    return () => clearInterval(intervalId);
+  }, [isAutoplayEnabled, banners.length]);
 
   return (
     <section
@@ -52,7 +86,7 @@ export default function PromoGridClient({
       </h2>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[2fr_1fr] lg:gap-[28px]">
-        {/* ================== БАННЕР‑СЛАЙДЕР ================== */}
+        {/* ================== БАННЕР-СЛАЙДЕР ================== */}
         <div
           className="relative overflow-hidden rounded-[32px] flex flex-col"
           style={{ aspectRatio: '3/2', minHeight: 0 }}
@@ -80,7 +114,11 @@ export default function PromoGridClient({
                   style={{ transitionProperty: 'transform, opacity' }}
                   aria-hidden={i !== active}
                 >
-                  <Link href={b.href || '#'} className="block h-full w-full" title={b.title}>
+                  <Link
+                    href={b.href || '#'}
+                    className="block h-full w-full"
+                    title={b.title}
+                  >
                     <div className="relative w-full h-full overflow-hidden rounded-[32px]">
                       <Image
                         src={b.image_url}
@@ -135,7 +173,16 @@ export default function PromoGridClient({
                   onClick={prev}
                   type="button"
                 >
-                  <svg width={20} height={20}><path d="M13 4l-6 6 6 6" stroke="#333" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg width={20} height={20}>
+                    <path
+                      d="M13 4l-6 6 6 6"
+                      stroke="#333"
+                      strokeWidth={2}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
                 <button
                   className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/80 p-2 shadow hover:bg-white transition hidden sm:flex"
@@ -143,13 +190,22 @@ export default function PromoGridClient({
                   onClick={next}
                   type="button"
                 >
-                  <svg width={20} height={20}><path d="M7 4l6 6-6 6" stroke="#333" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg width={20} height={20}>
+                    <path
+                      d="M7 4l6 6-6 6"
+                      stroke="#333"
+                      strokeWidth={2}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                   {banners.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => goTo(i)}
+                      onClick={() => goTo(i, true)}
                       aria-label={`Показать баннер ${i + 1}`}
                       className={`w-2.5 h-2.5 rounded-full border transition ${
                         i === active
@@ -168,8 +224,15 @@ export default function PromoGridClient({
         {/* ================== КАРТОЧКИ (desktop) ================== */}
         <div className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-[20px] auto-rows-fr min-h-[320px]">
           {cards.slice(0, 4).map((c, i) => (
-            <div key={c.id} className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300">
-              <Link href={c.href} className="group block h-full w-full" title={c.title}>
+            <div
+              key={c.id}
+              className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300"
+            >
+              <Link
+                href={c.href}
+                className="group block h-full w-full"
+                title={c.title}
+              >
                 <div className="relative w-full h-full rounded-[24px] overflow-hidden">
                   <Image
                     src={c.image_url}
@@ -196,6 +259,14 @@ export default function PromoGridClient({
           ))}
         </div>
         {/* мобильные карточки скрыты */}
+      </div>
+
+      {/* Подзаголовок под промо-блоком */}
+      <div className="mt-4 sm:mt-6 mb-2 sm:mb-4 text-center">
+        <p className="text-sm sm:text-base md:text-lg text-black/70 font-medium leading-snug">
+          Клубника в бельгийском шоколаде и цветы с доставкой 60 минут по
+          Краснодару
+        </p>
       </div>
     </section>
   );
