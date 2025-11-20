@@ -62,6 +62,13 @@ interface Product {
   category_ids: number[];
 }
 
+interface CategoryMeta {
+  id: number;
+  name: string;
+  slug: string;
+  count: number;
+}
+
 /* -------------------------- ISR / Edge flags ---------------------------- */
 export const revalidate = 300;
 
@@ -246,42 +253,75 @@ export default async function Home() {
     catSafe.map((c) => [c.id, { name: c.name, slug: c.slug }]),
   );
 
-  /* ------------- Категории для витрины ------------- */
+  /* ------------- Фильтр категорий и подсчёт количества товаров ------------- */
+
   // Категории/подкатегории, которые не должны попадать в превью на главной
   const IGNORE_SLUGS = new Set([
     'podarki',          // категория "Подарки"
     'myagkie-igrushki', // подкатегория "Мягкие игрушки"
-    'vazy',             // подкатегория "Вазы"
-    'cards',            // подкатегория "Открытки"
-    'balloons',         // подкатегория "Шары"
+    'vazy',             // "Вазы"
+    'cards',            // "Открытки"
+    'balloons',         // "Шары"
   ]);
 
-  const allowedCategoryIds = uniqueCatIds.filter((id) => {
-    const slug = catMap.get(id)?.slug;
-    return slug && !IGNORE_SLUGS.has(slug);
+  // Приоритет категорий по slug (они всегда первыми, в этом порядке)
+  const PRIORITY_SLUGS = [
+    'klubnika-v-shokolade', // 1. Клубника в шоколаде
+    'flowers',              // 2. Цветы
+    'combo',                // 3. Комбо-наборы
+  ];
+
+  // Минимальное количество товаров в категории, чтобы она попадала в превью
+  const MIN_PRODUCTS_PER_CATEGORY = 2;
+
+  // Считаем количество товаров в каждой категории (только для разрешённых)
+  const categoryCounts = new Map<number, number>();
+  products.forEach((p) => {
+    p.category_ids.forEach((id) => {
+      const slug = catMap.get(id)?.slug;
+      if (!slug || IGNORE_SLUGS.has(slug)) return;
+      categoryCounts.set(id, (categoryCounts.get(id) ?? 0) + 1);
+    });
   });
 
-  const allowedCategorySet = new Set(allowedCategoryIds);
+  // Собираем мета-информацию по категориям
+  const categoryMetaAll: CategoryMeta[] = [...categoryCounts.entries()]
+    .map(([id, count]) => {
+      const catEntry = catMap.get(id);
+      if (!catEntry) return null;
+      return {
+        id,
+        name: catEntry.name,
+        slug: catEntry.slug,
+        count,
+      };
+    })
+    .filter((c): c is CategoryMeta => !!c && c.count >= MIN_PRODUCTS_PER_CATEGORY);
 
-  const categories = [
-    ...new Set(
-      allowedCategoryIds
-        .map((id) => catMap.get(id)?.name)
-        .filter(Boolean),
-    ),
-  ] as string[];
+  // Сортировка категорий:
+  // 1) по PRIORITY_SLUGS (klubnika-v-shokolade → flowers → combo),
+  // 2) остальные по количеству товаров (по убыванию),
+  // 3) потом по имени.
+  categoryMetaAll.sort((a, b) => {
+    const ai = PRIORITY_SLUGS.indexOf(a.slug);
+    const bi = PRIORITY_SLUGS.indexOf(b.slug);
 
-  /* ------------- slug ↔ name маппинг ------------- */
-  const slugMap: Record<string, string> = {
-    'Клубничные букеты': 'klubnichnye-bukety',
-    'Клубничные боксы': 'klubnichnye-boksy',
-    Цветы: 'flowers',
-    'Комбо-наборы': 'combo',
-    Premium: 'premium',
-    Коллекции: 'kollekcii',
-    Повод: 'povod',
-    Подарки: 'podarki',
-  };
+    const aPriority = ai === -1 ? Infinity : ai;
+    const bPriority = bi === -1 ? Infinity : bi;
+
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    // Если оба не в приоритете – сортируем по количеству и имени
+    if (aPriority === Infinity && bPriority === Infinity) {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name, 'ru');
+    }
+
+    // Если оба в приоритете и с одинаковым индексом (по идее не случится)
+    return 0;
+  });
+
+  const categoriesMeta = categoryMetaAll;
 
   /* ------------------- JSON-LD graph ------------------- */
   const ldGraph = buildLdGraph(products);
@@ -309,7 +349,7 @@ export default async function Home() {
         </section>
       </Suspense>
 
-      {/* Категории товаров */}
+      {/* Категории товаров (превью по категориям) */}
       <section
         role="region"
         aria-label="Категории товаров"
@@ -323,25 +363,19 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categories.slice(0, 4).map((catName, idx) => {
-            const slug = slugMap[catName] || '';
+          categoriesMeta.slice(0, 4).map((catMeta, idx) => {
+            const { id: catId, name: catName, slug } = catMeta;
 
             const items = products
-              .filter((p) =>
-                p.category_ids.some((id) => {
-                  if (!allowedCategorySet.has(id)) return false;
-                  const catEntry = catMap.get(id);
-                  return catEntry?.name === catName;
-                }),
-              )
+              .filter((p) => p.category_ids.includes(catId))
               .slice(0, 8);
-
-            const headingId = `category-preview-${slug || idx}`;
 
             if (items.length === 0) return null;
 
+            const headingId = `category-preview-${slug || idx}`;
+
             return (
-              <React.Fragment key={catName}>
+              <React.Fragment key={catId}>
                 <CategoryPreviewServer
                   categoryName={catName}
                   products={items}
