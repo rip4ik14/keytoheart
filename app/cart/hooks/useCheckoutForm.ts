@@ -44,21 +44,27 @@ const initialFormState: FormState = {
   agreedToTerms: false,
 };
 
-// Функция для нормализации телефона
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  } else if (cleanPhone.length === 10) {
-    return `+7${cleanPhone}`;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
-    return `+7${cleanPhone.slice(1)}`;
+// Нормализация только для валидации / отправки
+const normalizePhoneForRu = (raw: string): string | null => {
+  const digits = raw.replace(/\D/g, '');
+
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return `+7${digits.slice(1)}`;
   }
-  return phone.startsWith('+') ? phone : `+${phone}`;
+
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return `+7${digits.slice(1)}`;
+  }
+
+  if (digits.length === 10 && digits.startsWith('9')) {
+    return `+7${digits}`;
+  }
+
+  return null;
 };
 
 export default function useCheckoutForm() {
-  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [phoneError, setPhoneError] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
@@ -68,67 +74,61 @@ export default function useCheckoutForm() {
   const [addressError, setAddressError] = useState<string>('');
   const [dateError, setDateError] = useState<string>('');
   const [timeError, setTimeError] = useState<string>('');
-  const [agreedToTermsError, setAgreedToTermsError] = useState<string>(''); // Добавляем состояние для ошибки согласия
+  const [agreedToTermsError, setAgreedToTermsError] = useState<string>('');
 
+  // Подгружаем черновик (без телефона)
   useEffect(() => {
     const savedForm = localStorage.getItem('checkoutForm');
     if (savedForm) {
       try {
         const parsedForm = JSON.parse(savedForm);
-        // Нормализуем recipientPhone
-        let formattedRecipientPhone = parsedForm.recipientPhone || '';
-        if (formattedRecipientPhone) {
-          formattedRecipientPhone = normalizePhone(formattedRecipientPhone);
-        }
-        setForm((prev) => ({
+        setForm(prev => ({
           ...prev,
           ...parsedForm,
           date: '',
           time: '',
-          phone: prev.phone || normalizePhone(parsedForm.phone || ''),
-          recipientPhone: formattedRecipientPhone,
-          agreedToTerms: false, // Сбрасываем согласие при загрузке
+          agreedToTerms: false,
         }));
       } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Error parsing saved form:', error);
+        process.env.NODE_ENV !== 'production' &&
+          console.error('Error parsing saved form:', error);
       }
     }
   }, []);
 
+  // Сохраняем черновик (кроме телефона)
   useEffect(() => {
     const { phone, ...formWithoutPhone } = form;
     localStorage.setItem('checkoutForm', JSON.stringify(formWithoutPhone));
   }, [form]);
 
-  const onFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const onFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value, type } = e.target;
+
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setForm((prev) => ({ ...prev, [name]: checked }));
+      setForm(prev => ({ ...prev, [name]: checked }));
       if (name === 'agreedToTerms' && checked) {
-        setAgreedToTermsError(''); // Сбрасываем ошибку, если чекбокс отмечен
+        setAgreedToTermsError('');
       }
     } else {
-      // Нормализуем телефонные номера
-      const newValue = name === 'phone' || name === 'recipientPhone' ? normalizePhone(value) : value;
-      setForm((prev) => ({ ...prev, [name]: newValue }));
+      // Никакой нормализации телефона здесь — только сырая строка
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const validateStep1 = () => {
     let isValid = true;
 
-    const normalizedPhone = normalizePhone(form.phone);
-    const cleanPhone = normalizedPhone.replace(/\D/g, '');
-    if (!normalizedPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
-      setPhoneError('Введите корректный номер в формате +7xxxxxxxxxx');
-      isValid = false;
-    } else if (cleanPhone.slice(1).length !== 10 || !cleanPhone.slice(1).startsWith('9')) {
-      setPhoneError('Номер должен начинаться с +79xxxxxxxx');
+    const normalized = normalizePhoneForRu(form.phone);
+    if (!normalized) {
+      setPhoneError('Введите номер в формате 8(9xx)… или +7(9xx)…');
       isValid = false;
     } else {
       setPhoneError('');
-      setForm((prev) => ({ ...prev, phone: normalizedPhone }));
+      setForm(prev => ({ ...prev, phone: normalized }));
     }
 
     if (!form.name.trim()) {
@@ -146,8 +146,12 @@ export default function useCheckoutForm() {
     }
 
     if (!form.agreedToTerms) {
-      setAgreedToTermsError('Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности');
-      toast.error('Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности');
+      setAgreedToTermsError(
+        'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности',
+      );
+      toast.error(
+        'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности',
+      );
       isValid = false;
     } else {
       setAgreedToTermsError('');
@@ -166,17 +170,15 @@ export default function useCheckoutForm() {
       setRecipientError('');
     }
 
-    const normalizedRecipientPhone = normalizePhone(form.recipientPhone);
-    const cleanRecipientPhone = normalizedRecipientPhone.replace(/\D/g, '');
-    if (!cleanRecipientPhone || cleanRecipientPhone.length === 0) {
-      setRecipientPhoneError('Введите номер телефона получателя');
-      isValid = false;
-    } else if (cleanRecipientPhone.length !== 11 || !cleanRecipientPhone.startsWith('7')) {
-      setRecipientPhoneError('Введите корректный номер телефона в формате +7xxxxxxxxxx');
+    const normalized = normalizePhoneForRu(form.recipientPhone);
+    if (!normalized) {
+      setRecipientPhoneError(
+        'Введите номер получателя в формате 8(9xx)… или +7(9xx)…',
+      );
       isValid = false;
     } else {
       setRecipientPhoneError('');
-      setForm((prev) => ({ ...prev, recipientPhone: normalizedRecipientPhone }));
+      setForm(prev => ({ ...prev, recipientPhone: normalized }));
     }
 
     return isValid;
@@ -251,34 +253,27 @@ export default function useCheckoutForm() {
   const nextStep = () => {
     let isValid = true;
 
-    if (step === 1) {
-      isValid = validateStep1();
-    } else if (step === 2) {
-      isValid = validateStep2();
-    } else if (step === 3) {
-      isValid = validateStep3();
-    } else if (step === 4) {
-      isValid = validateStep4();
-    }
+    if (step === 1) isValid = validateStep1();
+    else if (step === 2) isValid = validateStep2();
+    else if (step === 3) isValid = validateStep3();
+    else if (step === 4) isValid = validateStep4();
 
     if (isValid) {
-      setStep((prev) => {
-        const next = (prev + 1) as 0 | 1 | 2 | 3 | 4 | 5;
-        if (next <= 5) {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        return next > 5 ? 5 : next;
+      setStep(prev => {
+        const next = (prev + 1) as 1 | 2 | 3 | 4 | 5;
+        const safeNext = next > 5 ? 5 : next;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return safeNext;
       });
     }
   };
 
   const prevStep = () => {
-    setStep((prev) => {
-      const prevStep = (prev - 1) as 0 | 1 | 2 | 3 | 4 | 5;
-      if (prevStep >= 0) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      return prevStep < 0 ? 0 : prevStep;
+    setStep(prev => {
+      const prevStep = (prev - 1) as 1 | 2 | 3 | 4 | 5;
+      const safePrev = prevStep < 1 ? 1 : prevStep;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return safePrev;
     });
   };
 
@@ -292,8 +287,8 @@ export default function useCheckoutForm() {
     setAddressError('');
     setDateError('');
     setTimeError('');
-    setAgreedToTermsError(''); // Сбрасываем ошибку
-    setStep(0); // Возвращаем на шаг авторизации
+    setAgreedToTermsError('');
+    setStep(1);
     localStorage.removeItem('checkoutForm');
   };
 
@@ -309,7 +304,7 @@ export default function useCheckoutForm() {
     addressError,
     dateError,
     timeError,
-    agreedToTermsError, // Добавляем в возвращаемые значения
+    agreedToTermsError,
     setPhoneError,
     setEmailError,
     setNameError,
@@ -318,7 +313,7 @@ export default function useCheckoutForm() {
     setAddressError,
     setDateError,
     setTimeError,
-    setAgreedToTermsError, // Добавляем сеттер для ошибки
+    setAgreedToTermsError,
     onFormChange,
     nextStep,
     prevStep,

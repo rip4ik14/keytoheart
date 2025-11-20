@@ -10,9 +10,10 @@ interface OrderStepProps {
   currentStep: number;
   title: string;
   children: ReactNode;
-  onNext?: () => void;
+  onNext?: () => void | Promise<void>;
   onBack?: () => void;
   isNextDisabled?: boolean;
+  isSubmitting?: boolean; // ← добавлено
 }
 
 const variants = {
@@ -28,6 +29,7 @@ export default function OrderStep({
   onNext,
   onBack,
   isNextDisabled = false,
+  isSubmitting = false, // ← значение по умолчанию
 }: OrderStepProps) {
   const isActive = currentStep === step;
   const [open, setOpen] = useState(isActive);
@@ -88,47 +90,53 @@ export default function OrderStep({
             transition={{ duration: 0.3 }}
           >
             {children}
+
             <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
               {onBack && (
                 <button
                   type="button"
                   onClick={() => {
-                    onBack();
+                    if (isSubmitting) return;
+
+                    onBack?.();
                     window.gtag?.('event', 'order_step_back', {
                       event_category: 'order',
                       step,
                     });
-                    if (YM_ID !== undefined) {
+                    if (YM_ID) {
                       callYm(YM_ID, 'reachGoal', 'order_step_back', { step });
                     }
                   }}
                   className={`${buttonStyle} flex-1 bg-gray-200 text-[#535353] hover:bg-gray-300 hover:text-[#535353]`}
+                  disabled={isSubmitting}
                   aria-label="Вернуться к предыдущему шагу"
                 >
                   Назад
                 </button>
               )}
+
               {onNext && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isNextDisabled) return;
-                    onNext();
+                  onClick={async () => {
+                    if (isNextDisabled || isSubmitting) return;
+
+                    await onNext();
                     window.gtag?.('event', 'order_step_next', {
                       event_category: 'order',
                       step,
                     });
-                    if (YM_ID !== undefined) {
+                    if (YM_ID) {
                       callYm(YM_ID, 'reachGoal', 'order_step_next', { step });
                     }
                   }}
                   className={`${buttonStyle} flex-1 bg-white text-[#535353] ${
-                    isNextDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                    isNextDisabled || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                   aria-label="Перейти к следующему шагу"
-                  disabled={isNextDisabled}
+                  disabled={isNextDisabled || isSubmitting}
                 >
-                  Продолжить
+                  {isSubmitting ? 'Отправляем...' : 'Продолжить'}
                 </button>
               )}
             </div>

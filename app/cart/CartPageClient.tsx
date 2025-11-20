@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -19,11 +20,11 @@ import Step2RecipientDetails from './components/steps/Step2RecipientDetails';
 import Step3Address from './components/steps/Step3Address';
 import Step4DateTime from './components/steps/Step4DateTime';
 import Step5Payment from './components/steps/Step5Payment';
-import AuthWithCall from '@components/AuthWithCall';
 import useCheckoutForm from './hooks/useCheckoutForm';
 import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
+import AuthWithCall from '@components/AuthWithCall';
 
 // --- animation configs ---
 const containerVariants = {
@@ -59,7 +60,9 @@ interface StoreSettings {
   order_acceptance_schedule: Record<string, DaySchedule>;
   store_hours: Record<string, DaySchedule>;
 }
-type Step = 0 | 1 | 2 | 3 | 4 | 5;
+
+// Шага 0 больше нет
+type Step = 1 | 2 | 3 | 4 | 5;
 
 const normalizePhone = (phone: string): string => {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -104,14 +107,17 @@ export default function CartPageClient() {
     if (YM_ID !== undefined) {
       callYm(YM_ID, 'reachGoal', 'start_checkout');
     }
-    window.gtag?.('event', 'start_checkout', { event_category: 'cart' });
+
+    if (typeof window !== 'undefined') {
+      (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
+    }
   }, []);
 
   let cartContext;
   try {
     cartContext = useCart();
   } catch (error) {
-    process.env.NODE_ENV !== "production" && console.error('Cart context error:', error);
+    process.env.NODE_ENV !== 'production' && console.error('Cart context error:', error);
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-red-500">Ошибка: Корзина недоступна. Пожалуйста, обновите страницу.</p>
@@ -121,7 +127,7 @@ export default function CartPageClient() {
   const { items, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [phone, setPhone] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null); // телефон из авторизации (если есть)
   const [userId, setUserId] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number>(0);
   const [useBonuses, setUseBonuses] = useState<boolean>(false);
@@ -152,8 +158,6 @@ export default function CartPageClient() {
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
   const [showPromoField, setShowPromoField] = useState<boolean>(false);
-  const [isStep4Valid, setIsStep4Valid] = useState<boolean>(true);
-  const [step4ErrorMessage, setStep4ErrorMessage] = useState<string>('');
 
   const {
     step,
@@ -168,14 +172,7 @@ export default function CartPageClient() {
     dateError,
     timeError,
     agreedToTermsError,
-    setPhoneError,
-    setEmailError,
-    setNameError,
-    setRecipientError,
-    setRecipientPhoneError,
     setAddressError,
-    setDateError,
-    setTimeError,
     onFormChange,
     nextStep,
     prevStep,
@@ -187,22 +184,20 @@ export default function CartPageClient() {
     resetForm,
   } = useCheckoutForm();
 
-  const handleStep4ValidationChange = useCallback((isValid: boolean, errorMessage: string) => {
-    setIsStep4Valid(isValid);
-    setStep4ErrorMessage(errorMessage);
-  }, []);
-
-  const handlePhoneChange = useCallback(
-    (value: string) => {
-      const normalized = normalizePhone(value);
-      onFormChange({ target: { name: 'phone', value: normalized } } as React.ChangeEvent<HTMLInputElement>);
-      setPhoneError('');
-    },
-    [onFormChange, setPhoneError]
-  );
+  // 🔄 Автоскролл к активному шагу (особенно полезен на мобилке)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const el = document.getElementById(`order-step-${step}-title`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const offset = 90; // небольшой отступ от шапки
+    const top = rect.top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: 'smooth' });
+  }, [step]);
 
   // --- Layout fix: overflow-x-hidden только на мобильных ---
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (window.innerWidth < 768) {
       document.body.classList.add('overflow-x-hidden');
       return () => {
@@ -236,10 +231,11 @@ export default function CartPageClient() {
         if (!json.valid) {
           const invalidItems = json.invalidItems || [];
           const itemsToRemove = invalidItems
-            .filter((invalidItem: { id: number; reason: string }) =>
-              invalidItem.reason === 'Товар не найден' ||
-              invalidItem.reason === 'Товар отсутствует в наличии' ||
-              invalidItem.reason === 'Товар не доступен для заказа'
+            .filter(
+              (invalidItem: { id: number; reason: string }) =>
+                invalidItem.reason === 'Товар не найден' ||
+                invalidItem.reason === 'Товар отсутствует в наличии' ||
+                invalidItem.reason === 'Товар не доступен для заказа'
             )
             .map((invalidItem: { id: number }) => invalidItem.id.toString());
           if (itemsToRemove.length > 0) {
@@ -256,7 +252,7 @@ export default function CartPageClient() {
           }
         }
       } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Error validating cart items:', error);
+        process.env.NODE_ENV !== 'production' && console.error('Error validating cart items:', error);
         toast.error('Не удалось проверить товары в корзине.');
       }
     };
@@ -304,14 +300,14 @@ export default function CartPageClient() {
           addMultipleItems(updatedItems);
         }
       } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Error syncing cart prices:', error);
+        process.env.NODE_ENV !== 'production' && console.error('Error syncing cart prices:', error);
         toast.error('Не удалось синхронизировать цены корзины');
       }
     };
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // Проверка сессии и профиля
+  // Проверка сессии и профиля (авторизация по звонку - опциональна)
   useEffect(() => {
     let isMounted = true;
     const checkSession = async () => {
@@ -323,28 +319,29 @@ export default function CartPageClient() {
           setIsAuthenticated(true);
           setPhone(normalizedPhone);
           setUserId(json.user.id);
-          onFormChange({ target: { name: 'phone', value: normalizedPhone } } as React.ChangeEvent<HTMLInputElement>);
+
+          onFormChange({
+            target: { name: 'phone', value: normalizedPhone },
+          } as React.ChangeEvent<HTMLInputElement>);
+
           const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
           const bonusJson = await bonusRes.json();
           if (isMounted && bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.data.bonus_balance || 0);
           }
-          setStep(1);
-        } else if (isMounted) {
-          setStep(0);
+          // Стартуем всё равно с шага 1, авторизация не блокирует заказ
         }
       } catch (err) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка проверки сессии:', err);
-        if (isMounted) setStep(0);
+        process.env.NODE_ENV !== 'production' && console.error('Ошибка проверки сессии:', err);
       }
     };
     checkSession();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [onFormChange]);
 
-  // Добавляем отладку для nextStep
+  // nextStep со строгой проверкой шага 1 и шага 4
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       const isValid = validateStep1();
@@ -358,15 +355,11 @@ export default function CartPageClient() {
         toast.error('Пожалуйста, выберите корректные дату и время доставки');
         return;
       }
-      if (!isStep4Valid) {
-        toast.error(step4ErrorMessage);
-        return;
-      }
       nextStep();
     } else {
       nextStep();
     }
-  }, [step, validateStep1, validateStep4, isStep4Valid, step4ErrorMessage, nextStep]);
+  }, [step, validateStep1, validateStep4, nextStep]);
 
   // Вычисления для заказа
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
@@ -379,16 +372,17 @@ export default function CartPageClient() {
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
     const amount = promoType === 'percentage' ? (totalBeforeDiscounts * promoDiscount) / 100 : promoDiscount;
-    process.env.NODE_ENV !== "production" && console.log('Calculating discountAmount:', {
-      promoDiscount,
-      promoType,
-      totalBeforeDiscounts,
-      amount,
-    });
+    process.env.NODE_ENV !== 'production' &&
+      console.log('Calculating discountAmount:', {
+        promoDiscount,
+        promoType,
+        totalBeforeDiscounts,
+        amount,
+      });
     return amount;
   }, [promoDiscount, promoType, totalBeforeDiscounts]);
   const maxBonusesAllowed = Math.floor(totalBeforeDiscounts * 0.15);
-  const bonusesToUse = useBonuses ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+  const bonusesToUse = useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
   }, [bonusesToUse]);
@@ -456,7 +450,7 @@ export default function CartPageClient() {
       script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
       script.onload = () => {
-        if (isMounted) process.env.NODE_ENV !== "production" && console.log('Яндекс.Карты загружены');
+        if (isMounted) process.env.NODE_ENV !== 'production' && console.log('Яндекс.Карты загружены');
       };
       script.onerror = () => {
         if (isMounted) toast.error('Не удалось загрузить автодополнение адресов');
@@ -476,7 +470,10 @@ export default function CartPageClient() {
       window.ymaps.ready(async () => {
         try {
           const response = await window.ymaps!.suggest(query, {
-            boundedBy: [[45.0, 38.9], [45.2, 39.1]],
+            boundedBy: [
+              [45.0, 38.9],
+              [45.2, 39.1],
+            ],
             strictBounds: true,
             results: 5,
           });
@@ -519,7 +516,7 @@ export default function CartPageClient() {
   );
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       setShowSuggestions(false);
     };
     document.addEventListener('click', handleClickOutside);
@@ -532,6 +529,20 @@ export default function CartPageClient() {
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
+  }, []);
+
+  // ✅ обновление количества для апсейлов (открытки и шары)
+  const updateUpsellQuantity = useCallback((id: string, quantity: number) => {
+    setSelectedUpsells((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              quantity: Math.max(1, quantity),
+            }
+          : item
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -587,19 +598,22 @@ export default function CartPageClient() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
-      process.env.NODE_ENV !== "production" && console.log('handleApplyPromo: Result from API:', result);
+      process.env.NODE_ENV !== 'production' && console.log('handleApplyPromo: Result from API:', result);
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
       setPromoId(result.promoId);
       setPromoError(null);
-      process.env.NODE_ENV !== "production" && console.log('handleApplyPromo: State updated:', {
-        promoDiscount: result.discount,
-        promoType: result.discountType,
-        promoId: result.promoId,
-      });
-      toast.success(`Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`);
+      process.env.NODE_ENV !== 'production' &&
+        console.log('handleApplyPromo: State updated:', {
+          promoDiscount: result.discount,
+          promoType: result.discountType,
+          promoId: result.promoId,
+        });
+      toast.success(
+        `Промокод применён! Скидка: ${result.discount}${result.discountType === 'percentage' ? '%' : ' ₽'}`
+      );
     } catch (error: any) {
-      process.env.NODE_ENV !== "production" && console.error('handleApplyPromo: Error:', error);
+      process.env.NODE_ENV !== 'production' && console.error('handleApplyPromo: Error:', error);
       setPromoError(error.message);
       toast.error(error.message);
     }
@@ -624,11 +638,12 @@ export default function CartPageClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.valid) {
-        const errorMessage = json.invalidItems?.length > 0
-          ? `Некоторые товары недоступны: ${json.invalidItems
-              .map((item: { id: number; reason: string }) => `Товар ${item.id}: ${item.reason}`)
-              .join('; ')}`
-          : 'Ошибка проверки товаров';
+        const errorMessage =
+          json.invalidItems?.length > 0
+            ? `Некоторые товары недоступны: ${json.invalidItems
+                .map((item: { id: number; reason: string }) => `Товар ${item.id}: ${item.reason}`)
+                .join('; ')}`
+            : 'Ошибка проверки товаров';
         toast.error(errorMessage);
         return false;
       }
@@ -645,7 +660,8 @@ export default function CartPageClient() {
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
       return;
     }
-    const isFormValid = validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(agreed);
+    const isFormValid =
+      validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(agreed);
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
@@ -662,12 +678,16 @@ export default function CartPageClient() {
       toast.error('Некоторые товары недоступны. Пожалуйста, обновите корзину и попробуйте снова.');
       return;
     }
-    if (!phone) {
-      setErrorModal('Телефон не указан. Пожалуйста, авторизуйтесь заново.');
-      setIsAuthenticated(false);
-      setStep(0);
+
+    const customerPhoneRaw = phone || form.phone;
+    const customerPhone = normalizePhone(customerPhoneRaw || '');
+    const cleanPhone = customerPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
+      toast.error('Введите корректный номер телефона на шаге 1');
+      setStep(1);
       return;
     }
+
     setIsSubmittingOrder(true);
     try {
       const cartItems = items.map((item: CartItemType) => ({
@@ -686,13 +706,15 @@ export default function CartPageClient() {
         isUpsell: true,
       }));
       const payload = {
-        phone: normalizePhone(phone),
+        phone: customerPhone,
         name: form.name,
         recipient: form.recipient,
         recipientPhone: normalizePhone(form.recipientPhone),
         address:
           form.street && form.deliveryMethod !== 'pickup'
-            ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${form.apartment ? `, кв. ${form.apartment}` : ''}${form.entrance ? `, подъезд ${form.entrance}` : ''}`
+            ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${
+                form.apartment ? `, кв. ${form.apartment}` : ''
+              }${form.entrance ? `, подъезд ${form.entrance}` : ''}`
             : 'Самовывоз',
         payment: form.payment,
         date: form.date,
@@ -714,16 +736,18 @@ export default function CartPageClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setErrorModal(json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
+        setErrorModal(
+          json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.'
+        );
         return;
       }
-      if (bonusesUsed > 0) {
+      if (bonusesUsed > 0 && isAuthenticated) {
         try {
           const bonusRes = await fetch('/api/redeem-bonus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              phone: normalizePhone(phone),
+              phone: customerPhone,
               amount: bonusesUsed,
               order_id: json.order_id,
             }),
@@ -755,7 +779,11 @@ export default function CartPageClient() {
       setUseBonuses(false);
       setBonusesUsed(0);
     } catch (error: any) {
-      setErrorModal('Произошла неизвестная ошибка при оформлении заказа: ' + error.message + '. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.');
+      setErrorModal(
+        'Произошла неизвестная ошибка при оформлении заказа: ' +
+          error.message +
+          '. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.'
+      );
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -783,6 +811,8 @@ export default function CartPageClient() {
     resetForm,
     storeSettings,
     step,
+    isAuthenticated,
+    setStep,
   ]);
 
   // --- Layout and rendering ---
@@ -817,38 +847,42 @@ export default function CartPageClient() {
         initial="hidden"
         animate="visible"
       >
+        {/* ЛЕВАЯ КОЛОНКА С ШАГАМИ */}
         <div className="w-full max-w-full md:col-span-2 space-y-4">
           <AnimatePresence mode="wait">
-            <motion.div key={step} variants={stepVariants} initial="initial" animate="animate" exit="exit">
-              {step === 0 && (
-  <OrderStep step={0} currentStep={step} title="Авторизация">
-    <AuthWithCall
-      onSuccess={(phone: string) => {
-        setIsAuthenticated(true);              // Пользователь авторизован
-        setPhone(normalizePhone(phone));       // Сохраняем номер
-        setStep(1);                           // Переходим к следующему шагу корзины
-        onFormChange({
-          target: { name: 'phone', value: normalizePhone(phone) },
-        } as React.ChangeEvent<HTMLInputElement>);
-      }}
-    />
-  </OrderStep>
-)}
+            <motion.div
+              key={step}
+              variants={stepVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
               {step === 1 && (
-                <OrderStep step={1} currentStep={step} title="Ваши контакты" onNext={handleNextStep}>
+                <OrderStep
+                  step={1}
+                  currentStep={step}
+                  title="Ваши контакты"
+                  onNext={handleNextStep}
+                >
                   <Step1ContactDetails
                     form={form}
                     phoneError={phoneError}
                     emailError={emailError}
                     nameError={nameError}
                     agreedToTermsError={agreedToTermsError}
-                    onFormChange={onFormChange}
-                    handlePhoneChange={handlePhoneChange}
+                    onFormChange={onFormChange as any}
                   />
                 </OrderStep>
               )}
+
               {step === 2 && (
-                <OrderStep step={2} currentStep={step} title="Данные получателя" onNext={nextStep} onBack={prevStep}>
+                <OrderStep
+                  step={2}
+                  currentStep={step}
+                  title="Данные получателя"
+                  onNext={nextStep}
+                  onBack={prevStep}
+                >
                   <Step2RecipientDetails
                     form={form}
                     name={form.name}
@@ -862,8 +896,15 @@ export default function CartPageClient() {
                   />
                 </OrderStep>
               )}
+
               {step === 3 && (
-                <OrderStep step={3} currentStep={step} title="Адрес" onNext={nextStep} onBack={prevStep}>
+                <OrderStep
+                  step={3}
+                  currentStep={step}
+                  title="Адрес"
+                  onNext={nextStep}
+                  onBack={prevStep}
+                >
                   <Step3Address
                     form={form}
                     addressError={addressError}
@@ -876,28 +917,37 @@ export default function CartPageClient() {
                   />
                 </OrderStep>
               )}
+
               {step === 4 && (
-                <OrderStep step={4} currentStep={step} title="Дата и время" onNext={handleNextStep} onBack={prevStep}>
+                <OrderStep
+                  step={4}
+                  currentStep={step}
+                  title="Дата и время"
+                  onNext={handleNextStep}
+                  onBack={prevStep}
+                >
                   <Step4DateTime
                     form={form}
                     dateError={dateError}
                     timeError={timeError}
-                    onFormChange={onFormChange}
-                    storeSettings={
-                      storeSettings || {
-                        order_acceptance_enabled: false,
-                        order_acceptance_schedule: {},
-                        store_hours: {},
-                      }
-                    }
-                    maxProductionTime={maxProductionTime}
-                    onValidationChange={handleStep4ValidationChange}
+                    onFormChange={onFormChange as any}
                   />
                 </OrderStep>
               )}
+
               {step === 5 && (
-                <OrderStep step={5} currentStep={step} title="Способ оплаты" onNext={submitOrder} onBack={prevStep}>
-                  <Step5Payment agreed={agreed} setAgreed={setAgreed} />
+                <OrderStep
+                  step={5}
+                  currentStep={step}
+                  title="Способ оплаты"
+                  onNext={submitOrder}
+                  onBack={prevStep}
+                  isNextDisabled={isSubmittingOrder}
+                >
+                  <Step5Payment
+                    agreed={agreed}
+                    setAgreed={setAgreed}
+                  />
                 </OrderStep>
               )}
             </motion.div>
@@ -942,10 +992,11 @@ export default function CartPageClient() {
                   key={`${isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
                   item={item}
                   removeItem={isUpsell ? removeUpsell : removeItem}
-                  updateQuantity={isUpsell ? undefined : updateQuantity}
+                  updateQuantity={isUpsell ? updateUpsellQuantity : updateQuantity}
                 />
               );
             })}
+
           <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <motion.button
               onClick={() => setShowPromoField(!showPromoField)}
@@ -990,9 +1041,7 @@ export default function CartPageClient() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <span className="block w-full text-center tracking-wide">
-                        Применить
-                      </span>
+                      <span className="block w-full text-center tracking-wide">Применить</span>
                     </motion.button>
                   </div>
                   {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
@@ -1011,6 +1060,7 @@ export default function CartPageClient() {
               )}
             </AnimatePresence>
           </div>
+
           <CartSummary
             items={items}
             selectedUpsells={selectedUpsells}
@@ -1025,6 +1075,60 @@ export default function CartPageClient() {
             setUseBonuses={setUseBonuses}
             bonusesUsed={bonusesUsed}
           />
+
+          {/* Бонусы и личный кабинет */}
+          <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm space-y-3">
+            <h3 className="text-sm font-semibold">
+              Бонусы и личный кабинет
+            </h3>
+
+            {isAuthenticated ? (
+              <>
+                <p className="text-xs text-gray-600">
+                  Вы уже авторизованы по номеру{' '}
+                  <span className="font-semibold">{phone}</span>.
+                </p>
+                <p className="text-xs text-gray-600">
+                  Текущий баланс:&nbsp;
+                  <span className="font-semibold">{bonusBalance}</span> бонусов.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Бонусы можно списать сейчас или накопить и использовать позже.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-600">
+                  Авторизация по звонку нужна только, если вы хотите
+                  копить бонусы и видеть историю заказов. Просто
+                  оформить заказ можно и без неё.
+                </p>
+                <AuthWithCall
+                  onSuccess={(phoneFromAuth: string) => {
+                    const normalized = phoneFromAuth;
+                    setIsAuthenticated(true);
+                    setPhone(normalized);
+                    onFormChange({
+                      target: { name: 'phone', value: normalized },
+                    } as any);
+
+                    fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
+                      .then(res => res.json())
+                      .then(json => {
+                        if (json.success) {
+                          setBonusBalance(json.data.bonus_balance || 0);
+                        }
+                      })
+                      .catch(() => {
+                        toast.error('Не удалось обновить бонусный баланс');
+                      });
+
+                    console.log('[AuthWithCall] success, phone:', normalized);
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -1061,9 +1165,7 @@ export default function CartPageClient() {
           trackingUrl={orderDetails.trackingUrl}
         />
       )}
-      {errorModal && (
-        <ErrorModal message={errorModal} onRetry={submitOrder} onClose={() => setErrorModal(null)} />
-      )}
+      {errorModal && <ErrorModal message={errorModal} onRetry={submitOrder} onClose={() => setErrorModal(null)} />}
     </div>
   );
 }

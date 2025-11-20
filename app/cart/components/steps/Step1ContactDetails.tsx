@@ -1,4 +1,4 @@
-// ✅ app/cart/components/steps/Step1ContactDetails.tsx
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -18,7 +18,6 @@ interface Props {
   nameError: string;
   agreedToTermsError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handlePhoneChange: (value: string) => void;
 }
 
 const containerVariants = {
@@ -37,10 +36,10 @@ export default function Step1ContactDetails({
   nameError,
   agreedToTermsError,
   onFormChange,
-  handlePhoneChange,
 }: Props) {
   return (
     <div className="space-y-4">
+      {/* Телефон */}
       <motion.div
         className="space-y-1"
         initial="hidden"
@@ -49,22 +48,27 @@ export default function Step1ContactDetails({
         variants={containerVariants}
       >
         <label htmlFor="phone" className="block text-xs text-gray-500">
-          Телефон
+          Телефон для связи с вами*
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/phone.svg" alt="Телефон" width={16} height={16} loading="lazy" />
+            <Image
+              src="/icons/phone.svg"
+              alt="Телефон"
+              width={16}
+              height={16}
+              loading="lazy"
+            />
           </div>
           <input
             id="phone"
             name="phone"
             value={form.phone}
-            onChange={e => handlePhoneChange(e.target.value)}
-            placeholder="+7 (___) ___-__-__"
+            onChange={onFormChange}
+            placeholder="+7XXXXXXXXXX или 8XXXXXXXXXX"
             className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               phoneError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
-            disabled
             aria-label="Номер телефона"
             aria-invalid={!!phoneError}
             inputMode="tel"
@@ -74,6 +78,7 @@ export default function Step1ContactDetails({
         {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
       </motion.div>
 
+      {/* Имя */}
       <motion.div
         className="space-y-1"
         initial="hidden"
@@ -82,11 +87,17 @@ export default function Step1ContactDetails({
         variants={containerVariants}
       >
         <label htmlFor="name" className="block text-xs text-gray-500">
-          Ваше имя
+          Как вас зовут?*
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/user.svg" alt="Имя" width={16} height={16} loading="lazy" />
+            <Image
+              src="/icons/user.svg"
+              alt="Имя"
+              width={16}
+              height={16}
+              loading="lazy"
+            />
           </div>
           <input
             id="name"
@@ -106,6 +117,7 @@ export default function Step1ContactDetails({
         {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
       </motion.div>
 
+      {/* Email */}
       <motion.div
         className="space-y-1"
         initial="hidden"
@@ -114,18 +126,24 @@ export default function Step1ContactDetails({
         variants={containerVariants}
       >
         <label htmlFor="email" className="block text-xs text-gray-500">
-          E-mail (необязательно)
+          Email (по желанию)
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/envelope.svg" alt="Email" width={16} height={16} loading="lazy" />
+            <Image
+              src="/icons/envelope.svg"
+              alt="Email"
+              width={16}
+              height={16}
+              loading="lazy"
+            />
           </div>
           <input
             id="email"
             name="email"
             value={form.email}
             onChange={onFormChange}
-            placeholder="Введите ваш email"
+            placeholder="example@mail.ru"
             className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               emailError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
@@ -138,6 +156,7 @@ export default function Step1ContactDetails({
         {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
       </motion.div>
 
+      {/* WhatsApp */}
       <motion.div
         className="flex items-center gap-2 mt-4"
         initial="hidden"
@@ -153,13 +172,23 @@ export default function Step1ContactDetails({
           className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           aria-label="Связаться через WhatsApp"
         />
-        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} loading="lazy" />
-        <span className="text-sm text-gray-700">Написать в WhatsApp вместо звонка</span>
+        <Image
+          src="/icons/whatsapp.svg"
+          alt="WhatsApp"
+          width={16}
+          height={16}
+          loading="lazy"
+        />
+        <span className="text-sm text-gray-700">
+          Можно отправлять информацию по заказу в WhatsApp
+        </span>
       </motion.div>
 
-      {/* Обязательный чекбокс для согласия */}
+      {/* Согласие с условиями */}
       <motion.div
-        className={`flex items-center gap-2 mt-4 ${agreedToTermsError ? 'text-red-500' : 'text-gray-700'}`}
+        className={`flex items-start gap-2 mt-4 ${
+          agreedToTermsError ? 'text-red-500' : 'text-gray-700'
+        }`}
         initial="hidden"
         animate="visible"
         custom={4}
@@ -170,21 +199,21 @@ export default function Step1ContactDetails({
           name="agreedToTerms"
           checked={form.agreedToTerms || false}
           onChange={onFormChange}
-          className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+          className="mt-1 h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
           aria-label="Согласие с пользовательским соглашением и политикой конфиденциальности"
           required
         />
         <span className="text-xs">
-          Я принимаю{' '}
+          Я согласен(-на) с{' '}
           <TrackedLink
-            href="/terms"
-            ariaLabel="Пользовательское соглашение"
+            href="/offer"
+            ariaLabel="Публичная оферта"
             category="Cart"
-            action="Open Terms"
-            label="Step1 Terms"
+            action="Open Offer"
+            label="Step1 Offer"
             className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
           >
-            пользовательское соглашение
+            условиями публичной оферты
           </TrackedLink>{' '}
           и{' '}
           <TrackedLink
@@ -195,7 +224,7 @@ export default function Step1ContactDetails({
             label="Step1 Policy"
             className="text-black underline hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
           >
-            политику обработки персональных данных
+            политикой обработки персональных данных
           </TrackedLink>
         </span>
       </motion.div>
