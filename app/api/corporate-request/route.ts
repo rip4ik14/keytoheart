@@ -2,12 +2,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Используем тот же бот/чат, что и для обычных заказов,
-// но даём возможность переопределить отдельным корпоративным.
 const TELEGRAM_TOKEN =
-  process.env.CORPORATE_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  process.env.CORPORATE_TELEGRAM_BOT_TOKEN ||
+  process.env.TELEGRAM_BOT_TOKEN ||
+  '';
 const TELEGRAM_CHAT_ID =
-  process.env.CORPORATE_TELEGRAM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
+  process.env.CORPORATE_TELEGRAM_CHAT_ID ||
+  process.env.TELEGRAM_CHAT_ID ||
+  '';
 
 interface CorporateRequestBody {
   name: string;
@@ -17,7 +19,7 @@ interface CorporateRequestBody {
   message?: string;
 }
 
-// Экранирование HTML для Telegram (parse_mode: 'HTML')
+// Экранирование HTML для Telegram
 const escapeHtml = (text: string) => {
   return text
     .replace(/&/g, '&amp;')
@@ -27,18 +29,20 @@ const escapeHtml = (text: string) => {
 
 export async function POST(req: Request) {
   try {
-    // Получаем данные из формы
     const body: CorporateRequestBody = await req.json();
+
+    // 👀 Логируем входящее тело ВСЕГДА, даже в production
+    console.log('[CORPORATE] Incoming body:', body);
+
     const { name, company, phone, email, message } = body;
 
-    // Проверяем обязательные поля
+    // --- Валидация обязательных полей ---
     if (!name || !phone || !email) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('Validation error: Missing required fields', {
-          name,
-          phone,
-          email,
-        });
+      console.error('[CORPORATE] Validation error: missing fields', {
+        name,
+        phone,
+        email,
+      });
 
       return NextResponse.json(
         {
@@ -49,43 +53,33 @@ export async function POST(req: Request) {
       );
     }
 
-    // Проверяем формат номера телефона (ожидаем +7XXXXXXXXXX)
+    // --- Телефон: ожидаем формат +7XXXXXXXXXX ---
     if (!/^\+7\d{10}$/.test(phone)) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('Invalid phone format:', phone);
+      console.error('[CORPORATE] Invalid phone format:', phone);
 
       return NextResponse.json(
         {
           success: false,
           error: 'Некорректный номер телефона. Ожидается формат +7xxxxxxxxxx',
+          debug: { phone },
         },
         { status: 400 }
       );
     }
 
-    // Проверяем формат email
+    // --- Email ---
     if (!/\S+@\S+\.\S+/.test(email)) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('Invalid email format:', email);
+      console.error('[CORPORATE] Invalid email format:', email);
 
       return NextResponse.json(
-        { success: false, error: 'Некорректный email' },
+        { success: false, error: 'Некорректный email', debug: { email } },
         { status: 400 }
       );
     }
 
-    // Сохраняем заявку в PostgreSQL через Prisma
-    process.env.NODE_ENV !== 'production' &&
-      console.log('Inserting into corporate_requests:', {
-        name,
-        company,
-        phone,
-        email,
-        message,
-      });
-
+    // --- Сохраняем заявку в БД ---
     try {
-      await prisma.corporate_requests.create({
+      const saved = await prisma.corporate_requests.create({
         data: {
           name,
           company: company || null,
@@ -95,9 +89,10 @@ export async function POST(req: Request) {
           created_at: new Date(),
         },
       });
+
+      console.log('[CORPORATE] Saved to DB with id:', saved.id);
     } catch (dbError: any) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('Prisma error:', dbError);
+      console.error('[CORPORATE] Prisma error:', dbError);
 
       return NextResponse.json(
         {
@@ -109,76 +104,97 @@ export async function POST(req: Request) {
       );
     }
 
-    // Отправляем уведомление в Telegram
-    let telegramError: string | null = null;
+    // --- Проверка наличия Telegram-конфига ---
+    if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
+      console.error(
+        '[CORPORATE] Telegram env missing',
+        'TELEGRAM_TOKEN:',
+        TELEGRAM_TOKEN ? 'SET' : 'EMPTY',
+        'TELEGRAM_CHAT_ID:',
+        TELEGRAM_CHAT_ID ? 'SET' : 'EMPTY'
+      );
 
-    if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
-      const telegramMessage = `
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Телеграм не настроен: отсутствует TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID или CORPORATE_* переменные.',
+          debug: {
+            TELEGRAM_TOKEN_SET: !!TELEGRAM_TOKEN,
+            TELEGRAM_CHAT_ID_SET: !!TELEGRAM_CHAT_ID,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    const telegramMessage = `
 <b>🔔 Новая заявка с корпоративной страницы</b>
 <b>Имя:</b> ${escapeHtml(name || '—')}
 <b>Компания:</b> ${escapeHtml(company || 'Не указана')}
 <b>Телефон:</b> ${escapeHtml(phone || '—')}
 <b>E-mail:</b> ${escapeHtml(email || '—')}
 <b>Сообщение:</b> ${escapeHtml(message || 'Нет')}
-      `.trim();
+    `.trim();
 
-      process.env.NODE_ENV !== 'production' &&
-        console.log('Sending Telegram message (corporate):', telegramMessage);
+    console.log('[CORPORATE] Sending Telegram message...');
+    console.log(
+      '[CORPORATE] Using bot token (first 10 chars):',
+      TELEGRAM_TOKEN.slice(0, 10) + '...',
+      'chat_id:',
+      TELEGRAM_CHAT_ID
+    );
 
-      try {
-        const tgRes = await fetch(
-          `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: TELEGRAM_CHAT_ID,
-              text: telegramMessage,
-              parse_mode: 'HTML',
-            }),
-          }
-        );
-
-        if (!tgRes.ok) {
-          const errText = await tgRes.text();
-          telegramError = `Telegram error: ${tgRes.status} - ${errText}`;
-
-          process.env.NODE_ENV !== 'production' &&
-            console.error('[Corporate Telegram error]', telegramError);
-          // Заявку в базе мы уже сохранили, поэтому не роняем ответ
-        } else {
-          process.env.NODE_ENV !== 'production' &&
-            console.log(
-              'Corporate Telegram notification sent successfully',
-              'Status:',
-              tgRes.status
-            );
-        }
-      } catch (e: any) {
-        telegramError = e.message;
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[Corporate Telegram send error]', telegramError);
+    // --- Отправка в Telegram ---
+    const tgRes = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: telegramMessage,
+          parse_mode: 'HTML',
+        }),
       }
-    } else {
-      process.env.NODE_ENV !== 'production' &&
-        console.warn(
-          'Telegram token or chat ID not set for corporate requests, skipping Telegram notification'
-        );
+    );
+
+    const tgText = await tgRes.text();
+
+    if (!tgRes.ok) {
+      console.error(
+        '[CORPORATE] Telegram error status:',
+        tgRes.status,
+        'body:',
+        tgText
+      );
+
+      // ❗ НА ВСЯКИЙ СЛУЧАЙ – НЕ СЧИТАЕМ ЭТО УСПЕХОМ, ЧТОБЫ ТЫ УВИДЕЛ ОШИБКУ В NETWORK
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Ошибка отправки уведомления в Telegram',
+          telegramStatus: tgRes.status,
+          telegramResponse: tgText,
+        },
+        { status: 500 }
+      );
     }
 
-    // Возвращаем успех (заявка сохранена), даже если Telegram упал
+    console.log('[CORPORATE] Telegram message sent OK, status:', tgRes.status);
+
     return NextResponse.json({
       success: true,
-      telegramError,
+      telegramStatus: tgRes.status,
+      telegramResponse: tgText,
     });
   } catch (e: any) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error(
-        'Server error in /api/corporate-request at',
-        new Date().toISOString(),
-        ':',
-        e
-      );
+    console.error(
+      '[CORPORATE] Server error at',
+      new Date().toISOString(),
+      ':',
+      e
+    );
 
     return NextResponse.json(
       {
