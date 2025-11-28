@@ -366,8 +366,14 @@ export default function CartPageClient() {
   }, [step, validateStep1, validateStep4, nextStep]);
 
   // 💰 Вычисления для заказа
-  const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [form.deliveryMethod]);
-  const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.price * i.quantity, 0), [items]);
+  const deliveryCost = useMemo(
+    () => (form.deliveryMethod === 'delivery' ? 300 : 0),
+    [form.deliveryMethod]
+  );
+  const subtotal = useMemo(
+    () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+    [items]
+  );
   const upsellTotal = useMemo(
     () => selectedUpsells.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0),
     [selectedUpsells]
@@ -717,17 +723,34 @@ export default function CartPageClient() {
         category: u.category,
         isUpsell: true,
       }));
+
+      // 🔹 Адрес и инструкции с учётом сценария "я не знаю адрес"
+      let addressString: string;
+
+      if (form.deliveryMethod === 'pickup') {
+        addressString = 'Самовывоз';
+      } else if ((form as any).askAddressFromRecipient) {
+        addressString = 'Адрес уточнить у получателя';
+      } else if (form.street) {
+        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${
+          form.apartment ? `, кв. ${form.apartment}` : ''
+        }${form.entrance ? `, подъезд ${form.entrance}` : ''}`;
+      } else {
+        // На всякий случай fallback, если доставка выбрана, но поля не заполнены
+        addressString = 'Адрес не указан (требуется уточнение)';
+      }
+
+      const deliveryInstructionsCombined =
+        ((form as any).askAddressFromRecipient
+          ? 'Клиент не знает точный адрес, уточните его у получателя перед доставкой. '
+          : '') + (form.deliveryInstructions || '');
+
       const payload = {
         phone: customerPhone,
         name: form.name,
         recipient: form.recipient,
         recipientPhone: normalizePhone(form.recipientPhone),
-        address:
-          form.street && form.deliveryMethod !== 'pickup'
-            ? `${form.street}${form.house ? `, д. ${form.house}` : ''}${
-                form.apartment ? `, кв. ${form.apartment}` : ''
-              }${form.entrance ? `, подъезд ${form.entrance}` : ''}`
-            : 'Самовывоз',
+        address: addressString,
         payment: form.payment,
         date: form.date,
         time: form.time,
@@ -736,11 +759,12 @@ export default function CartPageClient() {
         bonuses_used: bonusesUsed,
         promo_id: promoId,
         promo_discount: discountAmount,
-        delivery_instructions: form.deliveryInstructions || null,
+        delivery_instructions: deliveryInstructionsCombined || null,
         postcard_text: postcardText || null,
         anonymous: form.anonymous,
         whatsapp: form.whatsapp,
       };
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -754,7 +778,7 @@ export default function CartPageClient() {
         return;
       }
 
-      // 🔹 Списание бонусов
+      // 🔹 Списание бонусов (дополнительно к API /orders, который уже может списывать)
       if (bonusesUsed > 0 && isAuthenticated) {
         try {
           const bonusRes = await fetch('/api/redeem-bonus', {
@@ -1160,6 +1184,7 @@ export default function CartPageClient() {
         </div>
       </motion.div>
 
+      {/* Модалки upsell */}
       {showPostcard && (
         <UpsellModal
           type="postcard"
@@ -1186,14 +1211,23 @@ export default function CartPageClient() {
           }}
         />
       )}
-      {showSuccess && orderDetails && (
-        <ThankYouModal
-          onClose={() => setShowSuccess(false)}
-          orderNumber={orderDetails.orderNumber}
-          trackingUrl={orderDetails.trackingUrl}
+
+      {/* ✅ Модалка "спасибо за заказ" – теперь с корректными пропсами */}
+      <ThankYouModal
+        isOpen={showSuccess && !!orderDetails}
+        onClose={() => setShowSuccess(false)}
+        orderNumber={orderDetails?.orderNumber}
+        isAnonymous={form.anonymous}
+        askAddressFromRecipient={(form as any).askAddressFromRecipient}
+      />
+
+      {errorModal && (
+        <ErrorModal
+          message={errorModal}
+          onRetry={submitOrder}
+          onClose={() => setErrorModal(null)}
         />
       )}
-      {errorModal && <ErrorModal message={errorModal} onRetry={submitOrder} onClose={() => setErrorModal(null)} />}
     </div>
   );
 }

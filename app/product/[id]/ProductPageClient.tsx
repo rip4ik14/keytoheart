@@ -411,33 +411,73 @@ export default function ProductPageClient({
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* ---------- уведомления ---------- */}
         <AnimatePresence>
-          {showNotification && (
-            <motion.div
-              className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
-              variants={notificationVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+  {showNotification && (
+    <motion.div
+      className="
+        fixed z-50
+        bg-black text-white px-4 py-3 rounded-2xl shadow-lg
+        left-1/2 bottom-4 -translate-x-1/2 w-[92%] max-w-sm
+        md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
+      "
+      variants={notificationVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      aria-live="assertive"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs sm:text-sm font-medium">
+          Товар добавлен в корзину
+        </span>
+        <a
+          href="/cart"
+          className="
+            text-[11px] sm:text-xs font-semibold uppercase tracking-tight
+            bg-white text-black rounded-full px-3 py-1
+          "
+        >
+          В корзину
+        </a>
+      </div>
+    </motion.div>
+  )}
+
+  {Object.entries(comboNotifications).map(
+    ([id, visible]) =>
+      visible && (
+        <motion.div
+          key={id}
+          className="
+            fixed z-50
+            bg-black text-white px-4 py-3 rounded-2xl shadow-lg
+            left-1/2 bottom-4 -translate-x-1/2 w-[92%] max-w-sm
+            md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
+          "
+          variants={notificationVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          aria-live="assertive"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs sm:text-sm font-medium">
+              Товар добавлен в корзину
+            </span>
+            <a
+              href="/cart"
+              className="
+                text-[11px] sm:text-xs font-semibold uppercase tracking-tight
+                bg-white text-black rounded-full px-3 py-1
+              "
             >
-              Добавлено в корзину!
-            </motion.div>
-          )}
-          {Object.entries(comboNotifications).map(
-            ([id, visible]) =>
-              visible && (
-                <motion.div
-                  key={id}
-                  className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
-                  variants={notificationVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                >
-                  Добавлено в корзину!
-                </motion.div>
-              ),
-          )}
-        </AnimatePresence>
+              В корзину
+            </a>
+          </div>
+        </motion.div>
+      ),
+  )}
+</AnimatePresence>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
           {/* ===================== GALERY ===================== */}

@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,6 +21,7 @@ interface FormState {
   anonymous: boolean;
   whatsapp: boolean;
   agreedToTerms: boolean;
+  askAddressFromRecipient: boolean; // 🔹 НОВОЕ ПОЛЕ
 }
 
 const initialFormState: FormState = {
@@ -42,6 +42,7 @@ const initialFormState: FormState = {
   anonymous: false,
   whatsapp: false,
   agreedToTerms: false,
+  askAddressFromRecipient: false, // 🔹 по умолчанию – клиент знает адрес
 };
 
 // Нормализация только для валидации / отправки
@@ -114,7 +115,6 @@ export default function useCheckoutForm() {
         setAgreedToTermsError('');
       }
     } else {
-      // Никакой нормализации телефона здесь — только сырая строка
       setForm(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -186,6 +186,12 @@ export default function useCheckoutForm() {
 
   const validateStep3 = () => {
     if (form.deliveryMethod === 'pickup') {
+      setAddressError('');
+      return true;
+    }
+
+    // 🔹 Если клиент не знает адрес и просит уточнить у получателя – не требуем улицу
+    if (form.askAddressFromRecipient) {
       setAddressError('');
       return true;
     }

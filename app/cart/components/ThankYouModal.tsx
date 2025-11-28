@@ -1,165 +1,168 @@
+// ✅ Путь: app/cart/components/ThankYouModal.tsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import TrackedLink from '@components/TrackedLink';
-import ScratchPrediction from './ScratchPrediction';
-import AuthWithCall from '@components/AuthWithCall';
-import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 
-interface Props {
+interface ThankYouModalProps {
+  isOpen: boolean;
   onClose: () => void;
-  orderNumber: number;
-  trackingUrl?: string;
-  isGuest?: boolean;
-  guestPhone?: string;
+  orderNumber?: number | string;     // 🔴 ВАЖНО: ВОПРОСИК и союз с string
+  isAnonymous?: boolean;
+  askAddressFromRecipient?: boolean;
 }
 
 export default function ThankYouModal({
+  isOpen,
   onClose,
   orderNumber,
-  trackingUrl,
-  isGuest = false,
-  guestPhone = '',
-}: Props) {
-  const [timer, setTimer] = useState(15);
-  const [showAuth, setShowAuth] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && typeof window.ym === 'function') {
-      window.ym(102737149, 'reachGoal', 'order_success');
-    }
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          onClose();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [onClose]);
-
-  const copyTrackingUrl = () => {
-    if (trackingUrl) {
-      navigator.clipboard.writeText(trackingUrl).then(() => toast.success('Ссылка скопирована!'));
-    }
-  };
-
-  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.5 } }, exit: { opacity: 0 } };
-  const modalVariants = { hidden: { scale: 0.8, opacity: 0 }, visible: { scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 200, damping: 15 } } };
-
+  isAnonymous = false,
+  askAddressFromRecipient = false,
+}: ThankYouModalProps) {
   return (
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-      >
-        <motion.div className="relative w-full max-w-md bg-white border border-gray-300 rounded-lg p-6 shadow-sm overflow-y-auto max-h-screen" variants={modalVariants}>
-          <motion.button onClick={onClose} className="absolute right-4 top-4" aria-label="Закрыть">
-            <Image src="/icons/times.svg" alt="Закрыть" width={20} height={20} />
-          </motion.button>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div
+            className="absolute inset-0"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-          <div className="flex justify-center mb-4">
-            <Image src="/icons/thank-you.svg" alt="Спасибо" width={80} height={80} />
-          </div>
-
-          <h2 className="mb-3 text-center text-lg font-bold uppercase">Спасибо за заказ!</h2>
-          <p className="mb-3 text-center text-sm text-gray-700">
-            Ваш заказ <span className="font-bold text-base">№{orderNumber}</span> успешно оформлен.
-          </p>
-
-          {trackingUrl && (
-            <div className="mb-4 text-center text-sm text-gray-700 flex items-center justify-center gap-2">
-              <span>Отследить заказ:</span>
-              <TrackedLink
-                href={trackingUrl}
-                ariaLabel="Отследить заказ"
-                category="Cart"
-                action="Track Order"
-                label={`Order №${orderNumber}`}
-                className="underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                здесь
-              </TrackedLink>
-              <button onClick={copyTrackingUrl} aria-label="Копировать">
-                <Image src="/icons/copy.svg" alt="Копировать" width={16} height={16} />
-              </button>
-            </div>
-          )}
-
-          <p className="mb-4 text-center text-sm text-gray-700">Мы свяжемся с вами для подтверждения в ближайшее время.</p>
-
-          {/* Блок для гостей */}
-          {isGuest && (
-            <motion.div
-              className="mt-6 p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+          <motion.div
+            className="
+              relative z-50 max-w-md w-full rounded-2xl bg-white
+              p-5 sm:p-6 shadow-xl border border-gray-200
+            "
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            transition={{ duration: 0.25 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Спасибо за заказ"
+          >
+            {/* Кнопка закрытия */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-black rounded-full"
+              aria-label="Закрыть"
             >
-              <p className="font-bold text-gray-900 mb-3">
-                Хотите получить бонусы за этот заказ и видеть его в личном кабинете?
-              </p>
-              <p className="text-xs text-gray-600 mb-4">
-                Это бесплатно и займёт 5 секунд — просто подтвердите номер звонком
+              <span className="sr-only">Закрыть</span>
+              <svg
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6.28 6.28a.75.75 0 0 1 1.06 0L10 8.94l2.66-2.66a.75.75 0 0 1 1.06 1.06L11.06 10l2.66 2.66a.75.75 0 1 1-1.06 1.06L10 11.06l-2.66 2.66a.75.75 0 0 1-1.06-1.06L8.94 10 6.28 7.34a.75.75 0 0 1 0-1.06Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+
+            {/* Иконка / заголовок */}
+            <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
+              <div className="flex items-center justify-center">
+  <Image
+    src="/icons/thank-you.svg"
+    alt="Спасибо"
+    width={56}
+    height={56}
+    className="object-contain"
+    loading="lazy"
+  />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  Спасибо за заказ!
+                </h2>
+                {orderNumber && (
+                  <p className="mt-1 text-xs sm:text-sm text-gray-600">
+                    Номер заказа{' '}
+                    <span className="font-semibold">#{orderNumber}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Основной текст */}
+            <div className="mt-4 sm:mt-5 space-y-3 text-xs sm:text-sm text-gray-700">
+              <p>
+                Мы уже получили ваш заказ и начали его обрабатывать. В ближайшее
+                время менеджер свяжется с вами для подтверждения и отправит
+                ссылку на оплату или реквизиты удобным способом.
               </p>
 
-              {!showAuth ? (
-                <button
-                  onClick={() => setShowAuth(true)}
-                  className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition"
-                >
-                  Подтвердить номер и получить бонусы 🎁
-                </button>
-              ) : (
-                <div className="mt-4">
-                  <AuthWithCall
-                    onSuccess={async () => {
-                      await fetch('/api/auth/link-orders', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: guestPhone }),
-                      });
-                      toast.success('Готово! Заказ привязан, бонусы начислены 🎉');
-                      setShowAuth(false);
-                    }}
-                  />
+              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50 space-y-2">
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">
+                  Что будет дальше
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] sm:text-xs text-gray-700">
+                  <li>Проверим наличие всех позиций из заказа.</li>
+                  <li>Согласуем с вами детали по времени и способу доставки.</li>
+                  <li>После подтверждения отправим ссылку на оплату или реквизиты.</li>
+                </ul>
+              </div>
+
+              {askAddressFromRecipient && (
+                <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white space-y-1">
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">
+                    Адрес уточним у получателя
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-gray-700">
+                    Вы указали, что не знаете точный адрес. Мы аккуратно
+                    свяжемся с получателем по телефону, уточним адрес и согласуем
+                    удобное время доставки, не раскрывая деталей сюрприза.
+                  </p>
                 </div>
               )}
-            </motion.div>
-          )}
 
-          <ScratchPrediction />
+              {isAnonymous && (
+                <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white space-y-1">
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">
+                    Анонимный заказ
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-gray-700">
+                    Заказ помечен как анонимный. Мы не называем ваше имя
+                    получателю, даже если он будет спрашивать, и не указываем
+                    отправителя в комментариях к доставке.
+                  </p>
+                </div>
+              )}
 
-          <div className="flex justify-center mt-6">
-            <TrackedLink
-              href="/"
-              onClick={onClose}
-              ariaLabel="На главную"
-              category="Cart"
-              action="Return to Home"
-              label="Thank You Modal"
-              className="w-full py-3 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-900 text-center"
-            >
-              На главную
-            </TrackedLink>
-          </div>
+              <p className="text-[11px] sm:text-xs text-gray-500">
+                Если вы заметили ошибку в данных или хотите что-то уточнить,
+                просто напишите нам в WhatsApp или позвоните по телефону, указанному
+                на сайте.
+              </p>
+            </div>
 
-          <div className="mt-4 text-center text-xs text-gray-500">
-            Окно закроется через {timer} секунд...
-          </div>
+            <div className="mt-5 sm:mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={onClose}
+                className="
+                  inline-flex items-center justify-center px-6 py-2.5
+                  rounded-[10px] border border-[#bdbdbd] bg-white text-xs sm:text-sm font-semibold
+                  uppercase tracking-tight text-[#535353] shadow-sm
+                  hover:bg-[#535353] hover:text-white
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
+                  transition-all duration-200
+                "
+              >
+                Вернуться к покупкам
+              </button>
+            </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

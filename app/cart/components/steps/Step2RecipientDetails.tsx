@@ -55,8 +55,12 @@ export default function Step2RecipientDetails({
     } as React.ChangeEvent<HTMLInputElement>);
   };
 
+  // ✅ типобезопасная проверка: открытка есть среди допов
+  const hasPostcard = selectedUpsells.some((u) => u.category === 'postcard');
+
   return (
     <div className="space-y-4">
+      {/* Чекбокс "Я получатель" */}
       <motion.label
         className="flex items-center gap-2 mt-4"
         initial="hidden"
@@ -67,7 +71,7 @@ export default function Step2RecipientDetails({
         <input
           type="checkbox"
           checked={form.recipient === name && form.recipientPhone === userPhone}
-          onChange={e => {
+          onChange={(e) => {
             if (e.target.checked) {
               onFormChange({ target: { name: 'recipient', value: name } } as any);
               onFormChange({ target: { name: 'recipientPhone', value: userPhone } } as any);
@@ -82,6 +86,7 @@ export default function Step2RecipientDetails({
         <span className="text-sm text-gray-700">Я получатель</span>
       </motion.label>
 
+      {/* Имя получателя */}
       <motion.div
         className="space-y-1"
         initial="hidden"
@@ -114,6 +119,7 @@ export default function Step2RecipientDetails({
         {recipientError && <p className="text-red-500 text-xs">{recipientError}</p>}
       </motion.div>
 
+      {/* Телефон получателя */}
       <motion.div
         className="space-y-1"
         initial="hidden"
@@ -130,7 +136,7 @@ export default function Step2RecipientDetails({
             id="recipientPhone"
             name="recipientPhone"
             value={displayPhone(form.recipientPhone)}
-            onChange={e => handlePhone(e.target.value)}
+            onChange={(e) => handlePhone(e.target.value)}
             placeholder="(xxx) xxx-xx-xx"
             className={`w-full pl-12 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               recipientPhoneError ? 'border-red-500' : 'border-gray-300'
@@ -142,9 +148,14 @@ export default function Step2RecipientDetails({
           />
         </div>
         {recipientPhoneError && <p className="text-red-500 text-xs">{recipientPhoneError}</p>}
+
+        <p className="text-[11px] text-gray-500 mt-1">
+          По этому номеру курьер сможет уточнить адрес и детали доставки, если вы не уверены в точном адресе.
+        </p>
       </motion.div>
 
-      {selectedUpsells.some(u => u.category === 'postcard') && (
+      {/* Текст открытки, если выбрана открытка */}
+      {hasPostcard && (
         <motion.div
           className="space-y-1"
           initial="hidden"
@@ -158,14 +169,18 @@ export default function Step2RecipientDetails({
           <textarea
             id="postcardText"
             value={postcardText}
-            onChange={e => setPostcardText(e.target.value)}
+            onChange={(e) => setPostcardText(e.target.value)}
             placeholder="Напишите ваше поздравление"
             className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px] text-base sm:text-sm"
             aria-label="Текст открытки"
           />
+          <p className="text-[11px] text-gray-500">
+            Мы аккуратно перепишем текст на открытку. Если поле пустое - вложим открытку без подписи.
+          </p>
         </motion.div>
       )}
 
+      {/* Анонимный заказ */}
       <motion.label
         className="flex items-center gap-2 mt-4"
         initial="hidden"
@@ -190,7 +205,7 @@ export default function Step2RecipientDetails({
         custom={5}
         variants={containerVariants}
       >
-        Получатель не узнает, от кого подарок
+        Получатель не узнает, от кого подарок. Мы не называем ваше имя, даже если он спросит.
       </motion.p>
     </div>
   );
