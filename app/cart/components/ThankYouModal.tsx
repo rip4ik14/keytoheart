@@ -3,13 +3,18 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface ThankYouModalProps {
   isOpen: boolean;
   onClose: () => void;
-  orderNumber?: number | string;     // 🔴 ВАЖНО: ВОПРОСИК и союз с string
+  orderNumber?: number | string;
   isAnonymous?: boolean;
   askAddressFromRecipient?: boolean;
+  /** URL для отслеживания заказа в ЛК, например `/account/orders/123` */
+  trackingUrl?: string;
+  /** Авторизован ли пользователь (есть ЛК) */
+  isAuthenticated?: boolean;
 }
 
 export default function ThankYouModal({
@@ -18,7 +23,11 @@ export default function ThankYouModal({
   orderNumber,
   isAnonymous = false,
   askAddressFromRecipient = false,
+  trackingUrl,
+  isAuthenticated = false,
 }: ThankYouModalProps) {
+  const canGoToAccount = Boolean(isAuthenticated && trackingUrl);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -28,6 +37,7 @@ export default function ThankYouModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
+          {/* клик по фону закрывает */}
           <div
             className="absolute inset-0"
             onClick={onClose}
@@ -70,14 +80,14 @@ export default function ThankYouModal({
             {/* Иконка / заголовок */}
             <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
               <div className="flex items-center justify-center">
-  <Image
-    src="/icons/thank-you.svg"
-    alt="Спасибо"
-    width={56}
-    height={56}
-    className="object-contain"
-    loading="lazy"
-  />
+                <Image
+                  src="/icons/thank-you.svg"
+                  alt="Спасибо"
+                  width={56}
+                  height={56}
+                  className="object-contain"
+                  loading="lazy"
+                />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
@@ -87,6 +97,12 @@ export default function ThankYouModal({
                   <p className="mt-1 text-xs sm:text-sm text-gray-600">
                     Номер заказа{' '}
                     <span className="font-semibold">#{orderNumber}</span>
+                  </p>
+                )}
+                {canGoToAccount && (
+                  <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
+                    Статус и историю заказа вы можете посмотреть
+                    в личном кабинете.
                   </p>
                 )}
               </div>
@@ -144,7 +160,25 @@ export default function ThankYouModal({
               </p>
             </div>
 
-            <div className="mt-5 sm:mt-6 flex justify-center">
+            {/* Кнопки внизу */}
+            <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row gap-2 justify-center">
+              {canGoToAccount && trackingUrl && (
+                <Link
+                  href={trackingUrl}
+                  onClick={onClose}
+                  className="
+                    inline-flex items-center justify-center px-6 py-2.5
+                    rounded-[10px] bg-black text-white text-xs sm:text-sm font-semibold
+                    uppercase tracking-tight shadow-sm
+                    hover:bg-gray-900
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black
+                    transition-all duration-200
+                  "
+                >
+                  Отследить заказ
+                </Link>
+              )}
+
               <button
                 type="button"
                 onClick={onClose}

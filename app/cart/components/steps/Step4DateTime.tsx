@@ -13,7 +13,7 @@ interface FormSlice {
 }
 
 interface Props {
-  form?: FormSlice & { [key: string]: any } | null;
+  form?: (FormSlice & { [key: string]: any }) | null;
   dateError: string;
   timeError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -51,7 +51,8 @@ function parseTimeToMinutes(time: string | null | undefined): number | null {
 function minutesToTimeString(totalMinutes: number): string {
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  return `${h.toString().padStart(2, '0')}:${m.toString()
+    .padStart(2, '0')}`;
 }
 
 function ceilToStep(minutes: number, step: number): number {
@@ -62,7 +63,7 @@ const TIME_STEP_MINUTES = 30;
 
 const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   const base = Object.fromEntries(
-    daysOfWeek.map((d) => [
+    daysOfWeek.map(d => [
       d,
       { start: '09:00', end: '18:00', enabled: true },
     ]),
@@ -359,7 +360,7 @@ export default function Step4DateTime({
             name="date"
             type="date"
             value={safeDate}
-            onChange={(e) => handleDateChange(e.target.value)}
+            onChange={e => handleDateChange(e.target.value)}
             className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               dateError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
@@ -390,7 +391,7 @@ export default function Step4DateTime({
             name="time"
             type="time"
             value={safeTime}
-            onChange={(e) => handleTimeInputChange(e.target.value)}
+            onChange={e => handleTimeInputChange(e.target.value)}
             className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
               timeError ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-black`}
@@ -402,7 +403,7 @@ export default function Step4DateTime({
         {timeError && <p className="text-xs text-red-500">{timeError}</p>}
       </div>
 
-      {/* Быстрые слоты + кнопка "Ближайшее" */}
+      {/* Быстрые слоты + "Ближайшее" */}
       {availableSlots.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-2">
           <button
@@ -413,7 +414,7 @@ export default function Step4DateTime({
             Ближайшее
           </button>
 
-          {availableSlots.slice(0, 3).map((slot) => (
+          {availableSlots.slice(0, 3).map(slot => (
             <button
               key={slot}
               type="button"

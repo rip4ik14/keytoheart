@@ -1214,12 +1214,17 @@ export default function CartPageClient() {
 
       {/* ✅ Модалка "спасибо за заказ" – теперь с корректными пропсами */}
       <ThankYouModal
-        isOpen={showSuccess && !!orderDetails}
-        onClose={() => setShowSuccess(false)}
-        orderNumber={orderDetails?.orderNumber}
-        isAnonymous={form.anonymous}
-        askAddressFromRecipient={(form as any).askAddressFromRecipient}
-      />
+  isOpen={showSuccess && !!orderDetails}
+  onClose={() => setShowSuccess(false)}
+  orderNumber={orderDetails?.orderNumber}
+  isAnonymous={form.anonymous}
+  askAddressFromRecipient={(form as any).askAddressFromRecipient}
+  
+  // 🔥 Новые ключевые пропсы
+  trackingUrl={orderDetails?.trackingUrl}   // например /account/orders/123
+  isAuthenticated={isAuthenticated}         // чтобы модалка знала, что можно вести в ЛК
+/>
+
 
       {errorModal && (
         <ErrorModal
