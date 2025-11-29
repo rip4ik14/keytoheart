@@ -1,4 +1,5 @@
 'use client';
+
 import { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -17,6 +18,8 @@ interface CartSummaryProps {
   useBonuses: boolean;
   setUseBonuses: Dispatch<SetStateAction<boolean>>;
   bonusesUsed: number;
+  /** 🔹 способ получения – нужен только для текста про доставку */
+  deliveryMethod?: 'delivery' | 'pickup';
 }
 
 export default function CartSummary({
@@ -32,9 +35,17 @@ export default function CartSummary({
   useBonuses,
   setUseBonuses,
   bonusesUsed,
+  deliveryMethod = 'delivery',
 }: CartSummaryProps) {
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const upsellTotal = selectedUpsells.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
+  const upsellTotal = selectedUpsells.reduce(
+    (sum, i) => sum + (i.price || 0) * i.quantity,
+    0,
+  );
+
+  const isPickup = deliveryMethod === 'pickup';
+
+  // сумма для расчёта лимита списания бонусов
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
 
   return (
@@ -49,19 +60,33 @@ export default function CartSummary({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="mb-2 xs:mb-4 text-base xs:text-lg font-bold text-gray-900">Итого</h2>
+      <h2 className="mb-2 xs:mb-4 text-base xs:text-lg font-bold text-gray-900">
+        Итого
+      </h2>
+
       {items.length + selectedUpsells.length === 0 ? (
         <p className="text-center text-gray-500">Корзина пуста</p>
       ) : (
         <div className="flex flex-col space-y-2 xs:space-y-4 text-xs xs:text-sm text-gray-700">
+          {/* Товары + допродажи */}
           <div className="flex justify-between">
             <span>Товары</span>
             <span className="font-medium">{subtotal + upsellTotal} ₽</span>
           </div>
+
+          {/* Стоимость доставки / самовывоз */}
           <div className="flex justify-between">
-            <span> Стоимость доставки рассчитает менеджер после оформления заказа</span>
-            <span className="font-medium">{deliveryCost} ₽</span>
+            <span>
+              {isPickup
+                ? 'Самовывоз из студии'
+                : 'Стоимость доставки рассчитает менеджер после оформления заказа'}
+            </span>
+            <span className="font-medium">
+              {isPickup ? '0 ₽' : `${deliveryCost} ₽`}
+            </span>
           </div>
+
+          {/* Скидка по промокоду / акции */}
           {discountAmount > 0 && (
             <motion.div
               className="flex justify-between text-green-600"
@@ -74,6 +99,7 @@ export default function CartSummary({
             </motion.div>
           )}
 
+          {/* Бонусы – списание */}
           {isAuthenticated && (
             <motion.div
               className="pt-2 xs:pt-4"
@@ -95,6 +121,7 @@ export default function CartSummary({
                   />
                   Списать бонусы
                 </label>
+
                 {useBonuses && bonusesUsed > 0 && (
                   <motion.span
                     className="text-xs xs:text-sm font-semibold text-green-600"
@@ -106,6 +133,7 @@ export default function CartSummary({
                   </motion.span>
                 )}
               </div>
+
               <motion.p
                 className="mt-1 xs:mt-2 text-[11px] xs:text-xs text-gray-500"
                 initial={{ opacity: 0 }}
@@ -114,11 +142,15 @@ export default function CartSummary({
               >
                 {bonusBalance <= 0
                   ? 'Нет доступных бонусов'
-                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
+                  : `Доступно для списания: ${Math.min(
+                      bonusBalance,
+                      Math.floor(totalBeforeDiscounts * 0.15),
+                    )} ₽`}
               </motion.p>
             </motion.div>
           )}
 
+          {/* Бонусы – начисление */}
           <div className="flex justify-between items-center pt-2 xs:pt-4 text-[11px] xs:text-xs text-gray-500 border-t">
             <span>+ начислим {bonusAccrual} бонусов</span>
             <Image
@@ -130,6 +162,7 @@ export default function CartSummary({
             />
           </div>
 
+          {/* Итого к оплате */}
           <div className="mt-3 xs:mt-6 flex justify-between items-center text-lg xs:text-xl font-bold text-gray-900 border-t pt-3 xs:pt-4">
             <span>Итого</span>
             <span>{finalTotal} ₽</span>

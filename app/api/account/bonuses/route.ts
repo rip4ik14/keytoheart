@@ -2,146 +2,195 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
 
+const log = (...args: any[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[account/bonuses]', ...args);
+  }
+};
+
+const logError = (...args: any[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('[account/bonuses]', ...args);
+  }
+};
 
 export async function GET(request: Request) {
-  process.env.NODE_ENV !== "production" && console.log('Received GET request to /api/account/bonuses:', request.url);
+  log('GET', request.url);
+
   try {
     const { searchParams } = new URL(request.url);
-    const phone = searchParams.get('phone');
+    const phoneParam = searchParams.get('phone') || '';
 
-    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      process.env.NODE_ENV !== "production" &&
-        console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+    const sanitizedPhoneInput = sanitizeHtml(phoneParam, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+
+    const normalizedPhone = normalizePhone(sanitizedPhoneInput);
+    const variants = buildPhoneVariants(normalizedPhone);
+
+    if (!variants.length) {
+      logError('Invalid phone (not enough digits):', sanitizedPhoneInput);
       return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'Некорректный формат номера (должно быть не менее 10 цифр)',
+        },
+        { status: 400 },
       );
     }
 
-    // Получаем данные по бонусам по номеру телефона
+    const phoneWhere = {
+      OR: variants.map((p: string) => ({ phone: p })),
+    };
+
+    // 🔥 ВАЖНО: берём запись с максимальным балансом (если есть дубликаты)
     const bonuses = await prisma.bonuses.findFirst({
-      where: { phone: sanitizedPhone },
+      where: phoneWhere,
+      orderBy: {
+        bonus_balance: 'desc', // сначала те, где баланс максимальный
+      },
       select: {
         id: true,
+        phone: true,
         bonus_balance: true,
         level: true,
       },
     });
 
-    process.env.NODE_ENV !== "production" && console.log(`[${new Date().toISOString()}] Bonuses response:`, bonuses);
+    log('Bonuses response:', bonuses);
 
     const data = bonuses
       ? {
           id: bonuses.id,
+          // возвращаем канонический формат, чтобы фронт везде видел один и тот же номер
+          phone: normalizedPhone,
           bonus_balance: bonuses.bonus_balance ?? 0,
           level: bonuses.level ?? 'bronze',
         }
       : {
           id: null,
+          phone: normalizedPhone,
           bonus_balance: 0,
           level: 'bronze',
         };
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Server error in bonuses:`, error);
+    logError('Server error in GET:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(request: Request) {
-  process.env.NODE_ENV !== "production" && console.log('Received POST request to /api/account/bonuses:', request.url);
+  log('POST expire-check');
+
   try {
     const body = await request.json();
-    const { phone } = body;
+    const phoneParam: string = body?.phone || '';
 
-    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      process.env.NODE_ENV !== "production" &&
-        console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+    const sanitizedPhoneInput = sanitizeHtml(phoneParam, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+
+    const normalizedPhone = normalizePhone(sanitizedPhoneInput);
+    const variants = buildPhoneVariants(normalizedPhone);
+
+    if (!variants.length) {
+      logError('Invalid phone (not enough digits):', sanitizedPhoneInput);
       return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'Некорректный формат номера (должно быть не менее 10 цифр)',
+        },
+        { status: 400 },
       );
     }
 
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // Находим bonus_id по телефону из таблицы bonuses
+    const phoneWhere = {
+      OR: variants.map((p: string) => ({ phone: p })),
+    };
+
+    // Находим любую запись бонусов по телефону
     const bonusRecord = await prisma.bonuses.findFirst({
-      where: { phone: sanitizedPhone },
+      where: phoneWhere,
       select: { id: true },
     });
 
     let recentBonusActivity = null;
     if (bonusRecord) {
-      // Используем bonus_id для фильтрации bonus_history
       recentBonusActivity = await prisma.bonus_history.findFirst({
         where: {
           bonus_id: bonusRecord.id,
           created_at: { gte: sixMonthsAgo },
-          // phone: sanitizedPhone, // <--- этого больше нет!
         },
       });
     }
 
     if (recentBonusActivity) {
-      process.env.NODE_ENV !== "production" &&
-        console.log(`[${new Date().toISOString()}] Recent bonus activity found for phone ${sanitizedPhone}, skipping expiration`);
+      log('Recent bonus activity found, skipping expiration');
       return NextResponse.json({ success: true, expired: 0 });
     }
 
+    // Последний заказ по любому формату этого номера
     const lastOrder = await prisma.orders.findFirst({
-      where: { phone: sanitizedPhone },
+      where: phoneWhere,
       orderBy: { created_at: 'desc' },
       select: { created_at: true },
     });
 
     let expired = 0;
+
     if (lastOrder && lastOrder.created_at) {
       const lastOrderDate = new Date(lastOrder.created_at);
+
       if (lastOrderDate < sixMonthsAgo) {
         const currentBonus = await prisma.bonuses.findFirst({
-          where: { phone: sanitizedPhone },
+          where: phoneWhere,
+          orderBy: {
+            bonus_balance: 'desc',
+          },
           select: { bonus_balance: true },
         });
 
         if (currentBonus && currentBonus.bonus_balance && currentBonus.bonus_balance > 0) {
           expired = currentBonus.bonus_balance;
-          await prisma.bonuses.update({
-            where: { phone: sanitizedPhone },
+
+          // Обнуляем баланс для всех записей этого номера
+          await prisma.bonuses.updateMany({
+            where: phoneWhere,
             data: { bonus_balance: 0 },
           });
 
           await prisma.bonus_history.create({
             data: {
-              // phone: sanitizedPhone, // такого поля нет!
               amount: -expired,
               reason: 'Сгорание бонусов за неактивность (6 месяцев)',
               created_at: new Date(),
-              bonus_id: bonusRecord?.id, // Связываем с bonus_id
+              bonus_id: bonusRecord?.id ?? null,
             },
           });
 
-          process.env.NODE_ENV !== "production" &&
-            console.log(`[${new Date().toISOString()}] Expired ${expired} bonuses for phone ${sanitizedPhone}`);
+          log(`Expired ${expired} bonuses for phone variants:`, variants);
         }
       }
     }
 
     return NextResponse.json({ success: true, expired });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" &&
-      console.error(`[${new Date().toISOString()}] Server error in expire-bonuses:`, error);
+    logError('Server error in POST:', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -25,12 +25,18 @@ import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 import AuthWithCall from '@components/AuthWithCall';
 
-// 🔹 Новый импорт e-commerce трекинга
+// 🔹 e-commerce трекинг
 import {
   trackCheckoutStart,
   trackCheckoutStep,
   trackOrderSuccess,
 } from '@/utils/ymEvents';
+
+// 🔹 общий Supabase-клиент, как в StickyHeader
+import { supabasePublic as supabase } from '@/lib/supabase/public';
+
+// 🔹 единая нормализация телефона (как в API и других местах)
+import { normalizePhone } from '@/lib/normalizePhone';
 
 // --- animation configs ---
 const containerVariants = {
@@ -69,13 +75,12 @@ interface StoreSettings {
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) return `+${cleanPhone}`;
-  if (cleanPhone.length === 10) return `+7${cleanPhone}`;
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) return `+7${cleanPhone.slice(1)}`;
-  return phone.startsWith('+') ? phone : `+${phone}`;
-};
+// 🔹 Пропсы для CartPageClient – сюда можно передавать бонусы/авторизацию "как из StickyHeader"
+interface CartPageClientProps {
+  initialBonusBalance?: number;
+  initialIsAuthenticated?: boolean;
+  initialPhone?: string | null;
+}
 
 const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -106,7 +111,11 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
   return result;
 };
 
-export default function CartPageClient() {
+export default function CartPageClient({
+  initialBonusBalance = 0,
+  initialIsAuthenticated = false,
+  initialPhone = null,
+}: CartPageClientProps) {
   // 🔹 Старт оформления заказа: Метрика + gtag
   useEffect(() => {
     // Yandex.Metrica
@@ -131,10 +140,11 @@ export default function CartPageClient() {
   }
   const { items, updateQuantity, removeItem, clearCart, maxProductionTime, addMultipleItems } = cartContext;
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [phone, setPhone] = useState<string | null>(null);
+  // 🔹 теперь стартовые значения берём из пропсов (как "из StickyHeader")
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialIsAuthenticated);
+  const [phone, setPhone] = useState<string | null>(initialPhone);
   const [userId, setUserId] = useState<string | null>(null);
-  const [bonusBalance, setBonusBalance] = useState<number>(0);
+  const [bonusBalance, setBonusBalance] = useState<number>(initialBonusBalance);
   const [useBonuses, setUseBonuses] = useState<boolean>(false);
   const [bonusesUsed, setBonusesUsed] = useState<number>(0);
   const [agreed, setAgreed] = useState<boolean>(false);
@@ -312,38 +322,116 @@ export default function CartPageClient() {
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // Проверка сессии/профиля (авторизация по звонку)
+  // ✅ Проверка сессии/профиля и загрузка бонусов (логика максимально близка к StickyHeader)
+    // ✅ Проверка сессии/профиля и загрузка бонусов
   useEffect(() => {
     let isMounted = true;
-    const checkSession = async () => {
+
+    const loadBonuses = async (phoneRaw: string, userIdFromSession?: string) => {
+      const normalized = normalizePhone(phoneRaw);
+
+      setIsAuthenticated(true);
+      setPhone(normalized);
+      if (userIdFromSession) setUserId(userIdFromSession);
+
+      onFormChange({
+        target: { name: 'phone', value: normalized },
+      } as React.ChangeEvent<HTMLInputElement>);
+
       try {
-        const res = await fetch('/api/auth/session', { credentials: 'include' });
-        const json = await res.json();
-        if (isMounted && res.ok && json.user) {
-          const normalizedPhone = normalizePhone(json.user.phone);
-          setIsAuthenticated(true);
-          setPhone(normalizedPhone);
-          setUserId(json.user.id);
+        const bonusRes = await fetch(
+          `/api/account/bonuses?phone=${encodeURIComponent(normalized)}`
+        );
+        const bonusJson = await bonusRes.json();
 
-          onFormChange({
-            target: { name: 'phone', value: normalizedPhone },
-          } as React.ChangeEvent<HTMLInputElement>);
-
-          const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
-          const bonusJson = await bonusRes.json();
-          if (isMounted && bonusRes.ok && bonusJson.success) {
-            setBonusBalance(bonusJson.data.bonus_balance || 0);
-          }
+        if (bonusRes.ok && bonusJson.success) {
+          setBonusBalance(bonusJson.data.bonus_balance ?? 0);
         }
-      } catch (err) {
-        process.env.NODE_ENV !== 'production' && console.error('Ошибка проверки сессии:', err);
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[CartPageClient] Error loading bonuses', error);
+        }
       }
     };
-    checkSession();
+
+    const resetAuth = () => {
+      if (!isMounted) return;
+      setIsAuthenticated(false);
+      setPhone(null);
+      setUserId(null);
+      setBonusBalance(0);
+    };
+
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/check-session', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const sessionData = await response.json();
+
+        if (!isMounted) return;
+
+        if (response.ok && sessionData.isAuthenticated && sessionData.phone) {
+          await loadBonuses(sessionData.phone, sessionData.userId);
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          const phoneFromMetadata = session.user.user_metadata?.phone as string | undefined;
+          if (phoneFromMetadata) {
+            await loadBonuses(phoneFromMetadata, session.user.id);
+            return;
+          }
+        }
+
+        resetAuth();
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[CartPageClient] Error checking auth session', error);
+        }
+        resetAuth();
+      }
+    };
+
+    checkAuth();
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+
+      if (session?.user) {
+        const phoneFromMetadata = session.user.user_metadata?.phone as string | undefined;
+        if (phoneFromMetadata) {
+          loadBonuses(phoneFromMetadata, session.user.id);
+        } else {
+          resetAuth();
+        }
+      } else {
+        resetAuth();
+      }
+    });
+
+    const subscription = data?.subscription;
+
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('authChange', handleAuthChange);
+    }
+
     return () => {
       isMounted = false;
+      subscription?.unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('authChange', handleAuthChange);
+      }
     };
-  }, [onFormChange]);
+  }, []);
+
 
   // Локальный nextStep с проверкой шагов
   const handleNextStep = useCallback(() => {
@@ -927,7 +1015,7 @@ export default function CartPageClient() {
                   />
                 </OrderStep>
               )}
-
+              
               {step === 2 && (
                 <OrderStep
                   step={2}
@@ -1126,6 +1214,7 @@ export default function CartPageClient() {
             useBonuses={useBonuses}
             setUseBonuses={setUseBonuses}
             bonusesUsed={bonusesUsed}
+            deliveryMethod={form.deliveryMethod}
           />
 
           {/* Бонусы и личный кабинет */}
@@ -1156,28 +1245,30 @@ export default function CartPageClient() {
                   оформить заказ можно и без неё.
                 </p>
                 <AuthWithCall
-                  onSuccess={(phoneFromAuth: string) => {
-                    const normalized = phoneFromAuth;
-                    setIsAuthenticated(true);
-                    setPhone(normalized);
-                    onFormChange({
-                      target: { name: 'phone', value: normalized },
-                    } as any);
+  onSuccess={(phoneFromAuth: string) => {
+    const normalized = normalizePhone(phoneFromAuth);
 
-                    fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
-                      .then(res => res.json())
-                      .then(json => {
-                        if (json.success) {
-                          setBonusBalance(json.data.bonus_balance || 0);
-                        }
-                      })
-                      .catch(() => {
-                        toast.error('Не удалось обновить бонусный баланс');
-                      });
+    setIsAuthenticated(true);
+    setPhone(normalized);
+    onFormChange({
+      target: { name: 'phone', value: normalized },
+    } as any);
 
-                    console.log('[AuthWithCall] success, phone:', normalized);
-                  }}
-                />
+    fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setBonusBalance(json.data.bonus_balance || 0);
+        }
+      })
+      .catch(() => {
+        toast.error('Не удалось обновить бонусный баланс');
+      });
+
+    console.log('[AuthWithCall] success, phone:', normalized);
+  }}
+/>
+
               </>
             )}
           </div>
@@ -1212,19 +1303,16 @@ export default function CartPageClient() {
         />
       )}
 
-      {/* ✅ Модалка "спасибо за заказ" – теперь с корректными пропсами */}
+      {/* ✅ Модалка "спасибо за заказ" */}
       <ThankYouModal
-  isOpen={showSuccess && !!orderDetails}
-  onClose={() => setShowSuccess(false)}
-  orderNumber={orderDetails?.orderNumber}
-  isAnonymous={form.anonymous}
-  askAddressFromRecipient={(form as any).askAddressFromRecipient}
-  
-  // 🔥 Новые ключевые пропсы
-  trackingUrl={orderDetails?.trackingUrl}   // например /account/orders/123
-  isAuthenticated={isAuthenticated}         // чтобы модалка знала, что можно вести в ЛК
-/>
-
+        isOpen={showSuccess && !!orderDetails}
+        onClose={() => setShowSuccess(false)}
+        orderNumber={orderDetails?.orderNumber}
+        isAnonymous={form.anonymous}
+        askAddressFromRecipient={(form as any).askAddressFromRecipient}
+        trackingUrl={orderDetails?.trackingUrl}
+        isAuthenticated={isAuthenticated}
+      />
 
       {errorModal && (
         <ErrorModal

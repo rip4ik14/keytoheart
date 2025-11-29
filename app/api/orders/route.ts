@@ -2,18 +2,17 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
+import { normalizePhone } from '@/lib/normalizePhone';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
-// Тип для данных, получаемых из запроса
 interface OrderRequest {
   phone: string;
   name: string;
   recipient: string;
   recipientPhone: string;
   address: string;
-  // делаем необязательным и типизированным
   deliveryMethod?: 'pickup' | 'delivery';
   date: string;
   time: string;
@@ -34,24 +33,8 @@ interface OrderRequest {
   postcard_text?: string;
   anonymous?: boolean;
   whatsapp?: boolean;
-  // 👇 новый флаг: адрес уточнить у получателя
   ask_address_from_recipient?: boolean;
 }
-
-// Функция для нормализации телефона
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  } else if (cleanPhone.length === 10) {
-    return `+7${cleanPhone}`;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
-    return `+7${cleanPhone.slice(1)}`;
-  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  }
-  return phone.startsWith('+') ? phone : `+${phone}`;
-};
 
 export async function POST(req: Request) {
   try {
@@ -78,45 +61,63 @@ export async function POST(req: Request) {
       ask_address_from_recipient,
     } = body;
 
-    // Валидация обязательных полей
     if (!rawPhone || !name || !recipient || !address || !total || !cart || !rawRecipientPhone) {
-      return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Отсутствуют обязательные поля' },
+        { status: 400 },
+      );
     }
 
-    // Нормализация и валидация телефона
-    const sanitizedPhone = normalizePhone(
-      sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }),
-    );
-    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
+    // Телефон клиента
+    const sanitizedPhoneInput = sanitizeHtml(rawPhone, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    const sanitizedPhone = normalizePhone(sanitizedPhoneInput);
+
+    if (!/^\+7\d{10}$/.test(sanitizedPhone)) {
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 },
       );
     }
 
-    // Нормализация и валидация телефона получателя
-    const sanitizedRecipientPhone = normalizePhone(
-      sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }),
-    );
-    if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
+    // Телефон получателя
+    const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    const sanitizedRecipientPhone = normalizePhone(sanitizedRecipientPhoneInput);
+
+    if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
-        { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
+        {
+          error:
+            'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)',
+        },
         { status: 400 },
       );
     }
 
-    // Санитизация текстовых полей
     const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedRecipient = sanitizeHtml(recipient, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    const sanitizedAddress = sanitizeHtml(address, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
     const sanitizedDeliveryInstructions = delivery_instructions
-      ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
+      ? sanitizeHtml(delivery_instructions, {
+          allowedTags: [],
+          allowedAttributes: {},
+        })
       : null;
     const sanitizedPostcardText = postcard_text
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // Проверка профиля пользователя
     const profile = await prisma.user_profiles.findUnique({
       where: { phone: sanitizedPhone },
       select: { id: true },
@@ -131,11 +132,9 @@ export async function POST(req: Request) {
 
     const user_id = profile.id;
 
-    // Разделяем основные товары и upsell-дополнения
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
 
-    // Проверяем, что все product_id для основных товаров существуют в Supabase
     const productIds = regularItems
       .map((item) => {
         const id = parseInt(item.id, 10);
@@ -159,6 +158,7 @@ export async function POST(req: Request) {
       if (productError) {
         process.env.NODE_ENV !== 'production' &&
           console.error('Supabase error fetching products:', productError);
+
         return NextResponse.json(
           { error: 'Ошибка получения товаров: ' + productError.message },
           { status: 500 },
@@ -168,9 +168,9 @@ export async function POST(req: Request) {
       const invalidItems = regularItems.filter((item) => {
         const itemId = parseInt(item.id, 10);
         const product = products.find((p: any) => p.id === itemId);
-        if (!product) return true; // Товар не найден
-        if (!product.in_stock) return true; // Товар отсутствует в наличии
-        if (!product.is_visible) return true; // Товар не доступен для заказа
+        if (!product) return true;
+        if (!product.in_stock) return true;
+        if (!product.is_visible) return true;
         return false;
       });
 
@@ -183,6 +183,7 @@ export async function POST(req: Request) {
           if (!product.is_visible) return `Товар с ID ${itemId} не доступен для заказа`;
           return `Товар с ID ${itemId} недоступен`;
         });
+
         return NextResponse.json(
           { error: reasons.join('; ') },
           { status: 400 },
@@ -190,12 +191,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Подстраховка deliveryMethod, если с фронта не прилетело
     const finalDeliveryMethod: 'pickup' | 'delivery' =
-      deliveryMethod ||
-      (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
+      deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
 
-    // Генерируем order_number (используем автоинкремент из базы)
     const order = await prisma.orders.create({
       data: {
         user_id,
@@ -210,7 +208,7 @@ export async function POST(req: Request) {
         payment_method: payment,
         total,
         bonuses_used,
-        bonus: 0, // Бонусы не начисляем при создании
+        bonus: 0,
         promo_id,
         promo_discount,
         status: 'pending',
@@ -225,7 +223,6 @@ export async function POST(req: Request) {
       select: { id: true, order_number: true, items: true, upsell_details: true },
     });
 
-    // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item) => ({
       order_id: order.id,
       product_id: parseInt(item.id, 10),
@@ -246,18 +243,20 @@ export async function POST(req: Request) {
 
     const baseUrl = new URL(req.url).origin;
 
-    // --- Побочные ошибки ловим отдельно ---
     let redeemBonusError: string | null = null;
     let promoError: string | null = null;
     let telegramError: string | null = null;
 
-    // Списание бонусов
     if (bonuses_used > 0) {
       try {
         const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }),
+          body: JSON.stringify({
+            phone: sanitizedPhone,
+            amount: bonuses_used,
+            order_id: order.id,
+          }),
         });
         if (!res.ok) {
           redeemBonusError = await res.text();
@@ -267,7 +266,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Обновление промокода (использований)
     if (promo_id) {
       try {
         const promoData = await prisma.promo_codes.findUnique({
@@ -287,8 +285,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Формируем списки товаров для Telegram (без ПДн)
-    const itemsList = regularItems.length
+    const regularList = regularItems.length
       ? regularItems
           .map((i) =>
             `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${
@@ -315,10 +312,8 @@ export async function POST(req: Request) {
       ? `<b>Промокод:</b> Применён (скидка: ${promo_discount}₽)`
       : `<b>Промокод:</b> Не применён`;
 
-    // Статус анонимности
     const anonymousText = anonymous ? 'Да' : 'Нет';
 
-    // Режим работы с адресом
     let addressMode = '';
     if (finalDeliveryMethod === 'pickup') {
       addressMode = 'Самовывоз (адрес выдачи в описании магазина)';
@@ -349,12 +344,11 @@ export async function POST(req: Request) {
 ${promoText}
 
 <b>Основные товары:</b>
-${itemsList}
+${regularList}
 
 <b>Дополнения:</b>
 ${upsellList}`;
 
-    // Отправляем сообщение в Telegram (не роняем заказ при ошибке)
     try {
       const telegramResponse = await fetch(
         `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
@@ -379,7 +373,6 @@ ${upsellList}`;
         console.error('[Telegram send error]', telegramError);
     }
 
-    // Возвращаем успех (даже если telegram/промо/бонусы частично упали)
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -395,6 +388,7 @@ ${upsellList}`;
   } catch (error: any) {
     process.env.NODE_ENV !== 'production' &&
       console.error('[ORDER API ERROR]', error, error?.stack);
+
     return NextResponse.json(
       { error: 'Ошибка сервера: ' + error.message },
       { status: 500 },

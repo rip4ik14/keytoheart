@@ -8,7 +8,7 @@ export default function MobileContactFab() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 md:hidden">
+    <div className="fixed top-1/2 right-4 -translate-y-1/2 z-50 md:hidden">
       {/* Кнопка FAB */}
       <button
         className="w-14 h-14 rounded-full bg-white/80 border border-gray-300 flex items-center justify-center shadow-lg backdrop-blur hover:bg-white transition"
@@ -22,11 +22,11 @@ export default function MobileContactFab() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.23 }}
-            className="flex flex-col gap-2 mt-2"
+            className="flex flex-col gap-2 mt-2 items-end"
           >
             <a
               href="https://wa.me/79886033821"

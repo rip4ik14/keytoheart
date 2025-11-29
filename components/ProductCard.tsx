@@ -1,3 +1,4 @@
+// ✅ Путь: components/ProductCard.tsx
 'use client';
 
 import { useCart } from '@context/CartContext';
@@ -6,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Star, ShoppingCart } from 'lucide-react';
-import { trackAddToCart } from '@/utils/ymEvents'; // ⭐ Новый e-commerce импорт
+import { trackAddToCart } from '@/utils/ymEvents'; // ⭐ e-commerce трекинг
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -78,7 +79,7 @@ export default function ProductCard({
       production_time: product.production_time ?? null,
     });
 
-    // ⭐ Новый e-commerce трекинг
+    // e-commerce трекинг
     trackAddToCart({
       id: product.id,
       name: title,
@@ -92,8 +93,14 @@ export default function ProductCard({
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
 
-    // тост об успешном добавлении
-    toast.success('Товар добавлен в корзину', { id: `add-${product.id}` });
+    // ❗ гасим предыдущий тост с этим id (если был)
+    toast.dismiss('add-to-cart');
+
+    // ❗ показываем ОДИН общий тост
+    // message = title, чтобы во второй строке тоста было название товара
+    toast.success(title, {
+      id: 'add-to-cart',
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -108,7 +115,9 @@ export default function ProductCard({
 
   function declineWord(num: number, words: [string, string, string]): string {
     const cases = [2, 0, 1, 1, 1, 2];
-    return words[num % 100 > 4 && num % 100 < 20 ? 2 : cases[num % 10 < 5 ? num % 10 : 5]];
+    return words[
+      num % 100 > 4 && num % 100 < 20 ? 2 : cases[num % 10 < 5 ? num % 10 : 5]
+    ];
   }
 
   function formatProductionTime(minutes: number | null): string | null {
@@ -164,7 +173,9 @@ export default function ProductCard({
               url: `/product/${product.id}`,
               priceCurrency: 'RUB',
               price: discountedPrice.toString(),
-              priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+              priceValidUntil: new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
+              )
                 .toISOString()
                 .split('T')[0],
               availability: product.in_stock
