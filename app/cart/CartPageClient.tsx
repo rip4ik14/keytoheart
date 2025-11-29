@@ -25,20 +25,15 @@ import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 import AuthWithCall from '@components/AuthWithCall';
 
-// 🔹 e-commerce трекинг
 import {
   trackCheckoutStart,
   trackCheckoutStep,
   trackOrderSuccess,
 } from '@/utils/ymEvents';
 
-// 🔹 общий Supabase-клиент, как в StickyHeader
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-
-// 🔹 единая нормализация телефона
 import { normalizePhone } from '@/lib/normalizePhone';
 
-// --- animation configs ---
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -137,7 +132,6 @@ export default function CartPageClient({
   initialIsAuthenticated = false,
   initialPhone = null,
 }: CartPageClientProps) {
-  // 🔹 Старт оформления заказа
   useEffect(() => {
     trackCheckoutStart();
     if (typeof window !== 'undefined') {
@@ -210,7 +204,6 @@ export default function CartPageClient({
   const [promoId, setPromoId] = useState<string | null>(null);
   const [showPromoField, setShowPromoField] = useState<boolean>(false);
 
-  // 🔹 флаг: проверка авторизации завершена
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
   const {
@@ -238,7 +231,6 @@ export default function CartPageClient({
     resetForm,
   } = useCheckoutForm();
 
-  // 🔄 Автоскролл к активному шагу
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const el = document.getElementById(`order-step-${step}-title`);
@@ -249,7 +241,6 @@ export default function CartPageClient({
     window.scrollTo({ top, behavior: 'smooth' });
   }, [step]);
 
-  // overflow-x-hidden на мобилках
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 768) {
@@ -260,7 +251,6 @@ export default function CartPageClient({
     }
   }, []);
 
-  // Проверка корзины и удаление невалидных товаров
   useEffect(() => {
     const validateAndCleanCart = async () => {
       if (items.length === 0) return;
@@ -328,7 +318,6 @@ export default function CartPageClient({
     validateAndCleanCart();
   }, [items, clearCart, addMultipleItems]);
 
-  // Синхронизация цен в корзине
   useEffect(() => {
     const syncCartPrices = async () => {
       if (items.length === 0) return;
@@ -391,10 +380,30 @@ export default function CartPageClient({
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // ✅ Проверка сессии/профиля и загрузка бонусов
-  // ВАЖНО: эффект вызывается ОДИН РАЗ ([])
+  // ✅ КЛЮЧЕВОЙ ЭФФЕКТ: авторизация и бонусы
   useEffect(() => {
     let isMounted = true;
+
+    // 1) пробуем сразу поднять состояние из пропсов (SSR / StickyHeader)
+    const bootstrapFromProps = () => {
+      if (!initialIsAuthenticated || !initialPhone) return false;
+
+      const normalized = normalizePhone(initialPhone);
+
+      setIsAuthenticated(true);
+      setPhone(normalized);
+      setUserId((prev) => prev); // userId с сервера пока нет – оставляем как есть
+      setBonusBalance(initialBonusBalance ?? 0);
+
+      onFormChange({
+        target: { name: 'phone', value: normalized },
+      } as React.ChangeEvent<HTMLInputElement>);
+
+      setAuthChecked(true);
+      return true;
+    };
+
+    const alreadyAuthedFromProps = bootstrapFromProps();
 
     const loadBonuses = async (phoneRaw: string, userIdFromSession?: string) => {
       const normalized = normalizePhone(phoneRaw);
@@ -405,7 +414,6 @@ export default function CartPageClient({
       setPhone(normalized);
       if (userIdFromSession) setUserId(userIdFromSession);
 
-      // заполняем телефон в форме шага 1
       onFormChange({
         target: { name: 'phone', value: normalized },
       } as React.ChangeEvent<HTMLInputElement>);
@@ -440,6 +448,13 @@ export default function CartPageClient({
     };
 
     const checkAuth = async () => {
+      // если уже знаем из пропсов, что пользователь авторизован – не перетираем это
+      if (alreadyAuthedFromProps) {
+        // но всё равно считаем, что проверка завершена
+        setAuthChecked(true);
+        return;
+      }
+
       try {
         const response = await fetch('/api/auth/check-session', {
           method: 'GET',
@@ -469,12 +484,16 @@ export default function CartPageClient({
           }
         }
 
+        // сюда попадаем только если действительно НЕТ сессии
         resetAuth();
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
           console.error('[CartPageClient] Error checking auth session', error);
         }
-        resetAuth();
+        // при ошибке сети не ломаем уже существующую авторизацию из пропсов
+        if (!alreadyAuthedFromProps) {
+          resetAuth();
+        }
       }
     };
 
@@ -494,6 +513,7 @@ export default function CartPageClient({
           resetAuth();
         }
       } else {
+        // явный logout
         resetAuth();
       }
     });
@@ -515,12 +535,9 @@ export default function CartPageClient({
         window.removeEventListener('authChange', handleAuthChange);
       }
     };
-    // 👇 намеренно пустой массив зависимостей:
-    // проверка авторизации должна запускаться один раз при маунте
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // важно: зависим от пропсов и onFormChange
+  }, [initialIsAuthenticated, initialPhone, initialBonusBalance, onFormChange]);
 
-  // Локальный nextStep с проверкой шагов
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       const isValid = validateStep1();
@@ -538,7 +555,6 @@ export default function CartPageClient({
     }
   }, [step, validateStep1, validateStep4, nextStep]);
 
-  // 💰 Вычисления для заказа (доставка отдельно)
   const deliveryCost = useMemo(
     () => (form.deliveryMethod === 'delivery' ? 300 : 0),
     [form.deliveryMethod],
@@ -558,7 +574,6 @@ export default function CartPageClient({
     [selectedUpsells],
   );
 
-  // Базовая сумма без учёта доставки
   const baseTotal = subtotal + upsellTotal;
 
   const discountAmount = useMemo(() => {
@@ -581,7 +596,6 @@ export default function CartPageClient({
     return amount;
   }, [promoDiscount, promoType, baseTotal]);
 
-  // Лимит бонусов считаем от суммы без доставки
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
 
   const bonusesToUse =
@@ -593,13 +607,9 @@ export default function CartPageClient({
     setBonusesUsed(bonusesToUse);
   }, [bonusesToUse]);
 
-  // Итог без доставки
   const finalTotal = Math.max(0, baseTotal - discountAmount - bonusesToUse);
-
-  // Начисление бонусов тоже без доставки
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
-  // 🔹 Трекинг шагов
   useEffect(() => {
     trackCheckoutStep(step, {
       total: finalTotal,
@@ -607,7 +617,6 @@ export default function CartPageClient({
     });
   }, [step, finalTotal, items.length]);
 
-  // Настройки магазина
   useEffect(() => {
     let isMounted = true;
 
@@ -669,7 +678,6 @@ export default function CartPageClient({
     };
   }, [storeSettings, isStoreSettingsLoading]);
 
-  // Яндекс подсказки
   useEffect(() => {
     let isMounted = true;
 
@@ -772,7 +780,6 @@ export default function CartPageClient({
     };
   }, []);
 
-  // Upsell (удаление/обновление)
   const removeUpsell = useCallback((id: string) => {
     setSelectedUpsells((prev) => prev.filter((item) => item.id !== id));
     toast.success('Товар удалён из корзины');
@@ -788,7 +795,6 @@ export default function CartPageClient({
     );
   }, []);
 
-  // Загрузка допродаж
   useEffect(() => {
     let isMounted = true;
 
@@ -842,7 +848,6 @@ export default function CartPageClient({
     };
   }, []);
 
-  // Промокод
   const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
@@ -888,7 +893,6 @@ export default function CartPageClient({
     }
   }, [promoCode]);
 
-  // Проверка валидности товаров
   const checkItems = useCallback(async () => {
     const itemsToValidate = items
       .filter((item: CartItemType) => !item.isUpsell)
@@ -918,8 +922,6 @@ export default function CartPageClient({
                     `Товар ${item.id}: ${item.reason}`,
                 )
                 .join('; ')}`
-
-
             : 'Ошибка проверки товаров';
         toast.error(errorMessage);
         return false;
@@ -932,7 +934,6 @@ export default function CartPageClient({
     }
   }, [items]);
 
-  // 🔴 Отправка заказа
   const submitOrder = useCallback(async () => {
     if (!validateStep5(agreed)) {
       toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
@@ -1150,7 +1151,6 @@ export default function CartPageClient({
     promoCode,
   ]);
 
-  // --- Layout ---
   return (
     <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-6 pb-[80px] md:pb-12">
       <StoreBanner />
@@ -1179,7 +1179,6 @@ export default function CartPageClient({
         initial="hidden"
         animate="visible"
       >
-        {/* Левая колонка – шаги */}
         <div className="w-full max-w-full md:col-span-2 space-y-4">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1283,9 +1282,7 @@ export default function CartPageClient({
           </AnimatePresence>
         </div>
 
-        {/* Правая колонка – товары, промокод, итоги, бонусы */}
         <div className="w-full max-w-full space-y-4">
-          {/* Кнопки "Открытка" и "Шары" */}
           <div className="flex flex-col xs:flex-row gap-3 mb-4 w-full justify-center md:flex-row">
             <motion.button
               type="button"
@@ -1343,7 +1340,6 @@ export default function CartPageClient({
               );
             })}
 
-          {/* Промокод */}
           <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
             <motion.button
               onClick={() => setShowPromoField(!showPromoField)}
@@ -1417,7 +1413,6 @@ export default function CartPageClient({
             </AnimatePresence>
           </div>
 
-          {/* Итоги (доставка отдельно) */}
           <CartSummary
             items={items}
             selectedUpsells={selectedUpsells}
@@ -1434,7 +1429,6 @@ export default function CartPageClient({
             deliveryMethod={form.deliveryMethod}
           />
 
-          {/* Бонусы и личный кабинет */}
           <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm space-y-3">
             <h3 className="text-sm font-semibold">Бонусы и личный кабинет</h3>
 
@@ -1498,7 +1492,6 @@ export default function CartPageClient({
         </div>
       </motion.div>
 
-      {/* Модалки upsell */}
       {showPostcard && (
         <UpsellModal
           type="postcard"
@@ -1543,7 +1536,6 @@ export default function CartPageClient({
         />
       )}
 
-      {/* ✅ Модалка "спасибо за заказ" */}
       <ThankYouModal
         isOpen={showSuccess && !!orderDetails}
         onClose={() => setShowSuccess(false)}
