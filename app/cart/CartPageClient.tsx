@@ -35,7 +35,7 @@ import {
 // 🔹 общий Supabase-клиент, как в StickyHeader
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
-// 🔹 единая нормализация телефона (как в API и других местах)
+// 🔹 единая нормализация телефона
 import { normalizePhone } from '@/lib/normalizePhone';
 
 // --- animation configs ---
@@ -50,8 +50,16 @@ const containerVariants = {
 
 const stepVariants = {
   initial: { opacity: 0, x: 100 },
-  animate: { opacity: 1, x: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-  exit: { opacity: 0, x: -100, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
+  animate: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+  },
+  exit: {
+    opacity: 0,
+    x: -100,
+    transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+  },
 };
 
 interface ErrorModalProps {
@@ -77,7 +85,6 @@ interface StoreSettings {
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
-// 🔹 Пропсы для CartPageClient – сюда можно передавать бонусы/авторизацию "как из StickyHeader"
 interface CartPageClientProps {
   initialBonusBalance?: number;
   initialIsAuthenticated?: boolean;
@@ -85,7 +92,15 @@ interface CartPageClientProps {
 }
 
 const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
-  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const daysOfWeek = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
 
   const result: Record<string, DaySchedule> = daysOfWeek.reduce(
     (acc, day) => {
@@ -122,10 +137,9 @@ export default function CartPageClient({
   initialIsAuthenticated = false,
   initialPhone = null,
 }: CartPageClientProps) {
-  // 🔹 Старт оформления заказа: Метрика + gtag
+  // 🔹 Старт оформления заказа
   useEffect(() => {
     trackCheckoutStart();
-
     if (typeof window !== 'undefined') {
       (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
     }
@@ -135,7 +149,8 @@ export default function CartPageClient({
   try {
     cartContext = useCart();
   } catch (error) {
-    process.env.NODE_ENV !== 'production' && console.error('Cart context error:', error);
+    process.env.NODE_ENV !== 'production' &&
+      console.error('Cart context error:', error);
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-red-500">
@@ -154,20 +169,23 @@ export default function CartPageClient({
     addMultipleItems,
   } = cartContext;
 
-  // 🔹 стартовые значения из пропсов
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialIsAuthenticated);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    initialIsAuthenticated,
+  );
   const [phone, setPhone] = useState<string | null>(initialPhone);
   const [userId, setUserId] = useState<string | null>(null);
   const [bonusBalance, setBonusBalance] = useState<number>(initialBonusBalance);
   const [useBonuses, setUseBonuses] = useState<boolean>(false);
   const [bonusesUsed, setBonusesUsed] = useState<number>(0);
   const [agreed, setAgreed] = useState<boolean>(false);
+
   const [upsellItems, setUpsellItems] = useState<UpsellItem[]>([]);
   const [isUpsellLoading, setIsUpsellLoading] = useState<boolean>(true);
   const [selectedUpsells, setSelectedUpsells] = useState<UpsellItem[]>([]);
   const [showPostcard, setShowPostcard] = useState<boolean>(false);
   const [showBalloons, setShowBalloons] = useState<boolean>(false);
   const [postcardText, setPostcardText] = useState<string>('');
+
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<{
@@ -176,11 +194,15 @@ export default function CartPageClient({
     trackingUrl?: string;
   } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
+
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false);
+
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
-  const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState<boolean>(true);
+  const [isStoreSettingsLoading, setIsStoreSettingsLoading] =
+    useState<boolean>(true);
+
   const [promoCode, setPromoCode] = useState<string>('');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoDiscount, setPromoDiscount] = useState<number | null>(null);
@@ -188,7 +210,7 @@ export default function CartPageClient({
   const [promoId, setPromoId] = useState<string | null>(null);
   const [showPromoField, setShowPromoField] = useState<boolean>(false);
 
-  // 🔹 флаг, что проверка авторизации завершена
+  // 🔹 флаг: проверка авторизации завершена
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
   const {
@@ -370,16 +392,20 @@ export default function CartPageClient({
   }, [items, clearCart, addMultipleItems]);
 
   // ✅ Проверка сессии/профиля и загрузка бонусов
+  // ВАЖНО: эффект вызывается ОДИН РАЗ ([])
   useEffect(() => {
     let isMounted = true;
 
     const loadBonuses = async (phoneRaw: string, userIdFromSession?: string) => {
       const normalized = normalizePhone(phoneRaw);
 
+      if (!isMounted) return;
+
       setIsAuthenticated(true);
       setPhone(normalized);
       if (userIdFromSession) setUserId(userIdFromSession);
 
+      // заполняем телефон в форме шага 1
       onFormChange({
         target: { name: 'phone', value: normalized },
       } as React.ChangeEvent<HTMLInputElement>);
@@ -389,6 +415,8 @@ export default function CartPageClient({
           `/api/account/bonuses?phone=${encodeURIComponent(normalized)}`,
         );
         const bonusJson = await bonusRes.json();
+
+        if (!isMounted) return;
 
         if (bonusRes.ok && bonusJson.success) {
           setBonusBalance(bonusJson.data.bonus_balance ?? 0);
@@ -443,8 +471,9 @@ export default function CartPageClient({
 
         resetAuth();
       } catch (error) {
-        process.env.NODE_ENV !== 'production' &&
+        if (process.env.NODE_ENV !== 'production') {
           console.error('[CartPageClient] Error checking auth session', error);
+        }
         resetAuth();
       }
     };
@@ -486,7 +515,10 @@ export default function CartPageClient({
         window.removeEventListener('authChange', handleAuthChange);
       }
     };
-  }, [onFormChange]);
+    // 👇 намеренно пустой массив зависимостей:
+    // проверка авторизации должна запускаться один раз при маунте
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Локальный nextStep с проверкой шагов
   const handleNextStep = useCallback(() => {
@@ -506,8 +538,7 @@ export default function CartPageClient({
     }
   }, [step, validateStep1, validateStep4, nextStep]);
 
-  // 💰 Вычисления для заказа
-  // Доставка показывается отдельно и НЕ входит в итог
+  // 💰 Вычисления для заказа (доставка отдельно)
   const deliveryCost = useMemo(
     () => (form.deliveryMethod === 'delivery' ? 300 : 0),
     [form.deliveryMethod],
@@ -550,7 +581,7 @@ export default function CartPageClient({
     return amount;
   }, [promoDiscount, promoType, baseTotal]);
 
-  // Лимит списания бонусов считаем тоже от суммы без доставки
+  // Лимит бонусов считаем от суммы без доставки
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
 
   const bonusesToUse =
@@ -565,10 +596,10 @@ export default function CartPageClient({
   // Итог без доставки
   const finalTotal = Math.max(0, baseTotal - discountAmount - bonusesToUse);
 
-  // Начисление бонусов тоже с суммы без доставки
+  // Начисление бонусов тоже без доставки
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
-  // 🔹 Трекинг шагов чекаута в Метрику
+  // 🔹 Трекинг шагов
   useEffect(() => {
     trackCheckoutStep(step, {
       total: finalTotal,
@@ -576,7 +607,7 @@ export default function CartPageClient({
     });
   }, [step, finalTotal, items.length]);
 
-  // Загрузка настроек магазина
+  // Настройки магазина
   useEffect(() => {
     let isMounted = true;
 
@@ -757,6 +788,7 @@ export default function CartPageClient({
     );
   }, []);
 
+  // Загрузка допродаж
   useEffect(() => {
     let isMounted = true;
 
@@ -886,6 +918,8 @@ export default function CartPageClient({
                     `Товар ${item.id}: ${item.reason}`,
                 )
                 .join('; ')}`
+
+
             : 'Ошибка проверки товаров';
         toast.error(errorMessage);
         return false;
@@ -968,7 +1002,6 @@ export default function CartPageClient({
         isUpsell: true,
       }));
 
-      // 🔹 Адрес и инструкции с учётом сценария "я не знаю адрес"
       let addressString: string;
 
       if (form.deliveryMethod === 'pickup') {
@@ -1026,7 +1059,6 @@ export default function CartPageClient({
         return;
       }
 
-      // 🔹 Списание бонусов (дополнительно к API /orders)
       if (bonusesUsed > 0 && isAuthenticated) {
         try {
           const bonusRes = await fetch('/api/redeem-bonus', {
@@ -1055,7 +1087,6 @@ export default function CartPageClient({
         }
       }
 
-      // 🔹 Метрика: успешный заказ
       trackOrderSuccess({
         orderId: json.order_number ?? json.order_id,
         revenue: finalTotal,
@@ -1112,18 +1143,14 @@ export default function CartPageClient({
     postcardText,
     phone,
     bonusesUsed,
-    bonusBalance,
-    userId,
     clearCart,
     resetForm,
-    storeSettings,
-    step,
-    isAuthenticated,
     setStep,
+    isAuthenticated,
     promoCode,
   ]);
 
-  // --- Layout and rendering ---
+  // --- Layout ---
   return (
     <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-6 pb-[80px] md:pb-12">
       <StoreBanner />
@@ -1147,16 +1174,12 @@ export default function CartPageClient({
       )}
 
       <motion.div
-        className="
-          flex flex-col gap-4 
-          md:grid md:grid-cols-3 md:gap-10 
-          w-full max-w-full
-        "
+        className="flex flex-col gap-4 md:grid md:grid-cols-3 md:gap-10 w-full max-w-full"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* Левая колонка – шаги оформления */}
+        {/* Левая колонка – шаги */}
         <div className="w-full max-w-full md:col-span-2 space-y-4">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1313,7 +1336,9 @@ export default function CartPageClient({
                   key={`${isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
                   item={item}
                   removeItem={isUpsell ? removeUpsell : removeItem}
-                  updateQuantity={isUpsell ? updateUpsellQuantity : updateQuantity}
+                  updateQuantity={
+                    isUpsell ? updateUpsellQuantity : updateQuantity
+                  }
                 />
               );
             })}
@@ -1392,7 +1417,7 @@ export default function CartPageClient({
             </AnimatePresence>
           </div>
 
-          {/* Итоговая сумма (без доставки в финале) */}
+          {/* Итоги (доставка отдельно) */}
           <CartSummary
             items={items}
             selectedUpsells={selectedUpsells}
@@ -1464,10 +1489,7 @@ export default function CartPageClient({
                         toast.error('Не удалось обновить бонусный баланс');
                       });
 
-                    console.log(
-                      '[AuthWithCall] success, phone:',
-                      normalized,
-                    );
+                    console.log('[AuthWithCall] success, phone:', normalized);
                   }}
                 />
               </>
