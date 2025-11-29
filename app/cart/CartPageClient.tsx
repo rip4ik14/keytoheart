@@ -380,11 +380,10 @@ export default function CartPageClient({
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // ✅ КЛЮЧЕВОЙ ЭФФЕКТ: авторизация и бонусы
+  // ✅ Авторизация и бонусы – эффект выполняется ОДИН раз
   useEffect(() => {
     let isMounted = true;
 
-    // 1) пробуем сразу поднять состояние из пропсов (SSR / StickyHeader)
     const bootstrapFromProps = () => {
       if (!initialIsAuthenticated || !initialPhone) return false;
 
@@ -392,7 +391,6 @@ export default function CartPageClient({
 
       setIsAuthenticated(true);
       setPhone(normalized);
-      setUserId((prev) => prev); // userId с сервера пока нет – оставляем как есть
       setBonusBalance(initialBonusBalance ?? 0);
 
       onFormChange({
@@ -448,9 +446,7 @@ export default function CartPageClient({
     };
 
     const checkAuth = async () => {
-      // если уже знаем из пропсов, что пользователь авторизован – не перетираем это
       if (alreadyAuthedFromProps) {
-        // но всё равно считаем, что проверка завершена
         setAuthChecked(true);
         return;
       }
@@ -484,16 +480,12 @@ export default function CartPageClient({
           }
         }
 
-        // сюда попадаем только если действительно НЕТ сессии
         resetAuth();
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
           console.error('[CartPageClient] Error checking auth session', error);
         }
-        // при ошибке сети не ломаем уже существующую авторизацию из пропсов
-        if (!alreadyAuthedFromProps) {
-          resetAuth();
-        }
+        if (!alreadyAuthedFromProps) resetAuth();
       }
     };
 
@@ -513,7 +505,6 @@ export default function CartPageClient({
           resetAuth();
         }
       } else {
-        // явный logout
         resetAuth();
       }
     });
@@ -535,8 +526,8 @@ export default function CartPageClient({
         window.removeEventListener('authChange', handleAuthChange);
       }
     };
-    // важно: зависим от пропсов и onFormChange
-  }, [initialIsAuthenticated, initialPhone, initialBonusBalance, onFormChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNextStep = useCallback(() => {
     if (step === 1) {
@@ -583,15 +574,6 @@ export default function CartPageClient({
       promoType === 'percentage'
         ? (baseTotal * promoDiscount) / 100
         : promoDiscount;
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Calculating discountAmount:', {
-        promoDiscount,
-        promoType,
-        baseTotal,
-        amount,
-      });
-    }
 
     return amount;
   }, [promoDiscount, promoType, baseTotal]);
@@ -865,20 +847,10 @@ export default function CartPageClient({
       if (!response.ok)
         throw new Error(result.error || 'Не удалось применить промокод');
 
-      process.env.NODE_ENV !== 'production' &&
-        console.log('handleApplyPromo: Result from API:', result);
-
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
       setPromoId(result.promoId);
       setPromoError(null);
-
-      process.env.NODE_ENV !== 'production' &&
-        console.log('handleApplyPromo: State updated:', {
-          promoDiscount: result.discount,
-          promoType: result.discountType,
-          promoId: result.promoId,
-        });
 
       toast.success(
         `Промокод применён! Скидка: ${result.discount}${
@@ -886,8 +858,6 @@ export default function CartPageClient({
         }`,
       );
     } catch (error: any) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('handleApplyPromo: Error:', error);
       setPromoError(error.message);
       toast.error(error.message);
     }
