@@ -3,6 +3,9 @@
 /*  Версия: 2025-08-12 – shippingDetails в offers (AggregateOffer)            */
 /*           category = читаемое имя, 3-зв. крошки                            */
 /* -------------------------------------------------------------------------- */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -28,7 +31,6 @@ const supabaseAnon = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-export const revalidate = 3600;
 
 /* ------------------------ SSG paths ----------------------- */
 export async function generateStaticParams() {
