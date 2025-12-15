@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 import Link from 'next/link';
 import Image from 'next/image';
 import PopularProductsServer from '@components/PopularProductsServer';
@@ -42,4 +46,4 @@ export default function NotFound() {
   );
 }
 
-export const revalidate = 3600;
+
