@@ -7,6 +7,10 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ReactNode } from 'react';
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 export default function AdminProtectedLayout({
   children,
 }: {

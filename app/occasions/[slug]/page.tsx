@@ -1,4 +1,7 @@
 // app/occasions/[slug]/page.tsx
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';

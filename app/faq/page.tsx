@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 import { Metadata } from 'next';
 import FaqClient from './FaqClient';
 import { JsonLd } from 'react-schemaorg';
