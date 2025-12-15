@@ -1,36 +1,33 @@
-// ✅ Путь: components/CSRFToken.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-export default function CSRFToken({ children }: { children: (token: string) => JSX.Element }) {
+export default function CSRFToken({
+  children,
+}: {
+  children: (token: string) => React.ReactElement | null;
+}) {
   const [token, setToken] = useState('');
 
   useEffect(() => {
-    // Получаем CSRF-токен с сервера
-    const fetchToken = async () => {
+    let cancelled = false;
+
+    (async () => {
       try {
-        const res = await fetch('/api/csrf-token', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        const data = await res.json();
-        if (res.ok && data.csrfToken) {
-          setToken(data.csrfToken);
-        } else {
-          process.env.NODE_ENV !== "production" && console.error('Failed to fetch CSRF token');
-        }
-      } catch (err) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching CSRF token:', err);
+        const res = await fetch('/api/csrf', { method: 'GET' });
+        if (!res.ok) return;
+
+        const data = (await res.json()) as { token?: string };
+        if (!cancelled) setToken(data?.token ?? '');
+      } catch {
+        // молча
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-
-    fetchToken();
   }, []);
-
-  if (!token) {
-    return null; // Ждём, пока токен загрузится
-  }
 
   return children(token);
 }
