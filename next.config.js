@@ -31,32 +31,19 @@ const buildCsp = () => {
       'ws:',
       'wss:',
       'https://*.supabase.co',
-
-      // yandex (метрика/карты/виджеты иногда дергают разные поддомены)
-      'https://*.yandex.ru',
-      'https://*.yandex.net',
       'https://mc.yandex.com',
       'https://mc.yandex.ru',
       'https://api-maps.yandex.ru',
       'https://yastatic.net',
-      'https://*.yastatic.net',
       'https://ymetrica1.com',
     ],
     font: ["'self'", 'data:', 'https://yastatic.net', 'https://*.yastatic.net'],
-    frame: [
-      "'self'",
-      'https://mc.yandex.com',
-      'https://mc.yandex.ru',
-      'https://*.yandex.ru',
-      'https://*.yandex.net',
-    ],
+    frame: ["'self'", 'https://mc.yandex.com', 'https://mc.yandex.ru', 'https://yandex.ru', 'https://*.yandex.ru'],
   };
 
-  // script-src: добавил 'https:' чтобы не ломалось из-за новых yandex/static доменов
   const SCRIPT_SRC = [
     "'self'",
     "'unsafe-inline'",
-    'https:',
     'https://mc.yandex.com',
     'https://mc.yandex.ru',
     'https://api-maps.yandex.ru',
@@ -81,16 +68,8 @@ const buildCsp = () => {
 
 /* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
-  {
-    protocol: 'https',
-    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
-    pathname: '/storage/v1/object/public/**',
-  },
-  {
-    protocol: 'https',
-    hostname: '*.supabase.co',
-    pathname: '/storage/v1/object/public/**',
-  },
+  { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/object/public/**' },
+  { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
   { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
   { protocol: 'https', hostname: 'keytoheart.ru', pathname: '/**' },
 ];
@@ -102,7 +81,7 @@ if (isDev) {
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
-  
+  output: 'standalone',
 
   eslint: { ignoreDuringBuilds: true },
 
@@ -131,22 +110,17 @@ const nextConfig = {
   /* ----------------------------- Custom headers ---------------------------- */
   async headers() {
     return [
-      // CSP на всё
       {
         source: '/:path*',
-        headers: [{ key: 'Content-Security-Policy', value: buildCsp() }],
+        headers: [
+          { key: 'Content-Security-Policy', value: buildCsp() },
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
+        ],
       },
-
-      // Долгий кэш только для статики
-      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
-        (source) => ({
-          source,
-          headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-        }),
-      ),
-
-      // Можно аккуратно кэшировать только явно-статичные страницы (если реально статичные)
-      // Если сомневаешься - лучше вообще убрать этот блок.
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map((source) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      })),
       ...['/', '/about', '/policy'].map((source) => ({
         source,
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
