@@ -4,6 +4,9 @@ import { JsonLd } from 'react-schemaorg';
 import type { WebPage } from 'schema-dts';
 import ArticlesList from '@/components/ArticlesList';
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'Полезные статьи | KEY TO HEART',
   description:
