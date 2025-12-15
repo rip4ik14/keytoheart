@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { Metadata } from 'next';
 import TermsPageClient from './TermsPageClient';
 
@@ -42,7 +39,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru/terms' },
 };
 
-
+export const revalidate = 86400;
 
 export default function TermsPage() {
   return <TermsPageClient />;

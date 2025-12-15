@@ -4,34 +4,41 @@
 /*           category = читаемое имя, 3-зв. крошки                            */
 /* -------------------------------------------------------------------------- */
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 import { JsonLd } from 'react-schemaorg';
-import type { Product as SchemaProduct, AggregateOffer, ImageObject } from 'schema-dts';
+import type {
+  Product as SchemaProduct,
+  AggregateOffer,
+  ImageObject,
+} from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
 import Breadcrumbs from '@components/Breadcrumbs';
 import ProductPageClient from './ProductPageClient';
-import type { Product, ComboItem } from './types';
-
-/* ---------- cookies helper (фикс типов Next 15/TS) ---------- */
-async function getCookieStore(): Promise<ReadonlyRequestCookies> {
-  return (await cookies()) as unknown as ReadonlyRequestCookies;
-}
+import { Product, ComboItem } from './types';
 
 /* ---------- Supabase анонимный клиент ---------- */
 const supabaseAnon = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
+
+export const revalidate = 3600;
+
+/* ------------------------ SSG paths ----------------------- */
+export async function generateStaticParams() {
+  const { data } = await supabaseAnon
+    .from('products')
+    .select('id')
+    .eq('is_visible', true);
+
+  return data?.map((p) => ({ id: String(p.id) })) ?? [];
+}
 
 /* ----------------------- Metadata ------------------------ */
 export async function generateMetadata({
@@ -44,13 +51,13 @@ export async function generateMetadata({
 
   const { data } = await supabaseAnon
     .from('products')
-    .select('title, description, images, is_visible')
+    .select('title, description, images')
     .eq('id', id)
     .single();
 
-  if (!data || data.is_visible === false) {
+  if (!data) {
     return {
-      title: 'Товар не найден',
+      title: 'Товар не найден', // бренд приклеит шаблон в layout
       description: 'Страница товара не найдена.',
       robots: { index: false, follow: false },
     };
@@ -64,12 +71,12 @@ export async function generateMetadata({
   const firstImg =
     Array.isArray(data.images) && data.images[0]
       ? data.images[0]
-      : 'https://keytoheart.ru/og-cover.webp';
+      : '/og-cover.webp';
 
   const url = `https://keytoheart.ru/product/${id}`;
 
   return {
-    title: data.title,
+    title: data.title, // ← без " | KEY TO HEART", шаблон добавит сам
     description: desc.slice(0, 160),
     openGraph: {
       title: data.title,
@@ -99,18 +106,14 @@ export default async function ProductPage({
   if (Number.isNaN(id)) notFound();
 
   /* ---------- Supabase SSR-client ---------- */
-  const cookieStore = await getCookieStore();
-
+  const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll: () =>
-          cookieStore.getAll().map(({ name, value }: { name: string; value: string }) => ({
-            name,
-            value,
-          })),
+          cookieStore.getAll().map(({ name, value }) => ({ name, value })),
       },
     },
   );
@@ -125,7 +128,8 @@ export default async function ProductPage({
 
   if (error || !data || data.in_stock === false) notFound();
 
-  const categoryIds: number[] = data.product_categories?.map((c) => c.category_id) ?? [];
+  const categoryIds: number[] =
+    data.product_categories?.map((c) => c.category_id) ?? [];
   const firstCatId = categoryIds[0];
 
   /* ---------- Получаем первую категорию ---------- */
@@ -137,10 +141,9 @@ export default async function ProductPage({
       .select('name, slug')
       .eq('id', firstCatId)
       .single();
-
     if (cat) {
-      categorySlug = cat.slug ?? '';
-      categoryName = cat.name ?? '';
+      categorySlug = cat.slug;
+      categoryName = cat.name;
     }
   }
 
@@ -150,7 +153,7 @@ export default async function ProductPage({
     price: data.price ?? 0,
     original_price: data.original_price ?? undefined,
     discount_percent: data.discount_percent ?? 0,
-    images: Array.isArray(data.images) ? data.images : [],
+    images: data.images ?? [],
     description: data.description ?? '',
     composition: data.composition ?? '',
     production_time: data.production_time ?? null,
@@ -172,7 +175,8 @@ export default async function ProductPage({
         image: u.image_url ?? '',
       })) ?? [];
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.error('upsell_items ->', e);
+    process.env.NODE_ENV !== 'production' &&
+      console.error('upsell_items →', e);
   }
 
   /* ---------- Offer ---------- */
@@ -181,17 +185,24 @@ export default async function ProductPage({
       ? Math.round(product.price * (1 - product.discount_percent / 100))
       : product.price;
 
+  // shippingDetails по схеме принадлежит Offer/AggregateOffer, не Product
   const offer: AggregateOffer = {
     '@type': 'AggregateOffer',
     priceCurrency: 'RUB',
     lowPrice: finalPrice,
     highPrice: product.original_price ?? product.price,
     offerCount: 1,
-    priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+    priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000)
+      .toISOString()
+      .split('T')[0],
     availability: 'https://schema.org/InStock',
     shippingDetails: {
       '@type': 'OfferShippingDetails',
-      shippingRate: { '@type': 'MonetaryAmount', value: '0', currency: 'RUB' },
+      shippingRate: {
+        '@type': 'MonetaryAmount',
+        value: '0',
+        currency: 'RUB',
+      },
       shippingDestination: {
         '@type': 'DefinedRegion',
         addressCountry: 'RU',
@@ -215,8 +226,10 @@ export default async function ProductPage({
     ? { '@type': 'ImageObject', url: firstImageUrl }
     : undefined;
 
+  /* --------------------------- Render --------------------------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
+      {/* ---------- JSON-LD Product (category = имя, shipping внутри offers) ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
@@ -241,11 +254,17 @@ export default async function ProductPage({
         }}
       />
 
+      {/* ---------- JSON-LD BreadcrumbList (до 3-х звеньев) ---------- */}
       <JsonLd
         item={{
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Главная',
+              item: 'https://keytoheart.ru',
+            },
             ...(categorySlug
               ? [
                   {
@@ -266,11 +285,13 @@ export default async function ProductPage({
         }}
       />
 
+      {/* ---------- Визуальные хлебные крошки ---------- */}
       <Suspense fallback={null}>
         <Breadcrumbs productTitle={product.title} />
       </Suspense>
 
-      <Suspense fallback={<div className="text-center py-8">Загрузка...</div>}>
+      {/* ---------- Основной контент ---------- */}
+      <Suspense fallback={<div className="text-center py-8">Загрузка…</div>}>
         <ProductPageClient product={product} combos={combos} />
       </Suspense>
     </main>
