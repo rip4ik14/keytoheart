@@ -1,7 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-
 import { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { FAQPage, Service, WebPage } from 'schema-dts';
@@ -45,6 +41,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru/dostavka' },
 };
 
+export const revalidate = 86400;
 
 const webPageSchema: WebPage = {
   '@type': 'WebPage',

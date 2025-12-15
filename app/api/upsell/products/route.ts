@@ -1,8 +1,4 @@
 // ✅ Путь: app/api/upsell/products/route.ts
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -122,3 +118,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const revalidate = 3600;

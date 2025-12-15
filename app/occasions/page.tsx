@@ -1,7 +1,3 @@
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 // app/occasions/page.tsx
 import Link from 'next/link';
 import { Metadata } from 'next';

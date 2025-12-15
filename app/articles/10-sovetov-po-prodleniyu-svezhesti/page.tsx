@@ -5,9 +5,6 @@ import { JsonLd } from 'react-schemaorg';
 import type { Article, WebPage } from 'schema-dts';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export const metadata: Metadata = {
   title: '10 советов по продлению свежести клубничных букетов | KEY TO HEART',
   description:

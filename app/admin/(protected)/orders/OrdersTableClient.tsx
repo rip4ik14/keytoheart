@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/(protected)/orders/OrdersTableClient.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -80,7 +79,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   }, [router]);
 
   // Обновление статуса
-  const updateStatus = async (id: string, newStatus: (typeof statusOptions)[number]['value']) => {
+  const updateStatus = async (id: string, newStatus: typeof statusOptions[number]['value']) => {
     try {
       const res = await fetch('/api/orders/update-status', {
         method: 'POST',
@@ -90,7 +89,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? 'Ошибка обновления статуса');
-      setOrders(o => o.map(x => (x.id === id ? { ...x, status: newStatus } : x)));
+      setOrders(o => o.map(x => x.id === id ? { ...x, status: newStatus } : x));
       toast.success(`Заказ #${id} → ${statusOptions.find(s => s.value === newStatus)?.label}`);
     } catch (e: any) {
       toast.error(e.message);
@@ -120,30 +119,32 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   };
 
   // Поиск и фильтрация
-  const visibleOrders = orders.filter(o => {
-    let ok = true;
+  const visibleOrders = orders
+    .filter(o => {
+      let ok = true;
 
-    // Поиск по имени, телефону, получателю, адресу
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      ok = [o.phone, o.contact_name, o.recipient, o.address].some(f => f?.toLowerCase().includes(q));
-    }
+      // Поиск по имени, телефону, получателю, адресу
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        ok = [o.phone, o.contact_name, o.recipient, o.address]
+          .some(f => f?.toLowerCase().includes(q));
+      }
 
-    // Фильтр по статусу
-    if (ok && statusFilter) {
-      ok = o.status === statusFilter;
-    }
+      // Фильтр по статусу
+      if (ok && statusFilter) {
+        ok = o.status === statusFilter;
+      }
 
-    // Фильтр по дате
-    if (ok && dateFrom) {
-      ok = !!o.created_at && new Date(o.created_at) >= new Date(dateFrom);
-    }
-    if (ok && dateTo) {
-      ok = !!o.created_at && new Date(o.created_at) <= new Date(dateTo + 'T23:59:59');
-    }
+      // Фильтр по дате
+      if (ok && dateFrom) {
+        ok = !!o.created_at && new Date(o.created_at) >= new Date(dateFrom);
+      }
+      if (ok && dateTo) {
+        ok = !!o.created_at && new Date(o.created_at) <= new Date(dateTo + 'T23:59:59');
+      }
 
-    return ok;
-  });
+      return ok;
+    });
 
   // Копировать в буфер
   const copyToClipboard = (text: string) => {
@@ -151,14 +152,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     toast.success('Скопировано!');
   };
 
-  // Drag-to-scroll (для десктоп-таблицы)
+  // Drag‑to‑scroll
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    let isDown = false,
-      startX = 0,
-      scrollLeft = 0;
+    let isDown = false, startX = 0, scrollLeft = 0;
     const onDown = (e: MouseEvent) => {
       isDown = true;
       startX = e.pageX - el.offsetLeft;
@@ -200,7 +199,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       <Toaster position="top-center" />
 
       {/* Фильтры */}
-      <motion.div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white rounded-xl shadow">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white rounded-xl shadow"
+      >
         <div>
           <label className="block mb-1 text-sm font-medium text-gray-700">Статус</label>
           <select
@@ -210,14 +211,14 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           >
             <option value="">Все</option>
             {statusOptions.map(s => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
+              <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700">Поиск (имя, телефон, адрес)</label>
+          <label className="block mb-1 text-sm font-medium text-gray-700">
+            Поиск (имя, телефон, адрес)
+          </label>
           <input
             type="text"
             value={search}
@@ -248,7 +249,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         </div>
       </motion.div>
 
-      {/* Десктоп-таблица */}
+      {/* Десктоп‑таблица */}
       <div
         ref={scrollRef}
         className="hidden lg:block overflow-x-auto cursor-grab bg-white rounded-xl shadow"
@@ -335,12 +336,8 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 <td className="p-2 border-b align-middle font-semibold">
                   {o.total?.toLocaleString('ru-RU') ?? 0} ₽
                 </td>
-                <td className="p-2 border-b align-middle">
-                  {o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}
-                </td>
-                <td className="p-2 border-b align-middle">
-                  {o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}
-                </td>
+                <td className="p-2 border-b align-middle">{o.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</td>
+                <td className="p-2 border-b align-middle">{o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</td>
                 <td className="p-2 border-b align-middle">
                   {o.delivery_date && o.delivery_time
                     ? `${o.delivery_date} ${o.delivery_time}`
@@ -348,9 +345,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 </td>
                 <td className="p-2 border-b align-middle">{o.anonymous ? 'Да' : 'Нет'}</td>
                 <td className="p-2 border-b align-middle">{o.whatsapp ? 'Да' : 'Нет'}</td>
-                <td className="p-2 border-b align-middle max-w-xs break-words">
-                  {o.postcard_text || '-'}
-                </td>
+                <td className="p-2 border-b align-middle max-w-xs break-words">{o.postcard_text || '-'}</td>
                 <td className="p-2 border-b align-middle">
                   {o.promo_id
                     ? `Применён (${o.promo_discount?.toLocaleString('ru-RU') ?? 0} ₽)`
@@ -386,9 +381,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <div className="relative inline-block">
                     <button
                       onClick={() => setStatusMenuOpen(o.id)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        statusColors[o.status ?? 'pending']
-                      } border`}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[o.status ?? 'pending']} border`}
                     >
                       {statusOptions.find(s => s.value === o.status)?.label}
                     </button>
@@ -450,94 +443,22 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           >
             <div className="flex justify-between items-center mb-2">
               <span className="font-semibold">#{i + 1}</span>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  statusColors[o.status ?? 'pending']
-                }`}
-              >
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[o.status ?? 'pending']}`}>
                 {statusOptions.find(s => s.value === o.status)?.label}
               </span>
             </div>
-
             <div className="space-y-1 text-sm">
-              <div>
-                <strong>Дата:</strong>{' '}
-                {o.created_at
-                  ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
-                  : '-'}
+              <div><strong>Дата:</strong> {o.created_at ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-'}</div>
+              <div><strong>Клиент:</strong> {o.contact_name || '-'}</div>
+              <div className="flex items-center gap-1">
+                <strong>Телефон:</strong> <span>{o.phone || '-'}</span>
               </div>
-              <div>
-                <strong>Клиент:</strong> {o.contact_name || '-'}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <strong>Телефон:</strong>
-                <span>{o.phone || '-'}</span>
-              </div>
-
-              {o.phone && (
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <button
-                    onClick={() => window.open(`tel:${o.phone}`)}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded-full"
-                  >
-                    <Phone size={14} /> Позвонить
-                  </button>
-                  {o.whatsapp && (
-                    <a
-                      href={`https://wa.me/${o.phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded-full"
-                    >
-                      <MessageCircle size={14} /> WhatsApp
-                    </a>
-                  )}
-                  <button
-                    onClick={() => copyToClipboard(o.phone!)}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs border rounded-full"
-                  >
-                    <Info size={14} /> Скопировать
-                  </button>
-                </div>
-              )}
-
-              <div>
-                <strong>Получатель:</strong> {o.recipient || '-'}
-              </div>
-              <div>
-                <strong>Адрес:</strong> {o.address || '-'}
-              </div>
-              <div>
-                <strong>Сумма:</strong> {o.total?.toLocaleString('ru-RU') ?? 0} ₽
-              </div>
-              {o.delivery_date && o.delivery_time && (
-                <div>
-                  <strong>Доставка:</strong> {o.delivery_date} {o.delivery_time}
-                </div>
-              )}
-
-              {/* Управление статусом на мобильной версии */}
-              <div className="mt-3">
-                <label className="block text-xs text-gray-500 mb-1">Статус заказа</label>
-                <select
-                  value={o.status ?? 'pending'}
-                  onChange={e =>
-                    updateStatus(o.id, e.target.value as (typeof statusOptions)[number]['value'])
-                  }
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                >
-                  {statusOptions.map(s => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+              <div><strong>Получатель:</strong> {o.recipient || '-'}</div>
+              <div><strong>Адрес:</strong> {o.address || '-'}</div>
+              <div><strong>Сумма:</strong> {o.total?.toLocaleString('ru-RU') ?? 0} ₽</div>
               <button
                 onClick={() => setDeleteModal({ id: o.id, name: o.contact_name || '' })}
-                className="mt-3 text-red-600 hover:underline flex items-center gap-1 text-sm"
+                className="mt-2 text-red-600 hover:underline flex items-center gap-1 text-sm"
               >
                 <Trash2 size={16} /> Удалить
               </button>
@@ -566,8 +487,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 <h2 className="text-lg font-semibold">Удалить заказ?</h2>
               </div>
               <p className="mb-6">
-                Заказ <strong>#{deleteModal.id}</strong> — <em>{deleteModal.name}</em>.
-                <br />
+                Заказ <strong>#{deleteModal.id}</strong> — <em>{deleteModal.name}</em>.<br />
                 Это действие нельзя отменить.
               </p>
               <div className="flex justify-end gap-3">

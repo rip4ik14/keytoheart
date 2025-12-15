@@ -1,8 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
 /* -------------------------------------------------------------------------- */
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 import './styles/globals.css';
 
@@ -53,7 +51,7 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------ ISR -------------------------------------- */
-
+export const revalidate = 3600;
 
 /* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {

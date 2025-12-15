@@ -1,7 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-
 import type { Metadata } from 'next';
 import Script            from 'next/script';
 import PaymentPageClient from '@components/PaymentPageClient';

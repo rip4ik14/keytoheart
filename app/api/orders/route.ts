@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
-import { normalizePhone } from '@/lib/normalizePhone';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
+// Тип для данных, получаемых из запроса
 interface OrderRequest {
   phone: string;
   name: string;
   recipient: string;
   recipientPhone: string;
   address: string;
-  deliveryMethod?: 'pickup' | 'delivery';
+  deliveryMethod: string;
   date: string;
   time: string;
   payment: string;
@@ -33,8 +33,35 @@ interface OrderRequest {
   postcard_text?: string;
   anonymous?: boolean;
   whatsapp?: boolean;
-  ask_address_from_recipient?: boolean;
 }
+
+// Тип для результата запроса products
+interface Product {
+  id: number;
+}
+
+// Функция для нормализации телефона
+const normalizePhone = (phone: string): string => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  } else if (cleanPhone.length === 10) {
+    return `+7${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
+    return `+7${cleanPhone.slice(1)}`;
+  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
+    return `+${cleanPhone}`;
+  }
+  return phone.startsWith('+') ? phone : `+${phone}`;
+};
+
+// Функция для экранирования HTML-символов в Telegram-сообщении
+const escapeHtml = (text: string) => {
+  return text
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
+};
 
 export async function POST(req: Request) {
   try {
@@ -58,66 +85,42 @@ export async function POST(req: Request) {
       postcard_text,
       anonymous,
       whatsapp,
-      ask_address_from_recipient,
     } = body;
 
+    // Валидация обязательных полей
     if (!rawPhone || !name || !recipient || !address || !total || !cart || !rawRecipientPhone) {
-      return NextResponse.json(
-        { error: 'Отсутствуют обязательные поля' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
-    // Телефон клиента
-    const sanitizedPhoneInput = sanitizeHtml(rawPhone, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
-    const sanitizedPhone = normalizePhone(sanitizedPhoneInput);
-
-    if (!/^\+7\d{10}$/.test(sanitizedPhone)) {
+    // Нормализация и валидация телефона
+    const sanitizedPhone = normalizePhone(sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} }));
+    if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 },
+        { status: 400 }
       );
     }
-
-    // Телефон получателя
-    const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
-    const sanitizedRecipientPhone = normalizePhone(sanitizedRecipientPhoneInput);
-
-    if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
+    // Нормализация и валидация телефона получателя
+    const sanitizedRecipientPhone = normalizePhone(sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} }));
+    if (!sanitizedRecipientPhone || !/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
-        {
-          error:
-            'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)',
-        },
-        { status: 400 },
+        { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
+        { status: 400 }
       );
     }
 
+    // Санитизация текстовых полей
     const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedRecipient = sanitizeHtml(recipient, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
-    const sanitizedAddress = sanitizeHtml(address, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
+    const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedDeliveryInstructions = delivery_instructions
-      ? sanitizeHtml(delivery_instructions, {
-          allowedTags: [],
-          allowedAttributes: {},
-        })
+      ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
       : null;
     const sanitizedPostcardText = postcard_text
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
+    // Проверка профиля пользователя
     const profile = await prisma.user_profiles.findUnique({
       where: { phone: sanitizedPhone },
       select: { id: true },
@@ -126,15 +129,17 @@ export async function POST(req: Request) {
     if (!profile) {
       return NextResponse.json(
         { error: 'Профиль с таким телефоном не найден' },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
     const user_id = profile.id;
 
+    // Разделяем основные товары и upsell-дополнения
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
 
+    // Проверяем, что все product_id для основных товаров существуют в Supabase
     const productIds = regularItems
       .map((item) => {
         const id = parseInt(item.id, 10);
@@ -145,7 +150,7 @@ export async function POST(req: Request) {
     if (productIds.length !== regularItems.length && regularItems.length > 0) {
       return NextResponse.json(
         { error: 'Некоторые ID товаров некорректны (не числа)' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -156,21 +161,19 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productError) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('Supabase error fetching products:', productError);
-
+        process.env.NODE_ENV !== "production" && console.error('Supabase error fetching products:', productError);
         return NextResponse.json(
           { error: 'Ошибка получения товаров: ' + productError.message },
-          { status: 500 },
+          { status: 500 }
         );
       }
 
       const invalidItems = regularItems.filter((item) => {
         const itemId = parseInt(item.id, 10);
         const product = products.find((p: any) => p.id === itemId);
-        if (!product) return true;
-        if (!product.in_stock) return true;
-        if (!product.is_visible) return true;
+        if (!product) return true; // Товар не найден
+        if (!product.in_stock) return true; // Товар отсутствует в наличии
+        if (!product.is_visible) return true; // Товар не доступен для заказа
         return false;
       });
 
@@ -183,17 +186,14 @@ export async function POST(req: Request) {
           if (!product.is_visible) return `Товар с ID ${itemId} не доступен для заказа`;
           return `Товар с ID ${itemId} недоступен`;
         });
-
         return NextResponse.json(
           { error: reasons.join('; ') },
-          { status: 400 },
+          { status: 400 }
         );
       }
     }
 
-    const finalDeliveryMethod: 'pickup' | 'delivery' =
-      deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
-
+    // Генерируем order_number (используем автоинкремент из базы)
     const order = await prisma.orders.create({
       data: {
         user_id,
@@ -202,13 +202,13 @@ export async function POST(req: Request) {
         contact_name: sanitizedName,
         recipient: sanitizedRecipient,
         address: sanitizedAddress,
-        delivery_method: finalDeliveryMethod,
+        delivery_method: deliveryMethod,
         delivery_date: date,
         delivery_time: time,
         payment_method: payment,
         total,
         bonuses_used,
-        bonus: 0,
+        bonus: 0, // Бонусы не начисляем при создании
         promo_id,
         promo_discount,
         status: 'pending',
@@ -223,6 +223,7 @@ export async function POST(req: Request) {
       select: { id: true, order_number: true, items: true, upsell_details: true },
     });
 
+    // Сохраняем основные товары в order_items
     const orderItems = regularItems.map((item) => ({
       order_id: order.id,
       product_id: parseInt(item.id, 10),
@@ -236,27 +237,24 @@ export async function POST(req: Request) {
           data: orderItems,
         });
       } catch (itemError: any) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[order_items error]', itemError.message);
+        process.env.NODE_ENV !== "production" && console.error('[order_items error]', itemError.message);
       }
     }
 
     const baseUrl = new URL(req.url).origin;
 
+    // --- Побочные ошибки ловим отдельно ---
     let redeemBonusError: string | null = null;
     let promoError: string | null = null;
     let telegramError: string | null = null;
 
+    // Списание бонусов
     if (bonuses_used > 0) {
       try {
         const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: sanitizedPhone,
-            amount: bonuses_used,
-            order_id: order.id,
-          }),
+          body: JSON.stringify({ phone: sanitizedPhone, amount: bonuses_used, order_id: order.id }),
         });
         if (!res.ok) {
           redeemBonusError = await res.text();
@@ -266,6 +264,7 @@ export async function POST(req: Request) {
       }
     }
 
+    // Обновление промокода (использований)
     if (promo_id) {
       try {
         const promoData = await prisma.promo_codes.findUnique({
@@ -285,70 +284,32 @@ export async function POST(req: Request) {
       }
     }
 
-    const regularList = regularItems.length
-      ? regularItems
-          .map((i) =>
-            `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${
-              i.price * i.quantity
-            }₽`,
-          )
-          .join('\n')
+    // Формируем сообщение для Telegram (без ПДн)
+    const itemsList = regularItems.length
+      ? regularItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${i.price * i.quantity}₽`).join('\n')
       : 'Нет основных товаров';
-
     const upsellList = upsellItems.length
-      ? upsellItems
-          .map((i) =>
-            `• ${sanitizeHtml(i.title, { allowedTags: [] })} (${i.category || 'доп.'}) ×${
-              i.quantity
-            } — ${i.price * i.quantity}₽`,
-          )
-          .join('\n')
+      ? upsellItems.map((i) => `• ${sanitizeHtml(i.title, { allowedTags: [] })} (${i.category}) ×${i.quantity} — ${i.price}₽`).join('\n')
       : 'Нет дополнений';
-
-    const deliveryMethodText =
-      finalDeliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
-
+    const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
     const promoText = promo_id
       ? `<b>Промокод:</b> Применён (скидка: ${promo_discount}₽)`
       : `<b>Промокод:</b> Не применён`;
-
-    const anonymousText = anonymous ? 'Да' : 'Нет';
-
-    let addressMode = '';
-    if (finalDeliveryMethod === 'pickup') {
-      addressMode = 'Самовывоз (адрес выдачи в описании магазина)';
-    } else if (
-      sanitizedAddress === 'Адрес уточнить у получателя' ||
-      ask_address_from_recipient
-    ) {
-      addressMode = 'Адрес уточнить у получателя';
-    } else if (sanitizedAddress === 'Самовывоз') {
-      addressMode = 'Самовывоз';
-    } else {
-      addressMode = 'Адрес указан в карточке заказа';
-    }
-
-    const whatsappText = whatsapp
-      ? 'Да (можно писать клиенту в WhatsApp)'
-      : 'Не указано';
-
     const message = `<b>🆕 Новый заказ #${order.order_number}</b>
 <b>Сумма:</b> ${total} ₽
 <b>Бонусы списано:</b> ${bonuses_used}
-<b>Дата/время:</b> ${date} ${time}
+<b>Дата/Время:</b> ${date} ${time}
 <b>Способ доставки:</b> ${deliveryMethodText}
-<b>Анонимный заказ:</b> ${anonymousText}
-<b>Адрес:</b> ${addressMode}
-<b>Связь по WhatsApp:</b> ${whatsappText}
 <b>Оплата:</b> ${payment === 'cash' ? 'Наличные' : 'Онлайн'}
 ${promoText}
 
 <b>Основные товары:</b>
-${regularList}
+${itemsList}
 
 <b>Дополнения:</b>
 ${upsellList}`;
 
+    // Отправляем сообщение в Telegram (не роняем заказ)
     try {
       const telegramResponse = await fetch(
         `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
@@ -360,19 +321,18 @@ ${upsellList}`;
             text: message,
             parse_mode: 'HTML',
           }),
-        },
+        }
       );
       if (!telegramResponse.ok) {
         telegramError = await telegramResponse.text();
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[Telegram error]', telegramError);
+        process.env.NODE_ENV !== "production" && console.error('[Telegram error]', telegramError);
       }
     } catch (e: any) {
       telegramError = e.message;
-      process.env.NODE_ENV !== 'production' &&
-        console.error('[Telegram send error]', telegramError);
+      process.env.NODE_ENV !== "production" && console.error('[Telegram send error]', telegramError);
     }
 
+    // Возвращаем всегда успех (даже если telegram/промо упали)
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -386,12 +346,10 @@ ${upsellList}`;
       promoError,
     });
   } catch (error: any) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('[ORDER API ERROR]', error, error?.stack);
-
+    process.env.NODE_ENV !== "production" && console.error('[ORDER API ERROR]', error, error?.stack);
     return NextResponse.json(
       { error: 'Ошибка сервера: ' + error.message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
