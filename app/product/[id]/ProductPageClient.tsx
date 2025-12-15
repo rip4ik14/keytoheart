@@ -328,7 +328,7 @@ export default function ProductPageClient({
     return result || 'Мгновенно';
   }
 
-    const handleAdd = (
+  const handleAdd = (
     id: number,
     title: string,
     price: number,
@@ -368,7 +368,6 @@ export default function ProductPageClient({
 
     const url = window.location.href;
 
-    /* Web Share API ─ мобильные Chrome / iOS Safari */
     if (navigator.share) {
       navigator
         .share({
@@ -376,18 +375,23 @@ export default function ProductPageClient({
           text: `Посмотрите букет «${product.title}» на KEY TO HEART!`,
           url,
         })
-        .catch(() => {});        // пользователь отменил
+        .catch(() => {});
       return;
     }
 
-    /* fallback: копируем ссылку */
     navigator.clipboard
       .writeText(url)
       .then(() => alert('Ссылка скопирована в буфер обмена!'))
       .catch(() => alert('Не удалось скопировать ссылку :('));
   };
 
- /* =================================================================== */
+  const handleBack = () => {
+    if (typeof window !== 'undefined') {
+      window.history.back();
+    }
+  };
+
+  /* =================================================================== */
   /*                                 JSX                                 */
   /* =================================================================== */
   return (
@@ -408,32 +412,92 @@ export default function ProductPageClient({
       <meta itemProp="name"  content={product.title} />
       {images[0] && <link itemProp="image" href={images[0]} />}
 
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
+        {/* ---------- мобильная верхняя панель ---------- */}
+        <div className="flex items-center justify-between mb-3 lg:hidden">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm"
+            aria-label="Назад"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Назад</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="rounded-full bg-gray-100 p-2"
+            aria-label="Поделиться"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+        </div>
+
         {/* ---------- уведомления ---------- */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
-              className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
+              className="
+                fixed z-50
+                bg-black text-white px-4 py-3 rounded-2xl shadow-lg
+                left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
+                md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
+              "
               variants={notificationVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
+              aria-live="assertive"
             >
-              Добавлено в корзину!
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs sm:text-sm font-medium">
+                  Товар добавлен в корзину
+                </span>
+                <a
+                  href="/cart"
+                  className="
+                    text-[11px] sm:text-xs font-semibold uppercase tracking-tight
+                    bg-white text-black rounded-full px-3 py-1
+                  "
+                >
+                  В корзину
+                </a>
+              </div>
             </motion.div>
           )}
+
           {Object.entries(comboNotifications).map(
             ([id, visible]) =>
               visible && (
                 <motion.div
                   key={id}
-                  className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50"
+                  className="
+                    fixed z-50
+                    bg-black text-white px-4 py-3 rounded-2xl shadow-lg
+                    left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
+                    md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
+                  "
                   variants={notificationVariants}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
+                  aria-live="assertive"
                 >
-                  Добавлено в корзину!
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs sm:text-sm font-medium">
+                      Товар добавлен в корзину
+                    </span>
+                    <a
+                      href="/cart"
+                      className="
+                        text-[11px] sm:text-xs font-semibold uppercase tracking-tight
+                        bg-white text-black rounded-full px-3 py-1
+                      "
+                    >
+                      В корзину
+                    </a>
+                  </div>
                 </motion.div>
               ),
           )}
@@ -465,7 +529,7 @@ export default function ProductPageClient({
                 {images.length ? (
                   images.map((src, i) => (
                     <SwiperSlide key={i}>
-                      <div className="relative aspect-[4/3] w-full bg-gray-100">
+                      <div className="relative aspect-[4/5] sm:aspect-[4/3] w-full bg-gray-100">
                         <Image
                           src={src}
                           alt={`${product.title} — фото ${i + 1}`}
@@ -482,7 +546,7 @@ export default function ProductPageClient({
                   ))
                 ) : (
                   <SwiperSlide>
-                    <div className="relative aspect-[4/3] w-full bg-gray-100">
+                    <div className="relative aspect-[4/5] sm:aspect-[4/3] w-full bg-gray-100">
                       <Image
                         src="/placeholder.jpg"
                         alt="Изображение отсутствует"
@@ -498,13 +562,13 @@ export default function ProductPageClient({
 
                 {/* стрелки */}
                 <button
-                  className="customSwiperButtonPrev absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  className="customSwiperButtonPrev hidden lg:flex absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
                   aria-label="Предыдущее изображение"
                 >
                   <ChevronLeft className="text-white text-2xl" />
                 </button>
                 <button
-                  className="customSwiperButtonNext absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
+                  className="customSwiperButtonNext hidden lg:flex absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
                   aria-label="Следующее изображение"
                 >
                   <ChevronRight className="text-white text-2xl" />
@@ -554,7 +618,6 @@ export default function ProductPageClient({
             </div>
           </motion.div>
 
-
           {/* ---------- правая колонка ---------- */}
           <motion.div
             className="flex flex-col space-y-4 sm:space-y-6"
@@ -563,7 +626,7 @@ export default function ProductPageClient({
             animate="visible"
           >
             {/* бейджи */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mt-1">
               {discountPercent > 0 && (
                 <>
                   <span className="px-2 py-1 text-xs font-bold rounded bg-black text-white">
@@ -577,7 +640,7 @@ export default function ProductPageClient({
             </div>
 
             <h1
-              className="text-2xl sm:text-3xl font-bold uppercase tracking-tight leading-tight"
+              className="text-xl sm:text-2xl lg:text-3xl font-bold uppercase tracking-tight leading-tight"
               itemProp="name"
             >
               {product.title}
@@ -595,9 +658,9 @@ export default function ProductPageClient({
                 itemProp="availability"
                 href="https://schema.org/InStock"
               />
-              <div className="flex items-end gap-4">
+              <div className="flex items-end gap-3 lg:gap-4">
                 <span
-                  className="text-3xl sm:text-4xl font-bold"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-bold"
                   itemProp="price"
                   content={String(discountedPrice)}
                 >
@@ -605,7 +668,7 @@ export default function ProductPageClient({
                 </span>
                 {discountPercent > 0 && (
                   <>
-                    <span className="text-xl text-gray-500 line-through">
+                    <span className="text-base sm:text-lg text-gray-500 line-through">
                       {product.price}₽
                     </span>
                     <span className="px-2 py-1 text-xs font-semibold rounded bg-black text-white">
@@ -613,20 +676,20 @@ export default function ProductPageClient({
                     </span>
                   </>
                 )}
-                <span className="ml-3 text-base sm:text-lg flex items-center gap-1">
-                  + бонус {bonus}₽
-                  <span
-                    className="ml-1 text-gray-600 cursor-pointer"
-                    title="Бонус за оплату заказа"
-                  >
-                    ⓘ
-                  </span>
-                </span>
               </div>
+              <span className="text-sm sm:text-base flex items-center gap-1 text-gray-700">
+                + бонус {bonus}₽
+                <span
+                  className="ml-1 text-gray-500 cursor-pointer"
+                  title="Бонус за оплату заказа"
+                >
+                  ⓘ
+                </span>
+              </span>
             </div>
 
             {/* доставка / изготовление */}
-            <div className="flex flex-col gap-2 text-base">
+            <div className="flex flex-col gap-2 text-sm sm:text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
                   <Image
@@ -653,8 +716,8 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* кнопки */}
-            <div className="flex gap-3">
+            {/* кнопки (только десктоп) */}
+            <div className="hidden lg:flex gap-3">
               <motion.button
                 onClick={() =>
                   handleAdd(
@@ -693,7 +756,7 @@ export default function ProductPageClient({
               <section className="space-y-1 pt-3 border-t">
                 <h2 className="font-bold text-lg">О товаре</h2>
                 <p
-                  className="whitespace-pre-line leading-loose"
+                  className="whitespace-pre-line leading-relaxed text-sm sm:text-base"
                   itemProp="description"
                 >
                   {product.description}
@@ -705,7 +768,7 @@ export default function ProductPageClient({
             {product.composition && (
               <section className="space-y-1">
                 <h2 className="font-bold text-lg">Состав</h2>
-                <ul className="list-disc pl-5 leading-loose">
+                <ul className="list-disc pl-5 leading-relaxed text-sm sm:text-base">
                   {product.composition.split('\n').map((row, i) => (
                     <li key={i}>{row.trim()}</li>
                   ))}
@@ -748,7 +811,7 @@ export default function ProductPageClient({
                         ))}
                     </div>
                   </div>
-                  <p className="text-gray-700 mt-1">{review.text}</p>
+                  <p className="text-gray-700 mt-1 text-sm sm:text-base">{review.text}</p>
                 </div>
               ))}
             </section>
@@ -850,6 +913,36 @@ export default function ProductPageClient({
             )}
           </motion.section>
         )}
+
+        {/* ---------- мобильная нижняя панель «В корзину» ---------- */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white px-3 py-3 flex items-center justify-between lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col">
+            <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
+            <span className="text-[11px] text-gray-500 leading-none mt-1">
+              + бонус {bonus} ₽
+            </span>
+          </div>
+          <motion.button
+            onClick={() =>
+              handleAdd(
+                product.id,
+                product.title,
+                discountedPrice,
+                images[0] || null,
+                product.production_time ?? null,
+              )
+            }
+            className="flex-1 ml-3 py-3 bg-black text-white rounded-lg font-bold text-sm uppercase tracking-wide hover:bg-gray-800 transition"
+            variants={buttonVariants}
+            initial="rest"
+            whileHover="hover"
+            whileTap="tap"
+            aria-label="Добавить в корзину"
+            rel="nofollow"
+          >
+            В КОРЗИНУ
+          </motion.button>
+        </div>
       </div>
     </section>
   );
