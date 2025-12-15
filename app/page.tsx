@@ -1,6 +1,8 @@
 /* -------------------------------------------------------------------------- */
 /*  Главная страница (SEO boost + Edge runtime + FAQ)                         */
 /* -------------------------------------------------------------------------- */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
@@ -70,7 +72,7 @@ interface CategoryMeta {
 }
 
 /* -------------------------- ISR / Edge flags ---------------------------- */
-export const revalidate = 300;
+
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
