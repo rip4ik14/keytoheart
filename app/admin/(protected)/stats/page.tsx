@@ -3,7 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { PrismaClient } from '@prisma/client';
 import StatsClient from './StatsClient';
 
-export const revalidate = 60; // обновлять раз в минуту
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // обновлять только на запрос и не кэшировать на билд
 
 const prisma = new PrismaClient();
 

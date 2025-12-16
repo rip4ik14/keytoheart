@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import PopularProductsServer from '@components/PopularProductsServer';
+import PopularProductsClientFetch from '@components/PopularProductsClientFetch';
 
 export default function NotFound() {
   return (
@@ -34,10 +34,7 @@ export default function NotFound() {
       </div>
 
       {/* Популярные товары */}
-      <section className="w-full max-w-6xl px-2">
-        <h2 className="text-2xl font-bold mb-5 text-center">Популярные товары</h2>
-        <PopularProductsServer />
-      </section>
+      <PopularProductsClientFetch />
     </div>
   );
 }
