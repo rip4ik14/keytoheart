@@ -1,11 +1,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import PopularProductsServer from '@components/PopularProductsServer';
+
+const quickLinks = [
+  { href: '/catalog', label: 'Каталог' },
+  { href: '/articles', label: 'Статьи и подборки' },
+  { href: '/faq', label: 'FAQ' },
+  { href: '/contacts', label: 'Контакты' },
+];
 
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-[#f7f8fa] flex flex-col items-center pb-24">
-      {/* Секция 404 */}
       <div className="w-full flex flex-col items-center justify-center py-12 mb-6">
         <div className="mb-6">
           <Image
@@ -23,7 +28,7 @@ export default function NotFound() {
         <p className="text-base md:text-lg text-gray-700 mb-6 text-center max-w-xl">
           Возможно, страница удалена или её никогда не существовало.
           <br className="hidden md:block" />
-          Попробуйте выбрать из популярных товаров или вернуться на главную.
+          Выберите нужный раздел или вернитесь на главную.
         </p>
         <Link
           href="/"
@@ -31,13 +36,18 @@ export default function NotFound() {
         >
           На главную
         </Link>
+        <div className="flex flex-wrap justify-center gap-3">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-800 hover:border-black hover:text-black transition"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
       </div>
-
-      {/* Популярные товары */}
-      <section className="w-full max-w-6xl px-2">
-        <h2 className="text-2xl font-bold mb-5 text-center">Популярные товары</h2>
-        <PopularProductsServer />
-      </section>
     </div>
   );
 }

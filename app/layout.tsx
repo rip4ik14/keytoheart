@@ -51,7 +51,9 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------ ISR -------------------------------------- */
-export const revalidate = 3600;
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 /* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
