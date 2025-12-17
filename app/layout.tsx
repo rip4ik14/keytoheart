@@ -123,6 +123,9 @@ export default async function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   let categories: Category[] = [];
   try {
     const res = await fetch(
@@ -130,8 +133,10 @@ export default async function RootLayout({
       {
         headers: { apikey: supabaseKey },
         next: { revalidate: 3600 },
+        signal: controller.signal,
       },
     );
+
     const data = await res.json();
     if (Array.isArray(data)) {
       categories = data.map((c: any) => ({
@@ -154,6 +159,8 @@ export default async function RootLayout({
     process.env.NODE_ENV !== 'production' &&
       console.warn('[layout] categories fetch error →', e);
     categories = [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   return (
