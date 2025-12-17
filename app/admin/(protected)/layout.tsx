@@ -1,6 +1,9 @@
 // app/admin/(protected)/layout.tsx
 'use client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
