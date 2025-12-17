@@ -80,7 +80,6 @@ if (isDev) {
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
-  output: 'standalone',
 
   eslint: { ignoreDuringBuilds: true },
 
