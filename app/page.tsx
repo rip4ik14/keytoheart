@@ -49,6 +49,22 @@ const faqEntities: FAQPage['mainEntity'] = faqList.map((f) => ({
   acceptedAnswer: { '@type': 'Answer', text: f.answer },
 }));
 
+const REQUEST_TIMEOUT = 8000;
+
+async function withTimeout<T>(
+  promise: Promise<T> | PromiseLike<T>,
+  timeoutMs = REQUEST_TIMEOUT,
+): Promise<T> {
+  const wrappedPromise = Promise.resolve(promise);
+
+  return Promise.race<T>([
+    wrappedPromise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Timed out fetching data')), timeoutMs),
+    ),
+  ]);
+}
+
 /* --------------------------------- Типы --------------------------------- */
 interface Product {
   id: number;
@@ -191,29 +207,37 @@ export default async function Home() {
   );
 
   /* ---------- Параллельные запросы: продукты + связи ---------- */
-  const [
-    { data: pc, error: pcError },
-    { data: pr, error: prError },
-  ] = await Promise.all([
-    supabase.from('product_categories').select('product_id, category_id'),
-    supabase
-      .from('products')
-      .select(
-        'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
-      )
-      .eq('in_stock', true)
-      .not('images', 'is', null)
-      .order('is_popular', { ascending: false }) // сначала популярные
-      .order('id', { ascending: false })
-      .limit(120), // ограничиваем выборку для главной
-  ]);
+  let pcSafe: { product_id: number; category_id: number }[] = [];
+  let prSafe: any[] = [];
 
-  if (pcError || prError) {
-    console.error('Supabase error on home products', pcError || prError);
+  try {
+    const [{ data: pc, error: pcError }, { data: pr, error: prError }] =
+      await Promise.all([
+        withTimeout(supabase.from('product_categories').select('product_id, category_id')),
+        withTimeout(
+          supabase
+            .from('products')
+            .select(
+              'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
+            )
+            .eq('in_stock', true)
+            .not('images', 'is', null)
+            .order('is_popular', { ascending: false }) // сначала популярные
+            .order('id', { ascending: false })
+            .limit(120), // ограничиваем выборку для главной
+        ),
+      ]);
+
+    if (pcError) throw new Error(pcError.message);
+    if (prError) throw new Error(prError.message);
+
+    pcSafe = pc ?? [];
+    prSafe = pr ?? [];
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[home] products fetch failed →', error);
+    }
   }
-
-  const pcSafe = pc ?? [];
-  const prSafe = pr ?? [];
 
   /* -------- product_id → [category_id,…] Map -------- */
   const pcMap = new Map<number, number[]>();
@@ -238,16 +262,25 @@ export default async function Home() {
   /* ---------------------- Категории --------------------- */
   const uniqueCatIds = [...new Set(products.flatMap((p) => p.category_ids))];
 
-  const { data: cat, error: catError } = await supabase
-    .from('categories')
-    .select('id,name,slug')
-    .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]);
+  let catSafe: { id: number; name: string; slug: string }[] = [];
 
-  if (catError) {
-    console.error('Supabase error on home categories', catError);
+  if (uniqueCatIds.length) {
+    try {
+      const { data: cat, error: catError } = await withTimeout(
+        supabase
+          .from('categories')
+          .select('id,name,slug')
+          .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]),
+      );
+
+      if (catError) throw new Error(catError.message);
+      catSafe = cat ?? [];
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[home] categories fetch failed →', error);
+      }
+    }
   }
-
-  const catSafe = cat ?? [];
 
   const catMap = new Map<number, { name: string; slug: string }>(
     catSafe.map((c) => [c.id, { name: c.name, slug: c.slug }]),
