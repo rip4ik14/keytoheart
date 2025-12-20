@@ -119,32 +119,6 @@ export default function ProductPageClient({
     [product.images],
   );
 
-  /* -------------------------- JSON-LD ----------------------------- */
-  const productLd = useMemo(
-    () => ({
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      name: product.title,
-      description: product.description ?? '',
-      image: images,
-      sku: String(product.id),
-      brand: { '@type': 'Brand', name: 'KEY TO HEART' },
-      offers: {
-        '@type': 'Offer',
-        priceCurrency: 'RUB',
-        price: discountedPrice,
-        availability: 'https://schema.org/InStock',
-        url: typeof window !== 'undefined' ? window.location.href : 'https://keytoheart.ru',
-      },
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: 5,
-        reviewCount: 3,
-      },
-    }),
-    [product.title, product.description, images, discountedPrice, product.id],
-  );
-
   /* ------------------------- side-effects ------------------------- */
   /* загрузка настроек магазина */
   useEffect(() => {
@@ -235,9 +209,10 @@ export default function ProductPageClient({
     }
 
     const now = new Date();
-    const totalMinutes = product.production_time + 30; // 🔸 +30 минут на доставку
+    const totalMinutes = product.production_time + 30; // +30 минут на доставку
     let earliestDate = new Date(now.getTime() + totalMinutes * 60 * 1000);
     let attempts = 0;
+
     while (attempts < 7) {
       const dayKey = earliestDate
         .toLocaleString('en-US', { weekday: 'long' })
@@ -271,8 +246,7 @@ export default function ProductPageClient({
         const effectiveEnd =
           orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
 
-        if (earliestDate < effectiveStart)
-          earliestDate = new Date(effectiveStart);
+        if (earliestDate < effectiveStart) earliestDate = new Date(effectiveStart);
 
         if (earliestDate <= effectiveEnd) {
           setEarliestDelivery(
@@ -312,7 +286,7 @@ export default function ProductPageClient({
     const cases = [2, 0, 1, 1, 1, 2];
     return words[(num % 100 > 4 && num % 100 < 20) ? 2 : cases[(num % 10 < 5) ? num % 10 : 5]];
   }
-  
+
   function formatProductionTime(minutes: number | null): string | null {
     if (minutes == null || minutes <= 0) return null;
     const hours = Math.floor(minutes / 60);
@@ -398,20 +372,7 @@ export default function ProductPageClient({
     <section
       className="min-h-screen bg-white text-black"
       aria-label={`Товар ${product.title}`}
-      itemScope
-      itemType="https://schema.org/Product"
     >
-      {/* встроенный JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }}
-      />
-      {/* micro-meta */}
-      <meta itemProp="sku"   content={String(product.id)} />
-      <meta itemProp="brand" content="KEY TO HEART" />
-      <meta itemProp="name"  content={product.title} />
-      {images[0] && <link itemProp="image" href={images[0]} />}
-
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
         {/* ---------- мобильная верхняя панель ---------- */}
         <div className="flex items-center justify-between mb-3 lg:hidden">
@@ -532,7 +493,7 @@ export default function ProductPageClient({
                       <div className="relative aspect-[4/5] sm:aspect-[4/3] w-full bg-gray-100">
                         <Image
                           src={src}
-                          alt={`${product.title} — фото ${i + 1}`}
+                          alt={`${product.title} - фото ${i + 1}`}
                           fill
                           placeholder="blur"
                           blurDataURL={BLUR_PLACEHOLDER}
@@ -585,8 +546,8 @@ export default function ProductPageClient({
                   modules={[Navigation, Thumbs]}
                   className="mt-1 sm:mt-3"
                   breakpoints={{
-                    320:  { slidesPerView: 4 },
-                    640:  { slidesPerView: 5 },
+                    320: { slidesPerView: 4 },
+                    640: { slidesPerView: 5 },
                     1024: { slidesPerView: 6 },
                   }}
                 >
@@ -639,31 +600,14 @@ export default function ProductPageClient({
               )}
             </div>
 
-            <h1
-              className="text-xl sm:text-2xl lg:text-3xl font-bold uppercase tracking-tight leading-tight"
-              itemProp="name"
-            >
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold uppercase tracking-tight leading-tight">
               {product.title}
             </h1>
 
-            {/* offers microdata */}
-            <div
-              itemProp="offers"
-              itemScope
-              itemType="https://schema.org/Offer"
-              className="flex flex-col gap-2"
-            >
-              <meta itemProp="priceCurrency" content="RUB" />
-              <link
-                itemProp="availability"
-                href="https://schema.org/InStock"
-              />
+            {/* цена */}
+            <div className="flex flex-col gap-2">
               <div className="flex items-end gap-3 lg:gap-4">
-                <span
-                  className="text-2xl sm:text-3xl lg:text-4xl font-bold"
-                  itemProp="price"
-                  content={String(discountedPrice)}
-                >
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">
                   {discountedPrice} ₽
                 </span>
                 {discountPercent > 0 && (
@@ -692,25 +636,16 @@ export default function ProductPageClient({
             <div className="flex flex-col gap-2 text-sm sm:text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
-                  <Image
-                    src="/icons/clock.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                  />
+                  <Image src="/icons/clock.svg" alt="" width={20} height={20} />
                   <span>
-                    Время изготовления: {formatProductionTime(product.production_time) || 'Не указано'}
+                    Время изготовления:{' '}
+                    {formatProductionTime(product.production_time) || 'Не указано'}
                   </span>
                 </div>
               )}
               {earliestDelivery && (
                 <div className="flex items-center gap-2">
-                  <Image
-                    src="/icons/truck.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                  />
+                  <Image src="/icons/truck.svg" alt="" width={20} height={20} />
                   <span>{earliestDelivery}</span>
                 </div>
               )}
@@ -755,10 +690,7 @@ export default function ProductPageClient({
             {product.description && (
               <section className="space-y-1 pt-3 border-t">
                 <h2 className="font-bold text-lg">О товаре</h2>
-                <p
-                  className="whitespace-pre-line leading-relaxed text-sm sm:text-base"
-                  itemProp="description"
-                >
+                <p className="whitespace-pre-line leading-relaxed text-sm sm:text-base">
                   {product.description}
                 </p>
               </section>
@@ -776,7 +708,7 @@ export default function ProductPageClient({
               </section>
             )}
 
-            {/* отзывы */}
+            {/* отзывы (визуально можно оставить, но без schema) */}
             <section className="space-y-4">
               <h2 className="font-bold text-lg">Отзывы клиентов</h2>
               {[

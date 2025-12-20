@@ -3,28 +3,35 @@
 /* -------------------------------------------------------------------------- */
 
 import React, { Suspense } from 'react';
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type { ItemList, FAQPage, WebPage, BreadcrumbList } from 'schema-dts';
+import type {
+  ItemList,
+  FAQPage,
+  WebPage,
+  BreadcrumbList,
+  Organization,
+} from 'schema-dts';
 
-import PromoGridServer       from '@components/PromoGridServer';
+import PromoGridServer from '@components/PromoGridServer';
 import PopularProductsServer from '@components/PopularProductsServer';
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
-import SkeletonCard          from '@components/ProductCardSkeleton';
-import AdvantagesClient      from '@components/AdvantagesClient';
-import YandexReviewsWidget   from '@components/YandexReviewsWidget';
-import FAQSectionWrapper     from '@components/FAQSectionWrapper';
+import SkeletonCard from '@components/ProductCardSkeleton';
+import AdvantagesClient from '@components/AdvantagesClient';
+import YandexReviewsWidget from '@components/YandexReviewsWidget';
+import FAQSectionWrapper from '@components/FAQSectionWrapper';
+import FlowwowReviewsWidget from '@components/FlowwowReviewsWidget';
 
-import { createServerClient }   from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies as getCookies } from 'next/headers';
-import type { Database }        from '@/lib/supabase/types_new';
+import type { Database } from '@/lib/supabase/types_new';
 
 /* ----------------------------- FAQ (единый источник) ----------------------------- */
 const faqList = [
   {
     question: 'Какую клубнику вы используете в букетах и наборах?',
     answer:
-      'Мы используем свежую местную и импортную ягоду в зависимости от сезона — вкус остаётся на высоте в любое время года. Каждая ягода проходит тщательный ручной отбор — в букеты попадает только идеальная клубника.',
+      'Мы используем свежую местную и импортную ягоду в зависимости от сезона - вкус остаётся на высоте в любое время года. Каждая ягода проходит тщательный ручной отбор - в букеты попадает только идеальная клубника.',
   },
   {
     question: 'Какой шоколад вы используете?',
@@ -39,7 +46,7 @@ const faqList = [
   {
     question: 'Можно ли оформить заказ в день покупки?',
     answer:
-      'Да, мы доставим ваш заказ от 60 минут — чтобы порадовать вас и ваших близких без ожидания.',
+      'Да, мы доставим ваш заказ от 60 минут - чтобы порадовать вас и ваших близких без ожидания.',
   },
 ];
 
@@ -91,11 +98,11 @@ export const revalidate = 300;
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
   title:
-    'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+    'KEY TO HEART - клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
   description:
     'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
   openGraph: {
-    title: 'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы',
+    title: 'KEY TO HEART - клубника в шоколаде, цветы и комбо-наборы',
     description:
       'Закажите клубнику в шоколаде, цветы и комбо-наборы с доставкой 60 мин по Краснодару и до 20 км. Фото перед отправкой, бесплатная открытка, оплата онлайн.',
     url: 'https://keytoheart.ru',
@@ -104,19 +111,19 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубника в шоколаде – KEY TO HEART',
+        alt: 'Клубника в шоколаде - KEY TO HEART',
       },
       {
         url: 'https://keytoheart.ru/og-bouquet.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничный букет – KEY TO HEART',
+        alt: 'Клубничный букет - KEY TO HEART',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
+    title: 'KEY TO HEART - клубника в шоколаде и цветы в Краснодаре',
     description:
       'Свежая клубника в шоколаде, букеты и цветы с доставкой за 60 мин по Краснодару. Бесплатная открытка в подарок, оплата онлайн.',
     images: ['https://keytoheart.ru/og-cover.webp'],
@@ -125,9 +132,9 @@ export const metadata: Metadata = {
 };
 
 /* ---------------------- JSON-LD генератор ---------------------- */
-function buildLdGraph(products: Product[]): Array<
-  WebPage | BreadcrumbList | ItemList | FAQPage
-> {
+function buildLdGraph(
+  products: Product[],
+): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
@@ -158,7 +165,7 @@ function buildLdGraph(products: Product[]): Array<
   const webPage: WebPage = {
     '@id': 'https://keytoheart.ru/#home',
     '@type': 'WebPage',
-    name: 'KEY TO HEART – клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+    name: 'KEY TO HEART - клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
     url: 'https://keytoheart.ru',
     description:
       'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 60 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
@@ -182,7 +189,24 @@ function buildLdGraph(products: Product[]): Array<
     mainEntity: faqEntities,
   };
 
-  return [webPage, breadcrumbs, itemList, faqPage];
+  // Важно: рейтинг привязываем к внешнему источнику через sameAs (Flowwow).
+  // Это честно и не выглядит как "отзывы на нашем сайте".
+  const org: Organization = {
+    '@type': 'Organization',
+    name: 'KEY TO HEART',
+    url: 'https://keytoheart.ru',
+    sameAs: ['https://flowwow.com/shop/key-to-heart/'],
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: 4.93,
+      bestRating: 5,
+      worstRating: 1,
+      // lower bound: "более 2800" -> в JSON-LD используем 2800
+      ratingCount: 2800,
+    },
+  };
+
+  return [webPage, breadcrumbs, itemList, faqPage, org];
 }
 
 /* ==============================  Страница  ============================== */
@@ -196,8 +220,7 @@ export default async function Home() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () =>
-          cookiesArr.map((c) => ({ name: c.name, value: c.value })),
+        getAll: () => cookiesArr.map((c) => ({ name: c.name, value: c.value })),
         setAll: (list) =>
           list.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
@@ -213,7 +236,9 @@ export default async function Home() {
   try {
     const [{ data: pc, error: pcError }, { data: pr, error: prError }] =
       await Promise.all([
-        withTimeout(supabase.from('product_categories').select('product_id, category_id')),
+        withTimeout(
+          supabase.from('product_categories').select('product_id, category_id'),
+        ),
         withTimeout(
           supabase
             .from('products')
@@ -222,9 +247,9 @@ export default async function Home() {
             )
             .eq('in_stock', true)
             .not('images', 'is', null)
-            .order('is_popular', { ascending: false }) // сначала популярные
+            .order('is_popular', { ascending: false })
             .order('id', { ascending: false })
-            .limit(120), // ограничиваем выборку для главной
+            .limit(120),
         ),
       ]);
 
@@ -235,11 +260,11 @@ export default async function Home() {
     prSafe = pr ?? [];
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('[home] products fetch failed →', error);
+      console.warn('[home] products fetch failed ->', error);
     }
   }
 
-  /* -------- product_id → [category_id,…] Map -------- */
+  /* -------- product_id -> [category_id,…] Map -------- */
   const pcMap = new Map<number, number[]>();
   pcSafe.forEach(({ product_id, category_id }) => {
     const arr = pcMap.get(product_id) || [];
@@ -277,7 +302,7 @@ export default async function Home() {
       catSafe = cat ?? [];
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('[home] categories fetch failed →', error);
+        console.warn('[home] categories fetch failed ->', error);
       }
     }
   }
@@ -286,28 +311,18 @@ export default async function Home() {
     catSafe.map((c) => [c.id, { name: c.name, slug: c.slug }]),
   );
 
-  /* ------------- Фильтр категорий и подсчёт количества товаров ------------- */
-
-  // Категории/подкатегории, которые не должны попадать в превью на главной
   const IGNORE_SLUGS = new Set([
-    'podarki',          // категория "Подарки"
-    'myagkie-igrushki', // подкатегория "Мягкие игрушки"
-    'vazy',             // "Вазы"
-    'cards',            // "Открытки"
-    'balloons',         // "Шары"
+    'podarki',
+    'myagkie-igrushki',
+    'vazy',
+    'cards',
+    'balloons',
   ]);
 
-  // Приоритет категорий по slug (они всегда первыми, в этом порядке)
-  const PRIORITY_SLUGS = [
-    'klubnika-v-shokolade', // 1. Клубника в шоколаде
-    'flowers',              // 2. Цветы
-    'combo',                // 3. Комбо-наборы
-  ];
+  const PRIORITY_SLUGS = ['klubnika-v-shokolade', 'flowers', 'combo'];
 
-  // Минимальное количество товаров в категории, чтобы она попадала в превью
   const MIN_PRODUCTS_PER_CATEGORY = 2;
 
-  // Считаем количество товаров в каждой категории (только для разрешённых)
   const categoryCounts = new Map<number, number>();
   products.forEach((p) => {
     p.category_ids.forEach((id) => {
@@ -317,7 +332,6 @@ export default async function Home() {
     });
   });
 
-  // Собираем мета-информацию по категориям
   const categoryMetaAll: CategoryMeta[] = [...categoryCounts.entries()]
     .map(([id, count]) => {
       const catEntry = catMap.get(id);
@@ -331,10 +345,6 @@ export default async function Home() {
     })
     .filter((c): c is CategoryMeta => !!c && c.count >= MIN_PRODUCTS_PER_CATEGORY);
 
-  // Сортировка категорий:
-  // 1) по PRIORITY_SLUGS (klubnika-v-shokolade → flowers → combo),
-  // 2) остальные по количеству товаров (по убыванию),
-  // 3) потом по имени.
   categoryMetaAll.sort((a, b) => {
     const ai = PRIORITY_SLUGS.indexOf(a.slug);
     const bi = PRIORITY_SLUGS.indexOf(b.slug);
@@ -344,13 +354,11 @@ export default async function Home() {
 
     if (aPriority !== bPriority) return aPriority - bPriority;
 
-    // Если оба не в приоритете – сортируем по количеству и имени
     if (aPriority === Infinity && bPriority === Infinity) {
       if (b.count !== a.count) return b.count - a.count;
       return a.name.localeCompare(b.name, 'ru');
     }
 
-    // Если оба в приоритете и с одинаковым индексом (по идее не случится)
     return 0;
   });
 
@@ -359,22 +367,18 @@ export default async function Home() {
   /* ------------------- JSON-LD graph ------------------- */
   const ldGraph = buildLdGraph(products);
 
-  /* ------------------------- Render ------------------------- */
   return (
     <main aria-label="Главная страница">
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
 
-      {/* SEO-заголовок: теперь видим на sm+ как компактный текст */}
       <h1 className="sr-only sm:not-sr-only text-sm sm:mt-3 sm:mb-2 sm:text-white">
         Клубника в шоколаде, букеты и комбо-наборы с доставкой в Краснодаре
       </h1>
 
-      {/* Промо-баннер / hero */}
       <section role="region" aria-label="Промо-баннер">
         <PromoGridServer />
       </section>
 
-      {/* Популярные товары — отложенная загрузка */}
       <Suspense fallback={null}>
         <section role="region" aria-label="Популярные товары">
           <h2 className="sr-only">Популярные товары</h2>
@@ -382,12 +386,7 @@ export default async function Home() {
         </section>
       </Suspense>
 
-      {/* Категории товаров (превью по категориям) */}
-      <section
-        role="region"
-        aria-label="Категории товаров"
-        id="home-categories"
-      >
+      <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
@@ -415,7 +414,6 @@ export default async function Home() {
                   seeMoreLink={slug}
                   headingId={headingId}
                 />
-                {/* Преимущества только после первой категории */}
                 {idx === 0 && <AdvantagesClient />}
               </React.Fragment>
             );
@@ -423,13 +421,18 @@ export default async function Home() {
         )}
       </section>
 
-      {/* Вставляем блок отзывов Яндекс */}
-      <section role="region" aria-label="Отзывы клиентов">
+      {/* Flowwow (как на Labberry, без картинок) */}
+      <section role="region" aria-label="Отзывы Flowwow" className="mt-8 sm:mt-10">
+        <h2 className="sr-only">Отзывы на Flowwow</h2>
+        <FlowwowReviewsWidget className="" />
+      </section>
+
+      {/* Яндекс отзывы */}
+      <section role="region" aria-label="Отзывы клиентов" className="mt-8 sm:mt-10">
         <h2 className="sr-only">Отзывы клиентов</h2>
         <YandexReviewsWidget />
       </section>
 
-      {/* FAQ */}
       <section role="region" aria-label="Вопросы и ответы">
         <h2 className="sr-only">Вопросы и ответы</h2>
         <FAQSectionWrapper />

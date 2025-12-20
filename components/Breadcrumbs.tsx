@@ -1,11 +1,11 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, useEffect, useState, Suspense } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
-import { JsonLd } from 'react-schemaorg';
 
 // Типы
 type Category = {
@@ -54,10 +54,19 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-function Breadcrumbs({ productTitle }: { productTitle?: string }) {
+export default function Breadcrumbs({
+  productTitle,
+  categorySlug,
+  categoryName,
+}: {
+  productTitle?: string;
+  categorySlug?: string;
+  categoryName?: string;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const subcategorySlug = searchParams.get('subcategory') || 'all';
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,185 +122,114 @@ function Breadcrumbs({ productTitle }: { productTitle?: string }) {
 
   useEffect(() => {
     fetchCategories();
-
-    const channel = supabase
-      .channel('categories-subcategories-changes-breadcrumbs')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'categories' },
-        () => {
-          categoryCache = null;
-          fetchCategories();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'subcategories' },
-        () => {
-          categoryCache = null;
-          fetchCategories();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
-  const crumbs: Crumb[] = [];
-  crumbs.push({ href: '/', label: 'Главная' });
+  const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
 
-  let currentPath = '';
   const segments = pathname.split('/').filter(Boolean);
   const shouldRender = pathname !== '/';
+  if (!shouldRender) return null;
 
-  if (shouldRender && !loading) {
-    segments.forEach((seg, idx) => {
-      currentPath += `/${seg}`;
+  // /category/[slug]
+  if (segments[0] === 'category' && segments[1]) {
+    crumbs.push({ href: '/catalog', label: 'Каталог' });
 
-      if (seg === 'category' && idx === 0) {
-        crumbs.push({ href: '/catalog', label: 'Каталог' });
-      } else if (idx === 1 && segments[0] === 'category') {
-        const cat = categories.find((c) => c.slug === seg);
-        crumbs.push({
-          href: `/category/${seg}`,
-          label: cat
-            ? cat.name
-            : decodeURIComponent(seg)
-                .split('-')
-                .map((w) => w[0].toUpperCase() + w.slice(1))
-                .join(' '),
-        });
-      } else if (idx === 2 && segments[0] === 'category' && segments[2] === 'subcategory') {
-        // пропускаем
-      } else if (idx === 3 && segments[0] === 'category' && segments[2] === 'subcategory') {
-        // пропускаем
-      } else if (seg === 'product' && idx === 0) {
-        crumbs.push({ href: '/catalog', label: 'Каталог' });
-      } else if (seg === 'product' && idx === 1) {
-        // пропускаем
-      } else if (idx === 1 && segments[0] === 'product') {
-        const defaultCat = categories.find((c) => c.slug === 'klubnichnye-bukety');
-        if (defaultCat) crumbs.push({ href: `/category/${defaultCat.slug}`, label: defaultCat.name });
-        crumbs.push({ href: currentPath, label: productTitle || `Товар ${segments[1]}` });
-      } else {
-        const lbl =
-          staticTitles[seg] ||
-          decodeURIComponent(seg)
+    const catSlug = segments[1];
+    const cat = categories.find((c) => c.slug === catSlug);
+    crumbs.push({
+      href: `/category/${catSlug}`,
+      label: cat
+        ? cat.name
+        : decodeURIComponent(catSlug)
             .split('-')
-            .map((w) => w[0].toUpperCase() + w.slice(1))
-            .join(' ');
-        crumbs.push({ href: currentPath, label: lbl });
+            .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+            .join(' '),
+    });
+
+    // subcategory из query
+    if (!loading && subcategorySlug !== 'all' && cat) {
+      const sub = cat.subcategories.find((s) => s.slug === subcategorySlug);
+      if (sub) {
+        crumbs.push({
+          href: `/category/${catSlug}?subcategory=${subcategorySlug}`,
+          label: sub.name,
+        });
       }
+    }
+  }
+
+  // /product/[id]
+  else if (segments[0] === 'product' && segments[1]) {
+    crumbs.push({ href: '/catalog', label: 'Каталог' });
+
+    if (categorySlug && categoryName) {
+      crumbs.push({ href: `/category/${categorySlug}`, label: categoryName });
+    }
+
+    crumbs.push({
+      href: `/product/${segments[1]}`,
+      label: productTitle || `Товар ${segments[1]}`,
     });
   }
 
-  if (!shouldRender) return null;
-
-  // ---- SCHEMA.ORG JSON-LD ----
-  // Составляем абсолютные ссылки для itemListElement
-  let absOrigin = '';
-  if (typeof window !== 'undefined') {
-    absOrigin = window.location.origin;
+  // остальные страницы
+  else {
+    let currentPath = '';
+    segments.forEach((seg) => {
+      currentPath += `/${seg}`;
+      const lbl =
+        staticTitles[seg] ||
+        decodeURIComponent(seg)
+          .split('-')
+          .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+          .join(' ');
+      crumbs.push({ href: currentPath, label: lbl });
+    });
   }
-  // Fallback для SSR — можно подставить домен вручную, если что
-  if (!absOrigin) absOrigin = 'https://keytoheart.ru';
-
-  const jsonLdBreadcrumbs = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: crumbs.map((c, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: c.label,
-      item: absOrigin + c.href,
-    })),
-  };
 
   return (
-    <>
-      {/* SCHEMA.ORG JSON-LD */}
-      {!loading && shouldRender && (
-        <JsonLd item={jsonLdBreadcrumbs} />
-      )}
-
-      <nav
-        aria-label="Хлебные крошки"
-        className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
-      >
-        {loading ? (
-          <div>Загрузка...</div>
-        ) : (
-          <ol className="flex flex-wrap gap-1 items-center" role="list">
-            {crumbs.map((c, i) => (
-              <Fragment key={c.href}>
-                {i > 0 && (
-                  <span aria-hidden="true" className="mx-1 text-gray-500">
-                    /
+    <nav
+      aria-label="Хлебные крошки"
+      className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
+    >
+      {loading && segments[0] === 'category' ? (
+        <div>Загрузка...</div>
+      ) : (
+        <ol className="flex flex-wrap gap-1 items-center" role="list">
+          {crumbs.map((c, i) => (
+            <Fragment key={`${c.href}-${i}`}>
+              {i > 0 && (
+                <span aria-hidden="true" className="mx-1 text-gray-500">
+                  /
+                </span>
+              )}
+              <li role="listitem">
+                {i === crumbs.length - 1 ? (
+                  <span className="text-black font-medium" aria-current="page">
+                    {c.label}
                   </span>
+                ) : (
+                  <Link
+                    href={c.href}
+                    className="hover:underline text-gray-500"
+                    onClick={() => {
+                      window.gtag?.('event', 'breadcrumb_click', {
+                        event_category: 'navigation',
+                        path: c.href,
+                      });
+                      if (YM_ID !== undefined) {
+                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
+                      }
+                    }}
+                  >
+                    {c.label}
+                  </Link>
                 )}
-                <li role="listitem">
-                  {i === crumbs.length - 1 ? (
-                    <span className="text-black font-medium" aria-current="page">
-                      {c.label}
-                    </span>
-                  ) : (
-                    <Link
-                      href={c.href}
-                      className="hover:underline text-gray-500"
-                      onClick={() => {
-                        window.gtag?.('event', 'breadcrumb_click', {
-                          event_category: 'navigation',
-                          path: c.href,
-                        });
-                        if (YM_ID !== undefined) {
-                          callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
-                        }
-                      }}
-                    >
-                      {c.label}
-                    </Link>
-                  )}
-                </li>
-                {i === crumbs.length - 1 && segments[0] === 'category' && segments.length >= 2 && (
-                  <Suspense fallback={null}>
-                    <SubcategoryCrumb categories={categories} />
-                  </Suspense>
-                )}
-              </Fragment>
-            ))}
-          </ol>
-        )}
-      </nav>
-    </>
+              </li>
+            </Fragment>
+          ))}
+        </ol>
+      )}
+    </nav>
   );
 }
-
-function SubcategoryCrumb({ categories }: { categories: Category[] }) {
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const slug = searchParams.get('subcategory') || 'all';
-
-  const segs = pathname.split('/').filter(Boolean);
-  if (segs[0] !== 'category' || segs.length < 2) return null;
-
-  const cat = categories.find((c) => c.slug === segs[1]);
-  if (!cat || slug === 'all') return null;
-
-  const sub = cat.subcategories.find((s) => s.slug === slug);
-  if (!sub) return null;
-
-  return (
-    <li role="listitem" className="flex gap-2">
-      <span aria-hidden="true" className="mx-1 text-gray-500">
-        /
-      </span>
-      <span className="text-black font-medium" aria-current="page">
-        {sub.name}
-      </span>
-    </li>
-  );
-}
-
-export default Breadcrumbs;

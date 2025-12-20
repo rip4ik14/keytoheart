@@ -102,7 +102,16 @@ export const metadata: Metadata = {
       'Клубника в шоколаде, букеты и цветы с доставкой за 60 мин по Краснодару. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
-  icons: { icon: '/favicon.ico', shortcut: '/favicon.ico' },
+
+  /* ✅ SVG favicon + fallback, БЕЗ apple-touch-icon */
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' },
+    ],
+    shortcut: ['/favicon.ico'],
+  },
+
   robots: { index: true, follow: true },
 };
 
@@ -200,9 +209,8 @@ export default async function RootLayout({
         />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
-        {/* PWA / favicon extras */}
+        {/* PWA */}
         <link rel="manifest" href="/site.webmanifest" />
-        <meta name="apple-mobile-web-app-title" content="KEY TO HEART" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
         {/* ---------- JSON-LD: WebSite + Org + LocalBusiness + Breadcrumbs ----- */}

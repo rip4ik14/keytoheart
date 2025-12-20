@@ -4,11 +4,47 @@ import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { Star, ExternalLink } from 'lucide-react';
 import type { Category } from '@/types/category';
 
 type FooterProps = {
   categories: Category[];
 };
+
+const FLOWWOW_URL = 'https://flowwow.com/shop/key-to-heart/';
+
+function FlowwowFooterBadge() {
+  return (
+    <a
+      href={FLOWWOW_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+        inline-flex items-center gap-2
+        rounded-full border border-gray-200 bg-white
+        px-3 py-1.5 text-xs text-gray-700
+        hover:bg-gray-50 transition
+      "
+      aria-label="Открыть отзывы на Flowwow"
+      onClick={() => {
+        window.gtag?.('event', 'flowwow_click', { event_category: 'footer' });
+        if (YM_ID !== undefined) {
+          callYm(YM_ID, 'reachGoal', 'flowwow_click');
+        }
+      }}
+    >
+      <span className="font-semibold text-black">Flowwow</span>
+      <span className="font-bold text-black">4,93</span>
+      <span className="inline-flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} className="h-3.5 w-3.5 fill-current text-black" strokeWidth={0} />
+        ))}
+      </span>
+      <span className="text-gray-600">более 2800 оценок</span>
+      <ExternalLink className="h-3.5 w-3.5 text-gray-600" />
+    </a>
+  );
+}
 
 export default function Footer({ categories }: FooterProps) {
   return (
@@ -18,6 +54,7 @@ export default function Footer({ categories }: FooterProps) {
         <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
           <div>
             <h3 className="text-xl font-bold mb-3">KEY TO HEART</h3>
+
             <div className="flex gap-3 mb-4">
               <a
                 href="https://vk.com"
@@ -34,6 +71,7 @@ export default function Footer({ categories }: FooterProps) {
               >
                 <Image src="/icons/vk.svg" alt="ВКонтакте" width={16} height={16} />
               </a>
+
               <a
                 href="https://wa.me/79886033821"
                 target="_blank"
@@ -49,6 +87,7 @@ export default function Footer({ categories }: FooterProps) {
               >
                 <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
               </a>
+
               <a
                 href="https://t.me/keytomyheart"
                 target="_blank"
@@ -65,12 +104,25 @@ export default function Footer({ categories }: FooterProps) {
                 <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
               </a>
             </div>
+
             {/* Яндекс рейтинг на десктопе */}
+            <div className="mb-3">
+              <iframe
+                src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating"
+                width="150"
+                height="50"
+                frameBorder="0"
+                title="Рейтинг Яндекс"
+              />
+            </div>
+
+            {/* Flowwow компакт */}
             <div className="mb-2">
-              <iframe src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating" width="150" height="50" frameBorder="0"></iframe>
-               </div>
-                          
+              <FlowwowFooterBadge />
+            </div>
+
             <p className="text-xs text-gray-600 mt-4">© 2025 KEY TO HEART. Все права защищены.</p>
+
             <div className="mt-2 space-y-1">
               <Link
                 href="/policy"
@@ -84,6 +136,7 @@ export default function Footer({ categories }: FooterProps) {
               >
                 Политика конфиденциальности
               </Link>
+
               <Link
                 href="/offer"
                 className="hover:underline block text-gray-500"
@@ -96,6 +149,7 @@ export default function Footer({ categories }: FooterProps) {
               >
                 Публичная оферта
               </Link>
+
               <Link
                 href="/terms"
                 className="hover:underline block text-gray-500"
@@ -135,6 +189,7 @@ export default function Footer({ categories }: FooterProps) {
                   </Link>
                 </li>
               ))}
+
               <li role="listitem">
                 <Link
                   href="/occasions"
@@ -169,6 +224,7 @@ export default function Footer({ categories }: FooterProps) {
                   Доставка
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/corporate"
@@ -183,6 +239,7 @@ export default function Footer({ categories }: FooterProps) {
                   Корпоративным клиентам
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/faq"
@@ -197,6 +254,7 @@ export default function Footer({ categories }: FooterProps) {
                   Часто задаваемые вопросы
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/payment"
@@ -211,6 +269,7 @@ export default function Footer({ categories }: FooterProps) {
                   Оплата
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/loyalty"
@@ -245,6 +304,7 @@ export default function Footer({ categories }: FooterProps) {
                   О нас
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/contacts"
@@ -259,6 +319,7 @@ export default function Footer({ categories }: FooterProps) {
                   Контакты
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/news"
@@ -273,6 +334,7 @@ export default function Footer({ categories }: FooterProps) {
                   Новости
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/articles"
@@ -287,6 +349,7 @@ export default function Footer({ categories }: FooterProps) {
                   Статьи
                 </Link>
               </li>
+
               <li role="listitem">
                 <Link
                   href="/occasions"
@@ -330,26 +393,30 @@ export default function Footer({ categories }: FooterProps) {
       {/* ======= Микрофутер только для мобильных ======= */}
       <div className="block sm:hidden bg-white border-t border-gray-200 text-xs text-center py-4">
         <div className="flex flex-col items-center gap-2">
-          {/* Яндекс рейтинг на мобилке */}
           <div className="flex flex-col items-center mb-2">
-            <iframe src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating" width="150" height="50" frameBorder="0"></iframe>
-           </div>
+            <iframe
+              src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating"
+              width="150"
+              height="50"
+              frameBorder="0"
+              title="Рейтинг Яндекс"
+            />
+          </div>
+
+          {/* Flowwow компакт на мобилке */}
+          <div className="mb-1">
+            <FlowwowFooterBadge />
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-            <Link href="/policy" className="text-gray-500 underline">
-              Политика
-            </Link>
+            <Link href="/policy" className="text-gray-500 underline">Политика</Link>
             <span className="mx-1 text-gray-400">|</span>
-            <Link href="/offer" className="text-gray-500 underline">
-              Оферта
-            </Link>
+            <Link href="/offer" className="text-gray-500 underline">Оферта</Link>
             <span className="mx-1 text-gray-400">|</span>
-            <Link href="/contacts" className="text-gray-500 underline">
-              Контакты
-            </Link>
+            <Link href="/contacts" className="text-gray-500 underline">Контакты</Link>
           </div>
-          <div className="text-gray-400">
-            © 2025 KEY TO HEART
-          </div>
+
+          <div className="text-gray-400">© 2025 KEY TO HEART</div>
         </div>
       </div>
     </footer>

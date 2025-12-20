@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Страница товара (SSR + Supabase, JSON-LD Product / Breadcrumb)            */
-/*  Версия: 2025-08-12 – shippingDetails в offers (AggregateOffer)            */
+/*  Версия: 2025-08-12 – shippingDetails в offers (Offer)                     */
 /*           category = читаемое имя, 3-зв. крошки                            */
 /* -------------------------------------------------------------------------- */
 
@@ -9,11 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { JsonLd } from 'react-schemaorg';
-import type {
-  Product as SchemaProduct,
-  AggregateOffer,
-  ImageObject,
-} from 'schema-dts';
+import type { Product as SchemaProduct, Offer } from 'schema-dts';
 import type { Database } from '@/lib/supabase/types_new';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
@@ -71,7 +67,7 @@ export async function generateMetadata({
   const firstImg =
     Array.isArray(data.images) && data.images[0]
       ? data.images[0]
-      : '/og-cover.webp';
+      : 'https://keytoheart.ru/og-cover.webp';
 
   const url = `https://keytoheart.ru/product/${id}`;
 
@@ -179,23 +175,30 @@ export default async function ProductPage({
       console.error('upsell_items →', e);
   }
 
-  /* ---------- Offer ---------- */
+  /* ---------- Финальная цена ---------- */
   const finalPrice =
     product.discount_percent && product.discount_percent > 0
       ? Math.round(product.price * (1 - product.discount_percent / 100))
       : product.price;
 
-  // shippingDetails по схеме принадлежит Offer/AggregateOffer, не Product
-  const offer: AggregateOffer = {
-    '@type': 'AggregateOffer',
+  /* ---------- Offer (правильно для 1 оффера) ---------- */
+  const productUrl = `https://keytoheart.ru/product/${product.id}`;
+
+  const offer: Offer = {
+    '@type': 'Offer',
+    url: productUrl,
     priceCurrency: 'RUB',
-    lowPrice: finalPrice,
-    highPrice: product.original_price ?? product.price,
-    offerCount: 1,
+    price: finalPrice,
     priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000)
       .toISOString()
       .split('T')[0],
     availability: 'https://schema.org/InStock',
+    itemCondition: 'https://schema.org/NewCondition',
+    seller: {
+      '@type': 'Organization',
+      name: 'KEY TO HEART',
+      url: 'https://keytoheart.ru',
+    },
     shippingDetails: {
       '@type': 'OfferShippingDetails',
       shippingRate: {
@@ -220,23 +223,23 @@ export default async function ProductPage({
     },
   };
 
-  /* ---------- ImageObject ---------- */
-  const firstImageUrl = product.images[0];
-  const imageObject: ImageObject | undefined = firstImageUrl
-    ? { '@type': 'ImageObject', url: firstImageUrl }
-    : undefined;
-
-  /* --------------------------- Render --------------------------- */
+  /* ---------- Render ---------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
-      {/* ---------- JSON-LD Product (category = имя, shipping внутри offers) ---------- */}
+      {/* ---------- JSON-LD Product ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
           sku: String(product.id),
           name: product.title,
-          url: `https://keytoheart.ru/product/${product.id}`,
-          image: imageObject ? [imageObject] : undefined,
+          url: productUrl,
+
+          // стабильнее для парсеров: массив строк-URL
+          image:
+            Array.isArray(product.images) && product.images.length > 0
+              ? product.images
+              : undefined,
+
           description: product.description || undefined,
           additionalProperty: product.production_time
             ? [
@@ -250,6 +253,8 @@ export default async function ProductPage({
           material: product.composition || undefined,
           category: categoryName || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
+
+          // 1 оффер - Offer
           offers: offer,
         }}
       />
@@ -279,15 +284,19 @@ export default async function ProductPage({
               '@type': 'ListItem',
               position: categorySlug ? 3 : 2,
               name: product.title,
-              item: `https://keytoheart.ru/product/${product.id}`,
+              item: productUrl,
             },
           ] as any,
         }}
       />
 
-      {/* ---------- Визуальные хлебные крошки ---------- */}
+      {/* ---------- Визуальные хлебные крошки (без JSON-LD внутри компонента) ---------- */}
       <Suspense fallback={null}>
-        <Breadcrumbs productTitle={product.title} />
+        <Breadcrumbs
+          productTitle={product.title}
+          categorySlug={categorySlug || undefined}
+          categoryName={categoryName || undefined}
+        />
       </Suspense>
 
       {/* ---------- Основной контент ---------- */}
