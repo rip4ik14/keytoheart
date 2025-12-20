@@ -1,36 +1,45 @@
-// ✅ Путь: components/CSRFToken.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 
-export default function CSRFToken({ children }: { children: (token: string) => JSX.Element }) {
-  const [token, setToken] = useState('');
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+export default function CSRFToken({
+  children,
+}: {
+  children: (token: string) => React.ReactNode;
+}) {
+  const [token, setToken] = useState<string>('');
 
   useEffect(() => {
-    // Получаем CSRF-токен с сервера
-    const fetchToken = async () => {
-      try {
-        const res = await fetch('/api/csrf-token', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        const data = await res.json();
-        if (res.ok && data.csrfToken) {
-          setToken(data.csrfToken);
-        } else {
-          process.env.NODE_ENV !== "production" && console.error('Failed to fetch CSRF token');
-        }
-      } catch (err) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching CSRF token:', err);
+    const init = async () => {
+      // 1) если cookie уже есть - берём сразу её (это то, что проверяет сервер)
+      const fromCookie = getCookie('csrf_token');
+      if (fromCookie) {
+        setToken(fromCookie);
+        return;
       }
+
+      // 2) если cookie нет - создаём её через /api/csrf (ниже дам файл)
+      await fetch('/api/csrf', {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      // 3) читаем cookie ещё раз
+      const after = getCookie('csrf_token');
+      setToken(after || '');
     };
 
-    fetchToken();
+    init();
   }, []);
 
-  if (!token) {
-    return null; // Ждём, пока токен загрузится
-  }
+  if (!token) return null;
 
-  return children(token);
+  return <>{children(token)}</>;
 }
