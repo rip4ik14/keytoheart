@@ -1,21 +1,8 @@
+// ✅ Путь: app/api/account/profile/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
-
-
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  } else if (cleanPhone.length === 10) {
-    return `+7${cleanPhone}`;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) {
-    return `+7${cleanPhone.slice(1)}`;
-  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('7')) {
-    return `+${cleanPhone}`;
-  }
-  return phone.startsWith('+') ? phone : `+${phone}`;
-};
+import { normalizePhone } from '@/lib/normalizePhone';
 
 export async function GET(request: Request) {
   try {
@@ -29,11 +16,18 @@ export async function GET(request: Request) {
       );
     }
 
-    const sanitizedPhone = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
-    const normalizedPhone = normalizePhone(sanitizedPhone);
+    const sanitized = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
+    const phone = normalizePhone(sanitized);
+
+    if (!/^\+7\d{10}$/.test(phone)) {
+      return NextResponse.json(
+        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { status: 400 }
+      );
+    }
 
     const profile = await prisma.user_profiles.findUnique({
-      where: { phone: normalizedPhone },
+      where: { phone },
       select: {
         name: true,
         last_name: true,
@@ -53,10 +47,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера' },
-      { status: 500 }
-    );
+    process.env.NODE_ENV !== 'production' && console.error('[account/profile GET]', error);
+    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }
 
@@ -67,46 +59,52 @@ export async function POST(request: Request) {
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     const normalizedPhone = normalizePhone(sanitizedPhone);
 
+    if (!/^\+7\d{10}$/.test(normalizedPhone)) {
+      return NextResponse.json(
+        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        { status: 400 }
+      );
+    }
+
     const sanitizedName = sanitizeHtml(name || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedLastName = sanitizeHtml(last_name || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedEmail = sanitizeHtml(email || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedBirthday = sanitizeHtml(birthday || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedBirthdayNormalized = sanitizedBirthday ? sanitizedBirthday : null;
 
-    // Check existing profile to preserve birthday if already set
     const existingProfile = await prisma.user_profiles.findUnique({
       where: { phone: normalizedPhone },
       select: { birthday: true },
     });
+
     const birthdayValue = existingProfile?.birthday ?? sanitizedBirthdayNormalized;
 
-    // upsert: если профиль есть — обновляем, если нет — создаём
     await prisma.user_profiles.upsert({
-      where: { phone: normalizedPhone },
-      update: {
-        name: sanitizedName || null,
-        last_name: sanitizedLastName || null,
-        email: sanitizedEmail || null,
-        birthday: birthdayValue,
-        receive_offers: receive_offers ?? false,
-        updated_at: new Date().toISOString(),
-      },
-      create: {
-        phone: normalizedPhone,
-        name: sanitizedName || null,
-        last_name: sanitizedLastName || null,
-        email: sanitizedEmail || null,
-        birthday: sanitizedBirthdayNormalized,
-        receive_offers: receive_offers ?? false,
-        updated_at: new Date().toISOString(),
-      },
-    });
+  where: { phone: normalizedPhone },
+  update: {
+    name: sanitizedName || null,
+    last_name: sanitizedLastName || null,
+    email: sanitizedEmail || null,
+    birthday: birthdayValue,
+    receive_offers: receive_offers ?? false,
+    updated_at: new Date(),
+  },
+  create: {
+    phone: normalizedPhone,
+    name: sanitizedName || null,
+    last_name: sanitizedLastName || null,
+    email: sanitizedEmail || null,
+    birthday: sanitizedBirthdayNormalized,
+    receive_offers: receive_offers ?? false,
+    created_at: new Date(),
+    updated_at: new Date(),
+  },
+});
+
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера' },
-      { status: 500 }
-    );
+    process.env.NODE_ENV !== 'production' && console.error('[account/profile POST]', error);
+    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }

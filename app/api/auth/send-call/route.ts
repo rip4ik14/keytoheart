@@ -1,35 +1,46 @@
+// ✅ Путь: app/api/auth/send-call/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
+import sanitizeHtml from 'sanitize-html';
+import { normalizePhone } from '@/lib/normalizePhone';
 
 export async function POST(req: Request) {
   try {
-    const { phone } = await req.json();
+    const { phone: rawPhone } = await req.json();
 
-    if (!phone) {
-      return NextResponse.json({ success: false, error: 'Введите номер телефона' }, { status: 400 });
+    if (!rawPhone) {
+      return NextResponse.json(
+        { success: false, error: 'Введите номер телефона' },
+        { status: 400 }
+      );
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
+    const sanitized = sanitizeHtml(String(rawPhone), { allowedTags: [], allowedAttributes: {} });
+    const phone = normalizePhone(sanitized); // +7XXXXXXXXXX
+
+    if (!/^\+7\d{10}$/.test(phone)) {
       return NextResponse.json(
         { success: false, error: 'Введите корректный номер в формате +7XXXXXXXXXX' },
         { status: 400 }
       );
     }
 
-    if (!cleanPhone.slice(1).startsWith('9')) {
+    // sms.ru callcheck ждёт номер цифрами (7XXXXXXXXXX)
+    const digits11 = phone.replace(/\D/g, ''); // 7XXXXXXXXXX
+
+    // Твоё старое правило "после +7 должен быть 9"
+    // Если хочешь - оставляем (я оставил)
+    if (!digits11.slice(1).startsWith('9')) {
       return NextResponse.json(
         { success: false, error: 'Номер должен начинаться с 9 после +7' },
         { status: 400 }
       );
     }
 
-    // Проверка количества попыток (за последние 24 часа)
     const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const recentAttempts = await prisma.auth_logs.count({
       where: {
-        phone: `+${cleanPhone}`,
+        phone,
         created_at: { gte: cutoffDate },
       },
     });
@@ -38,12 +49,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Слишком много попыток' }, { status: 429 });
     }
 
-    // Отправка запроса к SMS.ru
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     const smsResponse = await fetch(
-      `https://sms.ru/callcheck/add?api_id=${process.env.SMS_RU_API_ID}&phone=${cleanPhone}&json=1`,
+      `https://sms.ru/callcheck/add?api_id=${process.env.SMS_RU_API_ID}&phone=${digits11}&json=1`,
       { signal: controller.signal }
     );
     clearTimeout(timeout);
@@ -57,16 +67,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Запись или обновление лога попытки авторизации
     await prisma.auth_logs.upsert({
       where: { check_id: smsData.check_id },
       update: {
-        phone: `+${cleanPhone}`,
+        phone,
         status: 'PENDING',
         updated_at: new Date(),
       },
       create: {
-        phone: `+${cleanPhone}`,
+        phone,
         check_id: smsData.check_id,
         status: 'PENDING',
         created_at: new Date(),
@@ -81,6 +90,7 @@ export async function POST(req: Request) {
       call_phone_pretty: smsData.call_phone_pretty,
     });
   } catch (error: any) {
+    process.env.NODE_ENV !== 'production' && console.error('[auth/send-call]', error);
     return NextResponse.json({ success: false, error: 'Серверная ошибка' }, { status: 500 });
   }
 }

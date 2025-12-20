@@ -1,30 +1,33 @@
-// app/api/account/orders/route.ts
-
+// ✅ Путь: app/api/account/orders/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
-
+import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
+    const phoneParam = searchParams.get('phone');
 
-    const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedPhone) {
+    const sanitizedInput = sanitizeHtml(phoneParam || '', { allowedTags: [], allowedAttributes: {} });
+    if (!sanitizedInput) {
       return NextResponse.json({ success: false, error: 'Телефон не указан' }, { status: 400 });
     }
 
-    const phoneRegex = /^\+7\d{10}$/;
-    if (!phoneRegex.test(sanitizedPhone)) {
+    const normalizedPhone = normalizePhone(sanitizedInput);
+    if (!/^\+7\d{10}$/.test(normalizedPhone)) {
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
       );
     }
 
+    const variants = buildPhoneVariants(normalizedPhone);
+
     const orders = await prisma.orders.findMany({
-      where: { phone: sanitizedPhone },
+      where: {
+        OR: variants.map((p) => ({ phone: p })),
+      },
       orderBy: { created_at: 'desc' },
       select: {
         id: true,
@@ -35,7 +38,7 @@ export async function GET(req: Request) {
         status: true,
         recipient: true,
         items: true,
-        upsell_details: true
+        upsell_details: true,
       },
     });
 
@@ -77,11 +80,10 @@ export async function GET(req: Request) {
 
     return NextResponse.json(
       { success: true, data: ordersWithItems },
-      {
-        headers: { 'Cache-Control': 'private, no-store' },
-      }
+      { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (error: any) {
+    process.env.NODE_ENV !== 'production' && console.error('[account/orders]', error);
     return NextResponse.json(
       { success: false, error: 'Ошибка сервера: ' + error.message },
       { status: 500 }

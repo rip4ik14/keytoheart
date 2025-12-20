@@ -1,4 +1,4 @@
-// app/sitemap-categories.xml/route.ts
+// ✅ Путь: app/sitemap-categories.xml/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
@@ -16,10 +16,20 @@ export async function GET() {
 
   const { data: cats } = await supabase
     .from('categories')
-    .select('slug')
+    .select('id,slug,is_visible')
     .eq('is_visible', true);
 
-  // Поводы — если они у вас отрисовываются как страницы
+  // подтягиваем подкатегории
+  const catIds = (cats ?? []).map((c) => c.id);
+  const { data: subs } = catIds.length
+    ? await supabase
+        .from('subcategories')
+        .select('id,slug,category_id,is_visible')
+        .in('category_id', catIds)
+        .eq('is_visible', true)
+    : { data: [] as any[] };
+
+  // Поводы - как было
   const occasions = [
     '8marta','happybirthday','love','newyear','23february','valentinesday',
     'man','mame','mothersday','graduation','anniversary','family_day',
@@ -27,12 +37,28 @@ export async function GET() {
   ];
 
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string }[] = [
+    // категории
     ...(cats ?? []).map((c) => ({
       loc: `${BASE}/category/${c.slug}`,
       lastmod: now,
       changefreq: 'weekly',
-      priority: '0.6',
+      priority: '0.7',
     })),
+
+    // подкатегории
+    ...(subs ?? []).map((s) => {
+      const parent = (cats ?? []).find((c) => c.id === s.category_id);
+      if (!parent?.slug || !s.slug) return null;
+
+      return {
+        loc: `${BASE}/category/${parent.slug}/${s.slug}`,
+        lastmod: now,
+        changefreq: 'weekly',
+        priority: '0.65',
+      };
+    }).filter(Boolean) as any[],
+
+    // occasions
     ...occasions.map((s) => ({
       loc: `${BASE}/occasions/${s}`,
       lastmod: now,

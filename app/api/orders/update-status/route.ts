@@ -1,7 +1,8 @@
+// ✅ Путь: app/api/orders/update-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import sanitizeHtml from 'sanitize-html';
 
-// Уровни кешбэка
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
   { level: 'silver', percentage: 5, minTotal: 10000 },
@@ -9,6 +10,21 @@ const CASHBACK_LEVELS = [
   { level: 'platinum', percentage: 10, minTotal: 30000 },
   { level: 'premium', percentage: 15, minTotal: 50000 },
 ];
+
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return '+7' + digits;
+  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+    return '+7' + digits.slice(-10);
+  }
+  return raw.startsWith('+') ? raw : '+' + raw;
+}
+
+function decimalToNumber(v: any): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'object' && v && typeof v.toNumber === 'function') return v.toNumber();
+  return Number(v);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,91 +34,103 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Не указаны orderId или status' }, { status: 400 });
     }
 
-    // Обновляем статус заказа
-    const updatedOrder = await prisma.orders.update({
-      where: { id: orderId },
-      data: { status },
-      select: {
-        phone: true,
-        total: true,
-        bonuses_used: true,
-        status: true,
-        bonus: true,
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      // 1) Обновляем статус и забираем данные заказа
+      const order = await tx.orders.update({
+        where: { id: orderId },
+        data: { status },
+        select: {
+          id: true,
+          phone: true,
+          total: true,
+          bonus: true,
+          status: true,
+        },
+      });
 
-    // Если статус изменился на delivered и бонусы ещё не начислены, начисляем бонусы
-    if (status === 'delivered' && updatedOrder.bonus === 0) {
-      // Проверяем, что phone не null
-      if (!updatedOrder.phone) {
-        process.env.NODE_ENV !== "production" && console.error('Order phone is null for order:', orderId);
-        return NextResponse.json({ error: 'Телефон заказа не указан' }, { status: 400 });
+      // Начисляем только если delivered и ещё не начисляли
+      if (status !== 'delivered' || order.bonus !== 0) {
+        return { order, bonusAccrual: 0, skipped: true as const };
       }
 
-      // Проверяем, что total не null
-      if (updatedOrder.total === null) {
-        process.env.NODE_ENV !== "production" && console.error('Order total is null for order:', orderId);
-        return NextResponse.json({ error: 'Сумма заказа не указана' }, { status: 400 });
+      if (!order.phone) {
+        throw new Error('Телефон заказа не указан');
+      }
+      if (order.total === null) {
+        throw new Error('Сумма заказа не указана');
       }
 
-      // Получаем текущий уровень пользователя
-      const bonusRecord = await prisma.bonuses.findUnique({
-        where: { phone: updatedOrder.phone },
-        select: { level: true, bonus_balance: true },
+      const phone = normalizePhone(
+        sanitizeHtml(order.phone, { allowedTags: [], allowedAttributes: {} })
+      );
+
+      // Если хочешь строго - раскомментируй
+      // if (!/^\+7\d{10}$/.test(phone)) {
+      //   throw new Error('Некорректный формат номера телефона');
+      // }
+
+      const totalAsNumber = decimalToNumber(order.total);
+
+      // 2) Получаем текущий уровень
+      const bonusRecord = await tx.bonuses.findUnique({
+        where: { phone },
+        select: { id: true, level: true },
       });
 
       const currentLevel = bonusRecord?.level ?? 'bronze';
-      const currentBalance = bonusRecord?.bonus_balance ?? 0;
-
-      // Находим процент кешбэка на основе текущего уровня
       const levelObj = CASHBACK_LEVELS.find((lvl) => lvl.level === currentLevel) || CASHBACK_LEVELS[0];
-      // Преобразуем total в number (если он Decimal) и вычисляем бонусы
-      const totalAsNumber = typeof updatedOrder.total === 'object' && 'toNumber' in updatedOrder.total
-        ? updatedOrder.total.toNumber()
-        : Number(updatedOrder.total);
-      const bonusAccrual = Math.floor(totalAsNumber * (levelObj.percentage / 100)); // Используем процент уровня
+      const bonusAccrual = Math.floor(totalAsNumber * (levelObj.percentage / 100));
 
-      // Начисляем бонусы
-      await prisma.bonuses.upsert({
-        where: { phone: updatedOrder.phone },
+      // 3) Upsert бонусов (без nested create)
+      const upserted = await tx.bonuses.upsert({
+        where: { phone },
         update: {
           bonus_balance: { increment: bonusAccrual },
+          total_spent: { increment: totalAsNumber },
+          total_bonus: { increment: bonusAccrual },
           updated_at: new Date(),
-          bonus_history: {
-            create: {
-              amount: bonusAccrual,
-              reason: `Начисление за заказ #${orderId}`,
-            },
-          },
         },
         create: {
-          phone: updatedOrder.phone,
+          phone,
           bonus_balance: bonusAccrual,
           level: 'bronze',
           total_spent: totalAsNumber,
           total_bonus: bonusAccrual,
           updated_at: new Date(),
-          bonus_history: {
-            create: {
-              amount: bonusAccrual,
-              reason: `Начисление за заказ #${orderId}`,
-            },
-          },
+        },
+        select: { id: true },
+      });
+
+      // 4) История отдельно, явная привязка к bonuses.id
+      await tx.bonus_history.create({
+        data: {
+          bonus_id: upserted.id,
+          phone,
+          amount: bonusAccrual, // Prisma сам приведёт number -> Decimal
+          reason: `Начисление за заказ #${orderId}`,
+          created_at: new Date(),
         },
       });
 
-      // Обновляем заказ с начисленным количеством бонусов
-      await prisma.orders.update({
+      // 5) Проставляем в заказ, сколько начислили (защита от повторного начисления)
+      const updatedOrder = await tx.orders.update({
         where: { id: orderId },
         data: { bonus: bonusAccrual },
+        select: {
+          id: true,
+          phone: true,
+          total: true,
+          bonus: true,
+          status: true,
+        },
       });
 
-      process.env.NODE_ENV !== "production" && console.log(`Начислено ${bonusAccrual} бонусов за заказ #${orderId} на уровне ${currentLevel}`);
-    }
+      return { order: updatedOrder, bonusAccrual, skipped: false as const };
+    });
 
-    return NextResponse.json({ success: true, order: updatedOrder });
+    return NextResponse.json({ success: true, ...result });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" && console.error('Error updating order status:', error);
+    process.env.NODE_ENV !== 'production' && console.error('Error updating order status:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }

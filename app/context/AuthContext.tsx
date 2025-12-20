@@ -1,16 +1,9 @@
+// ✅ Путь: app/context/AuthContext.tsx
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-
-// Функция нормализации телефона (взята из CartPage.tsx)
-const normalizePhone = (phone: string): string => {
-  const cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) return `+${cleanPhone}`;
-  if (cleanPhone.length === 10) return `+7${cleanPhone}`;
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('8')) return `+7${cleanPhone.slice(1)}`;
-  return phone.startsWith('+') ? phone : `+${phone}`;
-};
+import { normalizePhone } from '@/lib/normalizePhone';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -34,7 +27,7 @@ export function AuthProvider({
   initialBonus: number | null;
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(initialIsAuthenticated);
-  const [phone, setPhone] = useState<string | null>(initialPhone);
+  const [phone, setPhone] = useState<string | null>(initialPhone ? normalizePhone(initialPhone) : null);
   const [bonus, setBonus] = useState<number | null>(initialBonus);
 
   const supabase = createBrowserClient(
@@ -42,120 +35,129 @@ export function AuthProvider({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Синхронизация сессии с Supabase
+  const loadBonus = async (normalizedPhone: string) => {
+    try {
+      const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      });
+
+      const bonusJson = await bonusRes.json();
+
+      if (bonusRes.ok && bonusJson?.success) {
+        setBonus(bonusJson?.data?.bonus_balance ?? 0);
+      } else {
+        setBonus(null);
+      }
+    } catch (error) {
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки бонусов:', error);
+      setBonus(null);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (isMounted) {
-          if (session?.user) {
-            const userPhone = session.user.user_metadata?.phone as string | undefined;
-            if (userPhone) {
-              const normalizedPhone = normalizePhone(userPhone);
-              setIsAuthenticated(true);
-              setPhone(normalizedPhone);
-              try {
-                const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
-                const bonusJson = await bonusRes.json();
-                if (bonusRes.ok && bonusJson.success) {
-                  setBonus(bonusJson.data.bonus_balance ?? 0);
-                } else {
-                  setBonus(null);
-                }
-              } catch (error) {
-                process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки бонусов:', error);
-                setBonus(null);
-              }
-            } else {
-              setIsAuthenticated(false);
-              setPhone(null);
-              setBonus(null);
-            }
-          } else {
-            setIsAuthenticated(false);
-            setPhone(null);
-            setBonus(null);
-          }
-        }
-      } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Ошибка проверки сессии:', error);
-        if (isMounted) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
+        const userPhone = (session?.user?.user_metadata?.phone as string | undefined) || null;
+
+        if (!userPhone) {
           setIsAuthenticated(false);
           setPhone(null);
           setBonus(null);
+          return;
         }
+
+        const normalized = normalizePhone(userPhone);
+
+        if (!/^\+7\d{10}$/.test(normalized)) {
+          setIsAuthenticated(false);
+          setPhone(null);
+          setBonus(null);
+          return;
+        }
+
+        setIsAuthenticated(true);
+        setPhone(normalized);
+        await loadBonus(normalized);
+      } catch (error) {
+        process.env.NODE_ENV !== 'production' && console.error('Ошибка проверки сессии:', error);
+        if (!isMounted) return;
+        setIsAuthenticated(false);
+        setPhone(null);
+        setBonus(null);
       }
     };
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        if (session?.user) {
-          const userPhone = session.user.user_metadata?.phone as string | undefined;
-          if (userPhone) {
-            const normalizedPhone = normalizePhone(userPhone);
-            setIsAuthenticated(true);
-            setPhone(normalizedPhone);
-            fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`)
-              .then((res) => res.json())
-              .then((bonusJson) => {
-                if (isMounted && bonusJson.success) {
-                  setBonus(bonusJson.data.bonus_balance ?? 0);
-                } else if (isMounted) {
-                  setBonus(null);
-                }
-              })
-              .catch(() => {
-                if (isMounted) setBonus(null);
-              });
-          } else {
-            setIsAuthenticated(false);
-            setPhone(null);
-            setBonus(null);
-          }
-        } else {
-          setIsAuthenticated(false);
-          setPhone(null);
-          setBonus(null);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
+
+      const userPhone = (session?.user?.user_metadata?.phone as string | undefined) || null;
+
+      if (!userPhone) {
+        setIsAuthenticated(false);
+        setPhone(null);
+        setBonus(null);
+        return;
       }
+
+      const normalized = normalizePhone(userPhone);
+
+      if (!/^\+7\d{10}$/.test(normalized)) {
+        setIsAuthenticated(false);
+        setPhone(null);
+        setBonus(null);
+        return;
+      }
+
+      setIsAuthenticated(true);
+      setPhone(normalized);
+      await loadBonus(normalized);
     });
 
     return () => {
       isMounted = false;
       subscription?.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const setAuth = async (phone: string) => {
-    const normalizedPhone = normalizePhone(phone);
-    setIsAuthenticated(true);
-    setPhone(normalizedPhone);
-    try {
-      const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`);
-      const bonusJson = await bonusRes.json();
-      if (bonusRes.ok && bonusJson.success) {
-        setBonus(bonusJson.data.bonus_balance ?? 0);
-      } else {
-        setBonus(null);
-      }
-    } catch (error) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка загрузки бонусов:', error);
+  const setAuth = async (rawPhone: string) => {
+    const normalized = normalizePhone(rawPhone);
+
+    if (!/^\+7\d{10}$/.test(normalized)) {
+      setIsAuthenticated(false);
+      setPhone(null);
       setBonus(null);
+      return;
     }
+
+    setIsAuthenticated(true);
+    setPhone(normalized);
+    await loadBonus(normalized);
   };
 
   const clearAuth = async () => {
     try {
       await supabase.auth.signOut();
+    } catch (error) {
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка при выходе:', error);
+    } finally {
       setIsAuthenticated(false);
       setPhone(null);
       setBonus(null);
-    } catch (error) {
-      process.env.NODE_ENV !== "production" && console.error('Ошибка при выходе:', error);
     }
   };
 

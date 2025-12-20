@@ -1,3 +1,4 @@
+// ✅ Путь: components/Breadcrumbs.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
@@ -54,6 +55,12 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
+const humanizeSlug = (slug: string) =>
+  decodeURIComponent(slug)
+    .split('-')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ');
+
 export default function Breadcrumbs({
   productTitle,
   categorySlug,
@@ -63,9 +70,11 @@ export default function Breadcrumbs({
   categorySlug?: string;
   categoryName?: string;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || '/';
   const searchParams = useSearchParams();
-  const subcategorySlug = searchParams.get('subcategory') || 'all';
+
+  // Старый формат подкатегорий: /category/[slug]?subcategory=...
+  const subcategoryFromQuery = searchParams.get('subcategory') || 'all';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,36 +133,46 @@ export default function Breadcrumbs({
     fetchCategories();
   }, []);
 
-  const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
-
   const segments = pathname.split('/').filter(Boolean);
   const shouldRender = pathname !== '/';
   if (!shouldRender) return null;
 
-  // /category/[slug]
+  const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
+
+  // /category/[slug] или /category/[slug]/[subslug]
   if (segments[0] === 'category' && segments[1]) {
     crumbs.push({ href: '/catalog', label: 'Каталог' });
 
     const catSlug = segments[1];
     const cat = categories.find((c) => c.slug === catSlug);
+
     crumbs.push({
       href: `/category/${catSlug}`,
-      label: cat
-        ? cat.name
-        : decodeURIComponent(catSlug)
-            .split('-')
-            .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-            .join(' '),
+      label: cat ? cat.name : humanizeSlug(catSlug),
     });
 
-    // subcategory из query
-    if (!loading && subcategorySlug !== 'all' && cat) {
-      const sub = cat.subcategories.find((s) => s.slug === subcategorySlug);
-      if (sub) {
+    // Новый формат: /category/[catSlug]/[subSlug]
+    const subSlugFromPath = segments[2];
+
+    if (!loading && cat) {
+      // 1) если подкатегория в пути
+      if (subSlugFromPath) {
+        const sub = cat.subcategories.find((s) => s.slug === subSlugFromPath);
         crumbs.push({
-          href: `/category/${catSlug}?subcategory=${subcategorySlug}`,
-          label: sub.name,
+          href: `/category/${catSlug}/${subSlugFromPath}`,
+          label: sub ? sub.name : humanizeSlug(subSlugFromPath),
         });
+      }
+
+      // 2) иначе - старый формат query ?subcategory=
+      else if (subcategoryFromQuery !== 'all') {
+        const sub = cat.subcategories.find((s) => s.slug === subcategoryFromQuery);
+        if (sub) {
+          crumbs.push({
+            href: `/category/${catSlug}?subcategory=${subcategoryFromQuery}`,
+            label: sub.name,
+          });
+        }
       }
     }
   }
@@ -177,12 +196,7 @@ export default function Breadcrumbs({
     let currentPath = '';
     segments.forEach((seg) => {
       currentPath += `/${seg}`;
-      const lbl =
-        staticTitles[seg] ||
-        decodeURIComponent(seg)
-          .split('-')
-          .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-          .join(' ');
+      const lbl = staticTitles[seg] || humanizeSlug(seg);
       crumbs.push({ href: currentPath, label: lbl });
     });
   }
