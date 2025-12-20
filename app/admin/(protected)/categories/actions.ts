@@ -1,7 +1,8 @@
+// ✅ Путь: app/admin/(protected)/categories/actions.ts
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/supabase/types_new';
+import type { Database, TablesInsert, TablesUpdate } from '@/lib/supabase/types_new';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,8 +16,9 @@ const cleanText = (v: unknown) => {
 };
 
 const cleanBool = (v: unknown, fallback = false) => {
-  if (v === 'true') return true;
-  if (v === 'false') return false;
+  // чекбоксы в FormData часто приходят как "on"
+  if (v === 'true' || v === 'on' || v === '1' || v === 'yes') return true;
+  if (v === 'false' || v === '0' || v === 'no') return false;
   if (typeof v === 'boolean') return v;
   return fallback;
 };
@@ -36,11 +38,10 @@ export async function addCategory(formData: FormData) {
   const is_visible = cleanBool(formData.get('is_visible'), true);
 
   if (!name) throw new Error('Название обязательно');
-
   if (!slug) slug = generateSlug(name);
   if (!slug) throw new Error('Slug обязателен');
 
-  const payload = {
+  const payload: TablesInsert<'categories'> = {
     name,
     slug,
     is_visible,
@@ -56,9 +57,7 @@ export async function addCategory(formData: FormData) {
   const { data, error } = await supabase
     .from('categories')
     .insert(payload)
-    .select(
-      'id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
-    )
+    .select('id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex')
     .single();
 
   if (error) throw new Error(error.message);
@@ -76,7 +75,7 @@ export async function updateCategory(formData: FormData) {
   if (!slug) slug = generateSlug(name);
   if (!slug) throw new Error('Slug обязателен');
 
-  const payload = {
+  const payload: TablesUpdate<'categories'> = {
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
@@ -93,9 +92,7 @@ export async function updateCategory(formData: FormData) {
     .from('categories')
     .update(payload)
     .eq('id', id)
-    .select(
-      'id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
-    )
+    .select('id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex')
     .single();
 
   if (error) throw new Error(error.message);
@@ -140,7 +137,7 @@ export async function addSubcategory(formData: FormData) {
   if (!slug) slug = generateSlug(name);
   if (!slug) throw new Error('Slug обязателен');
 
-  const payload = {
+  const payload: TablesInsert<'subcategories'> = {
     category_id,
     name,
     slug,
@@ -157,9 +154,7 @@ export async function addSubcategory(formData: FormData) {
   const { data, error } = await supabase
     .from('subcategories')
     .insert(payload)
-    .select(
-      'id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
-    )
+    .select('id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex')
     .single();
 
   if (error) throw new Error(error.message);
@@ -177,7 +172,7 @@ export async function updateSubcategory(formData: FormData) {
   if (!slug) slug = generateSlug(name);
   if (!slug) throw new Error('Slug обязателен');
 
-  const payload = {
+  const payload: TablesUpdate<'subcategories'> = {
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
@@ -194,9 +189,7 @@ export async function updateSubcategory(formData: FormData) {
     .from('subcategories')
     .update(payload)
     .eq('id', id)
-    .select(
-      'id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
-    )
+    .select('id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex')
     .single();
 
   if (error) throw new Error(error.message);

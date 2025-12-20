@@ -8,6 +8,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { ItemList, BreadcrumbList, CollectionPage } from 'schema-dts';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 import CategoryPageClient from './CategoryPageClient';
 
@@ -106,7 +107,7 @@ export default async function CategoryPage({
     .eq('is_visible', true)
     .single();
 
-  if (categoryError || !categoryData) redirect('/404');
+  if (categoryError || !categoryData) notFound();
 
   const categoryId = categoryData.id;
   const apiName = categoryData.name;

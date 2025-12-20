@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/categories/CategoriesClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -72,17 +73,24 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   // helpers
   const appendSeoToFormData = (fd: FormData, seo: SeoFields) => {
-    fd.append('seo_h1', (seo.seo_h1 ?? '').toString());
-    fd.append('seo_title', (seo.seo_title ?? '').toString());
-    fd.append('seo_description', (seo.seo_description ?? '').toString());
-    fd.append('seo_text', (seo.seo_text ?? '').toString());
-    fd.append('og_image', (seo.og_image ?? '').toString());
-    fd.append('seo_noindex', String(!!seo.seo_noindex));
+    fd.set('seo_h1', String(seo.seo_h1 ?? ''));
+    fd.set('seo_title', String(seo.seo_title ?? ''));
+    fd.set('seo_description', String(seo.seo_description ?? ''));
+    fd.set('seo_text', String(seo.seo_text ?? ''));
+    fd.set('og_image', String(seo.og_image ?? ''));
+
+    // ВАЖНО: чекбоксы кладём как true/false
+    fd.set('seo_noindex', String(!!seo.seo_noindex));
   };
 
-  // --- Категории ---
+  /* ------------------------------ Категории ------------------------------ */
+
   const handleAddCategory = async (formData: FormData) => {
     try {
+      // гарантируем правильные значения
+      formData.set('is_visible', String(newCategory.is_visible));
+      formData.set('seo_noindex', String(newCategory.seo_noindex));
+
       await addCategory(formData);
 
       setCategories((prev) => [
@@ -124,6 +132,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   const handleUpdateCategory = async (formData: FormData) => {
     try {
       const id = Number(formData.get('id'));
+
+      // ВАЖНО: чекбоксы вручную
+      if (editingCategory) {
+        formData.set('is_visible', String(!!editingCategory.is_visible));
+        appendSeoToFormData(formData, editingCategory);
+      }
+
       await updateCategory(formData);
 
       setCategories((prev) =>
@@ -156,7 +171,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   const handleDeleteCategory = async (id: number, name: string) => {
     if (!confirm(`Удалить категорию "${name}" и все её подкатегории?`)) return;
     const formData = new FormData();
-    formData.append('id', id.toString());
+    formData.set('id', id.toString());
     try {
       await deleteCategory(formData);
       setCategories((prev) => prev.filter((cat) => cat.id !== id));
@@ -168,22 +183,25 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleToggleCategory = async (cat: Category) => {
     const formData = new FormData();
-    formData.append('id', cat.id.toString());
-    formData.append('name', cat.name);
-    formData.append('slug', cat.slug);
-    formData.append('is_visible', String(!cat.is_visible));
+    formData.set('id', cat.id.toString());
+    formData.set('name', cat.name);
+    formData.set('slug', cat.slug);
+    formData.set('is_visible', String(!cat.is_visible));
     appendSeoToFormData(formData, cat);
 
     try {
       await updateCategory(formData);
-      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c)));
+      setCategories((prev) =>
+        prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c))
+      );
       toast.success(cat.is_visible ? 'Категория скрыта' : 'Категория отображается');
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  // --- Подкатегории ---
+  /* ---------------------------- Подкатегории ---------------------------- */
+
   const handleAddSubcategory = async (catId: number) => {
     const name = newSubByCat[catId]?.trim();
     if (!name) {
@@ -191,12 +209,14 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       return;
     }
 
-    const formData = new FormData();
-    formData.append('category_id', catId.toString());
-    formData.append('name', name);
-    formData.append('is_visible', 'true');
+    const slug = generateSlug(name);
 
-    // SEO для подкатегории по умолчанию пустой (жена сможет заполнить после создания)
+    const formData = new FormData();
+    formData.set('category_id', catId.toString());
+    formData.set('name', name);
+    formData.set('slug', slug);
+    formData.set('is_visible', 'true');
+
     appendSeoToFormData(formData, {
       seo_h1: '',
       seo_title: '',
@@ -220,7 +240,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                     id: Date.now(),
                     name,
                     category_id: catId,
-                    slug: generateSlug(name),
+                    slug,
                     is_visible: true,
 
                     seo_h1: '',
@@ -243,13 +263,18 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     }
   };
 
-  const handleEditSubcategory = (sub: Subcategory) => {
-    setEditingSub({ ...sub });
-  };
+  const handleEditSubcategory = (sub: Subcategory) => setEditingSub({ ...sub });
 
   const handleUpdateSubcategory = async (formData: FormData) => {
     try {
       const id = Number(formData.get('id'));
+
+      if (editingSub) {
+        formData.set('is_visible', String(!!editingSub.is_visible));
+        appendSeoToFormData(formData, editingSub);
+        // slug держим из hidden input, но если хочешь менять - просто добавь поле в UI
+      }
+
       await updateSubcategory(formData);
 
       setCategories((prev) =>
@@ -285,11 +310,15 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   const handleDeleteSubcategory = async (id: number, name: string, catId: number) => {
     if (!confirm(`Удалить подкатегорию "${name}"?`)) return;
     const formData = new FormData();
-    formData.append('id', id.toString());
+    formData.set('id', id.toString());
     try {
       await deleteSubcategory(formData);
       setCategories((prev) =>
-        prev.map((cat) => (cat.id === catId ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) } : cat))
+        prev.map((cat) =>
+          cat.id === catId
+            ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) }
+            : cat
+        )
       );
       toast.success('Подкатегория удалена');
     } catch (error: any) {
@@ -299,10 +328,10 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleToggleSub = async (sub: Subcategory, catId: number) => {
     const formData = new FormData();
-    formData.append('id', sub.id.toString());
-    formData.append('name', sub.name);
-    formData.append('slug', sub.slug);
-    formData.append('is_visible', String(!sub.is_visible));
+    formData.set('id', sub.id.toString());
+    formData.set('name', sub.name);
+    formData.set('slug', sub.slug);
+    formData.set('is_visible', String(!sub.is_visible));
     appendSeoToFormData(formData, sub);
 
     try {
@@ -310,7 +339,12 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       setCategories((prev) =>
         prev.map((cat) =>
           cat.id === catId
-            ? { ...cat, subcategories: cat.subcategories.map((s) => (s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s)) }
+            ? {
+                ...cat,
+                subcategories: cat.subcategories.map((s) =>
+                  s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s
+                ),
+              }
             : cat
         )
       );
@@ -320,7 +354,8 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     }
   };
 
-  // --- UI ---
+  /* --------------------------------- UI --------------------------------- */
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 font-sans">
       <h1 className="text-3xl font-bold mb-8 text-black tracking-tight">Управление категориями</h1>
@@ -333,6 +368,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
           onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
+
+            // ВАЖНО: checkbox -> true/false
+            formData.set('is_visible', String(newCategory.is_visible));
+            formData.set('seo_noindex', String(newCategory.seo_noindex));
+
             handleAddCategory(formData);
           }}
           className="flex flex-col gap-3"
@@ -430,7 +470,6 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
               <label className="flex items-center text-sm text-gray-700 gap-2">
                 <input
                   type="checkbox"
-                  name="seo_noindex"
                   checked={newCategory.seo_noindex}
                   onChange={(e) => setNewCategory((p) => ({ ...p, seo_noindex: e.target.checked }))}
                 />
@@ -439,7 +478,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
             </div>
           </details>
 
+          {/* скрытая передача чекбокса */}
           <input type="hidden" name="is_visible" value={String(newCategory.is_visible)} />
+          <input type="hidden" name="seo_noindex" value={String(newCategory.seo_noindex)} />
 
           <button
             type="submit"
@@ -473,7 +514,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
 
-                      // добиваем SEO полями из state (чтобы не зависеть от наличия input в DOM)
+                      formData.set('is_visible', String(!!editingCategory.is_visible));
                       appendSeoToFormData(formData, editingCategory);
 
                       handleUpdateCategory(formData);
@@ -503,16 +544,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                     <label className="flex items-center text-sm">
                       <input
                         type="checkbox"
-                        name="is_visible"
                         checked={editingCategory.is_visible}
                         onChange={(e) => setEditingCategory({ ...editingCategory, is_visible: e.target.checked })}
                         className="mr-2"
-                        aria-label="Видимость категории"
                       />
                       Видима
                     </label>
 
-                    {/* SEO категория */}
                     <details>
                       <summary className="cursor-pointer text-sm text-gray-700 select-none">SEO категории</summary>
                       <div className="mt-3 grid grid-cols-1 gap-3">
@@ -550,10 +588,16 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                           <input
                             type="checkbox"
                             checked={!!editingCategory.seo_noindex}
-                            onChange={(e) => setEditingCategory({ ...editingCategory, seo_noindex: e.target.checked })}
+                            onChange={(e) =>
+                              setEditingCategory({ ...editingCategory, seo_noindex: e.target.checked })
+                            }
                           />
                           noindex
                         </label>
+
+                        {/* скрытое поле, чтобы на сервер улетало точно */}
+                        <input type="hidden" name="seo_noindex" value={String(!!editingCategory.seo_noindex)} />
+                        <input type="hidden" name="is_visible" value={String(!!editingCategory.is_visible)} />
                       </div>
                     </details>
 
@@ -618,7 +662,10 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                             onSubmit={(e) => {
                               e.preventDefault();
                               const formData = new FormData(e.currentTarget);
+
+                              formData.set('is_visible', String(!!editingSub.is_visible));
                               appendSeoToFormData(formData, editingSub);
+
                               handleUpdateSubcategory(formData);
                             }}
                             className="flex flex-col gap-2 w-full"
@@ -635,7 +682,6 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                               <label className="flex items-center text-sm whitespace-nowrap">
                                 <input
                                   type="checkbox"
-                                  name="is_visible"
                                   checked={editingSub.is_visible}
                                   onChange={(e) => setEditingSub({ ...editingSub, is_visible: e.target.checked })}
                                   className="mr-2"
@@ -645,17 +691,25 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
                               <input type="hidden" name="id" value={sub.id} />
                               <input type="hidden" name="slug" value={editingSub.slug} />
+                              <input type="hidden" name="is_visible" value={String(!!editingSub.is_visible)} />
+                              <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
 
                               <button type="submit" className="text-green-600 hover:underline text-sm whitespace-nowrap">
                                 💾
                               </button>
-                              <button type="button" onClick={() => setEditingSub(null)} className="text-gray-500 hover:underline text-sm whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => setEditingSub(null)}
+                                className="text-gray-500 hover:underline text-sm whitespace-nowrap"
+                              >
                                 Отмена
                               </button>
                             </div>
 
                             <details>
-                              <summary className="cursor-pointer text-xs text-gray-700 select-none">SEO подкатегории</summary>
+                              <summary className="cursor-pointer text-xs text-gray-700 select-none">
+                                SEO подкатегории
+                              </summary>
                               <div className="mt-2 grid grid-cols-1 gap-2">
                                 <input
                                   value={editingSub.seo_h1 ?? ''}
@@ -671,7 +725,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                 />
                                 <textarea
                                   value={editingSub.seo_description ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, seo_description: e.target.value })}
+                                  onChange={(e) =>
+                                    setEditingSub({ ...editingSub, seo_description: e.target.value })
+                                  }
                                   className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[60px]"
                                   placeholder="SEO Description"
                                 />
@@ -691,10 +747,14 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                   <input
                                     type="checkbox"
                                     checked={!!editingSub.seo_noindex}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_noindex: e.target.checked })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, seo_noindex: e.target.checked })
+                                    }
                                   />
                                   noindex
                                 </label>
+
+                                <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
                               </div>
                             </details>
                           </form>
@@ -704,7 +764,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                               {sub.name} {sub.is_visible ? '' : '(Скрыта)'}
                             </span>
                             <div className="flex gap-2">
-                              <button onClick={() => handleEditSubcategory(sub)} className="text-blue-600 hover:underline" aria-label={`Редактировать подкатегорию ${sub.name}`}>
+                              <button
+                                onClick={() => handleEditSubcategory(sub)}
+                                className="text-blue-600 hover:underline"
+                                aria-label={`Редактировать подкатегорию ${sub.name}`}
+                              >
                                 ✏️
                               </button>
                               <button
@@ -713,7 +777,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                               >
                                 {sub.is_visible ? '👁️ Скрыть' : '👁️ Показать'}
                               </button>
-                              <button onClick={() => handleDeleteSubcategory(sub.id, sub.name, cat.id)} className="text-red-600 hover:underline" aria-label={`Удалить подкатегорию ${sub.name}`}>
+                              <button
+                                onClick={() => handleDeleteSubcategory(sub.id, sub.name, cat.id)}
+                                className="text-red-600 hover:underline"
+                                aria-label={`Удалить подкатегорию ${sub.name}`}
+                              >
                                 🗑️
                               </button>
                             </div>
@@ -745,7 +813,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                     />
                     <p className="text-xs text-gray-500 mt-1">Например, "Белый шоколад"</p>
                   </div>
-                  <button type="submit" className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors" aria-label="Добавить подкатегорию">
+                  <button
+                    type="submit"
+                    className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
+                    aria-label="Добавить подкатегорию"
+                  >
                     +
                   </button>
                 </form>
