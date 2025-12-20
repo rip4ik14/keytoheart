@@ -9,49 +9,104 @@ const supabase = createClient<Database>(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const cleanText = (v: unknown) => {
+  const s = String(v ?? '').trim();
+  return s.length ? s : null;
+};
+
+const cleanBool = (v: unknown, fallback = false) => {
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (typeof v === 'boolean') return v;
+  return fallback;
+};
+
+const generateSlug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9а-я]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .replace(/-+/g, '-');
+
+/* --------------------------------- Category -------------------------------- */
+
 export async function addCategory(formData: FormData) {
-  const name = formData.get('name') as string;
-  const slug = formData.get('slug') as string;
-  const is_visible = formData.get('is_visible') === 'true';
+  const name = String(formData.get('name') ?? '').trim();
+  let slug = String(formData.get('slug') ?? '').trim();
+  const is_visible = cleanBool(formData.get('is_visible'), true);
 
-  if (!name.trim() || !slug.trim()) {
-    throw new Error('Название и slug обязательны');
-  }
+  if (!name) throw new Error('Название обязательно');
 
-  const { error } = await supabase.from('categories').insert({ name, slug, is_visible });
+  if (!slug) slug = generateSlug(name);
+  if (!slug) throw new Error('Slug обязателен');
+
+  const payload = {
+    name,
+    slug,
+    is_visible,
+
+    seo_h1: cleanText(formData.get('seo_h1')),
+    seo_title: cleanText(formData.get('seo_title')),
+    seo_description: cleanText(formData.get('seo_description')),
+    seo_text: cleanText(formData.get('seo_text')),
+    og_image: cleanText(formData.get('og_image')),
+    seo_noindex: cleanBool(formData.get('seo_noindex'), false),
+  };
+
+  const { data, error } = await supabase
+    .from('categories')
+    .insert(payload)
+    .select(
+      'id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
+    )
+    .single();
+
   if (error) throw new Error(error.message);
-
-  return { success: true };
+  return { success: true, category: data };
 }
 
 export async function updateCategory(formData: FormData) {
   const id = Number(formData.get('id'));
-  const name = formData.get('name') as string;
-  const slug = formData.get('slug') as string;
-  const is_visible = formData.get('is_visible') === 'true';
+  const name = String(formData.get('name') ?? '').trim();
+  let slug = String(formData.get('slug') ?? '').trim();
 
-  if (!id || !name.trim() || !slug.trim()) {
-    throw new Error('ID, название и slug обязательны');
-  }
+  if (!id) throw new Error('ID обязателен');
+  if (!name) throw new Error('Название обязательно');
 
-  const { error } = await supabase
+  if (!slug) slug = generateSlug(name);
+  if (!slug) throw new Error('Slug обязателен');
+
+  const payload = {
+    name,
+    slug,
+    is_visible: cleanBool(formData.get('is_visible'), true),
+
+    seo_h1: cleanText(formData.get('seo_h1')),
+    seo_title: cleanText(formData.get('seo_title')),
+    seo_description: cleanText(formData.get('seo_description')),
+    seo_text: cleanText(formData.get('seo_text')),
+    og_image: cleanText(formData.get('og_image')),
+    seo_noindex: cleanBool(formData.get('seo_noindex'), false),
+  };
+
+  const { data, error } = await supabase
     .from('categories')
-    .update({ name, slug, is_visible })
-    .eq('id', id);
+    .update(payload)
+    .eq('id', id)
+    .select(
+      'id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
+    )
+    .single();
 
   if (error) throw new Error(error.message);
-
-  return { success: true };
+  return { success: true, category: data };
 }
 
 export async function deleteCategory(formData: FormData) {
   const id = Number(formData.get('id'));
+  if (!id) throw new Error('ID обязателен');
 
-  if (!id) {
-    throw new Error('ID обязателен');
-  }
-
-  // Проверка наличия товаров с этой категорией
+  // Проверка товаров
   const { data: products, error: productsError } = await supabase
     .from('product_categories')
     .select('product_id')
@@ -59,16 +114,10 @@ export async function deleteCategory(formData: FormData) {
     .limit(1);
 
   if (productsError) throw new Error(productsError.message);
-  if (products?.length) {
-    throw new Error('Нельзя удалить категорию с товарами');
-  }
+  if (products?.length) throw new Error('Нельзя удалить категорию с товарами');
 
   // Удаляем подкатегории
-  const { error: subError } = await supabase
-    .from('subcategories')
-    .delete()
-    .eq('category_id', id);
-
+  const { error: subError } = await supabase.from('subcategories').delete().eq('category_id', id);
   if (subError) throw new Error(subError.message);
 
   // Удаляем категорию
@@ -78,65 +127,85 @@ export async function deleteCategory(formData: FormData) {
   return { success: true };
 }
 
+/* ------------------------------- Subcategory ------------------------------- */
+
 export async function addSubcategory(formData: FormData) {
   const category_id = Number(formData.get('category_id'));
-  const name = formData.get('name') as string;
-  const is_visible = formData.get('is_visible') === 'true';
+  const name = String(formData.get('name') ?? '').trim();
+  let slug = String(formData.get('slug') ?? '').trim();
 
-  if (!category_id || !name.trim()) {
-    throw new Error('Категория и название обязательны');
-  }
+  if (!category_id) throw new Error('Категория обязательна');
+  if (!name) throw new Error('Название обязательно');
 
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9а-я]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .replace(/-+/g, '-');
+  if (!slug) slug = generateSlug(name);
+  if (!slug) throw new Error('Slug обязателен');
 
-  const { error } = await supabase
+  const payload = {
+    category_id,
+    name,
+    slug,
+    is_visible: cleanBool(formData.get('is_visible'), true),
+
+    seo_h1: cleanText(formData.get('seo_h1')),
+    seo_title: cleanText(formData.get('seo_title')),
+    seo_description: cleanText(formData.get('seo_description')),
+    seo_text: cleanText(formData.get('seo_text')),
+    og_image: cleanText(formData.get('og_image')),
+    seo_noindex: cleanBool(formData.get('seo_noindex'), false),
+  };
+
+  const { data, error } = await supabase
     .from('subcategories')
-    .insert({ category_id, name, slug, is_visible });
+    .insert(payload)
+    .select(
+      'id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
+    )
+    .single();
 
   if (error) throw new Error(error.message);
-
-  return { success: true };
+  return { success: true, subcategory: data };
 }
 
 export async function updateSubcategory(formData: FormData) {
   const id = Number(formData.get('id'));
-  const name = formData.get('name') as string;
-  const is_visible = formData.get('is_visible') === 'true';
-  let slug = formData.get('slug') as string | null;
+  const name = String(formData.get('name') ?? '').trim();
+  let slug = String(formData.get('slug') ?? '').trim();
 
-  if (!id || !name.trim()) {
-    throw new Error('ID и название обязательны');
-  }
+  if (!id) throw new Error('ID обязателен');
+  if (!name) throw new Error('Название обязательно');
 
-  // Генерируем slug если не пришёл
-  if (!slug || !slug.trim()) {
-    slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9а-я]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-      .replace(/-+/g, '-');
-  }
+  if (!slug) slug = generateSlug(name);
+  if (!slug) throw new Error('Slug обязателен');
 
-  const { error } = await supabase
+  const payload = {
+    name,
+    slug,
+    is_visible: cleanBool(formData.get('is_visible'), true),
+
+    seo_h1: cleanText(formData.get('seo_h1')),
+    seo_title: cleanText(formData.get('seo_title')),
+    seo_description: cleanText(formData.get('seo_description')),
+    seo_text: cleanText(formData.get('seo_text')),
+    og_image: cleanText(formData.get('og_image')),
+    seo_noindex: cleanBool(formData.get('seo_noindex'), false),
+  };
+
+  const { data, error } = await supabase
     .from('subcategories')
-    .update({ name, slug, is_visible })
-    .eq('id', id);
+    .update(payload)
+    .eq('id', id)
+    .select(
+      'id,name,slug,category_id,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex',
+    )
+    .single();
 
   if (error) throw new Error(error.message);
-
-  return { success: true };
+  return { success: true, subcategory: data };
 }
 
 export async function deleteSubcategory(formData: FormData) {
   const id = Number(formData.get('id'));
-
-  if (!id) {
-    throw new Error('ID обязателен');
-  }
+  if (!id) throw new Error('ID обязателен');
 
   const { error } = await supabase.from('subcategories').delete().eq('id', id);
   if (error) throw new Error(error.message);

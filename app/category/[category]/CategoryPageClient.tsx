@@ -2,7 +2,7 @@
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -18,9 +18,12 @@ export interface Subcategory {
 
 export interface Props {
   products: Product[];
-  h1: string; // !! Добавил сюда
+  h1: string;
   slug: string;
   subcategories: Subcategory[];
+
+  // SEO-текст посадочной (из БД)
+  seoText?: string | null;
 }
 
 export default function CategoryPageClient({
@@ -28,6 +31,7 @@ export default function CategoryPageClient({
   h1,
   slug,
   subcategories,
+  seoText = null,
 }: Props) {
   const searchParams = useSearchParams();
   const sort = searchParams.get('sort') || 'newest';
@@ -51,27 +55,35 @@ export default function CategoryPageClient({
   }, [sort, subcategory, products, subcategories]);
 
   useEffect(() => {
-    window.gtag?.('event', 'view_category', { event_category: 'category', event_label: h1 });
-    YM_ID && callYm(YM_ID, 'reachGoal', 'view_category', { category: h1 });
+    window.gtag?.('event', 'view_category', {
+      event_category: 'category',
+      event_label: h1,
+    });
+    if (YM_ID) callYm(YM_ID, 'reachGoal', 'view_category', { category: h1 });
   }, [h1]);
 
-  const minPrice = filteredProducts.length > 0 ? Math.min(...filteredProducts.map((p) => p.price)) : 0;
+  const minPrice = useMemo(() => {
+    return filteredProducts.length > 0 ? Math.min(...filteredProducts.map((p) => p.price)) : 0;
+  }, [filteredProducts]);
+
+  const normalizedSeoText = useMemo(() => {
+    const t = (seoText || '').trim();
+    return t.length ? t : null;
+  }, [seoText]);
 
   return (
     <section className="container mx-auto py-6 px-4" aria-label={`Товары ${h1}`}>
-      {/* --- H1: только продающий заголовок из meta --- */}
-      <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">
-        {h1}
-      </h1>
+      {/* H1 */}
+      <h1 className="text-2xl sm:text-3xl font-sans font-bold mb-4">{h1}</h1>
 
-      {/* --- H2: подзаголовок, не дублирующий h1 --- */}
+      {/* H2 */}
       {filteredProducts.length > 0 && minPrice > 0 && (
         <h2 className="text-xl sm:text-2xl font-sans font-semibold mb-4">
-          В наличии от {minPrice}₽ — доставка по Краснодару
+          В наличии от {minPrice}₽ - доставка по Краснодару
         </h2>
       )}
 
-      {/* --- Фильтр подкатегорий --- */}
+      {/* Подкатегории */}
       {subcategories.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
           <FilterChip
@@ -90,7 +102,7 @@ export default function CategoryPageClient({
         </div>
       )}
 
-      {/* --- Сортировка --- */}
+      {/* Сортировка */}
       <div className="mb-6 flex justify-end">
         <select
           value={sort}
@@ -107,7 +119,7 @@ export default function CategoryPageClient({
         </select>
       </div>
 
-      {/* --- Список товаров --- */}
+      {/* Товары */}
       {filteredProducts.length === 0 ? (
         <p className="text-gray-500 font-sans">Нет товаров в этой категории.</p>
       ) : (
@@ -129,6 +141,18 @@ export default function CategoryPageClient({
             </motion.div>
           ))}
         </motion.div>
+      )}
+
+      {/* SEO-текст посадочной */}
+      {normalizedSeoText && (
+        <section className="mt-10 sm:mt-12" aria-label="SEO текст категории">
+          <div className="border-t pt-6">
+            <h2 className="text-lg sm:text-xl font-sans font-semibold text-black mb-3">{h1}</h2>
+            <div className="text-sm sm:text-base text-gray-700 whitespace-pre-line leading-relaxed">
+              {normalizedSeoText}
+            </div>
+          </div>
+        </section>
       )}
     </section>
   );
