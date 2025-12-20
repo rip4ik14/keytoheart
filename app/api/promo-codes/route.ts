@@ -29,9 +29,7 @@ function checkCSRF(req: NextRequest) {
 }
 
 function normalizeCode(input: unknown) {
-  const code = String(input ?? '')
-    .trim()
-    .toUpperCase();
+  const code = String(input ?? '').trim().toUpperCase();
 
   if (!code) throw new Error('Код обязателен');
   if (!/^[A-Z0-9_-]+$/.test(code)) {
@@ -47,12 +45,11 @@ function parseExpiresAt(input: unknown) {
   const d = new Date(String(input));
   if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
 
-  // необязательно, но полезно
   if (d.getTime() < Date.now()) {
     throw new Error('Дата истечения должна быть в будущем');
   }
 
-  return d; // Prisma DateTime ждёт Date
+  return d;
 }
 
 function parseDiscountType(input: unknown): 'percentage' | 'fixed' {
@@ -76,9 +73,7 @@ function parseDiscountValue(input: unknown) {
 
 function prismaErrorToMessage(err: any) {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    // P2002 - unique constraint failed
     if (err.code === 'P2002') return 'Такой промокод уже существует';
-    // P2025 - record not found
     if (err.code === 'P2025') return 'Промокод не найден (возможно уже удалён)';
   }
   return err?.message || 'Ошибка сервера';
@@ -101,7 +96,7 @@ export async function GET(req: NextRequest) {
       orderBy: { created_at: 'desc' },
     });
 
-    const res = NextResponse.json(codes);
+    const res = NextResponse.json(codes, { status: 200 });
     ensureCsrfCookie(req, res);
     return res;
   } catch (err: any) {
@@ -127,13 +122,7 @@ export async function POST(req: NextRequest) {
     const is_active = parseIsActive(body.is_active);
 
     const promo = await prisma.promo_codes.create({
-      data: {
-        code,
-        discount_value,
-        discount_type,
-        expires_at,
-        is_active,
-      },
+      data: { code, discount_value, discount_type, expires_at, is_active },
       select: {
         id: true,
         code: true,
@@ -144,7 +133,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(promo);
+    return NextResponse.json(promo, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
@@ -172,13 +161,7 @@ export async function PATCH(req: NextRequest) {
 
     const promo = await prisma.promo_codes.update({
       where: { id },
-      data: {
-        code,
-        discount_value,
-        discount_type,
-        expires_at,
-        is_active,
-      },
+      data: { code, discount_value, discount_type, expires_at, is_active },
       select: {
         id: true,
         code: true,
@@ -189,14 +172,16 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(promo);
+    return NextResponse.json(promo, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DELETE: удаление промокода (через deleteMany, чтобы не падать "record not found")
+// DELETE: удаление промокода
+// - принимает id из body или из query ?id=
+// - fallback: удаление по code (на случай если на клиенте случайно отправили code)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   if (!checkCSRF(req)) {
@@ -204,19 +189,33 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
-    const id = String(body.id ?? '').trim();
-    if (!id) return NextResponse.json({ error: 'Не передан id' }, { status: 400 });
+    const url = new URL(req.url);
+    const idFromQuery = url.searchParams.get('id')?.trim() || '';
+    const codeFromQuery = url.searchParams.get('code')?.trim() || '';
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const id = String(body.id ?? idFromQuery ?? '').trim();
+    const code = String(body.code ?? codeFromQuery ?? '').trim().toUpperCase();
+
+    if (!id && !code) {
+      return NextResponse.json({ error: 'Не передан id или code' }, { status: 400 });
+    }
 
     const result = await prisma.promo_codes.deleteMany({
-      where: { id },
+      where: id ? { id } : { code },
     });
 
     if (result.count === 0) {
       return NextResponse.json({ error: 'Промокод не найден (возможно уже удалён)' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }

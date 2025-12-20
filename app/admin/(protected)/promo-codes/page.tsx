@@ -11,11 +11,11 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 
 interface PromoCode {
-  id: string; // ✅ UUID
+  id: string;
   code: string;
   discount_value: number;
   discount_type: 'percentage' | 'fixed';
-  expires_at: string | null; // ISO строка или null
+  expires_at: string | null;
   is_active: boolean;
 }
 
@@ -27,7 +27,7 @@ export default function PromoCodesAdminPage() {
     code: string;
     discount_value: number;
     discount_type: 'percentage' | 'fixed';
-    expires_at: string | null; // YYYY-MM-DD из input type="date"
+    expires_at: string | null;
     is_active: boolean;
   }>({
     code: '',
@@ -60,11 +60,16 @@ export default function PromoCodesAdminPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchPromoCodes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function fetchPromoCodes() {
     try {
-      const res = await fetch('/api/promo-codes', { cache: 'no-store' });
+      const res = await fetch('/api/promo-codes', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки промокодов');
       setPromoCodes(Array.isArray(data) ? data : []);
@@ -77,22 +82,10 @@ export default function PromoCodesAdminPage() {
     const { name, value } = e.target;
 
     setForm((f) => {
-      if (name === 'discount_value') {
-        return { ...f, discount_value: Number(value) };
-      }
-
-      if (name === 'discount_type') {
-        return { ...f, discount_type: value as 'percentage' | 'fixed' };
-      }
-
-      if (name === 'is_active') {
-        return { ...f, is_active: value === 'true' };
-      }
-
-      if (name === 'expires_at') {
-        return { ...f, expires_at: value ? value : null }; // YYYY-MM-DD или null
-      }
-
+      if (name === 'discount_value') return { ...f, discount_value: Number(value) };
+      if (name === 'discount_type') return { ...f, discount_type: value as 'percentage' | 'fixed' };
+      if (name === 'is_active') return { ...f, is_active: value === 'true' };
+      if (name === 'expires_at') return { ...f, expires_at: value ? value : null };
       return { ...f, [name]: value };
     });
   }
@@ -126,13 +119,11 @@ export default function PromoCodesAdminPage() {
         throw new Error('Скидка должна быть больше 0');
       }
 
-      // sanitize + upper
       const sanitizedCode = DOMPurify.sanitize(rawCode).toUpperCase();
       if (!/^[A-Z0-9_-]+$/.test(sanitizedCode)) {
         throw new Error('Код должен содержать только буквы, цифры, дефис или подчёркивание');
       }
 
-      // дата: из YYYY-MM-DD делаем ISO (или null)
       let expiresAt: string | null = null;
       if (form.expires_at) {
         const d = new Date(form.expires_at);
@@ -141,7 +132,6 @@ export default function PromoCodesAdminPage() {
         expiresAt = d.toISOString();
       }
 
-      // быстрая проверка уникальности на клиенте (для UX)
       if (promoCodes.some((p) => p.code === sanitizedCode && (!editingId || p.id !== editingId))) {
         throw new Error('Код уже существует');
       }
@@ -159,9 +149,10 @@ export default function PromoCodesAdminPage() {
 
       const res = await fetch('/api/promo-codes', {
         method,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'x-csrf-token': csrfToken,
         },
         body: JSON.stringify(payload),
       });
@@ -177,17 +168,21 @@ export default function PromoCodesAdminPage() {
     }
   }
 
-  async function handleDelete(id: string, csrfToken: string) {
+  async function handleDelete(promo: PromoCode, csrfToken: string) {
     if (!confirm('Удалить промокод?')) return;
 
     try {
-      const res = await fetch('/api/promo-codes', {
+      // двойная гарантия: и query, и body
+      const url = `/api/promo-codes?id=${encodeURIComponent(promo.id)}`;
+
+      const res = await fetch(url, {
         method: 'DELETE',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+          'x-csrf-token': csrfToken,
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: promo.id, code: promo.code }),
       });
 
       const data = await res.json();
@@ -397,7 +392,7 @@ export default function PromoCodesAdminPage() {
                           </motion.button>
 
                           <motion.button
-                            onClick={() => handleDelete(promo.id, csrfToken)}
+                            onClick={() => handleDelete(promo, csrfToken)}
                             className="text-red-600 hover:underline text-sm"
                             whileHover={{ scale: 1.05 }}
                           >
