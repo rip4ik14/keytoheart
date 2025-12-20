@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 // Генерация (или возврат существующего) CSRF-токена
 function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
@@ -10,11 +11,11 @@ function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
   if (!token) {
     token = randomBytes(32).toString('hex');
     res.cookies.set('csrf_token', token, {
-      httpOnly: false, // нужно, чтобы фронт мог прочитать и положить в X-CSRF-Token
+      httpOnly: false,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24, // сутки
+      maxAge: 60 * 60 * 24,
     });
   }
 
@@ -24,12 +25,63 @@ function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
 function checkCSRF(req: NextRequest) {
   const headerToken = req.headers.get('x-csrf-token');
   const cookieToken = req.cookies.get('csrf_token')?.value;
+  return Boolean(headerToken && cookieToken && headerToken === cookieToken);
+}
 
-  if (headerToken && cookieToken && headerToken === cookieToken) {
-    return true;
+function normalizeCode(input: unknown) {
+  const code = String(input ?? '')
+    .trim()
+    .toUpperCase();
+
+  if (!code) throw new Error('Код обязателен');
+  if (!/^[A-Z0-9_-]+$/.test(code)) {
+    throw new Error('Код должен содержать только буквы, цифры, дефис или подчёркивание');
   }
 
-  return false;
+  return code;
+}
+
+function parseExpiresAt(input: unknown) {
+  if (input === null || input === undefined || input === '') return null;
+
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
+
+  // необязательно, но полезно
+  if (d.getTime() < Date.now()) {
+    throw new Error('Дата истечения должна быть в будущем');
+  }
+
+  return d; // Prisma DateTime ждёт Date
+}
+
+function parseDiscountType(input: unknown): 'percentage' | 'fixed' {
+  const v = String(input ?? 'percentage');
+  if (v !== 'percentage' && v !== 'fixed') return 'percentage';
+  return v;
+}
+
+function parseIsActive(input: unknown) {
+  if (typeof input === 'boolean') return input;
+  if (typeof input === 'string') return input === 'true';
+  return true;
+}
+
+function parseDiscountValue(input: unknown) {
+  const n = Number(input);
+  if (!Number.isFinite(n)) throw new Error('Некорректное значение скидки');
+  if (n <= 0) throw new Error('Скидка должна быть больше 0');
+  return Math.trunc(n);
+}
+
+function prismaErrorToMessage(err: any) {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    // P2002 - unique constraint failed
+    if (err.code === 'P2002') return 'Такой промокод уже существует';
+    // P2025 - record not found
+    if (err.code === 'P2025') return 'Промокод не найден (возможно уже удалён)';
+  }
+  return err?.message || 'Ошибка сервера';
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -46,16 +98,14 @@ export async function GET(req: NextRequest) {
         expires_at: true,
         is_active: true,
       },
-      orderBy: { id: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     const res = NextResponse.json(codes);
-    // важно: гарантируем, что у клиента есть csrf_token
     ensureCsrfCookie(req, res);
-
     return res;
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 500 });
   }
 }
 
@@ -68,16 +118,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { code, discount_value, discount_type, expires_at, is_active } =
-      await req.json();
+    const body = await req.json();
+
+    const code = normalizeCode(body.code);
+    const discount_value = parseDiscountValue(body.discount_value);
+    const discount_type = parseDiscountType(body.discount_type);
+    const expires_at = parseExpiresAt(body.expires_at);
+    const is_active = parseIsActive(body.is_active);
 
     const promo = await prisma.promo_codes.create({
-      data: { code, discount_value, discount_type, expires_at, is_active },
+      data: {
+        code,
+        discount_value,
+        discount_type,
+        expires_at,
+        is_active,
+      },
+      select: {
+        id: true,
+        code: true,
+        discount_value: true,
+        discount_type: true,
+        expires_at: true,
+        is_active: true,
+      },
     });
 
     return NextResponse.json(promo);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
 }
 
@@ -90,29 +159,65 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, code, discount_value, discount_type, expires_at, is_active } =
-      await req.json();
+    const body = await req.json();
+
+    const id = String(body.id ?? '').trim();
+    if (!id) return NextResponse.json({ error: 'Не передан id' }, { status: 400 });
+
+    const code = normalizeCode(body.code);
+    const discount_value = parseDiscountValue(body.discount_value);
+    const discount_type = parseDiscountType(body.discount_type);
+    const expires_at = parseExpiresAt(body.expires_at);
+    const is_active = parseIsActive(body.is_active);
 
     const promo = await prisma.promo_codes.update({
       where: { id },
-      data: { code, discount_value, discount_type, expires_at, is_active },
+      data: {
+        code,
+        discount_value,
+        discount_type,
+        expires_at,
+        is_active,
+      },
+      select: {
+        id: true,
+        code: true,
+        discount_value: true,
+        discount_type: true,
+        expires_at: true,
+        is_active: true,
+      },
     });
 
     return NextResponse.json(promo);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DELETE: можно оставить без CSRF, но при желании добавить ту же проверку
+// DELETE: удаление промокода (через deleteMany, чтобы не падать "record not found")
 // ──────────────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
+  if (!checkCSRF(req)) {
+    return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  }
+
   try {
-    const { id } = await req.json();
-    await prisma.promo_codes.delete({ where: { id } });
+    const body = await req.json();
+    const id = String(body.id ?? '').trim();
+    if (!id) return NextResponse.json({ error: 'Не передан id' }, { status: 400 });
+
+    const result = await prisma.promo_codes.deleteMany({
+      where: { id },
+    });
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Промокод не найден (возможно уже удалён)' }, { status: 404 });
+    }
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
 }
