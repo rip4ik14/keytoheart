@@ -11,23 +11,24 @@ const CASHBACK_LEVELS = [
   { level: 'gold', percentage: 7.5, minTotal: 20000 },
   { level: 'platinum', percentage: 10, minTotal: 30000 },
   { level: 'premium', percentage: 15, minTotal: 50000 },
-];
+] as const;
 
 function decimalToNumber(v: any): number {
   if (v === null || v === undefined) return 0;
   if (typeof v === 'object' && v && typeof v.toNumber === 'function') return v.toNumber();
-  return Number(v);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function mapAdminStatusToDb(statusRu: string): string {
-  // ВАЖНО: храним в БД единый набор (англ), а в UI показываем русские
+// UI (RU) -> DB (EN canonical)
+function mapAdminStatusToDb(statusRu: string): 'pending' | 'processing' | 'delivered' | 'canceled' {
   switch (statusRu) {
     case 'Ожидает подтверждения':
       return 'pending';
     case 'В сборке':
-      return 'assembling';
+      return 'processing';
     case 'Доставляется':
-      return 'shipping';
+      return 'processing';
     case 'Доставлен':
       return 'delivered';
     case 'Отменён':
@@ -39,7 +40,9 @@ function mapAdminStatusToDb(statusRu: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { id, status } = await req.json();
+    const body = await req.json();
+    const id = body?.id;
+    const status = body?.status;
 
     if (!id || typeof status !== 'string') {
       return NextResponse.json(
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Проверка токена админки
     const token = req.cookies.get('admin_session')?.value;
     if (!token) {
       return NextResponse.json(
@@ -64,14 +68,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validStatuses = [
+    // Разрешаем RU статусы, которые реально есть в UI
+    const validUiStatuses = [
       'Ожидает подтверждения',
       'В сборке',
       'Доставляется',
       'Доставлен',
       'Отменён',
     ];
-    if (!validStatuses.includes(status)) {
+
+    if (!validUiStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
     }
 
@@ -87,27 +93,29 @@ export async function POST(req: NextRequest) {
         return { ok: false as const, code: 404, payload: { error: 'Order not found' } };
       }
 
-      // Обновляем статус в БД (внутренний)
+      // Обновляем статус
       const updated = await tx.orders.update({
         where: { id },
         data: { status: dbStatus },
         select: { id: true, phone: true, total: true, bonus: true, status: true, user_id: true },
       });
 
-      // Начисляем только если delivered и ещё не начисляли (bonus == 0)
-      if (dbStatus !== 'delivered' || updated.bonus !== 0) {
+      // Начисляем бонусы только при переходе в delivered и если ещё не начисляли
+      // Ты уже используешь это правило через поле orders.bonus: если bonus != 0, значит начислено
+      if (dbStatus !== 'delivered' || (updated.bonus ?? 0) !== 0) {
         return { ok: true as const, updated, bonusAccrual: 0, skipped: true as const };
       }
 
       if (!updated.phone) {
         return { ok: false as const, code: 400, payload: { error: 'Order has no phone' } };
       }
-      if (updated.total === null) {
+      if (updated.total === null || updated.total === undefined) {
         return { ok: false as const, code: 400, payload: { error: 'Order has no total' } };
       }
 
+      // Телефон приводим к +7XXXXXXXXXX
       const phone = normalizePhone(
-        sanitizeHtml(updated.phone, { allowedTags: [], allowedAttributes: {} })
+        sanitizeHtml(String(updated.phone), { allowedTags: [], allowedAttributes: {} })
       );
 
       if (!/^\+7\d{10}$/.test(phone)) {
@@ -116,12 +124,13 @@ export async function POST(req: NextRequest) {
 
       const totalAsNumber = decimalToNumber(updated.total);
 
+      // Уровень берем из bonuses (если записи нет - бронза)
       const bonusRecord = await tx.bonuses.findUnique({
         where: { phone },
         select: { id: true, level: true },
       });
 
-      const currentLevel = bonusRecord?.level ?? 'bronze';
+      const currentLevel = (bonusRecord?.level as string) || 'bronze';
       const levelObj =
         CASHBACK_LEVELS.find((lvl) => lvl.level === currentLevel) || CASHBACK_LEVELS[0];
 
@@ -157,6 +166,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Фиксируем в заказе, сколько начислили (чтобы второй раз не начислять)
       const updatedOrder = await tx.orders.update({
         where: { id },
         data: { bonus: bonusAccrual },

@@ -6,39 +6,44 @@ import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const body = await request.json();
+    const rawPhone = body?.phone;
 
-    const sanitizedInput = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
-    const normalizedPhone = normalizePhone(sanitizedInput);
+    const sanitizedInput = sanitizeHtml(String(rawPhone || ''), {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
 
-    if (!normalizedPhone || !/^\+7\d{10}$/.test(normalizedPhone)) {
+    const normalized = normalizePhone(sanitizedInput); // +7XXXXXXXXXX
+
+    if (!normalized || !/^\+7\d{10}$/.test(normalized)) {
       process.env.NODE_ENV !== 'production' &&
-        console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedInput}`);
+        console.error('[update-loyalty] invalid phone:', sanitizedInput, '->', normalized);
+
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
         { status: 400 }
       );
     }
 
-    const variants = buildPhoneVariants(normalizedPhone); // включает +7..., 7..., 8..., last10
+    const variants = buildPhoneVariants(normalized); // +7..., 7..., 8..., last10
 
-    // Получаем все доставленные заказы пользователя
-    const orders = await prisma.orders.findMany({
+    // 1) Берём только доставленные заказы (у тебя в БД это delivered)
+    const deliveredOrders = await prisma.orders.findMany({
       where: {
         status: 'delivered',
         OR: variants.map((p) => ({ phone: p })),
       },
-      select: { total: true, status: true },
+      select: { total: true },
     });
 
-    // Суммируем total, безопасно обрабатывая строки и null
     const totalSpent =
-      orders?.reduce((sum: number, order: { total: any }) => {
-        const totalValue = order.total != null ? String(order.total) : '0';
-        return sum + (parseFloat(totalValue) || 0);
+      deliveredOrders.reduce((sum: number, order: any) => {
+        const v = order?.total != null ? Number(order.total) : 0;
+        return sum + (Number.isFinite(v) ? v : 0);
       }, 0) || 0;
 
-    // Определяем уровень
+    // 2) Определяем уровень
     let level: string;
     if (totalSpent >= 50000) level = 'premium';
     else if (totalSpent >= 30000) level = 'platinum';
@@ -46,21 +51,39 @@ export async function POST(request: Request) {
     else if (totalSpent >= 10000) level = 'silver';
     else level = 'bronze';
 
-    // Обновляем уровень в bonuses по всем вариантам
-    await prisma.bonuses.updateMany({
+    // 3) Обновляем bonuses по всем вариантам телефона
+    // Плюс сразу фиксируем total_spent, чтобы в базе было актуально
+    const updated = await prisma.bonuses.updateMany({
       where: {
         OR: variants.map((p) => ({ phone: p })),
       },
-      data: { level, updated_at: new Date().toISOString() },
+      data: {
+        level,
+        total_spent: totalSpent,
+        updated_at: new Date().toISOString(),
+      },
     });
 
-    return NextResponse.json({ success: true, level, total_spent: totalSpent });
+    // Если записи bonuses не было, можно создать (чтобы уровни работали сразу)
+    if (updated.count === 0) {
+      await prisma.bonuses.create({
+        data: {
+          phone: normalized,
+          level,
+          total_spent: totalSpent,
+          bonus_balance: 0,
+          updated_at: new Date().toISOString(),
+        } as any,
+      });
+    }
+
+    return NextResponse.json({ success: true, phone: normalized, level, total_spent: totalSpent });
   } catch (error: any) {
     process.env.NODE_ENV !== 'production' &&
-      console.error(`[${new Date().toISOString()}] Server error in update-loyalty:`, error);
+      console.error('[update-loyalty] server error:', error);
 
     return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
+      { success: false, error: 'Ошибка сервера: ' + (error?.message || 'unknown') },
       { status: 500 }
     );
   }
