@@ -1,8 +1,8 @@
-// ✅ Путь: app/context/AuthContext.tsx
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { usePathname } from 'next/navigation';
 import { normalizePhone } from '@/lib/normalizePhone';
 
 interface AuthState {
@@ -11,9 +11,21 @@ interface AuthState {
   bonus: number | null;
   setAuth: (phone: string) => Promise<void>;
   clearAuth: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
+
+async function fetchBonuses(phone: string) {
+  const res = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
+    method: 'GET',
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  const json = await res.json().catch(() => null);
+  if (res.ok && json?.success) return Number(json.data?.bonus_balance ?? 0);
+  return null;
+}
 
 export function AuthProvider({
   children,
@@ -27,151 +39,155 @@ export function AuthProvider({
   initialBonus: number | null;
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(initialIsAuthenticated);
-  const [phone, setPhone] = useState<string | null>(initialPhone ? normalizePhone(initialPhone) : null);
+  const [phone, setPhone] = useState<string | null>(initialPhone);
   const [bonus, setBonus] = useState<number | null>(initialBonus);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const pathname = usePathname();
+  const syncingRef = useRef(false);
 
-  const loadBonus = async (normalizedPhone: string) => {
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }, []);
+
+  const applyAuth = async (normalizedPhone: string | null) => {
+    if (normalizedPhone && /^\+7\d{10}$/.test(normalizedPhone)) {
+      setIsAuthenticated(true);
+      setPhone(normalizedPhone);
+
+      try {
+        const b = await fetchBonuses(normalizedPhone);
+        setBonus(b ?? 0);
+      } catch {
+        setBonus(null);
+      }
+
+      return;
+    }
+
+    setIsAuthenticated(false);
+    setPhone(null);
+    setBonus(null);
+  };
+
+  const refreshAuth = async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+
     try {
-      const bonusRes = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalizedPhone)}`, {
+      // 1) пробуем Supabase session (если она реально используется)
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userPhone = data?.session?.user?.user_metadata?.phone as string | undefined;
+        if (userPhone) {
+          const normalized = normalizePhone(userPhone);
+          await applyAuth(normalized);
+          return;
+        }
+      } catch {
+        // игнорируем, потому что у тебя авторизация может жить не только в Supabase
+      }
+
+      // 2) пробуем cookie user_phone через сервер (httpOnly)
+      const meRes = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
       });
 
-      const bonusJson = await bonusRes.json();
+      const meJson = await meRes.json().catch(() => null);
+      const phoneFromCookie = normalizePhone(meJson?.phone || '');
 
-      if (bonusRes.ok && bonusJson?.success) {
-        setBonus(bonusJson?.data?.bonus_balance ?? 0);
-      } else {
-        setBonus(null);
+      if (meRes.ok && meJson?.isAuthenticated && /^\+7\d{10}$/.test(phoneFromCookie)) {
+        await applyAuth(phoneFromCookie);
+        return;
       }
-    } catch (error) {
-      process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки бонусов:', error);
-      setBonus(null);
+
+      await applyAuth(null);
+    } finally {
+      syncingRef.current = false;
     }
   };
 
   useEffect(() => {
-    let isMounted = true;
+    // 1) обычный стартовый sync
+    refreshAuth();
 
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
-        const userPhone = (session?.user?.user_metadata?.phone as string | undefined) || null;
-
-        if (!userPhone) {
-          setIsAuthenticated(false);
-          setPhone(null);
-          setBonus(null);
-          return;
-        }
-
-        const normalized = normalizePhone(userPhone);
-
-        if (!/^\+7\d{10}$/.test(normalized)) {
-          setIsAuthenticated(false);
-          setPhone(null);
-          setBonus(null);
-          return;
-        }
-
-        setIsAuthenticated(true);
-        setPhone(normalized);
-        await loadBonus(normalized);
-      } catch (error) {
-        process.env.NODE_ENV !== 'production' && console.error('Ошибка проверки сессии:', error);
-        if (!isMounted) return;
-        setIsAuthenticated(false);
-        setPhone(null);
-        setBonus(null);
+    // 2) Safari iOS: возврат из bfcache
+    const onPageShow = (e: PageTransitionEvent) => {
+      if ((e as any).persisted) {
+        refreshAuth();
+      } else {
+        refreshAuth();
       }
     };
 
-    checkSession();
+    // 3) вернулся на вкладку
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshAuth();
+    };
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isMounted) return;
+    // 4) вернул фокус
+    const onFocus = () => refreshAuth();
 
-      const userPhone = (session?.user?.user_metadata?.phone as string | undefined) || null;
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
 
-      if (!userPhone) {
-        setIsAuthenticated(false);
-        setPhone(null);
-        setBonus(null);
-        return;
-      }
-
-      const normalized = normalizePhone(userPhone);
-
-      if (!/^\+7\d{10}$/.test(normalized)) {
-        setIsAuthenticated(false);
-        setPhone(null);
-        setBonus(null);
-        return;
-      }
-
-      setIsAuthenticated(true);
-      setPhone(normalized);
-      await loadBonus(normalized);
+    // 5) если Supabase реально используется, слушаем его изменения
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      refreshAuth();
     });
 
     return () => {
-      isMounted = false;
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
       subscription?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 6) при переходах по сайту тоже пересинк (в Next App Router это нормально)
+  useEffect(() => {
+    refreshAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   const setAuth = async (rawPhone: string) => {
     const normalized = normalizePhone(rawPhone);
-
-    if (!/^\+7\d{10}$/.test(normalized)) {
-      setIsAuthenticated(false);
-      setPhone(null);
-      setBonus(null);
-      return;
-    }
-
-    setIsAuthenticated(true);
-    setPhone(normalized);
-    await loadBonus(normalized);
+    await applyAuth(normalized);
   };
 
   const clearAuth = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (error) {
-      process.env.NODE_ENV !== 'production' && console.error('Ошибка при выходе:', error);
-    } finally {
-      setIsAuthenticated(false);
-      setPhone(null);
-      setBonus(null);
+    } catch {
+      // ок
     }
+    await applyAuth(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, phone, bonus, setAuth, clearAuth }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        phone,
+        bonus,
+        setAuth,
+        clearAuth,
+        refreshAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 }

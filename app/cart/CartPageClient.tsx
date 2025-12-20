@@ -380,7 +380,8 @@ export default function CartPageClient({
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // ✅ Авторизация и бонусы – эффект выполняется ОДИН раз
+  // ✅ Авторизация и бонусы - эффект выполняется один раз
+  // + фикс iOS/Safari BFCache (pageshow + visibilitychange)
   useEffect(() => {
     let isMounted = true;
 
@@ -452,9 +453,11 @@ export default function CartPageClient({
       }
 
       try {
+        // ✅ no-store, чтобы Safari не залипал на кеше
         const response = await fetch('/api/auth/check-session', {
           method: 'GET',
           credentials: 'include',
+          cache: 'no-store',
         });
         const sessionData = await response.json();
 
@@ -515,8 +518,23 @@ export default function CartPageClient({
       checkAuth();
     };
 
+    // ✅ iOS/Safari BFCache fix: при возврате на страницу эффекты могут не перезапускаться
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        checkAuth();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAuth();
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('authChange', handleAuthChange);
+      window.addEventListener('pageshow', handlePageShow);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     return () => {
@@ -524,6 +542,8 @@ export default function CartPageClient({
       subscription?.unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('authChange', handleAuthChange);
+        window.removeEventListener('pageshow', handlePageShow);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -980,11 +1000,9 @@ export default function CartPageClient({
       } else if ((form as any).askAddressFromRecipient) {
         addressString = 'Адрес уточнить у получателя';
       } else if (form.street) {
-        addressString = `${form.street}${
-          form.house ? `, д. ${form.house}` : ''
-        }${form.apartment ? `, кв. ${form.apartment}` : ''}${
-          form.entrance ? `, подъезд ${form.entrance}` : ''
-        }`;
+        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${
+          form.apartment ? `, кв. ${form.apartment}` : ''
+        }${form.entrance ? `, подъезд ${form.entrance}` : ''}`;
       } else {
         addressString = 'Адрес не указан (требуется уточнение)';
       }
@@ -1297,11 +1315,11 @@ export default function CartPageClient({
                 index === self.findIndex((t) => t.id === item.id),
             )
             .map((item, idx) => {
-              const isUpsell = 'isUpsell' in item && item.isUpsell;
+              const isUpsell = 'isUpsell' in item && (item as any).isUpsell;
               return (
                 <CartItem
-                  key={`${isUpsell ? 'upsell' : 'item'}-${item.id}-${idx}`}
-                  item={item}
+                  key={`${isUpsell ? 'upsell' : 'item'}-${(item as any).id}-${idx}`}
+                  item={item as any}
                   removeItem={isUpsell ? removeUpsell : removeItem}
                   updateQuantity={
                     isUpsell ? updateUpsellQuantity : updateQuantity
