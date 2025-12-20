@@ -1,3 +1,4 @@
+// ✅ Путь: app/sitemap-products/[page]/route.ts
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -5,6 +6,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://keytoheart.ru';
+
+// ДОЛЖНО совпадать с PAGE_SIZE в app/sitemap.xml/route.ts
+const PAGE_SIZE = 10000;
 
 function esc(s: string) {
   return String(s ?? '').replace(/[<>&'"]/g, (c) =>
@@ -28,9 +32,8 @@ export async function GET(
   { params }: { params: { page?: string } }
 ) {
   const pageNumber = Math.max(1, Number(params?.page || 1));
-  const limit = 5000;
-  const from = (pageNumber - 1) * limit;
-  const to = from + limit - 1;
+  const from = (pageNumber - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -43,15 +46,12 @@ export async function GET(
   }
 
   const supabase = createClient(supabaseUrl, anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, title, created_at, updated_at, images')
+    .select('id, title, created_at, images')
     .eq('is_visible', true)
     .eq('in_stock', true)
     .order('id', { ascending: false })
@@ -60,41 +60,43 @@ export async function GET(
   if (error) {
     console.error('[sitemap-products] supabase error:', error);
     return NextResponse.json(
-      { error: 'Supabase error', details: error },
+      { error: 'Supabase error in sitemap-products', details: error },
       { status: 500 }
     );
   }
 
   if (!products || products.length === 0) {
     return new NextResponse(emptyXml(), {
-      headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+      headers: {
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      },
     });
   }
 
-  const urls = products
-    .map((p) => {
-      const lastmod = new Date(
-        p.updated_at ?? p.created_at ?? Date.now()
-      ).toISOString();
-
+  const urlsXml = products
+    .map((p: any) => {
+      const lastmodISO = new Date(p.created_at ?? Date.now()).toISOString();
       const loc = `${BASE}/product/${p.id}`;
 
-      const images = Array.isArray(p.images)
-        ? p.images.slice(0, 10).map(
-            (img) => `
-    <image:image>
-      <image:loc>${esc(img)}</image:loc>
-      <image:title>${esc(p.title)}</image:title>
-      <image:caption>${esc(p.title)}</image:caption>
-    </image:image>`
-          ).join('')
-        : '';
+      const imgs: string[] = Array.isArray(p.images) ? p.images : [];
+      const imagesXml = imgs
+        .slice(0, 10)
+        .map(
+          (img) => `
+  <image:image>
+    <image:loc>${esc(img)}</image:loc>
+    <image:title>${esc(p.title || '')}</image:title>
+    <image:caption>${esc(p.title || '')}</image:caption>
+  </image:image>`
+        )
+        .join('');
 
       return `  <url>
     <loc>${loc}</loc>
-    <lastmod>${lastmod}</lastmod>
+    <lastmod>${lastmodISO}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.9</priority>${images}
+    <priority>0.9</priority>${imagesXml}
   </url>`;
     })
     .join('\n');
@@ -103,10 +105,13 @@ export async function GET(
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-${urls}
+${urlsXml}
 </urlset>`;
 
   return new NextResponse(xml, {
-    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    },
   });
 }
