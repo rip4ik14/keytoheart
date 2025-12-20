@@ -75,6 +75,8 @@ function prismaErrorToMessage(err: any) {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') return 'Такой промокод уже существует';
     if (err.code === 'P2025') return 'Промокод не найден (возможно уже удалён)';
+    // FK-ошибка (например, промокод привязан к заказам) в Prisma может быть P2003
+    if (err.code === 'P2003') return 'Нельзя удалить: промокод используется в заказах';
   }
   return err?.message || 'Ошибка сервера';
 }
@@ -179,9 +181,11 @@ export async function PATCH(req: NextRequest) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DELETE: удаление промокода
-// - принимает id из body или из query ?id=
-// - fallback: удаление по code (на случай если на клиенте случайно отправили code)
+// DELETE: железобетонное удаление промокода
+// - читает id из query или body
+// - trim() убирает скрытые пробелы/переносы
+// - если есть id: delete({where:{id}}) -> понятные ошибки
+// - иначе: удаляет по code (fallback)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   if (!checkCSRF(req)) {
@@ -190,8 +194,9 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const url = new URL(req.url);
-    const idFromQuery = url.searchParams.get('id')?.trim() || '';
-    const codeFromQuery = url.searchParams.get('code')?.trim() || '';
+
+    const idFromQuery = (url.searchParams.get('id') || '').trim();
+    const codeFromQuery = (url.searchParams.get('code') || '').trim();
 
     let body: any = {};
     try {
@@ -207,15 +212,23 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Не передан id или code' }, { status: 400 });
     }
 
-    const result = await prisma.promo_codes.deleteMany({
-      where: id ? { id } : { code },
-    });
+    // 1) Удаляем строго по id (самый надежный сценарий)
+    if (id) {
+      const deleted = await prisma.promo_codes.delete({
+        where: { id },
+        select: { id: true, code: true },
+      });
 
-    if (result.count === 0) {
-      return NextResponse.json({ error: 'Промокод не найден (возможно уже удалён)' }, { status: 404 });
+      return NextResponse.json({ success: true, deleted }, { status: 200 });
     }
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    // 2) Fallback по коду
+    const deleted = await prisma.promo_codes.delete({
+      where: { code },
+      select: { id: true, code: true },
+    });
+
+    return NextResponse.json({ success: true, deleted }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 400 });
   }
