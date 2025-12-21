@@ -4,7 +4,7 @@ import type { FAQPage, Service, WebPage } from 'schema-dts';
 import DostavkaPageClient from '@components/DostavkaPageClient';
 
 export const metadata: Metadata = {
-  title: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
+  title: 'Доставка клубничных букетов в Краснодаре',
   description: 'Условия доставки клубничных букетов и цветов по Краснодару от KEY TO HEART. Бесплатно от 2000 ₽, доставка в день заказа, свежесть гарантирована.',
   keywords: [
     'доставка букетов Краснодар',

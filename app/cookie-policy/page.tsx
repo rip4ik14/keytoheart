@@ -4,7 +4,7 @@ import type { FAQPage, WebPage } from 'schema-dts';
 import CookiePolicyPageClient from '@components/CookiePolicyPageClient';
 
 export const metadata: Metadata = {
-  title: 'Политика использования cookie | KEY TO HEART',
+  title: 'Политика использования cookie',
   description: 'Узнайте, как KEY TO HEART использует cookie для улучшения вашего опыта. Политика использования cookie в соответствии с законодательством РФ (152-ФЗ).',
   keywords: ['cookie', 'KEY TO HEART', 'политика', 'конфиденциальность', 'политика cookie', 'безопасность данных', 'Краснодар'],
   openGraph: {

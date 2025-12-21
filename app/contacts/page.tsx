@@ -4,7 +4,7 @@ import type { ContactPage, FAQPage, WebPage } from 'schema-dts';
 import ContactsPageClient from '@components/ContactsPageClient';
 
 export const metadata: Metadata = {
-  title: 'Контакты | KEY TO HEART',
+  title: 'Контакты',
   description: 'Свяжитесь с KEY TO HEART для заказа клубничных букетов и цветов в Краснодаре. Телефон, email, адрес и часы работы.',
   keywords: [
     'контакты',

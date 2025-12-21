@@ -40,7 +40,7 @@ export async function generateMetadata({
   // если категории нет или скрыта
   if (!cat) {
     return {
-      title: 'Категория не найдена | KEY TO HEART',
+      title: 'Категория не найдена',
       robots: { index: false, follow: false },
     };
   }
@@ -51,7 +51,7 @@ export async function generateMetadata({
   const normalized = String(name).toLowerCase();
   const city = 'Краснодар';
 
-  const titleFallback = `${name} - доставка в ${city} | KEY TO HEART`;
+  const titleFallback = `${name} - доставка в ${city}`;
   const descFallback =
     `Закажите ${normalized} с доставкой по ${city} от 60 минут. ` +
     `Свежие ингредиенты, аккуратная сборка, фото перед отправкой, оплата онлайн.`;

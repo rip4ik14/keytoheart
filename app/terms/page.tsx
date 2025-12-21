@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import TermsPageClient from './TermsPageClient';
 
 export const metadata: Metadata = {
-  title: 'Пользовательское соглашение | KEY TO HEART',
+  title: 'Пользовательское соглашение',
   description:
     'Пользовательское соглашение интернет-магазина KEY TO HEART. Условия использования сайта, оформления заказов, оплаты, доставки и возврата товаров в соответствии с законодательством РФ.',
   keywords: [

@@ -4,7 +4,7 @@ import type { WebPage } from 'schema-dts';
 import OfferPageClient from '@components/OfferPageClient';
 
 export const metadata: Metadata = {
-  title: 'Публичная оферта | KEY TO HEART',
+  title: 'Публичная оферта',
   description: 'Публичная оферта на получение рекламной рассылки от KEY TO HEART. Условия обработки персональных данных и отказа от рассылки в соответствии с 152-ФЗ.',
   keywords: ['оферта', 'KEY TO HEART', 'рассылка', 'персональные данные', 'Краснодар', '152-ФЗ', 'реклама'],
   openGraph: {

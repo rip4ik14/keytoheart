@@ -10,7 +10,7 @@ import CorporateOfferings from '@components/CorporateOfferings';
 import CorporateFooterCTA from '@components/CorporateFooterCTA';
 
 export const metadata: Metadata = {
-  title: 'Корпоративные подарки и букеты — KEY TO HEART',
+  title: 'Корпоративные подарки и букеты',
   description: 'Фруктово-цветочные подарки, брендированные боксы и букеты для сотрудников и партнёров. Документы для юрлиц, бесплатная доставка по Краснодару.',
   keywords: ['корпоративные подарки', 'KEY TO HEART', 'доставка', 'корпоративные букеты Краснодар'],
   openGraph: {

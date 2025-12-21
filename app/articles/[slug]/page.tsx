@@ -17,7 +17,7 @@ export function generateMetadata({ params }: Params): Metadata {
   const article = articles.find(a => a.slug === params.slug);
   if (!article) return {};
   return {
-    title: `${article.title} | KEY TO HEART`,
+    title: article.title,
     description: article.description,
     alternates: { canonical: `https://keytoheart.ru/articles/${article.slug}` },
   };
