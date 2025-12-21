@@ -32,7 +32,7 @@ interface BonusesData {
 }
 
 export const metadata: Metadata = {
-  title: 'Личный кабинет — управление заказами | KEY TO HEART',
+  title: 'Личный кабинет — управление заказами',
   description: 'Управляйте заказами, проверяйте бонусы и обновляйте данные в личном кабинете KEY TO HEART в Краснодаре. Вход 24/7!',
   keywords: ['личный кабинет', 'KEY TO HEART', 'заказы Краснодар', 'бонусы'],
   openGraph: {

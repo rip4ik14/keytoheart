@@ -4,7 +4,7 @@ import type { FAQPage, WebPage } from 'schema-dts';
 import PolicyPageClient from '@components/PolicyPageClient';
 
 export const metadata: Metadata = {
-  title: 'Политика конфиденциальности | KEY TO HEART',
+  title: 'Политика конфиденциальности',
   description:
     'Политика конфиденциальности KEY TO HEART. Узнайте, как мы защищаем ваши персональные данные в соответствии с законодательством РФ (152-ФЗ).',
   keywords: ['политика конфиденциальности', 'KEY TO HEART', 'персональные данные', '152-ФЗ', 'Краснодар', 'доставка цветов'],

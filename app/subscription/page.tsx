@@ -4,7 +4,7 @@ import type { WebPage, Service, Offer, QuantitativeValue } from 'schema-dts';
 import SubscriptionPageClient from '@components/SubscriptionPageClient';
 
 export const metadata: Metadata = {
-  title: 'Premium Подписка | KEY TO HEART – 20% скидка на клубнику в шоколаде и цветы',
+  title: 'Premium Подписка – 20% скидка на клубнику в шоколаде и цветы',
   description:
     'Станьте членом Premium Клуба KEY TO HEART и получите 20% скидку на все товары, удвоенные бонусы и приоритетную доставку в Краснодаре. Ежемесячно или ежегодно – выбирайте план!',
   keywords: ['подписка KEY TO HEART', 'скидка 20%', 'премиум клуб', 'доставка клубники Краснодар'],

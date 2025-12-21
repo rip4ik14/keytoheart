@@ -3,7 +3,7 @@ import Link from 'next/link';
 import FlowwowReviewsBadge from '@/components/FlowwowReviewsBadge';
 
 export const metadata: Metadata = {
-  title: 'Отзывы - KEY TO HEART',
+  title: 'Отзывы',
   description:
     'Отзывы клиентов KEY TO HEART. Рейтинг на Flowwow, избранные отзывы покупателей и ссылки на реальные отзывы на агрегаторе.',
   alternates: { canonical: 'https://keytoheart.ru/reviews' },

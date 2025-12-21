@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     'Доставка 60 мин, фото перед отправкой, открытка бесплатно, оплата онлайн.';
 
   return {
-    title: `${occasion.title} | KEY TO HEART`,
+    title: occasion.title,
     description: desc,
     alternates: { canonical: `https://keytoheart.ru/occasions/${occasion.slug}` },
     openGraph: {

@@ -4,7 +4,7 @@ import type { FAQPage, WebPage } from 'schema-dts';
 import LoyaltyPageClient from './LoyaltyPageClient';
 
 export const metadata: Metadata = {
-  title: 'Программа лояльности • до 15% бонусами | KEY TO HEART',
+  title: 'Программа лояльности • до 15% бонусами',
   description: 'Получайте кешбэк до 15% за каждый заказ на KEY TO HEART и тратьте бонусы на скидки в Краснодаре.',
   keywords: ['программа лояльности', 'KEY TO HEART', 'бонусы', 'кешбэк', 'Краснодар'],
   openGraph: {

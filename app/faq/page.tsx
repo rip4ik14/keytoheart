@@ -4,7 +4,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { FAQPage } from 'schema-dts';
 
 export const metadata: Metadata = {
-  title: 'FAQ — Часто задаваемые вопросы | KEY TO HEART',
+  title: 'FAQ — Часто задаваемые вопросы',
   description: 'Ответы на вопросы о заказе, оплате, доставке и составе клубничных букетов в Краснодаре. Узнайте больше на KEY TO HEART!',
   keywords: [
     'FAQ',

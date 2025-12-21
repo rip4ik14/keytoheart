@@ -40,13 +40,11 @@ export async function generateMetadata({
 
   if (!sub || sub.is_visible === false) return {};
 
-  const brand = 'KeyToHeart';
-
   const titleBase =
     sub.seo_title?.trim() ||
     `${sub.name} - ${category.name} с доставкой в Краснодаре`;
 
-  const title = `${titleBase} | ${brand}`;
+  const title = titleBase;
 
   const description =
     sub.seo_description?.trim() ||

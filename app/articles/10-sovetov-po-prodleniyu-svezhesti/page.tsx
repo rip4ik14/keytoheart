@@ -6,7 +6,7 @@ import type { Article, WebPage } from 'schema-dts';
 import ClientAnimatedSection from '@components/ClientAnimatedSection';
 
 export const metadata: Metadata = {
-  title: '10 советов по продлению свежести клубничных букетов | KEY TO HEART',
+  title: '10 советов по продлению свежести клубничных букетов',
   description:
     'Сохраните свежесть клубничных букетов до 24 часов: подборка проверенных лайфхаков от мастеров KEY TO HEART.',
   alternates: { canonical: 'https://keytoheart.ru/articles/freshness-tips' },

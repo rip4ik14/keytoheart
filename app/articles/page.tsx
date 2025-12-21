@@ -5,7 +5,7 @@ import type { WebPage } from 'schema-dts';
 import ArticlesList from '@/components/ArticlesList';
 
 export const metadata: Metadata = {
-  title: 'Полезные статьи | KEY TO HEART',
+  title: 'Полезные статьи',
   description:
     'Читайте советы и идеи по клубничным букетам, декору и подаркам от KEY TO HEART.',
   alternates: { canonical: 'https://keytoheart.ru/articles' },

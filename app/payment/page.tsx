@@ -6,7 +6,7 @@ import PaymentPageClient from '@components/PaymentPageClient';
 /*                               SEO meta                             */
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
-  title: 'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+  title: 'Оплата заказа — клубника в шоколаде и букеты',
   description:
     'Все способы оплаты заказов KEY TO HEART: СБП (QR‑код), онлайн‑оплата картой, счёт для юрлиц и оплата иностранной картой. Быстро, удобно и безопасно.',
   keywords: [
