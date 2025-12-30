@@ -10,6 +10,7 @@ import SkipLink from '@components/SkipLink';
 
 import { CartProvider } from '@context/CartContext';
 import { CartAnimationProvider } from '@context/CartAnimationContext';
+import { AuthProvider } from '@context/AuthContext';
 
 import type { Category } from '@/types/category';
 
@@ -28,29 +29,18 @@ export default function LayoutClient({
 }) {
   const pathname = usePathname();
 
-  // оставлю, если где-то нужно знать, что мы на странице корзины
   const isCartPage = pathname === '/cart' || pathname?.startsWith('/cart/');
 
-  /**
-   * ✅ Авто-детект подарочных страниц.
-   * Так как ты перенёс в app/(gift)/..., URL будет /regina2026, но "группу" (gift) в URL не видно.
-   * Поэтому детект делаем по конкретным публичным роутам, И/ИЛИ по списку, который легко расширять.
-   *
-   * Если хочешь вообще без списка — можно завести префикс типа /gift/... (но ты сейчас хочешь красивый /regina2026).
-   */
   const isGiftPage = useMemo(() => {
     if (!pathname) return false;
 
-    // ✅ сюда добавляй любые подарочные роуты (сейчас твой /regina2026)
     const GIFT_ROUTES = new Set<string>([
       '/regina2026',
       '/anya2026',
     ]);
 
-    // точное совпадение
     if (GIFT_ROUTES.has(pathname)) return true;
 
-    // на случай вложенных страниц подарка
     for (const r of GIFT_ROUTES) {
       if (pathname.startsWith(r + '/')) return true;
     }
@@ -62,39 +52,39 @@ export default function LayoutClient({
     <>
       <SkipLink />
 
-      <CartAnimationProvider>
-        <CartProvider>
-          {/* ✅ Всё магазинное скрываем на подарке */}
-          {!isGiftPage && <TopBar />}
-          {!isGiftPage && <StickyHeader initialCategories={categories} />}
+      <AuthProvider initialIsAuthenticated={false} initialPhone={null} initialBonus={null}>
+        <CartAnimationProvider>
+          <CartProvider>
+            {!isGiftPage && <TopBar />}
+            {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
-          {!isGiftPage && (
-            <Suspense fallback={null}>
-              <ClientBreadcrumbs />
-            </Suspense>
-          )}
+            {!isGiftPage && (
+              <Suspense fallback={null}>
+                <ClientBreadcrumbs />
+              </Suspense>
+            )}
 
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className={isGiftPage ? 'font-sans' : 'pt-12 sm:pt-14 font-sans'}
-          >
-            {children}
-          </main>
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className={isGiftPage ? 'font-sans' : 'pt-12 sm:pt-14 font-sans'}
+            >
+              {children}
+            </main>
 
-          {!isGiftPage && (
-            <Suspense fallback={null}>
-              <PromoFooterBlock />
-            </Suspense>
-          )}
+            {!isGiftPage && (
+              <Suspense fallback={null}>
+                <PromoFooterBlock />
+              </Suspense>
+            )}
 
-          {!isGiftPage && <Footer categories={categories} />}
+            {!isGiftPage && <Footer categories={categories} />}
 
-          {/* баннеры/кнопки тоже лучше спрятать */}
-          {!isGiftPage && <CookieBanner />}
-          {!isGiftPage && <MobileContactFab />}
-        </CartProvider>
-      </CartAnimationProvider>
+            {!isGiftPage && <CookieBanner />}
+            {!isGiftPage && <MobileContactFab />}
+          </CartProvider>
+        </CartAnimationProvider>
+      </AuthProvider>
     </>
   );
 }

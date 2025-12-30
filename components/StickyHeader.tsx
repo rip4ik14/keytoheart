@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@context/AuthContext';
 
 type StickyHeaderProps = {
   initialCategories: Category[];
@@ -48,7 +48,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
-  // ✅ пересинк на навигации (убирает редкие "залипания" на десктопе)
   useEffect(() => {
     refreshAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +149,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         itemType="https://schema.org/SiteNavigationElement"
       >
         <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-          {/* Левый блок */}
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
             <Link
@@ -195,7 +193,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             </div>
           </div>
 
-          {/* Правый блок */}
           <div className="flex items-center gap-2 md:gap-3 relative">
             <button
               ref={searchButtonRef}
