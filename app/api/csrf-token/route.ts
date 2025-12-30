@@ -1,20 +1,37 @@
 // ✅ Путь: app/api/csrf-token/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 
-export async function GET() {
-  // Генерируем случайный CSRF-токен
-  const csrfToken = randomBytes(32).toString('hex');
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-  // Сохраняем токен в cookie (или можно использовать сессию)
-  const response = NextResponse.json({ csrfToken });
-  response.cookies.set('csrf_token', csrfToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60, // 1 час
-  });
+function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
+  let token = req.cookies.get('csrf_token')?.value;
 
-  return response;
+  if (!token) {
+    token = randomBytes(32).toString('hex');
+    res.cookies.set('csrf_token', token, {
+      httpOnly: false, // читаем на клиенте, чтобы прокинуть в header
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 1 день
+    });
+  }
+
+  return token;
+}
+
+export async function GET(req: NextRequest) {
+  const res = NextResponse.json({ csrfToken: '' }, { status: 200 });
+
+  const token = ensureCsrfCookie(req, res);
+
+  return NextResponse.json(
+    { csrfToken: token },
+    {
+      status: 200,
+      headers: res.headers,
+    }
+  );
 }

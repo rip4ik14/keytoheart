@@ -4,7 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 
-// Генерация (или возврат существующего) CSRF-токена
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CSRF
+// ──────────────────────────────────────────────────────────────────────────────
 function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
   let token = req.cookies.get('csrf_token')?.value;
 
@@ -28,28 +33,17 @@ function checkCSRF(req: NextRequest) {
   return Boolean(headerToken && cookieToken && headerToken === cookieToken);
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Parsers/validators
+// ──────────────────────────────────────────────────────────────────────────────
 function normalizeCode(input: unknown) {
   const code = String(input ?? '').trim().toUpperCase();
-
   if (!code) throw new Error('Код обязателен');
+
   if (!/^[A-Z0-9_-]+$/.test(code)) {
     throw new Error('Код должен содержать только буквы, цифры, дефис или подчёркивание');
   }
-
   return code;
-}
-
-function parseExpiresAt(input: unknown) {
-  if (input === null || input === undefined || input === '') return null;
-
-  const d = new Date(String(input));
-  if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
-
-  if (d.getTime() < Date.now()) {
-    throw new Error('Дата истечения должна быть в будущем');
-  }
-
-  return d;
 }
 
 function parseDiscountType(input: unknown): 'percentage' | 'fixed' {
@@ -71,18 +65,30 @@ function parseDiscountValue(input: unknown) {
   return Math.trunc(n);
 }
 
+function parseExpiresAt(input: unknown) {
+  if (input === null || input === undefined || input === '') return null;
+
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
+
+  if (d.getTime() < Date.now()) {
+    throw new Error('Дата истечения должна быть в будущем');
+  }
+
+  return d;
+}
+
 function prismaErrorToMessage(err: any) {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') return 'Такой промокод уже существует';
     if (err.code === 'P2025') return 'Промокод не найден (возможно уже удалён)';
-    // FK-ошибка (например, промокод привязан к заказам) в Prisma может быть P2003
     if (err.code === 'P2003') return 'Нельзя удалить: промокод используется в заказах';
   }
   return err?.message || 'Ошибка сервера';
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// GET: список промокодов + установка CSRF-куки, если её нет
+// GET: список промокодов (+ ставит CSRF cookie если нет)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
@@ -181,11 +187,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DELETE: железобетонное удаление промокода
-// - читает id из query или body
-// - trim() убирает скрытые пробелы/переносы
-// - если есть id: delete({where:{id}}) -> понятные ошибки
-// - иначе: удаляет по code (fallback)
+// DELETE: удаление промокода (по id, fallback по code)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   if (!checkCSRF(req)) {
@@ -212,7 +214,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Не передан id или code' }, { status: 400 });
     }
 
-    // 1) Удаляем строго по id (самый надежный сценарий)
     if (id) {
       const deleted = await prisma.promo_codes.delete({
         where: { id },
@@ -222,7 +223,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: true, deleted }, { status: 200 });
     }
 
-    // 2) Fallback по коду
     const deleted = await prisma.promo_codes.delete({
       where: { code },
       select: { id: true, code: true },
