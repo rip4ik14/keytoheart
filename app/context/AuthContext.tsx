@@ -1,4 +1,3 @@
-// ✅ Путь: app/context/AuthContext.tsx
 'use client';
 
 import {
@@ -14,44 +13,34 @@ import { createBrowserClient } from '@supabase/ssr';
 import { usePathname } from 'next/navigation';
 import { normalizePhone } from '@/lib/normalizePhone';
 
-type AuthState = {
+interface AuthState {
   isAuthenticated: boolean;
-  isReady: boolean; // ✅ важно: UI не должен гадать до проверки
   phone: string | null;
   bonus: number | null;
-
   setAuth: (phone: string) => Promise<void>;
   clearAuth: () => Promise<void>;
-  refreshAuth: (reason?: string) => Promise<void>;
-};
+  refreshAuth: () => Promise<void>;
+}
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-async function safeJson(res: Response) {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
 async function fetchBonuses(phone: string) {
-  const res = await fetch(`/api/account/bonuses?phone=${encodeURIComponent(phone)}`, {
-    method: 'GET',
-    credentials: 'include',
-    cache: 'no-store',
-  });
-  const json = await safeJson(res);
+  const res = await fetch(
+    `/api/account/bonuses?phone=${encodeURIComponent(phone)}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    },
+  );
 
-  if (res.ok && json?.success) {
-    const v = Number(json?.data?.bonus_balance ?? 0);
-    return Number.isFinite(v) ? v : 0;
-  }
+  const json = await res.json().catch(() => null);
+  if (res.ok && json?.success) return Number(json.data?.bonus_balance ?? 0);
   return null;
 }
 
-function isValidRuPhone(normalized: string | null) {
-  return !!normalized && /^\+7\d{10}$/.test(normalized);
+function isValidRuPhone(p: string | null): p is string {
+  return !!p && /^\+7\d{10}$/.test(p);
 }
 
 export function AuthProvider({
@@ -65,16 +54,14 @@ export function AuthProvider({
   initialPhone: string | null;
   initialBonus: number | null;
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialIsAuthenticated);
-  const [isReady, setIsReady] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    initialIsAuthenticated,
+  );
   const [phone, setPhone] = useState<string | null>(initialPhone);
   const [bonus, setBonus] = useState<number | null>(initialBonus);
 
   const pathname = usePathname();
   const syncingRef = useRef(false);
-
-  // ✅ защита от гонок: если несколько refreshAuth подряд - учитываем только последний
-  const requestIdRef = useRef(0);
 
   const supabase = useMemo(() => {
     return createBrowserClient(
@@ -83,16 +70,13 @@ export function AuthProvider({
     );
   }, []);
 
-  const applyAuth = async (normalizedPhone: string | null, opts?: { keepBonus?: boolean }) => {
-    if (isValidRuPhone(normalizedPhone)) {
+  const applyAuth = async (nextPhone: string | null) => {
+    if (isValidRuPhone(nextPhone)) {
       setIsAuthenticated(true);
-      setPhone(normalizedPhone);
-
-      // если бонус уже есть и не нужно перезагружать - не дергаем API
-      if (opts?.keepBonus && bonus !== null) return;
+      setPhone(nextPhone);
 
       try {
-        const b = normalizedPhone ? await fetchBonuses(normalizedPhone) : null;
+        const b = await fetchBonuses(nextPhone);
         setBonus(b ?? 0);
       } catch {
         setBonus(null);
@@ -105,106 +89,73 @@ export function AuthProvider({
     setBonus(null);
   };
 
-  const refreshAuth = async (_reason?: string) => {
+  const refreshAuth = async () => {
     if (syncingRef.current) return;
     syncingRef.current = true;
 
-    const myRequestId = ++requestIdRef.current;
-
     try {
-      // 1) ✅ главный источник истины - серверная сессия (httpOnly cookies)
-      // именно она определяет “авторизован ли клиент” в твоей системе
-      const resp = await fetch('/api/auth/check-session', {
+      // 1) пробуем Supabase session (если реально используется)
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userPhone = data?.session?.user?.user_metadata?.phone as
+          | string
+          | undefined;
+
+        if (userPhone) {
+          const normalized = normalizePhone(userPhone);
+          await applyAuth(isValidRuPhone(normalized) ? normalized : null);
+          return;
+        }
+      } catch {
+        // игнорируем
+      }
+
+      // 2) пробуем httpOnly cookies через сервер
+      const meRes = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
       });
 
-      const sessionData = await safeJson(resp);
+      const meJson = await meRes.json().catch(() => null);
+      const phoneFromServer = normalizePhone(meJson?.phone || '');
 
-      // если уже был новый запрос - этот результат не применяем
-      if (myRequestId !== requestIdRef.current) return;
-
-      if (resp.ok && sessionData?.isAuthenticated && sessionData?.phone) {
-        const normalized = normalizePhone(String(sessionData.phone));
-        await applyAuth(normalized, { keepBonus: false });
-        setIsReady(true);
+      if (meRes.ok && meJson?.isAuthenticated && isValidRuPhone(phoneFromServer)) {
+        await applyAuth(phoneFromServer);
         return;
       }
 
-      // 2) fallback: Supabase session (если вдруг юзер залогинен через supabase)
-      // важно: fallback только если сервер сказал “не авторизован”
-      try {
-        const { data } = await supabase.auth.getSession();
-        const userPhone = data?.session?.user?.user_metadata?.phone as string | undefined;
-
-        if (myRequestId !== requestIdRef.current) return;
-
-        if (userPhone) {
-          const normalized = normalizePhone(userPhone);
-          await applyAuth(normalized, { keepBonus: false });
-          setIsReady(true);
-          return;
-        }
-      } catch {
-        // игнор
-      }
-
-      // 3) финально: не авторизован
       await applyAuth(null);
-      setIsReady(true);
-    } catch {
-      // при сетевой ошибке: не делаем резкий logout, но отмечаем ready
-      // (можно оставить текущее состояние, чтобы не прыгал UI)
-      setIsReady(true);
     } finally {
       syncingRef.current = false;
     }
   };
 
-  // ✅ публичные методы для компонентов
-  const setAuth = async (rawPhone: string) => {
-    const normalized = normalizePhone(rawPhone);
-    await applyAuth(normalized, { keepBonus: false });
-    setIsReady(true);
-    window.dispatchEvent(new Event('authChange'));
-  };
-
-  const clearAuth = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // ok
-    }
-    await applyAuth(null);
-    setIsReady(true);
-    window.dispatchEvent(new Event('authChange'));
-  };
-
   useEffect(() => {
     // стартовый sync
-    refreshAuth('mount');
+    refreshAuth();
 
-    // BFCache / возврат вкладки / фокус
-    const onPageShow = () => refreshAuth('pageshow');
+    // Safari/iOS BFCache + возврат на вкладку
+    const onPageShow = () => refreshAuth();
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshAuth('visible');
+      if (document.visibilityState === 'visible') refreshAuth();
     };
-    const onFocus = () => refreshAuth('focus');
+    const onFocus = () => refreshAuth();
 
     window.addEventListener('pageshow', onPageShow);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
 
-    // слушаем кастомное событие (logout/login из других мест)
-    const onAuthChange = () => refreshAuth('authChange');
-    window.addEventListener('authChange', onAuthChange);
-
-    // если Supabase реально используется - тоже синк
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      refreshAuth('supabase');
+    // если Supabase реально используется - слушаем изменения
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      refreshAuth();
     });
-    const subscription = data?.subscription;
+
+    // кастомное событие (на случай твоих текущих вызовов)
+    const onAuthChange = () => refreshAuth();
+    window.addEventListener('authChange', onAuthChange);
 
     return () => {
       window.removeEventListener('pageshow', onPageShow);
@@ -216,26 +167,40 @@ export function AuthProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // при навигации по сайту можно пересинкнуть, но без фанатизма
+  // на навигации тоже можно пересинкать (помогает от редких гонок на desktop)
   useEffect(() => {
-    refreshAuth('pathname');
+    refreshAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  const value = useMemo<AuthState>(
-    () => ({
-      isAuthenticated,
-      isReady,
-      phone,
-      bonus,
-      setAuth,
-      clearAuth,
-      refreshAuth,
-    }),
-    [isAuthenticated, isReady, phone, bonus],
-  );
+  const setAuth = async (rawPhone: string) => {
+    const normalized = normalizePhone(rawPhone);
+    await applyAuth(isValidRuPhone(normalized) ? normalized : null);
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const clearAuth = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ок
+    }
+    await applyAuth(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        phone,
+        bonus,
+        setAuth,
+        clearAuth,
+        refreshAuth,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
