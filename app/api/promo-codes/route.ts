@@ -1,21 +1,16 @@
-// ✅ Путь: app/api/promo-codes/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+const COOKIE_NAME = 'csrf_token';
 
-// ──────────────────────────────────────────────────────────────────────────────
-// CSRF
-// ──────────────────────────────────────────────────────────────────────────────
 function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
-  let token = req.cookies.get('csrf_token')?.value;
+  let token = req.cookies.get(COOKIE_NAME)?.value;
 
   if (!token) {
     token = randomBytes(32).toString('hex');
-    res.cookies.set('csrf_token', token, {
+    res.cookies.set(COOKIE_NAME, token, {
       httpOnly: false,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
@@ -29,21 +24,33 @@ function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
 
 function checkCSRF(req: NextRequest) {
   const headerToken = req.headers.get('x-csrf-token');
-  const cookieToken = req.cookies.get('csrf_token')?.value;
+  const cookieToken = req.cookies.get(COOKIE_NAME)?.value;
+
   return Boolean(headerToken && cookieToken && headerToken === cookieToken);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Parsers/validators
-// ──────────────────────────────────────────────────────────────────────────────
 function normalizeCode(input: unknown) {
   const code = String(input ?? '').trim().toUpperCase();
-  if (!code) throw new Error('Код обязателен');
 
+  if (!code) throw new Error('Код обязателен');
   if (!/^[A-Z0-9_-]+$/.test(code)) {
     throw new Error('Код должен содержать только буквы, цифры, дефис или подчёркивание');
   }
+
   return code;
+}
+
+function parseExpiresAt(input: unknown) {
+  if (input === null || input === undefined || input === '') return null;
+
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
+
+  if (d.getTime() < Date.now()) {
+    throw new Error('Дата истечения должна быть в будущем');
+  }
+
+  return d;
 }
 
 function parseDiscountType(input: unknown): 'percentage' | 'fixed' {
@@ -65,19 +72,6 @@ function parseDiscountValue(input: unknown) {
   return Math.trunc(n);
 }
 
-function parseExpiresAt(input: unknown) {
-  if (input === null || input === undefined || input === '') return null;
-
-  const d = new Date(String(input));
-  if (Number.isNaN(d.getTime())) throw new Error('Некорректная дата истечения');
-
-  if (d.getTime() < Date.now()) {
-    throw new Error('Дата истечения должна быть в будущем');
-  }
-
-  return d;
-}
-
 function prismaErrorToMessage(err: any) {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') return 'Такой промокод уже существует';
@@ -87,9 +81,7 @@ function prismaErrorToMessage(err: any) {
   return err?.message || 'Ошибка сервера';
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// GET: список промокодов (+ ставит CSRF cookie если нет)
-// ──────────────────────────────────────────────────────────────────────────────
+// GET: список промокодов + установка CSRF cookie (на всякий случай)
 export async function GET(req: NextRequest) {
   try {
     const codes = await prisma.promo_codes.findMany({
@@ -112,9 +104,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // POST: создание промокода
-// ──────────────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   if (!checkCSRF(req)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
@@ -147,9 +137,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 // PATCH: обновление промокода
-// ──────────────────────────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
   if (!checkCSRF(req)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
@@ -186,9 +174,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// DELETE: удаление промокода (по id, fallback по code)
-// ──────────────────────────────────────────────────────────────────────────────
+// DELETE: удаление промокода
 export async function DELETE(req: NextRequest) {
   if (!checkCSRF(req)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });

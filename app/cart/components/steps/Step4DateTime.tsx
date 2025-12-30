@@ -2,7 +2,7 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useCart } from '@context/CartContext';
@@ -42,6 +42,9 @@ const daysOfWeek = [
   'sunday',
 ] as const;
 
+const TIME_STEP_MINUTES = 30;
+const NEAREST_LOOKAHEAD_DAYS = 21;
+
 function parseTimeToMinutes(time: string | null | undefined): number | null {
   if (!time) return null;
   const [h, m] = time.split(':').map(Number);
@@ -59,14 +62,30 @@ function ceilToStep(minutes: number, step: number): number {
   return Math.ceil(minutes / step) * step;
 }
 
-const TIME_STEP_MINUTES = 30;
+function formatDateRuShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+function dateToIsoLocal(d: Date): string {
+  const year = d.getFullYear();
+  const month = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
 const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   const base = Object.fromEntries(
-    daysOfWeek.map(d => [
-      d,
-      { start: '09:00', end: '18:00', enabled: true },
-    ]),
+    daysOfWeek.map(d => [d, { start: '09:00', end: '18:00', enabled: true }]),
   ) as Record<string, DaySchedule>;
 
   if (typeof schedule !== 'object' || schedule === null) return base;
@@ -87,18 +106,9 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
 };
 
 const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
-
-function formatDateRuShort(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
 
 export default function Step4DateTime({
   form,
@@ -110,26 +120,48 @@ export default function Step4DateTime({
 
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [minLabelToday, setMinLabelToday] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'nearest' | 'custom'>('nearest');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [isFindingNearest, setIsFindingNearest] = useState(false);
+
+  // если пользователь нажал "Быстрее", но настройки еще грузятся - подхватим позже
+  const pendingNearestRef = useRef(false);
+
   const isPickup = form?.deliveryMethod === 'pickup';
   const sectionTitle = isPickup ? 'Самовывоз' : 'Доставка';
+
+  const safeDate = form?.date || '';
+  const safeTime = form?.time || '';
 
   // максимальное время изготовления среди товаров в корзине
   const maxProductionTime = useMemo(() => {
     if (!Array.isArray(items) || !items.length) return 0;
     return items.reduce(
-      (max: number, item: any) =>
-        Math.max(max, item?.production_time ?? 0),
+      (max: number, item: any) => Math.max(max, item?.production_time ?? 0),
       0,
     );
   }, [items]);
 
-  // загрузка настроек магазина
+  const handleDateChange = (value: string) => {
+    const syntheticEvent = {
+      target: { name: 'date', value },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onFormChange(syntheticEvent);
+  };
+
+  const handleTimeSet = (value: string) => {
+    const syntheticEvent = {
+      target: { name: 'time', value },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onFormChange(syntheticEvent);
+  };
+
+  // ===== загрузка настроек магазина =====
   useEffect(() => {
     const fetchSettings = async () => {
       setIsLoadingSettings(true);
@@ -138,11 +170,8 @@ export default function Step4DateTime({
         const json = await res.json();
         if (res.ok && json.success) {
           setStoreSettings({
-            order_acceptance_enabled:
-              json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(
-              json.data.order_acceptance_schedule,
-            ),
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
             store_hours: transformSchedule(json.data.store_hours),
           });
         } else {
@@ -158,7 +187,81 @@ export default function Step4DateTime({
     fetchSettings();
   }, []);
 
-  // пересчёт слотов
+  // ===== функция поиска ближайшего слота (может быть завтра/послезавтра) =====
+  const findNearestSlot = useMemo(() => {
+    if (!storeSettings) return null;
+
+    return (startDate: Date) => {
+      const now = new Date();
+
+      const extraMinutes =
+        maxProductionTime + (form?.deliveryMethod === 'delivery' ? 30 : 0);
+
+      const labelNoAny = isPickup
+        ? 'Ближайшее время самовывоза недоступно, выберите дату вручную.'
+        : 'Ближайшее время доставки недоступно, выберите дату вручную.';
+
+      if (!storeSettings.order_acceptance_enabled) {
+        return { ok: false as const, message: labelNoAny };
+      }
+
+      for (let i = 0; i < NEAREST_LOOKAHEAD_DAYS; i += 1) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+
+        const weekdayKey = d
+          .toLocaleString('en-US', { weekday: 'long' })
+          .toLowerCase();
+
+        const order = storeSettings.order_acceptance_schedule[weekdayKey];
+        const store = storeSettings.store_hours[weekdayKey];
+
+        if (!order?.enabled || !store?.enabled) continue;
+
+        const orderStart = parseTimeToMinutes(order.start);
+        const orderEnd = parseTimeToMinutes(order.end);
+        const storeStart = parseTimeToMinutes(store.start);
+        const storeEnd = parseTimeToMinutes(store.end);
+
+        if (
+          orderStart === null ||
+          orderEnd === null ||
+          storeStart === null ||
+          storeEnd === null
+        ) {
+          continue;
+        }
+
+        const effectiveStart = Math.max(orderStart, storeStart);
+        const effectiveEnd = Math.min(orderEnd, storeEnd);
+        if (effectiveStart >= effectiveEnd) continue;
+
+        const isToday = isSameDay(d, now);
+
+        let minMinutes: number;
+        if (isToday) {
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const rawEarliest = nowMinutes + extraMinutes;
+          minMinutes = Math.max(rawEarliest, effectiveStart);
+          minMinutes = ceilToStep(minMinutes, TIME_STEP_MINUTES);
+        } else {
+          minMinutes = effectiveStart;
+        }
+
+        if (minMinutes >= effectiveEnd) continue;
+
+        return {
+          ok: true as const,
+          dateIso: dateToIsoLocal(d),
+          time: minutesToTimeString(minMinutes),
+        };
+      }
+
+      return { ok: false as const, message: labelNoAny };
+    };
+  }, [storeSettings, maxProductionTime, form?.deliveryMethod, isPickup]);
+
+  // ===== пересчет слотов для выбранной даты (модалка и быстрые кнопки) =====
   useEffect(() => {
     if (!storeSettings || isLoadingSettings || !form?.date) {
       setAvailableSlots([]);
@@ -174,10 +277,7 @@ export default function Step4DateTime({
     }
 
     const now = new Date();
-    const isToday =
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate();
+    const isToday = isSameDay(date, now);
 
     const weekdayKey = date
       .toLocaleString('en-US', { weekday: 'long' })
@@ -217,12 +317,8 @@ export default function Step4DateTime({
       return;
     }
 
-    // с учётом способа:
-    // доставка: время изготовления + 30 мин
-    // самовывоз: только время изготовления
     const extraMinutes =
-      maxProductionTime +
-      (form?.deliveryMethod === 'delivery' ? 30 : 0);
+      maxProductionTime + (form?.deliveryMethod === 'delivery' ? 30 : 0);
 
     let minMinutes: number;
 
@@ -251,7 +347,6 @@ export default function Step4DateTime({
           : `Сегодня успеваем доставить заказ с ${from} до ${to}.`,
       );
     } else {
-      // на завтра и далее — с открытия окна
       minMinutes = effectiveStart;
       setMinLabelToday(null);
     }
@@ -263,7 +358,7 @@ export default function Step4DateTime({
 
     setAvailableSlots(slots);
 
-    // если текущее выбранное время не попадает в слоты – подставляем первый слот
+    // если выбранное время не попадает в слоты - подставляем первый слот
     if (slots.length > 0) {
       const currentMinutes = parseTimeToMinutes(form?.time);
       const minSlot = parseTimeToMinutes(slots[0])!;
@@ -274,15 +369,10 @@ export default function Step4DateTime({
         currentMinutes < minSlot ||
         currentMinutes > maxSlot
       ) {
-        const syntheticEvent = {
-          target: {
-            name: 'time',
-            value: slots[0],
-          },
-        } as React.ChangeEvent<HTMLInputElement>;
-        onFormChange(syntheticEvent);
+        handleTimeSet(slots[0]);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     form?.date,
     form?.deliveryMethod,
@@ -290,18 +380,50 @@ export default function Step4DateTime({
     maxProductionTime,
     storeSettings,
     isLoadingSettings,
-    onFormChange,
     isPickup,
   ]);
 
-  const handleDateChange = (value: string) => {
-    const syntheticEvent = {
-      target: {
-        name: 'date',
-        value,
-      },
-    } as React.ChangeEvent<HTMLInputElement>;
-    onFormChange(syntheticEvent);
+  // ===== если nearest был нажат пока грузились настройки - применим после загрузки =====
+  useEffect(() => {
+    if (!pendingNearestRef.current) return;
+    if (isLoadingSettings) return;
+    if (!storeSettings || !findNearestSlot) return;
+
+    const res = findNearestSlot(new Date());
+    if (res.ok) {
+      handleDateChange(res.dateIso);
+      handleTimeSet(res.time);
+    } else {
+      setMinLabelToday(res.message);
+      setAvailableSlots([]);
+    }
+
+    pendingNearestRef.current = false;
+    setIsFindingNearest(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingSettings, storeSettings, findNearestSlot]);
+
+  const handleApplyNearest = () => {
+    setMode('nearest');
+    setIsModalOpen(false);
+    setIsFindingNearest(true);
+
+    if (isLoadingSettings || !storeSettings || !findNearestSlot) {
+      pendingNearestRef.current = true;
+      return;
+    }
+
+    const res = findNearestSlot(new Date());
+    if (res.ok) {
+      handleDateChange(res.dateIso);
+      handleTimeSet(res.time);
+      setIsFindingNearest(false);
+      return;
+    }
+
+    setMinLabelToday(res.message);
+    setAvailableSlots([]);
+    setIsFindingNearest(false);
   };
 
   const handleTimeInputChange = (value: string) => {
@@ -324,45 +446,18 @@ export default function Step4DateTime({
       }
     }
 
-    const syntheticEvent = {
-      target: {
-        name: 'time',
-        value: finalValue,
-      },
-    } as React.ChangeEvent<HTMLInputElement>;
-    onFormChange(syntheticEvent);
+    handleTimeSet(finalValue);
   };
 
-  const handleQuickSlotClick = (slot: string) => {
-    const syntheticEvent = {
-      target: {
-        name: 'time',
-        value: slot,
-      },
-    } as React.ChangeEvent<HTMLInputElement>;
-    onFormChange(syntheticEvent);
-  };
-
-  const handleNearestClick = () => {
-    if (!availableSlots.length) return;
-    const syntheticEvent = {
-      target: {
-        name: 'time',
-        value: availableSlots[0],
-      },
-    } as React.ChangeEvent<HTMLInputElement>;
-    onFormChange(syntheticEvent);
-  };
-
-  const safeDate = form?.date || '';
-  const safeTime = form?.time || '';
+  const handleQuickSlotClick = (slot: string) => handleTimeSet(slot);
 
   const summary =
-    safeDate && safeTime
-      ? `${formatDateRuShort(safeDate)}, ${safeTime}`
-      : 'Не выбрано';
+    safeDate && safeTime ? `${formatDateRuShort(safeDate)}, ${safeTime}` : 'Не выбрано';
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // визуальная логика
+  const nearestActive = mode === 'nearest';
+  const nearestSelected = nearestActive && !!safeDate && !!safeTime;
+  const customSelected = mode === 'custom';
 
   return (
     <motion.div
@@ -371,48 +466,52 @@ export default function Step4DateTime({
       initial="hidden"
       animate="visible"
     >
-      {/* Заголовок блока (Доставка / Самовывоз) */}
+      {/* Заголовок блока */}
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">{sectionTitle}</div>
         <div className="text-xs text-gray-500">{summary}</div>
       </div>
 
-      {/* Две карточки: Быстрее / Другое время */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Карточки выбора */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Быстрее */}
         <button
           type="button"
-          onClick={() => {
-            setMode('nearest');
-            if (!safeDate) {
-              handleDateChange(todayIso);
-            }
-            handleNearestClick();
-          }}
-          className={`rounded-2xl border px-3 py-3 text-left transition ${
-            mode === 'nearest'
-              ? 'border-black bg-black text-white'
-              : 'border-gray-300 bg-white'
-          }`}
+          disabled={isFindingNearest}
+          onClick={handleApplyNearest}
+          className={[
+            'rounded-2xl border px-4 py-3 text-left transition',
+            'min-h-[92px] sm:min-h-[104px]',
+            nearestActive ? 'border-black' : 'border-gray-300',
+            nearestSelected ? 'bg-black text-white' : 'bg-white text-black',
+            isFindingNearest ? 'opacity-90 cursor-wait' : '',
+          ].join(' ')}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold">Быстрее</span>
-            <span
-              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                mode === 'nearest'
-                  ? 'border-white bg-white'
-                  : 'border-gray-400'
-              }`}
-            >
-              {mode === 'nearest' && (
-                <span className="w-2 h-2 rounded-full bg-black" />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Быстрее</span>
+              {isFindingNearest && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-current/30">
+                  Подбираем...
+                </span>
               )}
+            </div>
+
+            <span
+              className={[
+                'w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0',
+                nearestSelected ? 'border-white bg-white' : nearestActive ? 'border-black' : 'border-gray-400',
+              ].join(' ')}
+            >
+              {nearestSelected && <span className="w-2 h-2 rounded-full bg-black" />}
             </span>
           </div>
+
           <div
-            className={`mt-1 text-xs ${
-              mode === 'nearest' ? 'text-white/80' : 'text-gray-600'
-            }`}
+            className={[
+              'mt-1 text-xs leading-snug',
+              nearestSelected ? 'text-white/80' : 'text-gray-600',
+            ].join(' ')}
           >
             {safeDate && safeTime
               ? `${formatDateRuShort(safeDate)}, ${safeTime}`
@@ -420,10 +519,12 @@ export default function Step4DateTime({
               ? 'Подберём ближайшее время, когда заказ будет готов к выдаче'
               : 'Подберём ближайшее доступное время доставки'}
           </div>
+
           <div
-            className={`mt-2 text-[11px] ${
-              mode === 'nearest' ? 'text-white/80' : 'text-gray-500'
-            }`}
+            className={[
+              'mt-2 text-[11px]',
+              nearestSelected ? 'text-white/80' : 'text-gray-500',
+            ].join(' ')}
           >
             Бесплатно
           </div>
@@ -433,61 +534,46 @@ export default function Step4DateTime({
         <button
           type="button"
           onClick={() => {
+            pendingNearestRef.current = false;
+            setIsFindingNearest(false);
             setMode('custom');
-            if (!safeDate) {
-              handleDateChange(todayIso);
-            }
             setIsModalOpen(true);
           }}
-          className={`rounded-2xl border px-3 py-3 text-left transition ${
-            mode === 'custom'
-              ? 'border-black bg-white'
-              : 'border-gray-300 bg-white'
-          }`}
+          className={[
+            'rounded-2xl border px-4 py-3 text-left transition',
+            'min-h-[92px] sm:min-h-[104px]',
+            customSelected ? 'border-black' : 'border-gray-300',
+            'bg-white text-black',
+          ].join(' ')}
         >
-          <div className="flex items-center justify_between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">Другое время</span>
             <span
-              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                mode === 'custom'
-                  ? 'border-black'
-                  : 'border-gray-400'
-              }`}
+              className={[
+                'w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0',
+                customSelected ? 'border-black' : 'border-gray-400',
+              ].join(' ')}
             >
-              {mode === 'custom' && (
-                <span className="w-2 h-2 rounded-full bg-black" />
-              )}
+              {customSelected && <span className="w-2 h-2 rounded-full bg-black" />}
             </span>
           </div>
-          <div className="mt-1 text-xs text-gray-600">
-            Выберите день и время
-          </div>
+          <div className="mt-1 text-xs text-gray-600">Выберите день и время</div>
         </button>
       </div>
 
       {(dateError || timeError) && (
-        <p className="text-xs text-red-500">
-          Пожалуйста, выберите дату и время.
+        <p className="text-xs text-red-500">Пожалуйста, выберите дату и время.</p>
+      )}
+
+      {minLabelToday && <p className="text-xs text-gray-500">{minLabelToday}</p>}
+
+      {safeDate && !isLoadingSettings && availableSlots.length === 0 && !minLabelToday && (
+        <p className="text-xs text-gray-500">
+          На выбранную дату не удалось подобрать интервалы времени. Выберите другую дату или время.
         </p>
       )}
 
-      {/* Подсказка про сегодня */}
-      {minLabelToday && (
-        <p className="text-xs text-gray-500 mt-1">{minLabelToday}</p>
-      )}
-
-      {/* Если нет слотов, но дата выбрана – предупреждение */}
-      {safeDate &&
-        !isLoadingSettings &&
-        availableSlots.length === 0 &&
-        !minLabelToday && (
-          <p className="text-xs text-gray-500 mt-1">
-            На выбранную дату не удалось подобрать подходящие интервалы времени.
-            Попробуйте выбрать другое время или дату.
-          </p>
-        )}
-
-      {/* НИЖНИЙ МОДАЛЬНЫЙ ЛИСТ "Другое время" */}
+      {/* Модалка "Другое время" */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
@@ -495,19 +581,19 @@ export default function Step4DateTime({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => setIsModalOpen(false)}
           >
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'tween', duration: 0.25 }}
-              className="w-full max-h-[75vh] rounded-t-3xl bg-white p-4 pb-5"
+              className="w-full max-h-[80vh] rounded-t-3xl bg-white p-4 pb-5 sm:max-w-[560px] sm:rounded-3xl sm:mb-8"
+              onClick={e => e.stopPropagation()}
             >
-              <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-gray-300" />
+              <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-gray-300 sm:hidden" />
               <h3 className="text-base font-semibold mb-3">
-                {isPickup
-                  ? 'Выберите время самовывоза'
-                  : 'Выберите дату и время доставки'}
+                {isPickup ? 'Выберите время самовывоза' : 'Выберите дату и время доставки'}
               </h3>
 
               {/* Дата */}
@@ -538,9 +624,7 @@ export default function Step4DateTime({
                     aria-invalid={!!dateError}
                   />
                 </div>
-                {dateError && (
-                  <p className="text-xs text-red-500">{dateError}</p>
-                )}
+                {dateError && <p className="text-xs text-red-500">{dateError}</p>}
               </div>
 
               {/* Время */}
@@ -572,15 +656,13 @@ export default function Step4DateTime({
                     step={TIME_STEP_MINUTES * 60}
                   />
                 </div>
-                {timeError && (
-                  <p className="text-xs text-red-500">{timeError}</p>
-                )}
+                {timeError && <p className="text-xs text-red-500">{timeError}</p>}
               </div>
 
               {/* Быстрые слоты */}
               {availableSlots.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2 mb-2">
-                  {availableSlots.slice(0, 6).map(slot => (
+                  {availableSlots.slice(0, 8).map(slot => (
                     <button
                       key={slot}
                       type="button"
@@ -597,9 +679,7 @@ export default function Step4DateTime({
                 </div>
               )}
 
-              {minLabelToday && (
-                <p className="text-xs text-gray-500 mb-3">{minLabelToday}</p>
-              )}
+              {minLabelToday && <p className="text-xs text-gray-500 mb-3">{minLabelToday}</p>}
 
               <button
                 type="button"
