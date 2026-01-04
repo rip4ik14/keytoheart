@@ -28,11 +28,7 @@ export const revalidate = 3600;
 
 /* ------------------------ SSG paths ----------------------- */
 export async function generateStaticParams() {
-  const { data } = await supabaseAnon
-    .from('products')
-    .select('id')
-    .eq('is_visible', true);
-
+  const { data } = await supabaseAnon.from('products').select('id').eq('is_visible', true);
   return data?.map((p) => ({ id: String(p.id) })) ?? [];
 }
 
@@ -40,20 +36,21 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const id = Number(params.id);
-  if (Number.isNaN(id)) return {};
+  const { id } = await params;
+  const productId = Number(id);
+  if (Number.isNaN(productId)) return {};
 
   const { data } = await supabaseAnon
     .from('products')
     .select('title, description, images')
-    .eq('id', id)
+    .eq('id', productId)
     .single();
 
   if (!data) {
     return {
-      title: 'Товар не найден', // бренд приклеит шаблон в layout
+      title: 'Товар не найден',
       description: 'Страница товара не найдена.',
       robots: { index: false, follow: false },
     };
@@ -62,17 +59,17 @@ export async function generateMetadata({
   const cleanDesc = (data.description ?? '').replace(/<[^>]*>/g, '').trim();
   const desc =
     cleanDesc ||
-    'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
+    'Клубника в шоколаде и цветочные букеты с доставкой 30 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
 
   const firstImg =
     Array.isArray(data.images) && data.images[0]
       ? data.images[0]
       : 'https://keytoheart.ru/og-cover.webp';
 
-  const url = `https://keytoheart.ru/product/${id}`;
+  const url = `https://keytoheart.ru/product/${productId}`;
 
   return {
-    title: data.title, // ← без " | KEY TO HEART", шаблон добавит сам
+    title: data.title,
     description: desc.slice(0, 160),
     openGraph: {
       title: data.title,
@@ -96,10 +93,11 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const id = Number(params.id);
-  if (Number.isNaN(id)) notFound();
+  const { id } = await params;
+  const productId = Number(id);
+  if (Number.isNaN(productId)) notFound();
 
   /* ---------- Supabase SSR-client ---------- */
   const cookieStore = await cookies();
@@ -108,8 +106,7 @@ export default async function ProductPage({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () =>
-          cookieStore.getAll().map(({ name, value }) => ({ name, value })),
+        getAll: () => cookieStore.getAll().map(({ name, value }) => ({ name, value })),
       },
     },
   );
@@ -118,14 +115,13 @@ export default async function ProductPage({
   const { data, error } = await supabase
     .from('products')
     .select('*, product_categories(category_id)')
-    .eq('id', id)
+    .eq('id', productId)
     .eq('is_visible', true)
     .single();
 
   if (error || !data || data.in_stock === false) notFound();
 
-  const categoryIds: number[] =
-    data.product_categories?.map((c) => c.category_id) ?? [];
+  const categoryIds: number[] = data.product_categories?.map((c: any) => c.category_id) ?? [];
   const firstCatId = categoryIds[0];
 
   /* ---------- Получаем первую категорию ---------- */
@@ -159,20 +155,16 @@ export default async function ProductPage({
   /* ---------- Upsell ---------- */
   let combos: ComboItem[] = [];
   try {
-    const { data: upsells } = await supabase
-      .from('upsell_items')
-      .select('id, title, price, image_url');
-
+    const { data: upsells } = await supabase.from('upsell_items').select('id, title, price, image_url');
     combos =
-      upsells?.map((u) => ({
+      upsells?.map((u: any) => ({
         id: Number(u.id),
         title: u.title,
         price: u.price,
         image: u.image_url ?? '',
       })) ?? [];
   } catch (e) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('upsell_items →', e);
+    process.env.NODE_ENV !== 'production' && console.error('upsell_items →', e);
   }
 
   /* ---------- Финальная цена ---------- */
@@ -181,7 +173,6 @@ export default async function ProductPage({
       ? Math.round(product.price * (1 - product.discount_percent / 100))
       : product.price;
 
-  /* ---------- Offer (правильно для 1 оффера) ---------- */
   const productUrl = `https://keytoheart.ru/product/${product.id}`;
 
   const offer: Offer = {
@@ -189,9 +180,7 @@ export default async function ProductPage({
     url: productUrl,
     priceCurrency: 'RUB',
     price: finalPrice,
-    priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000)
-      .toISOString()
-      .split('T')[0],
+    priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
     availability: 'https://schema.org/InStock',
     itemCondition: 'https://schema.org/NewCondition',
     seller: {
@@ -216,30 +205,22 @@ export default async function ProductPage({
         handlingTime: {
           '@type': 'QuantitativeValue',
           minValue: 0,
-          maxValue: 60,
+          maxValue: 30,
           unitCode: 'MIN',
         },
       },
     },
   };
 
-  /* ---------- Render ---------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
-      {/* ---------- JSON-LD Product ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
           sku: String(product.id),
           name: product.title,
           url: productUrl,
-
-          // стабильнее для парсеров: массив строк-URL
-          image:
-            Array.isArray(product.images) && product.images.length > 0
-              ? product.images
-              : undefined,
-
+          image: Array.isArray(product.images) && product.images.length > 0 ? product.images : undefined,
           description: product.description || undefined,
           additionalProperty: product.production_time
             ? [
@@ -253,23 +234,15 @@ export default async function ProductPage({
           material: product.composition || undefined,
           category: categoryName || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
-
-          // 1 оффер - Offer
           offers: offer,
         }}
       />
 
-      {/* ---------- JSON-LD BreadcrumbList (до 3-х звеньев) ---------- */}
       <JsonLd
         item={{
           '@type': 'BreadcrumbList',
           itemListElement: [
-            {
-              '@type': 'ListItem',
-              position: 1,
-              name: 'Главная',
-              item: 'https://keytoheart.ru',
-            },
+            { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://keytoheart.ru' },
             ...(categorySlug
               ? [
                   {
@@ -290,7 +263,6 @@ export default async function ProductPage({
         }}
       />
 
-      {/* ---------- Визуальные хлебные крошки (без JSON-LD внутри компонента) ---------- */}
       <Suspense fallback={null}>
         <Breadcrumbs
           productTitle={product.title}
@@ -299,7 +271,6 @@ export default async function ProductPage({
         />
       </Suspense>
 
-      {/* ---------- Основной контент ---------- */}
       <Suspense fallback={<div className="text-center py-8">Загрузка…</div>}>
         <ProductPageClient product={product} combos={combos} />
       </Suspense>

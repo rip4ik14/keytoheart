@@ -5,6 +5,7 @@ import { YM_ID } from '@/utils/ym';
 import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,9 +15,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
 import type { Product, ComboItem } from './types';
 
-/* =====================  Constants & helpers  ===================== */
-
-// ★ однотонный blur-png (10 × 10 px, светло-серый)
+// blur placeholder
 const BLUR_PLACEHOLDER =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
 
@@ -30,6 +29,7 @@ interface StoreSettings {
   order_acceptance_schedule: Record<string, DaySchedule>;
   store_hours: Record<string, DaySchedule>;
 }
+
 const daysOfWeek = [
   'monday',
   'tuesday',
@@ -42,11 +42,9 @@ const daysOfWeek = [
 
 const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   const base = Object.fromEntries(
-    daysOfWeek.map((d) => [
-      d,
-      { start: '09:00', end: '18:00', enabled: true },
-    ]),
+    daysOfWeek.map((d) => [d, { start: '09:00', end: '18:00', enabled: true }]),
   ) as Record<string, DaySchedule>;
+
   if (typeof schedule !== 'object' || schedule === null) return base;
 
   for (const [key, value] of Object.entries(schedule)) {
@@ -64,26 +62,38 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   return base;
 };
 
-/* =====================       Motion        ====================== */
-
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
 const buttonVariants = {
   rest: { scale: 1 },
-  hover: { scale: 1.05 },
-  tap: { scale: 0.95 },
+  hover: { scale: 1.03 },
+  tap: { scale: 0.98 },
 };
 const notificationVariants = {
-  hidden: { opacity: 0, y: -20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-  exit: { opacity: 0, y: -20, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: -16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+  exit: { opacity: 0, y: -16, transition: { duration: 0.2 } },
 };
 
-/* ================================================================= */
-/*                              COMPONENT                            */
-/* ================================================================= */
+function declineWord(num: number, words: [string, string, string]): string {
+  const cases = [2, 0, 1, 1, 1, 2];
+  return words[
+    num % 100 > 4 && num % 100 < 20 ? 2 : cases[num % 10 < 5 ? num % 10 : 5]
+  ];
+}
+
+function formatProductionTime(minutes: number | null): string | null {
+  if (minutes == null || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  let result = '';
+  if (hours > 0) result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
+  if (mins > 0) result += `${result ? ' ' : ''}${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
+  return result || 'Мгновенно';
+}
+
 export default function ProductPageClient({
   product,
   combos,
@@ -91,36 +101,120 @@ export default function ProductPageClient({
   product: Product;
   combos: ComboItem[];
 }) {
-  /* ------------------------- state & hooks ------------------------ */
   const { addItem } = useCart();
+
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
   const [comboNotifications, setComboNotifications] = useState<Record<number, boolean>>({});
+
   const [bonusPercent] = useState(0.025);
+
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
-  const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos);
-  const recommendLoop = recommendedItems.length > 4;
+
+  // допродажи (шары/открытки)
+  const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos || []);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
+
+  // похожие товары
+  const [similarItems, setSimilarItems] = useState<ComboItem[]>([]);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState(true);
+
   const mainSwiperRef = useRef<any>(null);
 
-  /* ------------------------- derived values ----------------------- */
   const discountPercent = product.discount_percent ?? 0;
   const discountedPrice =
-    discountPercent > 0
-      ? Math.round(product.price * (1 - discountPercent / 100))
-      : product.price;
+    discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+
   const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
-  const images = useMemo(
-    () => (Array.isArray(product.images) ? product.images : []),
-    [product.images],
-  );
+  const images = useMemo(() => (Array.isArray(product.images) ? product.images : []), [product.images]);
 
-  /* ------------------------- side-effects ------------------------- */
-  /* загрузка настроек магазина */
+  // определяем тип товара без description, чтобы цветы не ловили клубнику из текста
+  const textBlob = useMemo(() => {
+    const parts = [product.title, product.composition].filter(Boolean).join(' ').toLowerCase();
+    return parts;
+  }, [product.title, product.composition]);
+
+  const isBerryProduct = useMemo(() => {
+    const hasStrawberry = /клубник/.test(textBlob);
+    const hasChocolate = /шоколад|бельгийск/.test(textBlob);
+    return hasStrawberry || hasChocolate;
+  }, [textBlob]);
+
+  const trustLines = useMemo(() => {
+    const base = ['Доставка от 30 минут', 'Фото перед отправкой'];
+    if (isBerryProduct) base.push('Свежая клубника', 'Бельгийский шоколад');
+    else base.push('Свежие цветы', 'Аккуратная сборка');
+    return base.slice(0, 4);
+  }, [isBerryProduct]);
+
+  const recommendLoop = recommendedItems.length > 4;
+  const similarLoop = similarItems.length > 4;
+
+  const handleAdd = (
+    id: number,
+    title: string,
+    price: number,
+    img: string | null,
+    productionTime: number | null,
+    isCombo = false,
+  ) => {
+    addItem({
+      id: String(id),
+      title,
+      price,
+      quantity: 1,
+      imageUrl: img || '',
+      production_time: productionTime,
+    });
+
+    if (isCombo) {
+      setComboNotifications((p) => ({ ...p, [id]: true }));
+      setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1800);
+    } else {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 1800);
+    }
+
+    try {
+      window.gtag?.('event', 'add_to_cart', {
+        event_category: 'ecommerce',
+        event_label: title,
+        value: price,
+      });
+      YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
+    } catch {}
+  };
+
+  const handleShare = () => {
+    if (typeof window === 'undefined') return;
+    const url = window.location.href;
+
+    if (navigator.share) {
+      navigator
+        .share({
+          title: product.title,
+          text: `Посмотрите «${product.title}» на KEY TO HEART!`,
+          url,
+        })
+        .catch(() => {});
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(url)
+      .then(() => alert('Ссылка скопирована в буфер обмена!'))
+      .catch(() => alert('Не удалось скопировать ссылку :('));
+  };
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined') window.history.back();
+  };
+
+  // store settings
   useEffect(() => {
     const fetchSettings = async () => {
       setIsStoreSettingsLoading(true);
@@ -129,11 +223,8 @@ export default function ProductPageClient({
         const json = await res.json();
         if (res.ok && json.success) {
           setStoreSettings({
-            order_acceptance_enabled:
-              json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(
-              json.data.order_acceptance_schedule,
-            ),
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
             store_hours: transformSchedule(json.data.store_hours),
           });
         }
@@ -146,7 +237,7 @@ export default function ProductPageClient({
     fetchSettings();
   }, []);
 
-  /* рекомендация подарков */
+  // допродажи (шары/открытки) - как у тебя было
   useEffect(() => {
     const fetchRecommendedItems = async () => {
       const cacheKey = 'recommended_items_podarki';
@@ -165,9 +256,7 @@ export default function ProductPageClient({
         const subIds = [171, 173];
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
-            const r = await fetch(
-              `/api/upsell/products?category_id=8&subcategory_id=${sub}`,
-            );
+            const r = await fetch(`/api/upsell/products?category_id=8&subcategory_id=${sub}`);
             if (!r.ok) return [];
             const { success, data } = await r.json();
             return success ? data : [];
@@ -188,7 +277,7 @@ export default function ProductPageClient({
         localStorage.setItem(cacheKey, JSON.stringify(items));
         localStorage.setItem(tsKey, String(Date.now()));
       } catch (error) {
-        console.error('Ошибка загрузки рекомендуемых товаров:', error);
+        console.error('Ошибка загрузки допродаж:', error);
       } finally {
         setIsLoadingRecommended(false);
       }
@@ -197,7 +286,48 @@ export default function ProductPageClient({
     fetchRecommendedItems();
   }, [product.id]);
 
-  /* earliest delivery calc */
+  // похожие товары - по category_id текущего товара
+  useEffect(() => {
+    const fetchSimilar = async () => {
+      const cacheKey = `similar_items_${product.id}`;
+      const tsKey = `${cacheKey}_ts`;
+
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        const ts = localStorage.getItem(tsKey);
+        if (cached && ts && Date.now() - +ts < 30 * 60 * 1000) {
+          setSimilarItems(JSON.parse(cached));
+          setIsLoadingSimilar(false);
+          return;
+        }
+      } catch {}
+
+      try {
+        setIsLoadingSimilar(true);
+        const r = await fetch(`/api/recommendations?product_id=${product.id}&limit=12`);
+        const json = await r.json();
+        if (!r.ok || !json?.success) {
+          setSimilarItems([]);
+          return;
+        }
+        setSimilarItems(json.data || []);
+
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(json.data || []));
+          localStorage.setItem(tsKey, String(Date.now()));
+        } catch {}
+      } catch (e) {
+        console.error('Ошибка загрузки похожих товаров:', e);
+        setSimilarItems([]);
+      } finally {
+        setIsLoadingSimilar(false);
+      }
+    };
+
+    fetchSimilar();
+  }, [product.id]);
+
+  // earliest delivery calc
   useEffect(() => {
     if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
       setEarliestDelivery(null);
@@ -209,14 +339,12 @@ export default function ProductPageClient({
     }
 
     const now = new Date();
-    const totalMinutes = product.production_time + 30; // +30 минут на доставку
+    const totalMinutes = product.production_time + 30;
     let earliestDate = new Date(now.getTime() + totalMinutes * 60 * 1000);
     let attempts = 0;
 
     while (attempts < 7) {
-      const dayKey = earliestDate
-        .toLocaleString('en-US', { weekday: 'long' })
-        .toLowerCase();
+      const dayKey = earliestDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
       const order = storeSettings.order_acceptance_schedule[dayKey];
       const store = storeSettings.store_hours[dayKey];
 
@@ -241,18 +369,16 @@ export default function ProductPageClient({
         const storeEndTime = new Date(earliestDate);
         storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
 
-        const effectiveStart =
-          orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
-        const effectiveEnd =
-          orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
+        const effectiveStart = orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
+        const effectiveEnd = orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
 
         if (earliestDate < effectiveStart) earliestDate = new Date(effectiveStart);
 
         if (earliestDate <= effectiveEnd) {
           setEarliestDelivery(
-            `Самое раннее время доставки: ${earliestDate.toLocaleDateString(
-              'ru-RU',
-            )} в ${earliestDate.toTimeString().slice(0, 5)}`,
+            `Самое раннее время доставки: ${earliestDate.toLocaleDateString('ru-RU')} в ${earliestDate
+              .toTimeString()
+              .slice(0, 5)}`,
           );
           return;
         }
@@ -263,12 +389,10 @@ export default function ProductPageClient({
       attempts++;
     }
 
-    setEarliestDelivery(
-      'Доставка невозможна в ближайшие 7 дней. Попробуйте позже.',
-    );
+    setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
   }, [storeSettings, isStoreSettingsLoading, product.production_time]);
 
-  /* GA / YM view_item */
+  // analytics view_item
   useEffect(() => {
     try {
       window.gtag?.('event', 'view_item', {
@@ -282,99 +406,10 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
-  function declineWord(num: number, words: [string, string, string]): string {
-    const cases = [2, 0, 1, 1, 1, 2];
-    return words[(num % 100 > 4 && num % 100 < 20) ? 2 : cases[(num % 10 < 5) ? num % 10 : 5]];
-  }
-
-  function formatProductionTime(minutes: number | null): string | null {
-    if (minutes == null || minutes <= 0) return null;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    let result = '';
-    if (hours > 0) {
-      result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
-    }
-    if (mins > 0) {
-      if (result) result += ' ';
-      result += `${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
-    }
-    return result || 'Мгновенно';
-  }
-
-  const handleAdd = (
-    id: number,
-    title: string,
-    price: number,
-    img: string | null,
-    productionTime: number | null,
-    isCombo = false,
-  ) => {
-    addItem({
-      id: String(id),
-      title,
-      price,
-      quantity: 1,
-      imageUrl: img || '',
-      production_time: productionTime,
-    });
-
-    if (isCombo) {
-      setComboNotifications((p) => ({ ...p, [id]: true }));
-      setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 2000);
-    } else {
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 2000);
-    }
-
-    try {
-      window.gtag?.('event', 'add_to_cart', {
-        event_category: 'ecommerce',
-        event_label: title,
-        value: price,
-      });
-      YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
-    } catch {}
-  };
-
-  const handleShare = () => {
-    if (typeof window === 'undefined') return;
-
-    const url = window.location.href;
-
-    if (navigator.share) {
-      navigator
-        .share({
-          title: product.title,
-          text: `Посмотрите букет «${product.title}» на KEY TO HEART!`,
-          url,
-        })
-        .catch(() => {});
-      return;
-    }
-
-    navigator.clipboard
-      .writeText(url)
-      .then(() => alert('Ссылка скопирована в буфер обмена!'))
-      .catch(() => alert('Не удалось скопировать ссылку :('));
-  };
-
-  const handleBack = () => {
-    if (typeof window !== 'undefined') {
-      window.history.back();
-    }
-  };
-
-  /* =================================================================== */
-  /*                                 JSX                                 */
-  /* =================================================================== */
   return (
-    <section
-      className="min-h-screen bg-white text-black"
-      aria-label={`Товар ${product.title}`}
-    >
+    <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
-        {/* ---------- мобильная верхняя панель ---------- */}
+        {/* мобильная верхняя панель */}
         <div className="flex items-center justify-between mb-3 lg:hidden">
           <button
             type="button"
@@ -395,7 +430,7 @@ export default function ProductPageClient({
           </button>
         </div>
 
-        {/* ---------- уведомления ---------- */}
+        {/* уведомления */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -412,9 +447,7 @@ export default function ProductPageClient({
               aria-live="assertive"
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm font-medium">
-                  Товар добавлен в корзину
-                </span>
+                <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
                 <a
                   href="/cart"
                   className="
@@ -446,9 +479,7 @@ export default function ProductPageClient({
                   aria-live="assertive"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs sm:text-sm font-medium">
-                      Товар добавлен в корзину
-                    </span>
+                    <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
                     <a
                       href="/cart"
                       className="
@@ -465,13 +496,8 @@ export default function ProductPageClient({
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
-          {/* ===================== GALERY ===================== */}
-          <motion.div
-            className="w-full mb-2 sm:mb-0"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          {/* GALERY + desktop blocks to fill empty space */}
+          <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
             <div className="relative">
               <Swiper
                 onSwiper={(s) => (mainSwiperRef.current = s)}
@@ -521,7 +547,6 @@ export default function ProductPageClient({
                   </SwiperSlide>
                 )}
 
-                {/* стрелки */}
                 <button
                   className="customSwiperButtonPrev hidden lg:flex absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
                   aria-label="Предыдущее изображение"
@@ -536,7 +561,6 @@ export default function ProductPageClient({
                 </button>
               </Swiper>
 
-              {/* миниатюры */}
               {images.length > 1 && (
                 <Swiper
                   onSwiper={setThumbsSwiper}
@@ -555,9 +579,7 @@ export default function ProductPageClient({
                     <SwiperSlide key={i} className="cursor-pointer group">
                       <div
                         className={`relative aspect-[4/3] rounded-xl overflow-hidden border transition ${
-                          activeIndex === i
-                            ? 'border-black shadow-lg'
-                            : 'border-gray-200'
+                          activeIndex === i ? 'border-black shadow-lg' : 'border-gray-200'
                         }`}
                         onClick={() => mainSwiperRef.current?.slideTo(i)}
                       >
@@ -577,16 +599,164 @@ export default function ProductPageClient({
                 </Swiper>
               )}
             </div>
+
+            {/* DESKTOP - Похожие товары (заполняем пустоту) */}
+            <div className="hidden lg:block mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold tracking-tight">Похожие товары</h2>
+                <div className="flex gap-2">
+                  <button
+                    className="similarPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    aria-label="Назад"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    className="similarNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    aria-label="Вперёд"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingSimilar ? (
+                <p className="text-gray-500">Загрузка…</p>
+              ) : similarItems.length === 0 ? (
+                <p className="text-gray-500">Пока нет похожих товаров</p>
+              ) : (
+                <Swiper
+                  navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }}
+                  loop={similarLoop}
+                  modules={[Navigation]}
+                  spaceBetween={12}
+                  slidesPerView={2}
+                >
+                  {similarItems.slice(0, 8).map((it) => (
+                    <SwiperSlide key={it.id}>
+                      <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                        <Link href={`/product/${it.id}`} className="block">
+                          <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                            <Image
+                              src={it.image}
+                              alt={it.title}
+                              fill
+                              placeholder="blur"
+                              blurDataURL={BLUR_PLACEHOLDER}
+                              className="object-cover group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
+                          </div>
+                        </Link>
+
+                        <div className="p-3">
+                          <Link href={`/product/${it.id}`} className="block">
+                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
+                              {it.title}
+                            </p>
+                          </Link>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className="font-bold">{it.price} ₽</span>
+                            <button
+                              onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
+                              className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                              rel="nofollow"
+                            >
+                              В корзину
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              )}
+            </div>
+
+            {/* DESKTOP - Допродажи тоже под фото (вторая полка, чтобы не было пустоты) */}
+            <div className="hidden lg:block mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold tracking-tight">Добавьте к заказу</h2>
+                <div className="flex gap-2">
+                  <button
+                    className="recommendPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    aria-label="Назад"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    className="recommendNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    aria-label="Вперёд"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingRecommended ? (
+                <p className="text-gray-500">Загрузка…</p>
+              ) : recommendedItems.length === 0 ? (
+                <p className="text-gray-500">Пока нет допов</p>
+              ) : (
+                <Swiper
+                  navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }}
+                  loop={recommendLoop}
+                  modules={[Navigation]}
+                  spaceBetween={12}
+                  slidesPerView={2}
+                >
+                  {recommendedItems.slice(0, 10).map((combo) => (
+                    <SwiperSlide key={combo.id}>
+                      <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                        <Link href={`/product/${combo.id}`} className="block">
+                          <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                            <Image
+                              src={combo.image}
+                              alt={combo.title}
+                              fill
+                              placeholder="blur"
+                              blurDataURL={BLUR_PLACEHOLDER}
+                              className="object-cover group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
+                          </div>
+                        </Link>
+
+                        <div className="p-3">
+                          <Link href={`/product/${combo.id}`} className="block">
+                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
+                              {combo.title}
+                            </p>
+                          </Link>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className="font-bold">{combo.price} ₽</span>
+                            <button
+                              onClick={() =>
+                                handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)
+                              }
+                              className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                              rel="nofollow"
+                            >
+                              В корзину
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              )}
+            </div>
           </motion.div>
 
-          {/* ---------- правая колонка ---------- */}
+          {/* правая колонка */}
           <motion.div
             className="flex flex-col space-y-4 sm:space-y-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {/* бейджи */}
+            {/* скидки */}
             <div className="flex items-center gap-3 mt-1">
               {discountPercent > 0 && (
                 <>
@@ -607,9 +777,7 @@ export default function ProductPageClient({
             {/* цена */}
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-3 lg:gap-4">
-                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-                  {discountedPrice} ₽
-                </span>
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">{discountedPrice} ₽</span>
                 {discountPercent > 0 && (
                   <>
                     <span className="text-base sm:text-lg text-gray-500 line-through">
@@ -621,25 +789,22 @@ export default function ProductPageClient({
                   </>
                 )}
               </div>
+
               <span className="text-sm sm:text-base flex items-center gap-1 text-gray-700">
                 + бонус {bonus}₽
-                <span
-                  className="ml-1 text-gray-500 cursor-pointer"
-                  title="Бонус за оплату заказа"
-                >
+                <span className="ml-1 text-gray-500 cursor-pointer" title="Бонус за оплату заказа">
                   ⓘ
                 </span>
               </span>
             </div>
 
-            {/* доставка / изготовление */}
+            {/* изготовление / доставка */}
             <div className="flex flex-col gap-2 text-sm sm:text-base">
               {product.production_time != null && (
                 <div className="flex items-center gap-2">
                   <Image src="/icons/clock.svg" alt="" width={20} height={20} />
                   <span>
-                    Время изготовления:{' '}
-                    {formatProductionTime(product.production_time) || 'Не указано'}
+                    Время изготовления: {formatProductionTime(product.production_time) || 'Не указано'}
                   </span>
                 </div>
               )}
@@ -651,7 +816,19 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* кнопки (только десктоп) */}
+            {/* trust chips */}
+            <div className="grid grid-cols-2 gap-2">
+              {trustLines.map((t) => (
+                <div
+                  key={t}
+                  className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-semibold"
+                >
+                  {t}
+                </div>
+              ))}
+            </div>
+
+            {/* кнопки (desktop) */}
             <div className="hidden lg:flex gap-3">
               <motion.button
                 onClick={() =>
@@ -673,6 +850,7 @@ export default function ProductPageClient({
               >
                 ДОБАВИТЬ В КОРЗИНУ
               </motion.button>
+
               <motion.button
                 onClick={handleShare}
                 className="p-3 rounded-lg border bg-gray-100 hover:bg-gray-200 transition"
@@ -708,7 +886,7 @@ export default function ProductPageClient({
               </section>
             )}
 
-            {/* отзывы (визуально можно оставить, но без schema) */}
+            {/* отзывы */}
             <section className="space-y-4">
               <h2 className="font-bold text-lg">Отзывы клиентов</h2>
               {[
@@ -735,11 +913,7 @@ export default function ProductPageClient({
                       {Array(review.rating)
                         .fill(0)
                         .map((_, j) => (
-                          <Star
-                            key={j}
-                            size={16}
-                            className="text-yellow-500 fill-current"
-                          />
+                          <Star key={j} size={16} className="text-yellow-500 fill-current" />
                         ))}
                     </div>
                   </div>
@@ -750,109 +924,179 @@ export default function ProductPageClient({
           </motion.div>
         </div>
 
-        {/* рекомендация */}
-        {recommendedItems.length > 0 && (
-          <motion.section
-            className="mt-4 pt-4 sm:mt-10 sm:pt-10 border-t"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <h2 className="text-2xl font-bold mb-6 tracking-tight">
-              Рекомендуемые товары
-            </h2>
-            {isLoadingRecommended ? (
-              <p className="text-gray-500">Загрузка…</p>
-            ) : (
-              <div className="relative">
-                <Swiper
-                  navigation={{
-                    prevEl: '.recommendSwiperButtonPrev',
-                    nextEl: '.recommendSwiperButtonNext',
-                  }}
-                  loop={recommendLoop}
-                  modules={[Navigation]}
-                  spaceBetween={12}
-                  slidesPerView={2}
-                  breakpoints={{
-                    320: { slidesPerView: 2, spaceBetween: 12 },
-                    640: { slidesPerView: 3, spaceBetween: 20 },
-                    1024: { slidesPerView: 4, spaceBetween: 24 },
-                  }}
-                >
-                  {recommendedItems.map((combo) => (
-                    <SwiperSlide key={combo.id}>
-                      <motion.div
-                        className="flex flex-col rounded-xl shadow-md overflow-hidden bg-white hover:shadow-lg transition"
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="relative w-full aspect-[4/3] bg-gray-100">
+        {/* MOBILE - похожие товары */}
+        <motion.section
+          className="lg:hidden mt-6 pt-6 border-t"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <h2 className="text-xl font-bold mb-4 tracking-tight">Похожие товары</h2>
+
+          {isLoadingSimilar ? (
+            <p className="text-gray-500">Загрузка…</p>
+          ) : similarItems.length === 0 ? (
+            <p className="text-gray-500">Пока нет похожих товаров</p>
+          ) : (
+            <Swiper
+              navigation={{
+                prevEl: '.similarPrevMobile',
+                nextEl: '.similarNextMobile',
+              }}
+              loop={similarLoop}
+              modules={[Navigation]}
+              spaceBetween={12}
+              slidesPerView={2}
+              breakpoints={{
+                320: { slidesPerView: 2, spaceBetween: 12 },
+                640: { slidesPerView: 3, spaceBetween: 16 },
+              }}
+            >
+              {similarItems.map((it) => (
+                <SwiperSlide key={it.id}>
+                  <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                    <Link href={`/product/${it.id}`} className="block">
+                      <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                        <Image
+                          src={it.image}
+                          alt={it.title}
+                          fill
+                          placeholder="blur"
+                          blurDataURL={BLUR_PLACEHOLDER}
+                          className="object-cover group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      </div>
+                    </Link>
+                    <div className="p-3">
+                      <Link href={`/product/${it.id}`} className="block">
+                        <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
+                          {it.title}
+                        </p>
+                      </Link>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className="font-bold">{it.price} ₽</span>
+                        <button
+                          onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
+                          className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                          rel="nofollow"
+                        >
+                          В корзину
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </SwiperSlide>
+              ))}
+
+              <button
+                className="similarPrevMobile absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                aria-label="Назад"
+              >
+                <ChevronLeft className="text-white text-2xl" />
+              </button>
+              <button
+                className="similarNextMobile absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                aria-label="Вперёд"
+              >
+                <ChevronRight className="text-white text-2xl" />
+              </button>
+            </Swiper>
+          )}
+        </motion.section>
+
+        {/* MOBILE - допродажи (внизу, как ты хотел) */}
+        <motion.section
+          className="lg:hidden mt-6 pt-6 border-t"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <h2 className="text-xl font-bold mb-4 tracking-tight">Добавьте к заказу</h2>
+
+          {isLoadingRecommended ? (
+            <p className="text-gray-500">Загрузка…</p>
+          ) : recommendedItems.length === 0 ? (
+            <p className="text-gray-500">Пока нет допов</p>
+          ) : (
+            <div className="relative">
+              <Swiper
+                navigation={{
+                  prevEl: '.recommendSwiperButtonPrev',
+                  nextEl: '.recommendSwiperButtonNext',
+                }}
+                loop={recommendLoop}
+                modules={[Navigation]}
+                spaceBetween={12}
+                slidesPerView={2}
+                breakpoints={{
+                  320: { slidesPerView: 2, spaceBetween: 12 },
+                  640: { slidesPerView: 3, spaceBetween: 20 },
+                }}
+              >
+                {recommendedItems.map((combo) => (
+                  <SwiperSlide key={combo.id}>
+                    <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                      <Link href={`/product/${combo.id}`} className="block">
+                        <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                           <Image
                             src={combo.image}
                             alt={combo.title}
                             fill
-                            className="object-cover transition-transform group-hover:scale-105"
+                            placeholder="blur"
+                            blurDataURL={BLUR_PLACEHOLDER}
+                            className="object-cover group-hover:scale-105 transition-transform"
                             loading="lazy"
-                            sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
                           />
                         </div>
-                        <div className="p-4 flex flex-col flex-1 space-y-2">
-                          <p className="line-clamp-2 h-12 font-semibold">
+                      </Link>
+
+                      <div className="p-3">
+                        <Link href={`/product/${combo.id}`} className="block">
+                          <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
                             {combo.title}
                           </p>
-                          <span className="text-lg font-bold">
-                            {combo.price} ₽
-                          </span>
-                          <motion.button
+                        </Link>
+
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="font-bold">{combo.price} ₽</span>
+                          <button
                             onClick={() =>
-                              handleAdd(
-                                combo.id,
-                                combo.title,
-                                combo.price,
-                                combo.image,
-                                null,
-                                true,
-                              )
+                              handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)
                             }
-                            className="w-full py-3 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition"
-                            variants={buttonVariants}
-                            initial="rest"
-                            whileHover="hover"
-                            whileTap="tap"
+                            className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
                             rel="nofollow"
                           >
-                            ДОБАВИТЬ В КОРЗИНУ
-                          </motion.button>
+                            В корзину
+                          </button>
                         </div>
-                      </motion.div>
-                    </SwiperSlide>
-                  ))}
-                </Swiper>
-                <button
-                  className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
-                  aria-label="Предыдущий товар"
-                >
-                  <ChevronLeft className="text-white text-2xl" />
-                </button>
-                <button
-                  className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition"
-                  aria-label="Следующий товар"
-                >
-                  <ChevronRight className="text-white text-2xl" />
-                </button>
-              </div>
-            )}
-          </motion.section>
-        )}
+                      </div>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
 
-        {/* ---------- мобильная нижняя панель «В корзину» ---------- */}
+              <button
+                className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                aria-label="Назад"
+              >
+                <ChevronLeft className="text-white text-2xl" />
+              </button>
+              <button
+                className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                aria-label="Вперёд"
+              >
+                <ChevronRight className="text-white text-2xl" />
+              </button>
+            </div>
+          )}
+        </motion.section>
+
+        {/* мобильная нижняя панель */}
         <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white px-3 py-3 flex items-center justify-between lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
           <div className="flex flex-col">
             <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
-            <span className="text-[11px] text-gray-500 leading-none mt-1">
-              + бонус {bonus} ₽
-            </span>
+            <span className="text-[11px] text-gray-500 leading-none mt-1">+ бонус {bonus} ₽</span>
           </div>
           <motion.button
             onClick={() =>

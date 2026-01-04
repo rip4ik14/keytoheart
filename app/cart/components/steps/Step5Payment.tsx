@@ -6,6 +6,7 @@ import Image from 'next/image';
 import TrackedLink from '@components/TrackedLink';
 
 interface Props {
+  // ✅ оставляем для совместимости, но в этом шаге больше не используем
   agreed: boolean;
   setAgreed: (a: boolean) => void;
 }
@@ -46,23 +47,27 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
         реквизиты удобным способом.
       </motion.p>
 
-      <motion.label
-        className="flex items-start gap-2"
+      {/* ✅ Вместо второй галочки - информер (необязательный) */}
+      <motion.div
+        className="rounded-xl border border-gray-200 bg-gray-50 p-3"
         initial="hidden"
         animate="visible"
         custom={2}
         variants={containerVariants}
       >
-        <input
-          type="checkbox"
-          checked={agreed}
-          onChange={e => setAgreed(e.target.checked)}
-          className="mt-0.5 h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
-          required
-          aria-label="Согласен с политикой конфиденциальности"
-        />
-        <span className="text-base sm:text-sm text-gray-700 leading-snug">
-          Я согласен с{' '}
+        <p className="text-[11px] leading-relaxed text-gray-600">
+          Оформляя заказ, вы подтверждаете согласие с{' '}
+          <TrackedLink
+            href="/offer"
+            ariaLabel="Публичная оферта"
+            category="Cart"
+            action="Open Offer"
+            label="Step5 Offer"
+            className="underline text-black hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            условиями публичной оферты
+          </TrackedLink>{' '}
+          и{' '}
           <TrackedLink
             href="/policy"
             ariaLabel="Политика конфиденциальности"
@@ -71,11 +76,11 @@ export default function Step5Payment({ agreed, setAgreed }: Props) {
             label="Step5 Privacy"
             className="underline text-black hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-black"
           >
-            политикой конфиденциальности и обработкой персональных данных
+            политикой обработки персональных данных
           </TrackedLink>
-          , а также подтверждаю корректность указанных данных для оформления заказа.
-        </span>
-      </motion.label>
+          .
+        </p>
+      </motion.div>
     </div>
   );
 }

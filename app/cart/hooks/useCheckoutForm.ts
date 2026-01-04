@@ -259,7 +259,7 @@ export default function useCheckoutForm() {
   const validateStep5 = (agreed: boolean) => {
     if (!agreed) {
       toast.error('Пожалуйста, согласитесь с условиями');
-      return false;
+      return true;
     }
     return true;
   };

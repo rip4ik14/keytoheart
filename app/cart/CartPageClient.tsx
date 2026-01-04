@@ -206,6 +206,9 @@ export default function CartPageClient({
 
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
+  // ✅ Управление раскрытием блока входа в Step1 (UX)
+  const [showAuthBlock, setShowAuthBlock] = useState<boolean>(false);
+
   const {
     step,
     setStep,
@@ -453,7 +456,6 @@ export default function CartPageClient({
       }
 
       try {
-        // ✅ no-store, чтобы Safari не залипал на кеше
         const response = await fetch('/api/auth/check-session', {
           method: 'GET',
           credentials: 'include',
@@ -518,7 +520,6 @@ export default function CartPageClient({
       checkAuth();
     };
 
-    // ✅ iOS/Safari BFCache fix: при возврате на страницу эффекты могут не перезапускаться
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
         checkAuth();
@@ -549,6 +550,11 @@ export default function CartPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ если пользователь уже авторизован, можно по умолчанию не показывать блок входа
+  useEffect(() => {
+    if (isAuthenticated) setShowAuthBlock(false);
+  }, [isAuthenticated]);
+
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       const isValid = validateStep1();
@@ -567,9 +573,10 @@ export default function CartPageClient({
   }, [step, validateStep1, validateStep4, nextStep]);
 
   const deliveryCost = useMemo(
-    () => (form.deliveryMethod === 'delivery' ? 300 : 0),
-    [form.deliveryMethod],
-  );
+  () => (form.deliveryMethod === 'delivery' ? 0 : 0),
+  [form.deliveryMethod],
+);
+
 
   const subtotal = useMemo(
     () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
@@ -1190,6 +1197,46 @@ export default function CartPageClient({
                     nameError={nameError}
                     agreedToTermsError={agreedToTermsError}
                     onFormChange={onFormChange as any}
+
+                    // ✅ новое для UX гостевого оформления
+                    isAuthenticated={isAuthenticated}
+                    phone={phone}
+                    bonusBalance={bonusBalance}
+                    authChecked={authChecked}
+                    showAuthBlock={showAuthBlock}
+                    setShowAuthBlock={setShowAuthBlock}
+                    onAuthSuccess={(phoneFromAuth: string) => {
+                      const normalized = normalizePhone(phoneFromAuth);
+
+                      setIsAuthenticated(true);
+                      setPhone(normalized);
+
+                      onFormChange({
+                        target: { name: 'phone', value: normalized },
+                      } as any);
+
+                      fetch(
+                        `/api/account/bonuses?phone=${encodeURIComponent(normalized)}`,
+                      )
+                        .then((res) => res.json())
+                        .then((json) => {
+                          if (json.success) {
+                            setBonusBalance(json.data.bonus_balance || 0);
+                          }
+                        })
+                        .catch(() => {
+                          toast.error('Не удалось обновить бонусный баланс');
+                        });
+                    }}
+                    AuthComponent={
+                      <AuthWithCall
+                        onSuccess={(p: string) => {
+                          // прокидываем наверх, чтобы не дублировать логику
+                          const evt = new CustomEvent('kth_auth_success', { detail: p });
+                          window.dispatchEvent(evt);
+                        }}
+                      />
+                    }
                   />
                 </OrderStep>
               )}
@@ -1416,67 +1463,6 @@ export default function CartPageClient({
             bonusesUsed={bonusesUsed}
             deliveryMethod={form.deliveryMethod}
           />
-
-          <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm space-y-3">
-            <h3 className="text-sm font-semibold">Бонусы и личный кабинет</h3>
-
-            {isAuthenticated ? (
-              <>
-                <p className="text-xs text-gray-600">
-                  Вы уже авторизованы по номеру{' '}
-                  <span className="font-semibold">{phone}</span>.
-                </p>
-                <p className="text-xs text-gray-600">
-                  Текущий баланс:&nbsp;
-                  <span className="font-semibold">{bonusBalance}</span> бонусов.
-                </p>
-                <p className="text-xs text-gray-500">
-                  Бонусы можно списать сейчас или накопить и использовать позже.
-                </p>
-              </>
-            ) : !authChecked ? (
-              <p className="text-xs text-gray-500">
-                Проверяем бонусный баланс...
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-gray-600">
-                  Авторизация по звонку нужна только, если вы хотите копить
-                  бонусы и видеть историю заказов. Просто оформить заказ можно
-                  и без неё.
-                </p>
-                <AuthWithCall
-                  onSuccess={(phoneFromAuth: string) => {
-                    const normalized = normalizePhone(phoneFromAuth);
-
-                    setIsAuthenticated(true);
-                    setPhone(normalized);
-
-                    onFormChange({
-                      target: { name: 'phone', value: normalized },
-                    } as any);
-
-                    fetch(
-                      `/api/account/bonuses?phone=${encodeURIComponent(
-                        normalized,
-                      )}`,
-                    )
-                      .then((res) => res.json())
-                      .then((json) => {
-                        if (json.success) {
-                          setBonusBalance(json.data.bonus_balance || 0);
-                        }
-                      })
-                      .catch(() => {
-                        toast.error('Не удалось обновить бонусный баланс');
-                      });
-
-                    console.log('[AuthWithCall] success, phone:', normalized);
-                  }}
-                />
-              </>
-            )}
-          </div>
         </div>
       </motion.div>
 
@@ -1541,6 +1527,42 @@ export default function CartPageClient({
           onClose={() => setErrorModal(null)}
         />
       )}
+
+      {/* ✅ Слушаем событие от AuthWithCall и пробрасываем в onAuthSuccess */}
+      <AuthSuccessBridge
+        onSuccess={(p) => {
+          const normalized = normalizePhone(p);
+          setIsAuthenticated(true);
+          setPhone(normalized);
+
+          onFormChange({
+            target: { name: 'phone', value: normalized },
+          } as any);
+
+          fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
+            .then((res) => res.json())
+            .then((json) => {
+              if (json.success) setBonusBalance(json.data.bonus_balance || 0);
+            })
+            .catch(() => toast.error('Не удалось обновить бонусный баланс'));
+        }}
+      />
     </div>
   );
+}
+
+/**
+ * ✅ Маленький мост, чтобы не переписывать AuthWithCall.
+ * Он кидает событие kth_auth_success, мы ловим и вызываем onSuccess.
+ */
+function AuthSuccessBridge({ onSuccess }: { onSuccess: (phone: string) => void }) {
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail) onSuccess(String(e.detail));
+    };
+    window.addEventListener('kth_auth_success', handler);
+    return () => window.removeEventListener('kth_auth_success', handler);
+  }, [onSuccess]);
+
+  return null;
 }
