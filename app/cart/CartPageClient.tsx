@@ -1,7 +1,7 @@
 // ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -209,6 +209,10 @@ export default function CartPageClient({
   // ✅ Управление раскрытием блока входа в Step1 (UX)
   const [showAuthBlock, setShowAuthBlock] = useState<boolean>(false);
 
+  // ✅ Делаем хук any, чтобы безопасно вытащить setDateError/setTimeError,
+  // даже если их нет в типах или реализации
+  const checkout = useCheckoutForm() as any;
+
   const {
     step,
     setStep,
@@ -223,6 +227,9 @@ export default function CartPageClient({
     timeError,
     agreedToTermsError,
     setAddressError,
+    // ✅ новые (могут отсутствовать в хуке - тогда станут no-op)
+    setDateError = (_v: string) => {},
+    setTimeError = (_v: string) => {},
     onFormChange,
     nextStep,
     prevStep,
@@ -232,7 +239,7 @@ export default function CartPageClient({
     validateStep4,
     validateStep5,
     resetForm,
-  } = useCheckoutForm();
+  } = checkout;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -560,23 +567,35 @@ export default function CartPageClient({
       const isValid = validateStep1();
       if (!isValid) return;
       nextStep();
-    } else if (step === 4) {
+      return;
+    }
+
+    if (step === 4) {
       const isValid = validateStep4();
+
       if (!isValid) {
-        toast.error('Пожалуйста, выберите корректные дату и время доставки');
+        // ✅ делаем понятный фидбэк + остаемся на шаге 4
+        toast.error('Сегодня не успеваем изготовить заказ к выбранному времени. Выберите другую дату или интервал.');
+        setStep(4);
+
+        // на всякий случай подсветим, если в хуке есть сеттеры
+        setDateError((prev: any) => (typeof prev === 'string' ? prev : ''));
+        setTimeError((prev: any) => (typeof prev === 'string' ? prev : ''));
+
         return;
       }
+
       nextStep();
-    } else {
-      nextStep();
+      return;
     }
-  }, [step, validateStep1, validateStep4, nextStep]);
+
+    nextStep();
+  }, [step, validateStep1, validateStep4, nextStep, setStep, setDateError, setTimeError]);
 
   const deliveryCost = useMemo(
-  () => (form.deliveryMethod === 'delivery' ? 0 : 0),
-  [form.deliveryMethod],
-);
-
+    () => (form.deliveryMethod === 'delivery' ? 0 : 0),
+    [form.deliveryMethod],
+  );
 
   const subtotal = useMemo(
     () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
@@ -946,6 +965,10 @@ export default function CartPageClient({
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
+      // ✅ если проблема в дате/времени - уводим на шаг 4
+      if (!validateStep4()) {
+        setStep(4);
+      }
       return;
     }
 
@@ -1231,7 +1254,6 @@ export default function CartPageClient({
                     AuthComponent={
                       <AuthWithCall
                         onSuccess={(p: string) => {
-                          // прокидываем наверх, чтобы не дублировать логику
                           const evt = new CustomEvent('kth_auth_success', { detail: p });
                           window.dispatchEvent(evt);
                         }}
@@ -1297,6 +1319,9 @@ export default function CartPageClient({
                     dateError={dateError}
                     timeError={timeError}
                     onFormChange={onFormChange as any}
+                    // ✅ прокидываем сеттеры (если есть)
+                    setDateError={setDateError}
+                    setTimeError={setTimeError}
                   />
                 </OrderStep>
               )}
