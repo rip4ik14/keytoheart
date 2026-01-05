@@ -1,7 +1,6 @@
 /* -------------------------------------------------------------------------- */
 /*  Страница товара (SSR + Supabase, JSON-LD Product / Breadcrumb)            */
-/*  Версия: 2025-08-12 – shippingDetails в offers (Offer)                     */
-/*           category = читаемое имя, 3-зв. крошки                            */
+/*  Версия: 2026-01-05 - оптимизация select, cookies setAll, стабильный SSR    */
 /* -------------------------------------------------------------------------- */
 
 import { notFound } from 'next/navigation';
@@ -101,38 +100,65 @@ export default async function ProductPage({
 
   /* ---------- Supabase SSR-client ---------- */
   const cookieStore = await cookies();
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll: () => cookieStore.getAll().map(({ name, value }) => ({ name, value })),
+        setAll: (cookiesToSet) => {
+          // важно: в некоторых окружениях cookies() может быть readonly
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // @ts-ignore
+              cookieStore.set?.(name, value, options);
+            });
+          } catch {}
+        },
       },
     },
   );
 
-  /* ---------- Товар + категории ---------- */
+  /* ---------- Товар + категории (без select '*') ---------- */
   const { data, error } = await supabase
     .from('products')
-    .select('*, product_categories(category_id)')
+    .select(
+      `
+        id,
+        title,
+        price,
+        original_price,
+        discount_percent,
+        images,
+        description,
+        composition,
+        production_time,
+        in_stock,
+        is_visible,
+        product_categories(category_id)
+      `,
+    )
     .eq('id', productId)
     .eq('is_visible', true)
     .single();
 
   if (error || !data || data.in_stock === false) notFound();
 
-  const categoryIds: number[] = data.product_categories?.map((c: any) => c.category_id) ?? [];
+  const categoryIds: number[] = (data.product_categories as any[] | null)?.map((c) => c.category_id) ?? [];
   const firstCatId = categoryIds[0];
 
   /* ---------- Получаем первую категорию ---------- */
   let categorySlug = '';
   let categoryName = '';
+
   if (firstCatId) {
     const { data: cat } = await supabase
       .from('categories')
       .select('name, slug')
       .eq('id', firstCatId)
       .single();
+
     if (cat) {
       categorySlug = cat.slug;
       categoryName = cat.name;
@@ -145,7 +171,7 @@ export default async function ProductPage({
     price: data.price ?? 0,
     original_price: data.original_price ?? undefined,
     discount_percent: data.discount_percent ?? 0,
-    images: data.images ?? [],
+    images: (data.images as any) ?? [],
     description: data.description ?? '',
     composition: data.composition ?? '',
     production_time: data.production_time ?? null,
@@ -155,7 +181,11 @@ export default async function ProductPage({
   /* ---------- Upsell ---------- */
   let combos: ComboItem[] = [];
   try {
-    const { data: upsells } = await supabase.from('upsell_items').select('id, title, price, image_url');
+    const { data: upsells } = await supabase
+      .from('upsell_items')
+      .select('id, title, price, image_url')
+      .limit(60);
+
     combos =
       upsells?.map((u: any) => ({
         id: Number(u.id),
@@ -164,7 +194,7 @@ export default async function ProductPage({
         image: u.image_url ?? '',
       })) ?? [];
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.error('upsell_items →', e);
+    process.env.NODE_ENV !== 'production' && console.error('upsell_items ->', e);
   }
 
   /* ---------- Финальная цена ---------- */

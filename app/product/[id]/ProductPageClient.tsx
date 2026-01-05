@@ -3,7 +3,7 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -40,6 +40,9 @@ const daysOfWeek = [
   'sunday',
 ] as const;
 
+// индекс JS Date.getDay(): 0-вс, 1-пн ... 6-сб
+const dayKeysByIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+
 const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   const base = Object.fromEntries(
     daysOfWeek.map((d) => [d, { start: '09:00', end: '18:00', enabled: true }]),
@@ -59,6 +62,7 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
       }
     }
   }
+
   return base;
 };
 
@@ -66,11 +70,13 @@ const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
+
 const buttonVariants = {
   rest: { scale: 1 },
   hover: { scale: 1.03 },
   tap: { scale: 0.98 },
 };
+
 const notificationVariants = {
   hidden: { opacity: 0, y: -16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
@@ -88,10 +94,32 @@ function formatProductionTime(minutes: number | null): string | null {
   if (minutes == null || minutes <= 0) return null;
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
+
   let result = '';
   if (hours > 0) result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
   if (mins > 0) result += `${result ? ' ' : ''}${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
   return result || 'Мгновенно';
+}
+
+function safeReadCache<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch {
+    try {
+      localStorage.removeItem(key);
+      localStorage.removeItem(`${key}_ts`);
+    } catch {}
+    return null;
+  }
+}
+
+function safeWriteCache(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(`${key}_ts`, String(Date.now()));
+  } catch {}
 }
 
 export default function ProductPageClient({
@@ -124,13 +152,32 @@ export default function ProductPageClient({
 
   const mainSwiperRef = useRef<any>(null);
 
+  // refs для кнопок навигации (без селекторов)
+  const mainPrevRef = useRef<HTMLButtonElement | null>(null);
+  const mainNextRef = useRef<HTMLButtonElement | null>(null);
+
+  const similarPrevInlineRef = useRef<HTMLButtonElement | null>(null);
+  const similarNextInlineRef = useRef<HTMLButtonElement | null>(null);
+
+  const recommendPrevInlineRef = useRef<HTMLButtonElement | null>(null);
+  const recommendNextInlineRef = useRef<HTMLButtonElement | null>(null);
+
+  const similarPrevMobileRef = useRef<HTMLButtonElement | null>(null);
+  const similarNextMobileRef = useRef<HTMLButtonElement | null>(null);
+
+  const recommendPrevMobileRef = useRef<HTMLButtonElement | null>(null);
+  const recommendNextMobileRef = useRef<HTMLButtonElement | null>(null);
+
   const discountPercent = product.discount_percent ?? 0;
   const discountedPrice =
     discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
 
   const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
-  const images = useMemo(() => (Array.isArray(product.images) ? product.images : []), [product.images]);
+  const images = useMemo(
+    () => (Array.isArray(product.images) ? product.images : []),
+    [product.images],
+  );
 
   // определяем тип товара без description, чтобы цветы не ловили клубнику из текста
   const textBlob = useMemo(() => {
@@ -237,16 +284,21 @@ export default function ProductPageClient({
     fetchSettings();
   }, []);
 
-  // допродажи (шары/открытки) - как у тебя было
+  // допродажи (шары/открытки)
   useEffect(() => {
     const fetchRecommendedItems = async () => {
       const cacheKey = 'recommended_items_podarki';
-      const tsKey = `${cacheKey}_ts`;
-      const cached = localStorage.getItem(cacheKey);
-      const ts = localStorage.getItem(tsKey);
+      const cached = safeReadCache<ComboItem[]>(cacheKey);
+      const ts = (() => {
+        try {
+          return Number(localStorage.getItem(`${cacheKey}_ts`) || 0);
+        } catch {
+          return 0;
+        }
+      })();
 
-      if (cached && ts && Date.now() - +ts < 3_600_000) {
-        setRecommendedItems(JSON.parse(cached));
+      if (cached && ts && Date.now() - ts < 3_600_000) {
+        setRecommendedItems(cached);
         setIsLoadingRecommended(false);
         return;
       }
@@ -254,6 +306,7 @@ export default function ProductPageClient({
       try {
         setIsLoadingRecommended(true);
         const subIds = [171, 173];
+
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
             const r = await fetch(`/api/upsell/products?category_id=8&subcategory_id=${sub}`);
@@ -274,8 +327,7 @@ export default function ProductPageClient({
           }));
 
         setRecommendedItems(items);
-        localStorage.setItem(cacheKey, JSON.stringify(items));
-        localStorage.setItem(tsKey, String(Date.now()));
+        safeWriteCache(cacheKey, items);
       } catch (error) {
         console.error('Ошибка загрузки допродаж:', error);
       } finally {
@@ -286,36 +338,38 @@ export default function ProductPageClient({
     fetchRecommendedItems();
   }, [product.id]);
 
-  // похожие товары - по category_id текущего товара
+  // похожие товары
   useEffect(() => {
     const fetchSimilar = async () => {
       const cacheKey = `similar_items_${product.id}`;
-      const tsKey = `${cacheKey}_ts`;
-
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        const ts = localStorage.getItem(tsKey);
-        if (cached && ts && Date.now() - +ts < 30 * 60 * 1000) {
-          setSimilarItems(JSON.parse(cached));
-          setIsLoadingSimilar(false);
-          return;
+      const cached = safeReadCache<ComboItem[]>(cacheKey);
+      const ts = (() => {
+        try {
+          return Number(localStorage.getItem(`${cacheKey}_ts`) || 0);
+        } catch {
+          return 0;
         }
-      } catch {}
+      })();
+
+      if (cached && ts && Date.now() - ts < 30 * 60 * 1000) {
+        setSimilarItems(cached);
+        setIsLoadingSimilar(false);
+        return;
+      }
 
       try {
         setIsLoadingSimilar(true);
         const r = await fetch(`/api/recommendations?product_id=${product.id}&limit=12`);
         const json = await r.json();
+
         if (!r.ok || !json?.success) {
           setSimilarItems([]);
           return;
         }
-        setSimilarItems(json.data || []);
 
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(json.data || []));
-          localStorage.setItem(tsKey, String(Date.now()));
-        } catch {}
+        const data = (json.data || []) as ComboItem[];
+        setSimilarItems(data);
+        safeWriteCache(cacheKey, data);
       } catch (e) {
         console.error('Ошибка загрузки похожих товаров:', e);
         setSimilarItems([]);
@@ -327,24 +381,25 @@ export default function ProductPageClient({
     fetchSimilar();
   }, [product.id]);
 
-  // earliest delivery calc
+  // earliest delivery calc (без locale-зависимости)
   useEffect(() => {
     if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
       setEarliestDelivery(null);
       return;
     }
+
     if (!storeSettings.order_acceptance_enabled) {
       setEarliestDelivery('Магазин временно не принимает заказы.');
       return;
     }
 
     const now = new Date();
-    const totalMinutes = product.production_time + 30;
+    const totalMinutes = product.production_time + 30; // изготовление + доставка
     let earliestDate = new Date(now.getTime() + totalMinutes * 60 * 1000);
     let attempts = 0;
 
     while (attempts < 7) {
-      const dayKey = earliestDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+      const dayKey = dayKeysByIndex[earliestDate.getDay()];
       const order = storeSettings.order_acceptance_schedule[dayKey];
       const store = storeSettings.store_hours[dayKey];
 
@@ -362,10 +417,13 @@ export default function ProductPageClient({
 
         const orderStartTime = new Date(earliestDate);
         orderStartTime.setHours(orderStartH, orderStartM, 0, 0);
+
         const orderEndTime = new Date(earliestDate);
         orderEndTime.setHours(orderEndH, orderEndM, 0, 0);
+
         const storeStartTime = new Date(earliestDate);
         storeStartTime.setHours(storeStartH, storeStartM, 0, 0);
+
         const storeEndTime = new Date(earliestDate);
         storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
 
@@ -406,6 +464,36 @@ export default function ProductPageClient({
     } catch {}
   }, [product.id, product.title, product.price]);
 
+  // единый рендер тоста
+  const Toast = () => (
+    <motion.div
+      className="
+        fixed z-50
+        bg-black text-white px-4 py-3 rounded-2xl shadow-lg
+        left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
+        md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
+      "
+      variants={notificationVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      aria-live="assertive"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
+        <a
+          href="/cart"
+          className="
+            text-[11px] sm:text-xs font-semibold uppercase tracking-tight
+            bg-white text-black rounded-full px-3 py-1
+          "
+        >
+          В корзину
+        </a>
+      </div>
+    </motion.div>
+  );
+
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
@@ -420,6 +508,7 @@ export default function ProductPageClient({
             <ChevronLeft className="w-4 h-4" />
             <span>Назад</span>
           </button>
+
           <button
             type="button"
             onClick={handleShare}
@@ -432,66 +521,10 @@ export default function ProductPageClient({
 
         {/* уведомления */}
         <AnimatePresence>
-          {showNotification && (
-            <motion.div
-              className="
-                fixed z-50
-                bg-black text-white px-4 py-3 rounded-2xl shadow-lg
-                left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
-                md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
-              "
-              variants={notificationVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              aria-live="assertive"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
-                <a
-                  href="/cart"
-                  className="
-                    text-[11px] sm:text-xs font-semibold uppercase tracking-tight
-                    bg-white text-black rounded-full px-3 py-1
-                  "
-                >
-                  В корзину
-                </a>
-              </div>
-            </motion.div>
-          )}
+          {showNotification && <Toast />}
 
           {Object.entries(comboNotifications).map(
-            ([id, visible]) =>
-              visible && (
-                <motion.div
-                  key={id}
-                  className="
-                    fixed z-50
-                    bg-black text-white px-4 py-3 rounded-2xl shadow-lg
-                    left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
-                    md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
-                  "
-                  variants={notificationVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  aria-live="assertive"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
-                    <a
-                      href="/cart"
-                      className="
-                        text-[11px] sm:text-xs font-semibold uppercase tracking-tight
-                        bg-white text-black rounded-full px-3 py-1
-                      "
-                    >
-                      В корзину
-                    </a>
-                  </div>
-                </motion.div>
-              ),
+            ([id, visible]) => visible && <Toast key={id} />,
           )}
         </AnimatePresence>
 
@@ -502,16 +535,27 @@ export default function ProductPageClient({
               <Swiper
                 onSwiper={(s) => (mainSwiperRef.current = s)}
                 onSlideChange={(s) => setActiveIndex(s.activeIndex)}
-                navigation={{
-                  prevEl: '.customSwiperButtonPrev',
-                  nextEl: '.customSwiperButtonNext',
-                }}
-                thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
-                loop={false}
                 modules={[Navigation, Thumbs]}
-                className="customSwiper rounded-2xl overflow-hidden relative"
                 slidesPerView={1}
+                loop={false}
+                className="customSwiper rounded-2xl overflow-hidden relative"
                 style={{ minHeight: 320 }}
+                thumbs={{
+                  swiper: thumbsSwiper && !thumbsSwiper.destroyed ? thumbsSwiper : null,
+                }}
+                navigation={{
+                  prevEl: mainPrevRef.current,
+                  nextEl: mainNextRef.current,
+                }}
+                onBeforeInit={(swiper) => {
+                  // гарантируем refs до init
+                  // @ts-ignore
+                  swiper.params.navigation = swiper.params.navigation || {};
+                  // @ts-ignore
+                  swiper.params.navigation.prevEl = mainPrevRef.current;
+                  // @ts-ignore
+                  swiper.params.navigation.nextEl = mainNextRef.current;
+                }}
               >
                 {images.length ? (
                   images.map((src, i) => (
@@ -548,13 +592,16 @@ export default function ProductPageClient({
                 )}
 
                 <button
-                  className="customSwiperButtonPrev hidden lg:flex absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
+                  ref={mainPrevRef}
+                  className="hidden lg:flex absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
                   aria-label="Предыдущее изображение"
                 >
                   <ChevronLeft className="text-white text-2xl" />
                 </button>
+
                 <button
-                  className="customSwiperButtonNext hidden lg:flex absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
+                  ref={mainNextRef}
+                  className="hidden lg:flex absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
                   aria-label="Следующее изображение"
                 >
                   <ChevronRight className="text-white text-2xl" />
@@ -567,7 +614,7 @@ export default function ProductPageClient({
                   spaceBetween={8}
                   slidesPerView={Math.min(images.length, 6)}
                   watchSlidesProgress
-                  modules={[Navigation, Thumbs]}
+                  modules={[Thumbs]}
                   className="mt-1 sm:mt-3"
                   breakpoints={{
                     320: { slidesPerView: 4 },
@@ -600,19 +647,21 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* DESKTOP - Похожие товары (заполняем пустоту) */}
+            {/* DESKTOP - Похожие товары */}
             <div className="hidden lg:block mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold tracking-tight">Похожие товары</h2>
                 <div className="flex gap-2">
                   <button
-                    className="similarPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    ref={similarPrevInlineRef}
+                    className="w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
                     aria-label="Назад"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    className="similarNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    ref={similarNextInlineRef}
+                    className="w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
                     aria-label="Вперёд"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -626,11 +675,22 @@ export default function ProductPageClient({
                 <p className="text-gray-500">Пока нет похожих товаров</p>
               ) : (
                 <Swiper
-                  navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }}
-                  loop={similarLoop}
                   modules={[Navigation]}
                   spaceBetween={12}
                   slidesPerView={2}
+                  loop={similarLoop}
+                  navigation={{
+                    prevEl: similarPrevInlineRef.current,
+                    nextEl: similarNextInlineRef.current,
+                  }}
+                  onBeforeInit={(swiper) => {
+                    // @ts-ignore
+                    swiper.params.navigation = swiper.params.navigation || {};
+                    // @ts-ignore
+                    swiper.params.navigation.prevEl = similarPrevInlineRef.current;
+                    // @ts-ignore
+                    swiper.params.navigation.nextEl = similarNextInlineRef.current;
+                  }}
                 >
                   {similarItems.slice(0, 8).map((it) => (
                     <SwiperSlide key={it.id}>
@@ -673,19 +733,21 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* DESKTOP - Допродажи тоже под фото (вторая полка, чтобы не было пустоты) */}
+            {/* DESKTOP - Допродажи */}
             <div className="hidden lg:block mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold tracking-tight">Добавьте к заказу</h2>
                 <div className="flex gap-2">
                   <button
-                    className="recommendPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    ref={recommendPrevInlineRef}
+                    className="w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
                     aria-label="Назад"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    className="recommendNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    ref={recommendNextInlineRef}
+                    className="w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
                     aria-label="Вперёд"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -699,11 +761,22 @@ export default function ProductPageClient({
                 <p className="text-gray-500">Пока нет допов</p>
               ) : (
                 <Swiper
-                  navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }}
-                  loop={recommendLoop}
                   modules={[Navigation]}
                   spaceBetween={12}
                   slidesPerView={2}
+                  loop={recommendLoop}
+                  navigation={{
+                    prevEl: recommendPrevInlineRef.current,
+                    nextEl: recommendNextInlineRef.current,
+                  }}
+                  onBeforeInit={(swiper) => {
+                    // @ts-ignore
+                    swiper.params.navigation = swiper.params.navigation || {};
+                    // @ts-ignore
+                    swiper.params.navigation.prevEl = recommendPrevInlineRef.current;
+                    // @ts-ignore
+                    swiper.params.navigation.nextEl = recommendNextInlineRef.current;
+                  }}
                 >
                   {recommendedItems.slice(0, 10).map((combo) => (
                     <SwiperSlide key={combo.id}>
@@ -808,6 +881,7 @@ export default function ProductPageClient({
                   </span>
                 </div>
               )}
+
               {earliestDelivery && (
                 <div className="flex items-center gap-2">
                   <Image src="/icons/truck.svg" alt="" width={20} height={20} />
@@ -879,9 +953,13 @@ export default function ProductPageClient({
               <section className="space-y-1">
                 <h2 className="font-bold text-lg">Состав</h2>
                 <ul className="list-disc pl-5 leading-relaxed text-sm sm:text-base">
-                  {product.composition.split('\n').map((row, i) => (
-                    <li key={i}>{row.trim()}</li>
-                  ))}
+                  {product.composition
+                    .split('\n')
+                    .map((row) => row.trim())
+                    .filter(Boolean)
+                    .map((row, i) => (
+                      <li key={i}>{row}</li>
+                    ))}
                 </ul>
               </section>
             )}
@@ -938,74 +1016,89 @@ export default function ProductPageClient({
           ) : similarItems.length === 0 ? (
             <p className="text-gray-500">Пока нет похожих товаров</p>
           ) : (
-            <Swiper
-              navigation={{
-                prevEl: '.similarPrevMobile',
-                nextEl: '.similarNextMobile',
-              }}
-              loop={similarLoop}
-              modules={[Navigation]}
-              spaceBetween={12}
-              slidesPerView={2}
-              breakpoints={{
-                320: { slidesPerView: 2, spaceBetween: 12 },
-                640: { slidesPerView: 3, spaceBetween: 16 },
-              }}
-            >
-              {similarItems.map((it) => (
-                <SwiperSlide key={it.id}>
-                  <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
-                    <Link href={`/product/${it.id}`} className="block">
-                      <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
-                        <Image
-                          src={it.image}
-                          alt={it.title}
-                          fill
-                          placeholder="blur"
-                          blurDataURL={BLUR_PLACEHOLDER}
-                          className="object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
-                        />
-                      </div>
-                    </Link>
-                    <div className="p-3">
+            <div className="relative">
+              <Swiper
+                modules={[Navigation]}
+                spaceBetween={12}
+                slidesPerView={2}
+                loop={similarLoop}
+                breakpoints={{
+                  320: { slidesPerView: 2, spaceBetween: 12 },
+                  640: { slidesPerView: 3, spaceBetween: 16 },
+                }}
+                navigation={{
+                  prevEl: similarPrevMobileRef.current,
+                  nextEl: similarNextMobileRef.current,
+                }}
+                onBeforeInit={(swiper) => {
+                  // @ts-ignore
+                  swiper.params.navigation = swiper.params.navigation || {};
+                  // @ts-ignore
+                  swiper.params.navigation.prevEl = similarPrevMobileRef.current;
+                  // @ts-ignore
+                  swiper.params.navigation.nextEl = similarNextMobileRef.current;
+                }}
+              >
+                {similarItems.map((it) => (
+                  <SwiperSlide key={it.id}>
+                    <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
                       <Link href={`/product/${it.id}`} className="block">
-                        <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
-                          {it.title}
-                        </p>
+                        <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                          <Image
+                            src={it.image}
+                            alt={it.title}
+                            fill
+                            placeholder="blur"
+                            blurDataURL={BLUR_PLACEHOLDER}
+                            className="object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
+                          />
+                        </div>
                       </Link>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="font-bold">{it.price} ₽</span>
-                        <button
-                          onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
-                          className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
-                          rel="nofollow"
-                        >
-                          В корзину
-                        </button>
+
+                      <div className="p-3">
+                        <Link href={`/product/${it.id}`} className="block">
+                          <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
+                            {it.title}
+                          </p>
+                        </Link>
+
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="font-bold">{it.price} ₽</span>
+                          <button
+                            onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
+                            className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                            rel="nofollow"
+                          >
+                            В корзину
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </SwiperSlide>
-              ))}
+                  </SwiperSlide>
+                ))}
+              </Swiper>
 
               <button
-                className="similarPrevMobile absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                ref={similarPrevMobileRef}
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
                 aria-label="Назад"
               >
                 <ChevronLeft className="text-white text-2xl" />
               </button>
+
               <button
-                className="similarNextMobile absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                ref={similarNextMobileRef}
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
                 aria-label="Вперёд"
               >
                 <ChevronRight className="text-white text-2xl" />
               </button>
-            </Swiper>
+            </div>
           )}
         </motion.section>
 
-        {/* MOBILE - допродажи (внизу, как ты хотел) */}
+        {/* MOBILE - допродажи */}
         <motion.section
           className="lg:hidden mt-6 pt-6 border-t"
           variants={containerVariants}
@@ -1021,17 +1114,25 @@ export default function ProductPageClient({
           ) : (
             <div className="relative">
               <Swiper
-                navigation={{
-                  prevEl: '.recommendSwiperButtonPrev',
-                  nextEl: '.recommendSwiperButtonNext',
-                }}
-                loop={recommendLoop}
                 modules={[Navigation]}
                 spaceBetween={12}
                 slidesPerView={2}
+                loop={recommendLoop}
                 breakpoints={{
                   320: { slidesPerView: 2, spaceBetween: 12 },
                   640: { slidesPerView: 3, spaceBetween: 20 },
+                }}
+                navigation={{
+                  prevEl: recommendPrevMobileRef.current,
+                  nextEl: recommendNextMobileRef.current,
+                }}
+                onBeforeInit={(swiper) => {
+                  // @ts-ignore
+                  swiper.params.navigation = swiper.params.navigation || {};
+                  // @ts-ignore
+                  swiper.params.navigation.prevEl = recommendPrevMobileRef.current;
+                  // @ts-ignore
+                  swiper.params.navigation.nextEl = recommendNextMobileRef.current;
                 }}
               >
                 {recommendedItems.map((combo) => (
@@ -1077,13 +1178,16 @@ export default function ProductPageClient({
               </Swiper>
 
               <button
-                className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                ref={recommendPrevMobileRef}
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
                 aria-label="Назад"
               >
                 <ChevronLeft className="text-white text-2xl" />
               </button>
+
               <button
-                className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                ref={recommendNextMobileRef}
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
                 aria-label="Вперёд"
               >
                 <ChevronRight className="text-white text-2xl" />
@@ -1098,6 +1202,7 @@ export default function ProductPageClient({
             <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
             <span className="text-[11px] text-gray-500 leading-none mt-1">+ бонус {bonus} ₽</span>
           </div>
+
           <motion.button
             onClick={() =>
               handleAdd(
