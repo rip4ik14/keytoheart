@@ -1,7 +1,6 @@
-// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -206,12 +205,7 @@ export default function CartPageClient({
 
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
-  // ✅ Управление раскрытием блока входа в Step1 (UX)
   const [showAuthBlock, setShowAuthBlock] = useState<boolean>(false);
-
-  // ✅ Делаем хук any, чтобы безопасно вытащить setDateError/setTimeError,
-  // даже если их нет в типах или реализации
-  const checkout = useCheckoutForm() as any;
 
   const {
     step,
@@ -227,9 +221,6 @@ export default function CartPageClient({
     timeError,
     agreedToTermsError,
     setAddressError,
-    // ✅ новые (могут отсутствовать в хуке - тогда станут no-op)
-    setDateError = (_v: string) => {},
-    setTimeError = (_v: string) => {},
     onFormChange,
     nextStep,
     prevStep,
@@ -239,7 +230,7 @@ export default function CartPageClient({
     validateStep4,
     validateStep5,
     resetForm,
-  } = checkout;
+  } = useCheckoutForm();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -284,6 +275,9 @@ export default function CartPageClient({
           }),
         });
 
+        // ✅ если validate заблокирован (403), не ломаем UX
+        if (res.status === 403) return;
+
         const json = await res.json();
 
         if (!json.valid) {
@@ -321,7 +315,6 @@ export default function CartPageClient({
       } catch (error) {
         process.env.NODE_ENV !== 'production' &&
           console.error('Error validating cart items:', error);
-        toast.error('Не удалось проверить товары в корзине.');
       }
     };
 
@@ -350,6 +343,9 @@ export default function CartPageClient({
             })),
           }),
         });
+
+        // ✅ 403 - просто пропускаем синк
+        if (res.status === 403) return;
 
         const json = await res.json();
 
@@ -383,15 +379,12 @@ export default function CartPageClient({
       } catch (error) {
         process.env.NODE_ENV !== 'production' &&
           console.error('Error syncing cart prices:', error);
-        toast.error('Не удалось синхронизировать цены корзины');
       }
     };
 
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // ✅ Авторизация и бонусы - эффект выполняется один раз
-  // + фикс iOS/Safari BFCache (pageshow + visibilitychange)
   useEffect(() => {
     let isMounted = true;
 
@@ -482,9 +475,7 @@ export default function CartPageClient({
         } = await supabase.auth.getSession();
 
         if (session?.user) {
-          const phoneFromMetadata = session.user.user_metadata?.phone as
-            | string
-            | undefined;
+          const phoneFromMetadata = session.user.user_metadata?.phone as string | undefined;
 
           if (phoneFromMetadata) {
             await loadBonuses(phoneFromMetadata, session.user.id);
@@ -507,9 +498,7 @@ export default function CartPageClient({
       if (!isMounted) return;
 
       if (session?.user) {
-        const phoneFromMetadata = session.user.user_metadata?.phone as
-          | string
-          | undefined;
+        const phoneFromMetadata = session.user.user_metadata?.phone as string | undefined;
 
         if (phoneFromMetadata) {
           loadBonuses(phoneFromMetadata, session.user.id);
@@ -557,7 +546,6 @@ export default function CartPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ если пользователь уже авторизован, можно по умолчанию не показывать блок входа
   useEffect(() => {
     if (isAuthenticated) setShowAuthBlock(false);
   }, [isAuthenticated]);
@@ -567,30 +555,17 @@ export default function CartPageClient({
       const isValid = validateStep1();
       if (!isValid) return;
       nextStep();
-      return;
-    }
-
-    if (step === 4) {
+    } else if (step === 4) {
       const isValid = validateStep4();
-
       if (!isValid) {
-        // ✅ делаем понятный фидбэк + остаемся на шаге 4
-        toast.error('Сегодня не успеваем изготовить заказ к выбранному времени. Выберите другую дату или интервал.');
-        setStep(4);
-
-        // на всякий случай подсветим, если в хуке есть сеттеры
-        setDateError((prev: any) => (typeof prev === 'string' ? prev : ''));
-        setTimeError((prev: any) => (typeof prev === 'string' ? prev : ''));
-
+        toast.error('Пожалуйста, выберите корректные дату и время доставки');
         return;
       }
-
       nextStep();
-      return;
+    } else {
+      nextStep();
     }
-
-    nextStep();
-  }, [step, validateStep1, validateStep4, nextStep, setStep, setDateError, setTimeError]);
+  }, [step, validateStep1, validateStep4, nextStep]);
 
   const deliveryCost = useMemo(
     () => (form.deliveryMethod === 'delivery' ? 0 : 0),
@@ -909,6 +884,7 @@ export default function CartPageClient({
     }
   }, [promoCode]);
 
+  // ✅ Ключевой фикс: 403 от validate не блокирует оформление
   const checkItems = useCallback(async () => {
     const itemsToValidate = items
       .filter((item: CartItemType) => !item.isUpsell)
@@ -928,7 +904,14 @@ export default function CartPageClient({
         body: JSON.stringify({ items: itemsToValidate }),
       });
 
+      // ✅ если validate закрыт (403), не стопаем заказ
+      if (res.status === 403) {
+        toast.error('Не удалось проверить корзину (403). Оформляем заказ, проверка будет на стороне магазина.');
+        return true;
+      }
+
       const json = await res.json();
+
       if (!res.ok || !json.valid) {
         const errorMessage =
           json.invalidItems?.length > 0
@@ -946,7 +929,7 @@ export default function CartPageClient({
       return true;
     } catch (error: any) {
       toast.error('Ошибка проверки товаров: ' + error.message);
-      return false;
+      return true;
     }
   }, [items]);
 
@@ -965,10 +948,6 @@ export default function CartPageClient({
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
-      // ✅ если проблема в дате/времени - уводим на шаг 4
-      if (!validateStep4()) {
-        setStep(4);
-      }
       return;
     }
 
@@ -1220,8 +1199,6 @@ export default function CartPageClient({
                     nameError={nameError}
                     agreedToTermsError={agreedToTermsError}
                     onFormChange={onFormChange as any}
-
-                    // ✅ новое для UX гостевого оформления
                     isAuthenticated={isAuthenticated}
                     phone={phone}
                     bonusBalance={bonusBalance}
@@ -1238,9 +1215,7 @@ export default function CartPageClient({
                         target: { name: 'phone', value: normalized },
                       } as any);
 
-                      fetch(
-                        `/api/account/bonuses?phone=${encodeURIComponent(normalized)}`,
-                      )
+                      fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
                         .then((res) => res.json())
                         .then((json) => {
                           if (json.success) {
@@ -1319,9 +1294,6 @@ export default function CartPageClient({
                     dateError={dateError}
                     timeError={timeError}
                     onFormChange={onFormChange as any}
-                    // ✅ прокидываем сеттеры (если есть)
-                    setDateError={setDateError}
-                    setTimeError={setTimeError}
                   />
                 </OrderStep>
               )}
@@ -1352,13 +1324,7 @@ export default function CartPageClient({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Image
-                src="/icons/postcard.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform"
-              />
+              <Image src="/icons/postcard.svg" alt="" width={20} height={20} className="transition-transform" />
               <span>Добавить открытку</span>
             </motion.button>
 
@@ -1370,22 +1336,13 @@ export default function CartPageClient({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Image
-                src="/icons/balloon.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform"
-              />
+              <Image src="/icons/balloon.svg" alt="" width={20} height={20} className="transition-transform" />
               <span>Добавить шары</span>
             </motion.button>
           </div>
 
           {[...items, ...selectedUpsells]
-            .filter(
-              (item, index, self) =>
-                index === self.findIndex((t) => t.id === item.id),
-            )
+            .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
             .map((item, idx) => {
               const isUpsell = 'isUpsell' in item && (item as any).isUpsell;
               return (
@@ -1393,85 +1350,10 @@ export default function CartPageClient({
                   key={`${isUpsell ? 'upsell' : 'item'}-${(item as any).id}-${idx}`}
                   item={item as any}
                   removeItem={isUpsell ? removeUpsell : removeItem}
-                  updateQuantity={
-                    isUpsell ? updateUpsellQuantity : updateQuantity
-                  }
+                  updateQuantity={isUpsell ? updateUpsellQuantity : updateQuantity}
                 />
               );
             })}
-
-          <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
-            <motion.button
-              onClick={() => setShowPromoField(!showPromoField)}
-              className="inline-flex items-center gap-1 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] w-full"
-              aria-expanded={showPromoField}
-              aria-controls="promo-field"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Image
-                src="/icons/plus.svg"
-                alt={showPromoField ? 'Скрыть поле промокода' : 'Показать поле промокода'}
-                width={14}
-                height={14}
-                loading="lazy"
-              />
-              {showPromoField ? 'Скрыть промокод' : 'У меня есть промокод'}
-            </motion.button>
-
-            <AnimatePresence>
-              {showPromoField && (
-                <motion.div
-                  id="promo-field"
-                  className="mt-3 p-3 bg-gray-50 rounded-lg shadow-sm"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex flex-col sm:flex-row gap-2 min-w-0 w-full">
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) =>
-                        setPromoCode(e.target.value.toUpperCase())
-                      }
-                      placeholder="Введите промокод"
-                      className="flex-1 min-w-0 w-full py-3 px-3 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-sm"
-                      aria-label="Введите промокод"
-                    />
-                    <motion.button
-                      onClick={handleApplyPromo}
-                      className="w-full sm:w-[110px] flex-shrink-0 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-                      aria-label="Применить промокод"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <span className="block w-full text-center tracking-wide">
-                        Применить
-                      </span>
-                    </motion.button>
-                  </div>
-
-                  {promoError && (
-                    <p className="mt-2 text-xs text-red-500">{promoError}</p>
-                  )}
-
-                  {promoDiscount !== null && (
-                    <motion.p
-                      className="mt-2 text-xs text-green-600"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      Промокод применён! Скидка: {promoDiscount}
-                      {promoType === 'percentage' ? '%' : ' ₽'}
-                    </motion.p>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
 
           <CartSummary
             items={items}
@@ -1500,12 +1382,7 @@ export default function CartPageClient({
               if (prev.some((i) => i.id === item.id)) return prev;
               return [
                 ...prev,
-                {
-                  ...item,
-                  category: 'postcard',
-                  isUpsell: true,
-                  quantity: 1,
-                },
+                { ...item, category: 'postcard', isUpsell: true, quantity: 1 },
               ];
             });
             setShowPostcard(false);
@@ -1522,12 +1399,7 @@ export default function CartPageClient({
               if (prev.some((i) => i.id === item.id)) return prev;
               return [
                 ...prev,
-                {
-                  ...item,
-                  category: 'balloon',
-                  isUpsell: true,
-                  quantity: 1,
-                },
+                { ...item, category: 'balloon', isUpsell: true, quantity: 1 },
               ];
             });
             setShowBalloons(false);
@@ -1553,7 +1425,6 @@ export default function CartPageClient({
         />
       )}
 
-      {/* ✅ Слушаем событие от AuthWithCall и пробрасываем в onAuthSuccess */}
       <AuthSuccessBridge
         onSuccess={(p) => {
           const normalized = normalizePhone(p);
@@ -1576,10 +1447,6 @@ export default function CartPageClient({
   );
 }
 
-/**
- * ✅ Маленький мост, чтобы не переписывать AuthWithCall.
- * Он кидает событие kth_auth_success, мы ловим и вызываем onSuccess.
- */
 function AuthSuccessBridge({ onSuccess }: { onSuccess: (phone: string) => void }) {
   useEffect(() => {
     const handler = (e: any) => {

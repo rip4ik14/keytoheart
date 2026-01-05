@@ -1,8 +1,7 @@
-// ✅ Путь: app/cart/components/steps/Step4DateTime.tsx
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useCart } from '@context/CartContext';
@@ -11,6 +10,10 @@ interface FormSlice {
   date?: string;
   time?: string;
   deliveryMethod?: 'pickup' | 'delivery';
+
+  // ✅ новые поля для жесткой валидации доступности слота
+  slotValid?: boolean;
+  slotReason?: string;
 }
 
 interface Props {
@@ -18,10 +21,6 @@ interface Props {
   dateError: string;
   timeError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-
-  // ✅ опционально
-  setDateError?: (v: string) => void;
-  setTimeError?: (v: string) => void;
 }
 
 interface DaySchedule {
@@ -120,14 +119,7 @@ const containerVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
-export default function Step4DateTime({
-  form,
-  dateError,
-  timeError,
-  onFormChange,
-  setDateError,
-  setTimeError,
-}: Props) {
+export default function Step4DateTime({ form, dateError, timeError, onFormChange }: Props) {
   const { items } = useCart() as any;
 
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
@@ -157,10 +149,7 @@ export default function Step4DateTime({
   // максимальное время изготовления среди товаров в корзине
   const maxProductionTime = useMemo(() => {
     if (!Array.isArray(items) || !items.length) return 0;
-    return items.reduce(
-      (max: number, item: any) => Math.max(max, item?.production_time ?? 0),
-      0,
-    );
+    return items.reduce((max: number, item: any) => Math.max(max, item?.production_time ?? 0), 0);
   }, [items]);
 
   const deliveryExtraMinutes = useMemo(
@@ -173,74 +162,50 @@ export default function Step4DateTime({
     [maxProductionTime, deliveryExtraMinutes],
   );
 
-  const safeSetDateError = useCallback(
-    (v: string) => {
-      if (typeof setDateError === 'function') setDateError(v);
-    },
-    [setDateError],
-  );
+  const setSlotValidation = (valid: boolean, reason: string) => {
+    const evValid = {
+      target: { name: 'slotValid', value: valid ? 'true' : 'false' },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-  const safeSetTimeError = useCallback(
-    (v: string) => {
-      if (typeof setTimeError === 'function') setTimeError(v);
-    },
-    [setTimeError],
-  );
+    const evReason = {
+      target: { name: 'slotReason', value: reason },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-  const handleDateChange = useCallback(
-    (value: string) => {
-      let final = value;
+    onFormChange(evValid);
+    onFormChange(evReason);
+  };
 
-      if (final) {
-        const v = new Date(final);
-        const minD = new Date(minDateIso);
-        const maxD = new Date(maxDateIso);
-        if (!Number.isNaN(v.getTime())) {
-          if (v < minD) final = minDateIso;
-          if (v > maxD) final = maxDateIso;
-        }
+  const handleDateChange = (value: string) => {
+    let final = value;
+
+    if (final) {
+      const v = new Date(final);
+      const minD = new Date(minDateIso);
+      const maxD = new Date(maxDateIso);
+      if (!Number.isNaN(v.getTime())) {
+        if (v < minD) final = minDateIso;
+        if (v > maxD) final = maxDateIso;
       }
+    }
 
-      const syntheticEvent = {
-        target: { name: 'date', value: final },
-      } as React.ChangeEvent<HTMLInputElement>;
-      onFormChange(syntheticEvent);
+    const syntheticEvent = {
+      target: { name: 'date', value: final },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+    onFormChange(syntheticEvent);
+  };
 
-      safeSetDateError('');
-      safeSetTimeError('');
-    },
-    [minDateIso, maxDateIso, onFormChange, safeSetDateError, safeSetTimeError],
-  );
+  const handleTimeSet = (value: string) => {
+    const syntheticEvent = {
+      target: { name: 'time', value },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+    onFormChange(syntheticEvent);
+  };
 
-  const handleTimeSet = useCallback(
-    (value: string) => {
-      if (!form?.date) {
-        safeSetDateError('Сначала выберите дату');
-        safeSetTimeError('Выберите дату, затем время');
-        setMode('custom');
-        setIsModalOpen(true);
-        return;
-      }
-
-      if (availableSlots.length === 0) {
-        safeSetDateError('На выбранную дату нет доступных интервалов');
-        safeSetTimeError('Выберите другую дату');
-        return;
-      }
-
-      const syntheticEvent = {
-        target: { name: 'time', value },
-      } as React.ChangeEvent<HTMLInputElement>;
-      onFormChange(syntheticEvent);
-    },
-    [availableSlots.length, form?.date, onFormChange, safeSetDateError, safeSetTimeError],
-  );
-
-  const intervalLabel = useCallback((start: string) => {
+  const intervalLabel = (start: string) => {
     const m = parseTimeToMinutes(start);
     if (m === null) return start;
     return `${start}-${minutesToTimeString(m + TIME_STEP_MINUTES)}`;
-  }, []);
+  };
 
   // ===== загрузка настроек магазина =====
   useEffect(() => {
@@ -252,9 +217,7 @@ export default function Step4DateTime({
         if (res.ok && json.success) {
           setStoreSettings({
             order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(
-              json.data.order_acceptance_schedule,
-            ),
+            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
             store_hours: transformSchedule(json.data.store_hours),
           });
         } else {
@@ -287,9 +250,7 @@ export default function Step4DateTime({
         const d = new Date(startDate);
         d.setDate(startDate.getDate() + i);
 
-        const weekdayKey = d
-          .toLocaleString('en-US', { weekday: 'long' })
-          .toLowerCase();
+        const weekdayKey = d.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
 
         const order = storeSettings.order_acceptance_schedule[weekdayKey];
         const store = storeSettings.store_hours[weekdayKey];
@@ -301,13 +262,7 @@ export default function Step4DateTime({
         const storeStart = parseTimeToMinutes(store.start);
         const storeEnd = parseTimeToMinutes(store.end);
 
-        if (
-          orderStart === null ||
-          orderEnd === null ||
-          storeStart === null ||
-          storeEnd === null
-        )
-          continue;
+        if (orderStart === null || orderEnd === null || storeStart === null || storeEnd === null) continue;
 
         const effectiveStart = Math.max(orderStart, storeStart);
         const effectiveEnd = Math.min(orderEnd, storeEnd);
@@ -344,6 +299,7 @@ export default function Step4DateTime({
     if (!storeSettings || isLoadingSettings || !form?.date) {
       setAvailableSlots([]);
       setMinLabelToday(null);
+      setSlotValidation(false, 'Выберите дату и время');
       return;
     }
 
@@ -351,17 +307,20 @@ export default function Step4DateTime({
     if (Number.isNaN(date.getTime())) {
       setAvailableSlots([]);
       setMinLabelToday(null);
-      safeSetDateError('Некорректная дата');
-      safeSetTimeError('Выберите корректную дату');
+      setSlotValidation(false, 'Укажите корректную дату');
       return;
     }
+
+    // clamp date in case of stale state
+    const minD = new Date(minDateIso);
+    const maxD = new Date(maxDateIso);
+    if (date < minD) handleDateChange(minDateIso);
+    if (date > maxD) handleDateChange(maxDateIso);
 
     const n = new Date();
     const isToday = isSameDay(date, n);
 
-    const weekdayKey = date
-      .toLocaleString('en-US', { weekday: 'long' })
-      .toLowerCase();
+    const weekdayKey = date.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
 
     const order = storeSettings.order_acceptance_schedule[weekdayKey];
     const store = storeSettings.store_hours[weekdayKey];
@@ -369,15 +328,14 @@ export default function Step4DateTime({
     const labelNoToday = isPickup
       ? 'Сегодня самовывоз недоступен, выберите другую дату.'
       : 'Сегодня доставка недоступна, выберите другую дату.';
-    const labelNoDay = isPickup
-      ? 'В этот день самовывоз недоступен.'
-      : 'В этот день доставка недоступна.';
+
+    const labelNoDay = isPickup ? 'В этот день самовывоз недоступен.' : 'В этот день доставка недоступна.';
 
     if (!storeSettings.order_acceptance_enabled || !order?.enabled || !store?.enabled) {
       setAvailableSlots([]);
-      setMinLabelToday(isToday ? labelNoToday : labelNoDay);
-      safeSetDateError(isToday ? labelNoToday : labelNoDay);
-      safeSetTimeError('Выберите другую дату');
+      const reason = isToday ? labelNoToday : labelNoDay;
+      setMinLabelToday(reason);
+      setSlotValidation(false, reason);
       return;
     }
 
@@ -392,8 +350,7 @@ export default function Step4DateTime({
     if (effectiveStart >= effectiveEnd) {
       setAvailableSlots([]);
       setMinLabelToday(labelNoDay);
-      safeSetDateError(labelNoDay);
-      safeSetTimeError('Выберите другую дату');
+      setSlotValidation(false, labelNoDay);
       return;
     }
 
@@ -407,12 +364,11 @@ export default function Step4DateTime({
 
       if (minMinutes + TIME_STEP_MINUTES > effectiveEnd) {
         setAvailableSlots([]);
-        const msg = isPickup
+        const reason = isPickup
           ? 'Сегодня уже не успеваем подготовить заказ к выдаче, выберите другую дату.'
           : 'Сегодня уже не успеваем изготовить и доставить заказ, выберите другую дату.';
-        setMinLabelToday(msg);
-        safeSetDateError(msg);
-        safeSetTimeError('Выберите другую дату');
+        setMinLabelToday(reason);
+        setSlotValidation(false, reason);
         return;
       }
 
@@ -427,34 +383,31 @@ export default function Step4DateTime({
     }
 
     const slots: string[] = [];
-    for (
-      let t = minMinutes;
-      t + TIME_STEP_MINUTES <= effectiveEnd;
-      t += TIME_STEP_MINUTES
-    ) {
+    for (let t = minMinutes; t + TIME_STEP_MINUTES <= effectiveEnd; t += TIME_STEP_MINUTES) {
       slots.push(minutesToTimeString(t));
     }
+
     setAvailableSlots(slots);
 
-    if (slots.length > 0) {
-      safeSetDateError('');
-      safeSetTimeError('');
-
-      const currentMinutes = parseTimeToMinutes(form?.time);
-      const minSlot = parseTimeToMinutes(slots[0])!;
-      const maxSlot = parseTimeToMinutes(slots[slots.length - 1])!;
-
-      if (
-        currentMinutes === null ||
-        currentMinutes < minSlot ||
-        currentMinutes > maxSlot
-      ) {
-        handleTimeSet(slots[0]);
-      }
-    } else {
-      safeSetDateError('На выбранную дату нет доступных интервалов');
-      safeSetTimeError('Выберите другую дату');
+    if (slots.length === 0) {
+      const reason = 'На выбранную дату нет доступных интервалов, выберите другую дату.';
+      setSlotValidation(false, reason);
+      return;
     }
+
+    // если выбранное время не входит в слоты - ставим первый слот
+    const currentMinutes = parseTimeToMinutes(form?.time);
+    const minSlot = parseTimeToMinutes(slots[0])!;
+    const maxSlot = parseTimeToMinutes(slots[slots.length - 1])!;
+
+    if (currentMinutes === null || currentMinutes < minSlot || currentMinutes > maxSlot) {
+      handleTimeSet(slots[0]);
+    }
+
+    // ✅ финальная валидация слота
+    const finalTime = (form?.time && slots.includes(form.time)) ? form.time : slots[0];
+    setSlotValidation(true, '');
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     form?.date,
@@ -464,9 +417,8 @@ export default function Step4DateTime({
     isLoadingSettings,
     isPickup,
     extraMinutesTotal,
-    handleTimeSet,
-    safeSetDateError,
-    safeSetTimeError,
+    minDateIso,
+    maxDateIso,
   ]);
 
   // ===== если nearest был нажат пока грузились настройки =====
@@ -479,26 +431,17 @@ export default function Step4DateTime({
     if (res.ok) {
       handleDateChange(res.dateIso);
       handleTimeSet(res.time);
-      safeSetDateError('');
-      safeSetTimeError('');
+      setSlotValidation(true, '');
     } else {
       setMinLabelToday(res.message);
       setAvailableSlots([]);
-      safeSetDateError(res.message);
-      safeSetTimeError('Выберите другую дату');
+      setSlotValidation(false, res.message);
     }
 
     pendingNearestRef.current = false;
     setIsFindingNearest(false);
-  }, [
-    isLoadingSettings,
-    storeSettings,
-    findNearestSlot,
-    handleDateChange,
-    handleTimeSet,
-    safeSetDateError,
-    safeSetTimeError,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingSettings, storeSettings, findNearestSlot]);
 
   const handleApplyNearest = () => {
     setMode('nearest');
@@ -514,26 +457,18 @@ export default function Step4DateTime({
     if (res.ok) {
       handleDateChange(res.dateIso);
       handleTimeSet(res.time);
-      safeSetDateError('');
-      safeSetTimeError('');
+      setSlotValidation(true, '');
       setIsFindingNearest(false);
       return;
     }
 
     setMinLabelToday(res.message);
     setAvailableSlots([]);
-    safeSetDateError(res.message);
-    safeSetTimeError('Выберите другую дату');
+    setSlotValidation(false, res.message);
     setIsFindingNearest(false);
   };
 
   const handleTimeInputChange = (value: string) => {
-    if (!form?.date || availableSlots.length === 0) {
-      safeSetDateError('На выбранную дату нет доступных интервалов');
-      safeSetTimeError('Выберите другую дату');
-      return;
-    }
-
     let finalValue = value;
 
     if (availableSlots.length > 0) {
@@ -552,29 +487,26 @@ export default function Step4DateTime({
     }
 
     handleTimeSet(finalValue);
+
+    // ✅ если время не входит в доступные слоты - помечаем как невалидно
+    if (availableSlots.length > 0 && !availableSlots.includes(finalValue)) {
+      setSlotValidation(false, 'Выбранное время недоступно, выберите интервал из списка.');
+    } else {
+      setSlotValidation(true, '');
+    }
   };
 
-  const handleQuickSlotClick = (slot: string) => handleTimeSet(slot);
+  const handleQuickSlotClick = (slot: string) => {
+    handleTimeSet(slot);
+    setSlotValidation(true, '');
+  };
 
-  const nearestActive = mode === 'nearest';
-  const nearestSelected =
-    nearestActive && !!safeDate && !!safeTime && availableSlots.length > 0;
-  const customSelected = mode === 'custom';
-
-  const summary =
-    safeDate && safeTime
-      ? `${formatDateRuShort(safeDate)}, ${intervalLabel(safeTime)}`
-      : 'Не выбрано';
+  const intervalSummary =
+    safeDate && safeTime ? `${formatDateRuShort(safeDate)}, ${intervalLabel(safeTime)}` : 'Не выбрано';
 
   const hasErrors = !!dateError || !!timeError;
 
-  const hardBlock =
-    availableSlots.length === 0 &&
-    !!safeDate &&
-    !isLoadingSettings &&
-    (minLabelToday?.includes('не успеваем') || minLabelToday?.includes('недоступ'));
-
-  // swipe close (mobile)
+  // ===== swipe to close for modal (mobile) =====
   const touchStartYRef = useRef<number | null>(null);
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartYRef.current = e.touches?.[0]?.clientY ?? null;
@@ -597,27 +529,8 @@ export default function Step4DateTime({
     <motion.div className="space-y-4" variants={containerVariants} initial="hidden" animate="visible">
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">{sectionTitle}</div>
-        <div className="text-xs text-gray-500">{summary}</div>
+        <div className="text-xs text-gray-500">{intervalSummary}</div>
       </div>
-
-      {hardBlock && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-          <p className="text-xs text-red-700">{minLabelToday}</p>
-          <p className="mt-1 text-[11px] text-red-700/90">
-            Выберите другую дату - иначе заказ не получится выполнить вовремя.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('custom');
-              setIsModalOpen(true);
-            }}
-            className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-semibold text-white"
-          >
-            Выбрать другую дату
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
@@ -627,8 +540,8 @@ export default function Step4DateTime({
           className={[
             'rounded-2xl border px-4 py-3 text-left transition',
             'min-h-[96px] sm:min-h-[110px]',
-            hasErrors ? 'border-red-300' : nearestActive ? 'border-black' : 'border-gray-300',
-            nearestSelected ? 'bg-black text-white' : 'bg-white text-black',
+            hasErrors ? 'border-red-300' : mode === 'nearest' ? 'border-black' : 'border-gray-300',
+            mode === 'nearest' && safeDate && safeTime ? 'bg-black text-white' : 'bg-white text-black',
             isFindingNearest ? 'opacity-90 cursor-wait' : '',
           ].join(' ')}
         >
@@ -645,15 +558,15 @@ export default function Step4DateTime({
             <span
               className={[
                 'w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0',
-                nearestSelected ? 'border-white bg-white' : nearestActive ? 'border-black' : 'border-gray-400',
+                mode === 'nearest' && safeDate && safeTime ? 'border-white bg-white' : mode === 'nearest' ? 'border-black' : 'border-gray-400',
               ].join(' ')}
             >
-              {nearestSelected && <span className="w-2 h-2 rounded-full bg-black" />}
+              {mode === 'nearest' && safeDate && safeTime && <span className="w-2 h-2 rounded-full bg-black" />}
             </span>
           </div>
 
-          <div className={['mt-1 text-xs leading-snug', nearestSelected ? 'text-white/85' : 'text-gray-600'].join(' ')}>
-            {nearestSelected && safeDate && safeTime
+          <div className={['mt-1 text-xs leading-snug', mode === 'nearest' && safeDate && safeTime ? 'text-white/85' : 'text-gray-600'].join(' ')}>
+            {mode === 'nearest' && safeDate && safeTime
               ? `${formatDateRuShort(safeDate)}, ${intervalLabel(safeTime)}`
               : isPickup
               ? 'Автоматически подберем ближайшее время, когда заказ будет готов к выдаче'
@@ -672,7 +585,7 @@ export default function Step4DateTime({
           className={[
             'rounded-2xl border px-4 py-3 text-left transition',
             'min-h-[96px] sm:min-h-[110px]',
-            hasErrors ? 'border-red-300' : customSelected ? 'border-black' : 'border-gray-300',
+            hasErrors ? 'border-red-300' : mode === 'custom' ? 'border-black' : 'border-gray-300',
             'bg-white text-black',
           ].join(' ')}
         >
@@ -681,15 +594,15 @@ export default function Step4DateTime({
             <span
               className={[
                 'w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0',
-                customSelected ? 'border-black' : 'border-gray-400',
+                mode === 'custom' ? 'border-black' : 'border-gray-400',
               ].join(' ')}
             >
-              {customSelected && <span className="w-2 h-2 rounded-full bg-black" />}
+              {mode === 'custom' && <span className="w-2 h-2 rounded-full bg-black" />}
             </span>
           </div>
           <div className="mt-1 text-xs text-gray-600">Выберите день и удобный интервал</div>
 
-          {customSelected && safeDate && safeTime && (
+          {mode === 'custom' && safeDate && safeTime && (
             <div className="mt-2 text-[11px] text-gray-500">
               Сейчас выбрано: {formatDateRuShort(safeDate)}, {intervalLabel(safeTime)}
             </div>
@@ -697,14 +610,18 @@ export default function Step4DateTime({
         </button>
       </div>
 
-      {hasErrors && <p className="text-xs text-red-500">Пожалуйста, выберите доступные дату и время.</p>}
+      {hasErrors && <p className="text-xs text-red-500">Пожалуйста, выберите дату и время.</p>}
 
-      {minLabelToday && !hardBlock && <p className="text-xs text-gray-500">{minLabelToday}</p>}
+      {minLabelToday && (
+        <p className={`text-xs ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
+          {minLabelToday}
+        </p>
+      )}
 
-      {safeDate && !isLoadingSettings && availableSlots.length === 0 && !hardBlock && (
+      {safeDate && !isLoadingSettings && availableSlots.length === 0 && !minLabelToday && (
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs text-gray-600">
-            На выбранную дату не удалось подобрать интервалы. Выберите другую дату.
+            На выбранную дату не удалось подобрать интервалы. Выберите другую дату или время.
           </p>
           <button
             type="button"
@@ -789,10 +706,9 @@ export default function Step4DateTime({
                         type="time"
                         value={safeTime}
                         onChange={e => handleTimeInputChange(e.target.value)}
-                        disabled={!safeDate || availableSlots.length === 0}
                         className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
                           timeError ? 'border-red-500' : 'border-gray-300'
-                        } ${(!safeDate || availableSlots.length === 0) ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-black`}
+                        } focus:outline-none focus:ring-2 focus:ring-black`}
                         aria-label="Время"
                         aria-invalid={!!timeError}
                         step={TIME_STEP_MINUTES * 60}
@@ -825,7 +741,11 @@ export default function Step4DateTime({
                     </>
                   )}
 
-                  {minLabelToday && <p className="text-xs text-gray-500 mt-2">{minLabelToday}</p>}
+                  {minLabelToday && (
+                    <p className={`text-xs mt-2 ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
+                      {minLabelToday}
+                    </p>
+                  )}
                 </div>
 
                 <div className="p-4 pt-3 border-t border-gray-200 bg-white">
