@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
   // Не забудь поправить абсолютный url!
@@ -12,7 +13,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Доступ запрещён' }, { status: 403 });
   }
 
-  const { tag } = await req.json();
+  const parsed = await safeJson(req, 'REVALIDATE API');
+  if (!parsed.ok) return parsed.response;
+  const { tag } = parsed.data as any;
   if (!tag) {
     return NextResponse.json({ error: 'Тег обязателен' }, { status: 400 });
   }

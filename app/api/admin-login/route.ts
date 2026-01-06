@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signAdminJwt } from '@/lib/auth';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
+  const parsed = await safeJson(req, 'ADMIN LOGIN API');
+  if (!parsed.ok) return parsed.response;
+  const { password } = parsed.data as { password?: string };
 
   process.env.NODE_ENV !== "production" &&
     console.log(`${new Date().toISOString()} /api/admin-login: Received request`, { password });

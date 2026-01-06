@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { safeJson } from '@/lib/api/safeJson';
 
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
@@ -40,7 +41,9 @@ function mapAdminStatusToDb(statusRu: string): 'pending' | 'processing' | 'deliv
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const parsed = await safeJson(req, 'ADMIN UPDATE ORDER STATUS API');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as any;
     const id = body?.id;
     const status = body?.status;
 

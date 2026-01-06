@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
+import { safeJson } from '@/lib/api/safeJson';
 
 interface ProductData {
   id?: number;
@@ -108,7 +109,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Парсинг тела запроса
-    const body: ProductData = await req.json();
+    const parsed = await safeJson<ProductData>(req, 'PRODUCTS API POST');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
     process.env.NODE_ENV !== "production" && console.log('POST /api/products: Received payload:', body);
 
     // Валидация входных данных
@@ -386,7 +389,9 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Парсинг тела запроса
-    const body: ProductData = await req.json();
+    const parsed = await safeJson<ProductData>(req, 'PRODUCTS API PATCH');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
     process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Received payload:', body);
 
     // Валидация входных данных

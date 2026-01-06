@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
+import { safeFormData } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NEAUTH', message: 'Доступ запрещён' }, { status: 401 });
     }
 
-    const formData = await req.formData();
+    const parsedFormData = await safeFormData(req, 'PROMO UPLOAD IMAGE API');
+    if (!parsedFormData.ok) return parsedFormData.response;
+    const formData = parsedFormData.data;
     const file = formData.get('file') as File;
     const oldImageUrl = formData.get('oldImageUrl') as string | null;
 

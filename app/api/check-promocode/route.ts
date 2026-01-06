@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeJson } from '@/lib/api/safeJson';
 
 
 export async function POST(req: Request) {
-  const { code } = await req.json();
+  const parsed = await safeJson(req, 'CHECK PROMOCODE API');
+  if (!parsed.ok) return parsed.response;
+  const { code } = parsed.data as any;
 
   if (!code) {
     return NextResponse.json({ valid: false, message: 'Код промокода обязателен' }, { status: 400 });

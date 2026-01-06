@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
+import { safeJson } from '@/lib/api/safeJson';
 
 const COOKIE_NAME = 'csrf_token';
 
@@ -111,7 +112,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const parsed = await safeJson(req, 'PROMO CODES API POST');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as any;
 
     const code = normalizeCode(body.code);
     const discount_value = parseDiscountValue(body.discount_value);
@@ -144,7 +147,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const parsed = await safeJson(req, 'PROMO CODES API PATCH');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as any;
 
     const id = String(body.id ?? '').trim();
     if (!id) return NextResponse.json({ error: 'Не передан id' }, { status: 400 });
@@ -186,12 +191,9 @@ export async function DELETE(req: NextRequest) {
     const idFromQuery = (url.searchParams.get('id') || '').trim();
     const codeFromQuery = (url.searchParams.get('code') || '').trim();
 
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch {
-      body = {};
-    }
+    const parsed = await safeJson(req, 'PROMO CODES API DELETE');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as any;
 
     const id = String(body.id ?? idFromQuery ?? '').trim();
     const code = String(body.code ?? codeFromQuery ?? '').trim().toUpperCase();

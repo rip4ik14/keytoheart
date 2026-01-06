@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +11,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await req.json();
+    const parsed = await safeJson(req, 'ADMIN DELETE ORDER API');
+    if (!parsed.ok) return parsed.response;
+    const { id } = parsed.data as any;
 
     if (!id) {
       return NextResponse.json({ error: 'Не указан ID заказа' }, { status: 400 });

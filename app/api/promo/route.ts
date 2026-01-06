@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeJson } from '@/lib/api/safeJson';
 
 // Получить все промо-блоки
 export async function GET() {
@@ -27,7 +28,9 @@ export async function GET() {
 // Создать промо-блок
 export async function POST(req: NextRequest) {
   try {
-    const { title, subtitle, button_text, href, image_url, type, order_index } = await req.json();
+    const parsed = await safeJson(req, 'PROMO BLOCKS API POST');
+    if (!parsed.ok) return parsed.response;
+    const { title, subtitle, button_text, href, image_url, type, order_index } = parsed.data as any;
     const data = await prisma.promo_blocks.create({
       data: {
         title,
@@ -49,7 +52,9 @@ export async function POST(req: NextRequest) {
 // Обновить промо-блок
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, title, subtitle, button_text, href, image_url, type, order_index } = await req.json();
+    const parsed = await safeJson(req, 'PROMO BLOCKS API PATCH');
+    if (!parsed.ok) return parsed.response;
+    const { id, title, subtitle, button_text, href, image_url, type, order_index } = parsed.data as any;
     const data = await prisma.promo_blocks.update({
       where: { id: Number(id) },
       data: {
@@ -72,7 +77,9 @@ export async function PATCH(req: NextRequest) {
 // Удалить промо-блок
 export async function DELETE(req: NextRequest) {
   try {
-    const { id } = await req.json();
+    const parsed = await safeJson(req, 'PROMO BLOCKS API DELETE');
+    if (!parsed.ok) return parsed.response;
+    const { id } = parsed.data as any;
     await prisma.promo_blocks.delete({ where: { id: Number(id) } });
     return NextResponse.json({ success: true });
   } catch (err: any) {

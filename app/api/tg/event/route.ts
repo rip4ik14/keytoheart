@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyWebAppInitData } from '@/lib/telegram/verifyWebAppInitData';
 import { getBotDb, TicketRow } from '@/lib/botSqlite';
+import { safeJson } from '@/lib/api/safeJson';
 
 export const runtime = 'nodejs';
 
@@ -118,10 +119,10 @@ function touchTicket(db: ReturnType<typeof getBotDb>, ticketId: number): TicketR
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
-    if (!body) return NextResponse.json({ ok: false, error: 'bad json' }, { status: 400 });
+    const parsed = await safeJson(req, 'TG EVENT API');
+    if (!parsed.ok) return parsed.response;
 
-    const { initData, event, data } = body as {
+    const { initData, event, data } = parsed.data as {
       initData?: string;
       event?: string;
       data?: any;

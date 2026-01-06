@@ -1,6 +1,7 @@
 // ✅ Путь: app/api/corporate-request/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeJson } from '@/lib/api/safeJson';
 
 const TELEGRAM_TOKEN =
   process.env.CORPORATE_TELEGRAM_BOT_TOKEN ||
@@ -29,7 +30,9 @@ const escapeHtml = (text: string) => {
 
 export async function POST(req: Request) {
   try {
-    const body: CorporateRequestBody = await req.json();
+    const parsed = await safeJson<CorporateRequestBody>(req, 'CORPORATE REQUEST API');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
     // 👀 Логируем входящее тело ВСЕГДА, даже в production
     console.log('[CORPORATE] Incoming body:', body);

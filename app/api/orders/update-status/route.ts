@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { safeJson } from '@/lib/api/safeJson';
 
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
@@ -28,7 +29,9 @@ function decimalToNumber(v: any): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orderId, status } = await req.json();
+    const parsed = await safeJson(req, 'ORDERS UPDATE STATUS API');
+    if (!parsed.ok) return parsed.response;
+    const { orderId, status } = parsed.data as any;
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Не указаны orderId или status' }, { status: 400 });

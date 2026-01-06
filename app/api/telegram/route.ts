@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeJson } from "@/lib/api/safeJson";
 
 /**
  * TELEGRAM_BOT_TOKEN  – токен BotFather
@@ -10,7 +11,9 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const parsed = await safeJson(req, "TELEGRAM API");
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as { phone?: string; name?: string; total?: number; items?: any[] };
     const { phone, name, total, items = [] } = body;
 
     const itemsList =

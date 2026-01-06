@@ -3,10 +3,14 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: Request) {
   try {
-    const { phone: rawPhone } = await req.json();
+    const parsed = await safeJson(req, 'AUTH SEND CALL');
+    if (!parsed.ok) return parsed.response;
+
+    const { phone: rawPhone } = parsed.data as { phone?: string };
 
     if (!rawPhone) {
       return NextResponse.json(

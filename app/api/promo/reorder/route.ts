@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
   try {
-    const { order } = await req.json();
+    const parsed = await safeJson(req, 'PROMO REORDER API');
+    if (!parsed.ok) return parsed.response;
+    const { order } = parsed.data as any;
 
     if (!Array.isArray(order)) {
       return NextResponse.json({ error: 'Некорректный формат данных' }, { status: 400 });

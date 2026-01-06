@@ -1,12 +1,14 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeJson } from '@/lib/api/safeJson';
 
 export async function POST(req: NextRequest) {
   try {
     process.env.NODE_ENV !== 'production' &&
       console.log('POST /api/promo/validate: Starting request');
-    const body = await req.json();
+    const parsed = await safeJson(req, 'PROMO VALIDATE API');
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data as any;
     process.env.NODE_ENV !== 'production' &&
       console.log('POST /api/promo/validate: Received payload:', body);
 

@@ -4,6 +4,7 @@ import { mkdirSync, existsSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import { safeFormData } from '@/lib/api/safeJson';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,9 @@ const SUPPORTED_MIME = ['image/webp', 'image/jpeg', 'image/png'];
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
+    const parsedFormData = await safeFormData(req, 'UPLOAD IMAGE API');
+    if (!parsedFormData.ok) return parsedFormData.response;
+    const formData = parsedFormData.data;
     const file = formData.get('file') as File;
     const oldImageUrl = formData.get('oldImageUrl') as string | null;
 
