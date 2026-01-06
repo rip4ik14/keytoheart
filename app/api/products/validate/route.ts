@@ -13,6 +13,20 @@ interface ProductValidationResult {
 }
 
 export async function POST(req: NextRequest) {
+  // Диагностические логи — добавлены в самое начало
+  console.log('[VALIDATE API] === POST запрос получен ===', new Date().toISOString());
+  console.log('[VALIDATE API] Headers:', Object.fromEntries(req.headers.entries()));
+
+  let rawBody = 'не удалось прочитать';
+  try {
+    const cloned = req.clone();
+    rawBody = await cloned.text();
+    console.log('[VALIDATE API] Raw body:', rawBody);
+  } catch (e) {
+    console.log('[VALIDATE API] Ошибка чтения body:', e);
+  }
+  // Конец диагностики
+
   try {
     const body: { items: CartItem[] } = await req.json();
     process.env.NODE_ENV !== "production" && console.log('Received payload for validation:', body);
@@ -76,6 +90,7 @@ export async function POST(req: NextRequest) {
     process.env.NODE_ENV !== "production" && console.log('Validation result:', result);
     return NextResponse.json(result);
   } catch (error: any) {
+    console.error('[VALIDATE API] НЕОЖИДАННАЯ ОШИБКА:', error);
     process.env.NODE_ENV !== "production" && console.error('Error in validate API:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message, valid: false, invalidItems: [] }, { status: 500 });
   }
