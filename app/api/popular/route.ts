@@ -1,8 +1,5 @@
-// ✅ Путь: app/api/popular/route.ts
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
-
-export const revalidate = 300;
 
 // Итоговый тип, который мы возвращаем на фронт (для автокомплита)
 interface PopularProduct {
@@ -21,11 +18,10 @@ interface PopularProduct {
 
 export async function GET() {
   try {
+    // Получаем товары из Supabase
     const { data, error } = await supabaseAdmin
       .from('products')
-      .select(
-        'id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index, production_time',
-      )
+      .select('id, title, price, original_price, discount_percent, in_stock, images, is_popular, is_visible, order_index, production_time')
       .eq('in_stock', true)
       .eq('is_popular', true)
       .eq('is_visible', true)
@@ -33,47 +29,39 @@ export async function GET() {
       .limit(10);
 
     if (error) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('Supabase error fetching popular products:', error);
-
+      process.env.NODE_ENV !== "production" && console.error('Supabase error fetching popular products:', error);
       return NextResponse.json(
         { error: 'Ошибка получения популярных товаров: ' + error.message },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
+    // Приводим все поля к правильным типам
     const formattedData: PopularProduct[] = (data || []).map((product: any) => ({
       id: product.id,
       title: product.title,
       price: product.price !== null ? Number(product.price) : null,
-      original_price:
-        product.original_price !== null ? Number(product.original_price) : null,
-      discount_percent:
-        product.discount_percent !== null ? Number(product.discount_percent) : null,
+      original_price: product.original_price !== null ? Number(product.original_price) : null,
+      discount_percent: product.discount_percent !== null ? Number(product.discount_percent) : null,
       in_stock: product.in_stock,
       images: Array.isArray(product.images)
-        ? product.images.length > 0
-          ? [product.images[0]]
-          : []
+        ? (product.images.length > 0 ? [product.images[0]] : [])
         : [],
       is_popular: product.is_popular,
       is_visible: product.is_visible,
       order_index: product.order_index !== null ? Number(product.order_index) : null,
-      production_time:
-        product.production_time !== null ? Number(product.production_time) : null,
+      production_time: product.production_time !== null ? Number(product.production_time) : null,
     }));
 
-    return NextResponse.json(formattedData);
+     return NextResponse.json(formattedData, {
+   headers: { 'Cache-Control': 'no-store' },
+ });
   } catch (err: any) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('Unexpected error in /api/popular:', err);
-
     return NextResponse.json(
-      {
-        error: 'Неожиданная ошибка сервера',
-        details: err?.message || 'Нет деталей',
-      },
-      { status: 500 },
+      { error: 'Неожиданная ошибка сервера', details: err.message || 'Нет деталей' },
+      { status: 500 }
     );
   }
 }
+
+export const revalidate = 0;

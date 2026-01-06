@@ -1,4 +1,3 @@
-// ✅ Путь: components/PopularProductsClient.tsx
 'use client';
 
 import { useRef } from 'react';
@@ -50,18 +49,14 @@ export default function PopularProductsClient({
         ПОПУЛЯРНОЕ
       </h2>
 
-      {/* Mobile: Grid */}
+      {/* ---- Mobile: Grid ---- */}
       <div className="sm:hidden grid grid-cols-2 gap-4">
-        {products.map((p) => (
-          <ProductCard
-            key={p.id}
-            product={p}
-            priority={Boolean(p.priority)}
-          />
+        {products.map((p, idx) => (
+          <ProductCard key={p.id} product={p} priority={idx === 0} />
         ))}
       </div>
 
-      {/* Desktop: Горизонтальный скролл */}
+      {/* ---- Desktop: Горизонтальный скролл — ровно 4 карточки ---- */}
       <div className="hidden sm:block relative">
         {/* Стрелка влево */}
         <button
@@ -71,17 +66,11 @@ export default function PopularProductsClient({
           type="button"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M15 18L9 12L15 6"
-              stroke="#222"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M15 18L9 12L15 6" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
 
-        {/* Скролл-контейнер */}
+        {/* Скролл-контейнер, видны ровно 4 карточки */}
         <div
           ref={scrollRef}
           className="
@@ -91,12 +80,14 @@ export default function PopularProductsClient({
             snap-x snap-mandatory
             justify-start
             mx-auto
-            w-full
-            lg:w-[1216px] lg:max-w-[1216px]
+            w-[1216px]
           "
-          style={{ scrollBehavior: 'smooth' }}
+          style={{
+            scrollBehavior: 'smooth',
+            maxWidth: '1216px',
+          }}
         >
-          {products.map((p) => (
+          {products.map((p, idx) => (
             <div
               key={p.id}
               className="
@@ -107,7 +98,7 @@ export default function PopularProductsClient({
               "
               style={{ width: 280 }}
             >
-              <ProductCard product={p} priority={Boolean(p.priority)} />
+              <ProductCard product={p} priority={idx === 0} />
             </div>
           ))}
         </div>
@@ -120,13 +111,7 @@ export default function PopularProductsClient({
           type="button"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M9 6L15 12L9 18"
-              stroke="#222"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M9 6L15 12L9 18" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       </div>
