@@ -1,45 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+// ✅ Путь: app/api/csrf-token/route.ts
+import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 
-const CSRF_COOKIE = 'csrf_token';
+export async function GET() {
+  // Генерируем случайный CSRF-токен
+  const csrfToken = randomBytes(32).toString('hex');
 
-function createToken() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
-function jsonNoStore(data: any) {
-  return NextResponse.json(data, {
-    status: 200,
-    headers: {
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-      Pragma: 'no-cache',
-      Expires: '0',
-    },
-  });
-}
-
-function setCsrfCookie(res: NextResponse, token: string) {
-  // HttpOnly: false, чтобы фронт мог прочитать токен и отправить в x-csrf-token
-  res.cookies.set(CSRF_COOKIE, token, {
-    httpOnly: false,
-    secure: true,
-    sameSite: 'lax',
+  // Сохраняем токен в cookie (или можно использовать сессию)
+  const response = NextResponse.json({ csrfToken });
+  response.cookies.set('csrf_token', csrfToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
     path: '/',
-    maxAge: 60 * 60 * 24, // 24h
+    maxAge: 60 * 60, // 1 час
   });
-}
 
-export async function GET(_req: NextRequest) {
-  const token = createToken();
-  const res = jsonNoStore({ csrfToken: token });
-  setCsrfCookie(res, token);
-  return res;
-}
-
-// POST сделаем алиасом на GET (чтобы твои проверки curl-ом работали)
-export async function POST(_req: NextRequest) {
-  const token = createToken();
-  const res = jsonNoStore({ csrfToken: token });
-  setCsrfCookie(res, token);
-  return res;
+  return response;
 }

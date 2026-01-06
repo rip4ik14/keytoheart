@@ -1,50 +1,81 @@
+// ✅ Путь: middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-const CSRF_COOKIE = 'csrf_token';
-const CSRF_HEADER = 'x-csrf-token';
+// ──────────────────────────────────────────────────────────────────────────────
+//  Middleware без CSP-заголовка.
+//  CSP задаётся единственным источником — в next.config.js → headers().
+// ──────────────────────────────────────────────────────────────────────────────
 
-// Эти маршруты должны быть доступны без CSRF, иначе будет цикл или сломаются внешние вебхуки
-const CSRF_EXCLUDE_PREFIXES = [
-  '/api/csrf-token',
-  '/api/auth/webhook-call', // SMS.ru callcheck_status
-  '/api/tg/event',          // если Telegram шлет POST без твоих заголовков
-  '/api/payment',           // если у платежки есть callback/webhook
-];
+export async function middleware(req: NextRequest) {
+  const url = req.nextUrl;
+  const pathname = url.pathname;
 
-function isExcluded(pathname: string) {
-  return CSRF_EXCLUDE_PREFIXES.some((p) => pathname.startsWith(p));
-}
+  /* --------------------------------------------------------------------------
+     ADMIN GUARD
+  -------------------------------------------------------------------------- */
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+    const token = req.cookies.get('admin_session')?.value;
 
-function isWriteMethod(method: string) {
-  return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
-}
+    if (!token) {
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
+    }
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // CSRF проверяем только на /api/*
-  if (!pathname.startsWith('/api/')) return NextResponse.next();
-
-  // Пропускаем исключения
-  if (isExcluded(pathname)) return NextResponse.next();
-
-  // Только для "пишущих" методов
-  if (!isWriteMethod(req.method)) return NextResponse.next();
-
-  const cookieToken = req.cookies.get(CSRF_COOKIE)?.value || '';
-  const headerToken = req.headers.get(CSRF_HEADER) || '';
-
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    return NextResponse.json(
-      { error: 'CSRF token missing or invalid' },
-      { status: 403, headers: { 'Cache-Control': 'no-store' } },
-    );
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`,
+        { headers: { Cookie: `admin_session=${token}` } },
+      );
+      const { success } = await res.json();
+      if (!success) throw new Error('invalid');
+    } catch {
+      const login = url.clone();
+      login.pathname = '/admin/login';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
+    }
   }
 
+  /* --------------------------------------------------------------------------
+     USER GUARD (Supabase)
+  -------------------------------------------------------------------------- */
+  if (
+    (pathname.startsWith('/account') || pathname.startsWith('/checkout')) &&
+    pathname !== '/account'
+  ) {
+    const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value;
+
+    if (!token) {
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'no-session');
+      return NextResponse.redirect(login);
+    }
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+      });
+      if (!res.ok) throw new Error('invalid');
+    } catch {
+      const login = url.clone();
+      login.pathname = '/account';
+      login.searchParams.set('from', pathname);
+      login.searchParams.set('error', 'invalid-session');
+      return NextResponse.redirect(login);
+    }
+  }
+
+  // остальной трафик пропускаем
   return NextResponse.next();
 }
 
-// Чтобы middleware не трогал статику и страницы
-export const config = {
-  matcher: ['/api/:path*'],
-};
+export const config = { matcher: ['/:path*'] };
