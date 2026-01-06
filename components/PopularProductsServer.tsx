@@ -1,3 +1,4 @@
+// components/PopularProductsServer.tsx
 import PopularProductsClient from '@components/PopularProductsClient';
 import { Product } from '@/types/product';
 
@@ -5,13 +6,16 @@ type ProductWithPriority = Product & { priority?: boolean };
 
 const REQUEST_TIMEOUT = 8000;
 
-async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT) {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT,
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(url, { ...init, signal: controller.signal });
-    return res;
+    return await fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -19,29 +23,28 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
 
 export default async function PopularProductsServer() {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-    /* —----- получаем данные —----- */
-    const res = await fetchWithTimeout(`${baseUrl}/api/popular`, {
-      next: { revalidate: 60 },
+    // ✅ internal fetch: без baseUrl, без лишнего хопа через nginx
+    const res = await fetchWithTimeout(`/api/popular`, {
+      // лучше синхронизировать с главной, чтобы не дергать лишний раз
+      next: { revalidate: 300 },
     });
+
     if (!res.ok) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('PopularProductsServer fetch error:', await res.text());
       }
       return null;
     }
+
     const data = await res.json();
     if (!Array.isArray(data)) return null;
 
-    /* —----- помечаем LCP-изображения (только первый товар) —----- */
+    // ⚠️ priority оставляем только если этот блок реально выше фолда и конкурирует за LCP
     const products: ProductWithPriority[] = data.map((item: any, idx: number) => ({
       ...item,
-      images: item.images || [],
-      category_ids: item.category_ids || [],
-      priority: idx === 0,        // <-- единственный «high» / eager
+      images: Array.isArray(item.images) ? item.images : [],
+      category_ids: Array.isArray(item.category_ids) ? item.category_ids : [],
+      priority: idx === 0,
     }));
 
     return <PopularProductsClient products={products} />;

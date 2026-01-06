@@ -25,6 +25,26 @@ export function middleware(req: NextRequest) {
   }
 
   /* --------------------------------------------------------------------------
+     HELPERS
+  -------------------------------------------------------------------------- */
+  const hasAnyCookie = (names: string[]) => {
+    for (const n of names) {
+      if (req.cookies.get(n)?.value) return true;
+    }
+    return false;
+  };
+
+  const hasSupabaseLikeSession = () => {
+    const all = req.cookies.getAll().map((c) => c.name);
+
+    // Частые варианты
+    if (all.includes('sb-access-token') || all.includes('sb-refresh-token')) return true;
+
+    // Fallback на разные форматы supabase cookies (включая project-ref)
+    return all.some((name) => name.startsWith('sb-') && name.includes('auth'));
+  };
+
+  /* --------------------------------------------------------------------------
      ADMIN GUARD
      - проверяем ТОЛЬКО наличие cookie
      - валидность проверяется уже на сервере
@@ -44,16 +64,21 @@ export function middleware(req: NextRequest) {
   }
 
   /* --------------------------------------------------------------------------
-     USER GUARD (Supabase)
-     - аналогично: только наличие cookie
+     USER GUARD
+     - не хардкодим project-ref cookie
+     - проверяем распространённые варианты + fallback
   -------------------------------------------------------------------------- */
   if (
     (pathname.startsWith('/account') || pathname.startsWith('/checkout')) &&
     pathname !== '/account'
   ) {
-    const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value;
+    const hasCustomAuth =
+      hasAnyCookie(['kt_access', 'kt_refresh', 'access_token', 'refresh_token']) ||
+      hasAnyCookie(['sb-access-token', 'sb-refresh-token']);
 
-    if (!token) {
+    const ok = hasCustomAuth || hasSupabaseLikeSession();
+
+    if (!ok) {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = '/account';
       loginUrl.searchParams.set('from', pathname);
@@ -64,9 +89,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  /* --------------------------------------------------------------------------
-     Остальной трафик пропускаем
-  -------------------------------------------------------------------------- */
   return NextResponse.next();
 }
 

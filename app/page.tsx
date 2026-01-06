@@ -1,3 +1,4 @@
+// ✅ Путь: app/page.tsx
 /* -------------------------------------------------------------------------- */
 /*  Главная страница (SEO boost + Edge runtime + FAQ)                         */
 /* -------------------------------------------------------------------------- */
@@ -97,8 +98,7 @@ export const revalidate = 300;
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
-  title:
-    'Клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+  title: 'Клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
   description:
     'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
   openGraph: {
@@ -229,34 +229,24 @@ export default async function Home() {
     },
   );
 
-  /* ---------- Параллельные запросы: продукты + связи ---------- */
-  let pcSafe: { product_id: number; category_id: number }[] = [];
+  /* ---------------------- Продукты (сначала) ---------------------- */
   let prSafe: any[] = [];
-
   try {
-    const [{ data: pc, error: pcError }, { data: pr, error: prError }] =
-      await Promise.all([
-        withTimeout(
-          supabase.from('product_categories').select('product_id, category_id'),
-        ),
-        withTimeout(
-          supabase
-            .from('products')
-            .select(
-              'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
-            )
-            .eq('in_stock', true)
-            .not('images', 'is', null)
-            .order('is_popular', { ascending: false })
-            .order('id', { ascending: false })
-            .limit(120),
-        ),
-      ]);
+    const { data: pr, error: prError } = await withTimeout(
+      supabase
+        .from('products')
+        .select(
+          'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
+        )
+        .eq('in_stock', true)
+        .not('images', 'is', null)
+        .order('is_popular', { ascending: false })
+        .order('id', { ascending: false })
+        // хватит для JSON-LD + 4 категории по 8 товаров
+        .limit(60),
+    );
 
-    if (pcError) throw new Error(pcError.message);
     if (prError) throw new Error(prError.message);
-
-    pcSafe = pc ?? [];
     prSafe = pr ?? [];
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
@@ -264,14 +254,36 @@ export default async function Home() {
     }
   }
 
+  const productIds = prSafe.map((p) => p.id) as number[];
+
+  /* ---------- Связи product_categories (только по нужным товарам) ---------- */
+  let pcSafe: { product_id: number; category_id: number }[] = [];
+  if (productIds.length) {
+    try {
+      const { data: pc, error: pcError } = await withTimeout(
+        supabase
+          .from('product_categories')
+          .select('product_id, category_id')
+          .in('product_id', productIds),
+      );
+
+      if (pcError) throw new Error(pcError.message);
+      pcSafe = pc ?? [];
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[home] product_categories fetch failed ->', error);
+      }
+    }
+  }
+
   /* -------- product_id -> [category_id,…] Map -------- */
   const pcMap = new Map<number, number[]>();
-  pcSafe.forEach(({ product_id, category_id }) => {
-    const arr = pcMap.get(product_id) || [];
-    pcMap.set(product_id, [...arr, category_id]);
-  });
+  for (const row of pcSafe) {
+    const arr = pcMap.get(row.product_id);
+    if (arr) arr.push(row.category_id);
+    else pcMap.set(row.product_id, [row.category_id]);
+  }
 
-  /* ---------------------- Продукты ---------------------- */
   const products: Product[] = prSafe.map((p) => ({
     id: p.id,
     title: p.title,
@@ -281,7 +293,7 @@ export default async function Home() {
     images: p.images ?? [],
     production_time: p.production_time ?? null,
     is_popular: p.is_popular ?? null,
-    category_ids: pcMap.get(p.id) || [],
+    category_ids: pcMap.get(p.id) ?? [],
   }));
 
   /* ---------------------- Категории --------------------- */
@@ -295,7 +307,7 @@ export default async function Home() {
         supabase
           .from('categories')
           .select('id,name,slug')
-          .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]),
+          .in('id', uniqueCatIds),
       );
 
       if (catError) throw new Error(catError.message);
@@ -324,13 +336,13 @@ export default async function Home() {
   const MIN_PRODUCTS_PER_CATEGORY = 2;
 
   const categoryCounts = new Map<number, number>();
-  products.forEach((p) => {
-    p.category_ids.forEach((id) => {
+  for (const p of products) {
+    for (const id of p.category_ids) {
       const slug = catMap.get(id)?.slug;
-      if (!slug || IGNORE_SLUGS.has(slug)) return;
+      if (!slug || IGNORE_SLUGS.has(slug)) continue;
       categoryCounts.set(id, (categoryCounts.get(id) ?? 0) + 1);
-    });
-  });
+    }
+  }
 
   const categoryMetaAll: CategoryMeta[] = [...categoryCounts.entries()]
     .map(([id, count]) => {
@@ -388,6 +400,7 @@ export default async function Home() {
 
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>
+
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
