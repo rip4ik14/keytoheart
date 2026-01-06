@@ -1,103 +1,50 @@
-// ✅ Путь: middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-/*
-  Middleware выполняет ТОЛЬКО:
-  - редирект неавторизованных пользователей
-  - НИКАКОЙ логики API
-  - НИКАКИХ fetch внутрь самого приложения
-*/
+const CSRF_COOKIE = 'csrf_token';
+const CSRF_HEADER = 'x-csrf-token';
+
+// Эти маршруты должны быть доступны без CSRF, иначе будет цикл или сломаются внешние вебхуки
+const CSRF_EXCLUDE_PREFIXES = [
+  '/api/csrf-token',
+  '/api/auth/webhook-call', // SMS.ru callcheck_status
+  '/api/tg/event',          // если Telegram шлет POST без твоих заголовков
+  '/api/payment',           // если у платежки есть callback/webhook
+];
+
+function isExcluded(pathname: string) {
+  return CSRF_EXCLUDE_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
+function isWriteMethod(method: string) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  /* --------------------------------------------------------------------------
-     ⛔️ НИКОГДА не трогаем API и системные роуты
-  -------------------------------------------------------------------------- */
-  if (
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/robots') ||
-    pathname.startsWith('/sitemap')
-  ) {
-    return NextResponse.next();
-  }
+  // CSRF проверяем только на /api/*
+  if (!pathname.startsWith('/api/')) return NextResponse.next();
 
-  /* --------------------------------------------------------------------------
-     HELPERS
-  -------------------------------------------------------------------------- */
-  const hasAnyCookie = (names: string[]) => {
-    for (const n of names) {
-      if (req.cookies.get(n)?.value) return true;
-    }
-    return false;
-  };
+  // Пропускаем исключения
+  if (isExcluded(pathname)) return NextResponse.next();
 
-  const hasSupabaseLikeSession = () => {
-    const all = req.cookies.getAll().map((c) => c.name);
+  // Только для "пишущих" методов
+  if (!isWriteMethod(req.method)) return NextResponse.next();
 
-    // Частые варианты
-    if (all.includes('sb-access-token') || all.includes('sb-refresh-token')) return true;
+  const cookieToken = req.cookies.get(CSRF_COOKIE)?.value || '';
+  const headerToken = req.headers.get(CSRF_HEADER) || '';
 
-    // Fallback на разные форматы supabase cookies (включая project-ref)
-    return all.some((name) => name.startsWith('sb-') && name.includes('auth'));
-  };
-
-  /* --------------------------------------------------------------------------
-     ADMIN GUARD
-     - проверяем ТОЛЬКО наличие cookie
-     - валидность проверяется уже на сервере
-  -------------------------------------------------------------------------- */
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = req.cookies.get('admin_session')?.value;
-
-    if (!token) {
-      const loginUrl = req.nextUrl.clone();
-      loginUrl.pathname = '/admin/login';
-      loginUrl.searchParams.set('from', pathname);
-      loginUrl.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(loginUrl);
-    }
-
-    return NextResponse.next();
-  }
-
-  /* --------------------------------------------------------------------------
-     USER GUARD
-     - не хардкодим project-ref cookie
-     - проверяем распространённые варианты + fallback
-  -------------------------------------------------------------------------- */
-  if (
-    (pathname.startsWith('/account') || pathname.startsWith('/checkout')) &&
-    pathname !== '/account'
-  ) {
-    const hasCustomAuth =
-      hasAnyCookie(['kt_access', 'kt_refresh', 'access_token', 'refresh_token']) ||
-      hasAnyCookie(['sb-access-token', 'sb-refresh-token']);
-
-    const ok = hasCustomAuth || hasSupabaseLikeSession();
-
-    if (!ok) {
-      const loginUrl = req.nextUrl.clone();
-      loginUrl.pathname = '/account';
-      loginUrl.searchParams.set('from', pathname);
-      loginUrl.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(loginUrl);
-    }
-
-    return NextResponse.next();
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    return NextResponse.json(
+      { error: 'CSRF token missing or invalid' },
+      { status: 403, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   return NextResponse.next();
 }
 
-/* --------------------------------------------------------------------------
-   ⚠️ КРИТИЧЕСКИ ВАЖНО
-   matcher ИСКЛЮЧАЕТ /api
--------------------------------------------------------------------------- */
+// Чтобы middleware не трогал статику и страницы
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
-  ],
+  matcher: ['/api/:path*'],
 };

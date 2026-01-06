@@ -1,26 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
+import crypto from 'crypto';
 
-const COOKIE_NAME = 'csrf_token';
+const CSRF_COOKIE = 'csrf_token';
 
-function issueToken() {
-  return randomBytes(32).toString('hex');
+function createToken() {
+  return crypto.randomBytes(32).toString('hex');
 }
 
-export async function GET(req: NextRequest) {
-  const existing = req.cookies.get(COOKIE_NAME)?.value;
-  const token = existing || issueToken();
-
-  const res = NextResponse.json({ csrfToken: token }, { status: 200 });
-
-  // Всегда гарантируем, что cookie существует и совпадает с тем, что вернули
-  res.cookies.set(COOKIE_NAME, token, {
-    httpOnly: false, // токен нужен фронту
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24, // 1 день
+function jsonNoStore(data: any) {
+  return NextResponse.json(data, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+    },
   });
+}
 
+function setCsrfCookie(res: NextResponse, token: string) {
+  // HttpOnly: false, чтобы фронт мог прочитать токен и отправить в x-csrf-token
+  res.cookies.set(CSRF_COOKIE, token, {
+    httpOnly: false,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24, // 24h
+  });
+}
+
+export async function GET(_req: NextRequest) {
+  const token = createToken();
+  const res = jsonNoStore({ csrfToken: token });
+  setCsrfCookie(res, token);
+  return res;
+}
+
+// POST сделаем алиасом на GET (чтобы твои проверки curl-ом работали)
+export async function POST(_req: NextRequest) {
+  const token = createToken();
+  const res = jsonNoStore({ csrfToken: token });
+  setCsrfCookie(res, token);
   return res;
 }
