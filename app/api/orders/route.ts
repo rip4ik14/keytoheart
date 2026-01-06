@@ -37,20 +37,6 @@ interface OrderRequest {
 }
 
 export async function POST(req: Request) {
-  // Диагностические логи — добавлены в самое начало
-  console.log('[ORDER CREATE API] === POST запрос получен ===', new Date().toISOString());
-  console.log('[ORDER CREATE API] Headers:', Object.fromEntries(req.headers.entries()));
-
-  let rawBody = 'не удалось прочитать';
-  try {
-    const cloned = req.clone();
-    rawBody = await cloned.text();
-    console.log('[ORDER CREATE API] Raw body:', rawBody);
-  } catch (e) {
-    console.log('[ORDER CREATE API] Ошибка чтения body:', e);
-  }
-  // Конец диагностики
-
   try {
     const body: OrderRequest = await req.json();
     const {
@@ -400,8 +386,7 @@ ${upsellList}`;
       promoError,
     });
   } catch (error: any) {
-    console.error('[ORDER CREATE API] НЕОЖИДАННАЯ ОШИБКА:', error);
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV !== 'production' &&
       console.error('[ORDER API ERROR]', error, error?.stack);
 
     return NextResponse.json(

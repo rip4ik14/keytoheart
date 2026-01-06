@@ -1,42 +1,50 @@
 // ✅ Путь: middleware.ts
-import { NextRequest, NextResponse } from 'next/server';
-
-// ──────────────────────────────────────────────────────────────────────────────
-//  Middleware без CSP-заголовка.
-//  CSP задаётся единственным источником — в next.config.js → headers().
-// ──────────────────────────────────────────────────────────────────────────────
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  const url = req.nextUrl;
-  const pathname = url.pathname;
+  const url = req.nextUrl
+  const pathname = url.pathname
+
+  // 1) НИКОГДА не трогаем api и next-ассеты
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/robots.txt') ||
+    pathname.startsWith('/sitemap')
+  ) {
+    return NextResponse.next()
+  }
 
   /* --------------------------------------------------------------------------
      ADMIN GUARD
   -------------------------------------------------------------------------- */
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = req.cookies.get('admin_session')?.value;
+    const token = req.cookies.get('admin_session')?.value
 
     if (!token) {
-      const login = url.clone();
-      login.pathname = '/admin/login';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(login);
+      const login = url.clone()
+      login.pathname = '/admin/login'
+      login.searchParams.set('from', pathname)
+      login.searchParams.set('error', 'no-session')
+      return NextResponse.redirect(login)
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`,
-        { headers: { Cookie: `admin_session=${token}` } },
-      );
-      const { success } = await res.json();
-      if (!success) throw new Error('invalid');
+      // важно: использовать origin текущего запроса
+      const res = await fetch(`${url.origin}/api/admin-session`, {
+        headers: { Cookie: `admin_session=${token}` },
+        cache: 'no-store',
+      })
+
+      const data = await res.json().catch(() => null)
+      if (!data?.success) throw new Error('invalid')
     } catch {
-      const login = url.clone();
-      login.pathname = '/admin/login';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'invalid-session');
-      return NextResponse.redirect(login);
+      const login = url.clone()
+      login.pathname = '/admin/login'
+      login.searchParams.set('from', pathname)
+      login.searchParams.set('error', 'invalid-session')
+      return NextResponse.redirect(login)
     }
   }
 
@@ -47,14 +55,14 @@ export async function middleware(req: NextRequest) {
     (pathname.startsWith('/account') || pathname.startsWith('/checkout')) &&
     pathname !== '/account'
   ) {
-    const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value;
+    const token = req.cookies.get('sb-gwbeabfkknhewwoesqax-auth-token')?.value
 
     if (!token) {
-      const login = url.clone();
-      login.pathname = '/account';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'no-session');
-      return NextResponse.redirect(login);
+      const login = url.clone()
+      login.pathname = '/account'
+      login.searchParams.set('from', pathname)
+      login.searchParams.set('error', 'no-session')
+      return NextResponse.redirect(login)
     }
 
     try {
@@ -63,19 +71,21 @@ export async function middleware(req: NextRequest) {
           Authorization: `Bearer ${token}`,
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
-      });
-      if (!res.ok) throw new Error('invalid');
+        cache: 'no-store',
+      })
+      if (!res.ok) throw new Error('invalid')
     } catch {
-      const login = url.clone();
-      login.pathname = '/account';
-      login.searchParams.set('from', pathname);
-      login.searchParams.set('error', 'invalid-session');
-      return NextResponse.redirect(login);
+      const login = url.clone()
+      login.pathname = '/account'
+      login.searchParams.set('from', pathname)
+      login.searchParams.set('error', 'invalid-session')
+      return NextResponse.redirect(login)
     }
   }
 
-  // остальной трафик пропускаем
-  return NextResponse.next();
+  return NextResponse.next()
 }
 
-export const config = { matcher: ['/:path*'] };
+export const config = {
+  matcher: ['/:path*'],
+}
