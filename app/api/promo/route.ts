@@ -41,6 +41,18 @@ export async function POST(req: NextRequest) {
       return createBody;
     }
     const { title, subtitle, button_text, href, image_url, type, order_index } = createBody;
+    if (typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 });
+    }
+    if (typeof href !== 'string' || !href.trim()) {
+      return NextResponse.json({ error: 'href is required' }, { status: 400 });
+    }
+    if (typeof image_url !== 'string' || !image_url.trim()) {
+      return NextResponse.json({ error: 'image_url is required' }, { status: 400 });
+    }
+    if (typeof type !== 'string' || !type.trim()) {
+      return NextResponse.json({ error: 'type is required' }, { status: 400 });
+    }
     const data = await prisma.promo_blocks.create({
       data: {
         title,
