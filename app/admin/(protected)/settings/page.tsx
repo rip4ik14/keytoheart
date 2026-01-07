@@ -25,6 +25,10 @@ interface StoreSettings {
   store_hours: Record<string, DaySchedule>;
 }
 
+// ✅ ВАЖНО: типы таблицы Supabase (fix для never)
+type StoreSettingsRow = Database['public']['Tables']['store_settings']['Row'];
+type StoreSettingsUpdate = Database['public']['Tables']['store_settings']['Update'];
+
 const daysOfWeek = [
   { key: 'monday', label: 'Понедельник' },
   { key: 'tuesday', label: 'Вторник' },
@@ -56,6 +60,7 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   for (const [key, value] of Object.entries(schedule)) {
     if (daysOfWeek.some((day) => day.key === key) && typeof value === 'object' && value !== null) {
       const { start, end, enabled } = value as any;
+
       if (typeof start === 'string' && typeof end === 'string') {
         result[key] = {
           start,
@@ -68,9 +73,6 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
 
   return result;
 };
-
-type StoreSettingsRow = Database['public']['Tables']['store_settings']['Row'];
-type StoreSettingsUpdate = Database['public']['Tables']['store_settings']['Update'];
 
 export default function AdminSettingsPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -99,10 +101,10 @@ export default function AdminSettingsPage() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      // ✅ ВАЖНО: явно типизируем ответ .single()
       const { data, error } = await supabase
         .from('store_settings')
         .select('*')
+        // ✅ fix: иначе data может стать never
         .single<StoreSettingsRow>();
 
       if (error) throw new Error(`Supabase error: ${JSON.stringify(error)}`);
@@ -111,7 +113,7 @@ export default function AdminSettingsPage() {
       const transformedData: StoreSettings = {
         id: data.id,
         order_acceptance_enabled: data.order_acceptance_enabled ?? false,
-        banner_message: data.banner_message ?? null,
+        banner_message: data.banner_message,
         banner_active: data.banner_active ?? false,
         order_acceptance_schedule: transformSchedule(data.order_acceptance_schedule),
         store_hours: transformSchedule(data.store_hours),
@@ -120,8 +122,8 @@ export default function AdminSettingsPage() {
       setSettings(transformedData);
       setOriginalSettings(transformedData);
     } catch (error: any) {
-      toast.error('Ошибка загрузки настроек: ' + (error?.message || 'Неизвестная ошибка'));
-      // на всякий: чтобы не оставлять страницу пустой
+      toast.error('Ошибка загрузки настроек: ' + (error.message || 'Неизвестная ошибка'));
+      // fallback, чтобы не оставлять экран пустым
       setSettings(defaultSettings);
       setOriginalSettings(defaultSettings);
     } finally {
@@ -135,27 +137,25 @@ export default function AdminSettingsPage() {
 
     try {
       const updatePayload: StoreSettingsUpdate = {
-  order_acceptance_enabled: settings.order_acceptance_enabled,
-  banner_message: settings.banner_message,
-  banner_active: settings.banner_active,
-  order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
-  store_hours: settings.store_hours as unknown as Json,
-  updated_at: new Date().toISOString(),
-};
+        order_acceptance_enabled: settings.order_acceptance_enabled,
+        banner_message: settings.banner_message,
+        banner_active: settings.banner_active,
+        order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
+        store_hours: settings.store_hours as unknown as Json,
+        updated_at: new Date().toISOString(),
+      };
 
-const { error } = await supabase
-  .from('store_settings')
-  // ✅ важно: явно типизируем апдейт, иначе может стать never
-  .update<StoreSettingsUpdate>(updatePayload)
-  .eq('id', settings.id);
-
+      // ✅ fix: обход бага тайпинга update() в связке @supabase/ssr (иначе never)
+      const { error } = await (supabase.from('store_settings') as any)
+        .update(updatePayload)
+        .eq('id', settings.id);
 
       if (error) throw new Error(`Ошибка сохранения: ${error.message}`);
 
       setOriginalSettings(settings);
       toast.success('Настройки сохранены');
     } catch (error: any) {
-      toast.error('Ошибка сохранения настроек: ' + (error?.message || 'Неизвестная ошибка'));
+      toast.error('Ошибка сохранения настроек: ' + (error.message || 'Неизвестная ошибка'));
     } finally {
       setIsSaving(false);
     }
@@ -245,7 +245,6 @@ const { error } = await supabase
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
   };
-
   const itemVariants = {
     hidden: { opacity: 0, x: -10 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
@@ -285,7 +284,10 @@ const { error } = await supabase
       </div>
 
       {/* Приём заказов */}
-      <motion.section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200" variants={itemVariants}>
+      <motion.section
+        className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+        variants={itemVariants}
+      >
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Приём заказов</h2>
         <div className="flex items-center gap-4 mb-4">
           <label className="flex items-center gap-2">
@@ -293,7 +295,9 @@ const { error } = await supabase
               type="checkbox"
               checked={settings.order_acceptance_enabled}
               onChange={(e) =>
-                setSettings((prev) => (prev ? { ...prev, order_acceptance_enabled: e.target.checked } : prev))
+                setSettings((prev) =>
+                  prev ? { ...prev, order_acceptance_enabled: e.target.checked } : prev,
+                )
               }
               className="form-checkbox h-5 w-5 text-black"
             />
@@ -305,7 +309,6 @@ const { error } = await supabase
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            type="button"
           >
             Включить 24/7
           </motion.button>
@@ -323,8 +326,18 @@ const { error } = await supabase
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true}
-                onChange={(e) => handleScheduleChange('order_acceptance_schedule', day.key, 'enabled', e.target.checked)}
+                checked={
+                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                    ?.enabled ?? true
+                }
+                onChange={(e) =>
+                  handleScheduleChange(
+                    'order_acceptance_schedule',
+                    day.key,
+                    'enabled',
+                    e.target.checked,
+                  )
+                }
                 className="form-checkbox h-5 w-5 text-black"
               />
               <span className="text-sm text-gray-600">Включён</span>
@@ -333,11 +346,24 @@ const { error } = await supabase
             <div className="flex gap-2 items-center">
               <input
                 type="time"
-                value={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.start || '09:00'}
-                onChange={(e) => handleScheduleChange('order_acceptance_schedule', day.key, 'start', e.target.value)}
-                disabled={!((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)}
+                value={
+                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                    ?.start || '09:00'
+                }
+                onChange={(e) =>
+                  handleScheduleChange('order_acceptance_schedule', day.key, 'start', e.target.value)
+                }
+                disabled={
+                  !(
+                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                      ?.enabled ?? true
+                  )
+                }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
-                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
+                  !(
+                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                      ?.enabled ?? true
+                  )
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
@@ -347,11 +373,24 @@ const { error } = await supabase
 
               <input
                 type="time"
-                value={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.end || '18:00'}
-                onChange={(e) => handleScheduleChange('order_acceptance_schedule', day.key, 'end', e.target.value)}
-                disabled={!((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)}
+                value={
+                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.end ||
+                  '18:00'
+                }
+                onChange={(e) =>
+                  handleScheduleChange('order_acceptance_schedule', day.key, 'end', e.target.value)
+                }
+                disabled={
+                  !(
+                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                      ?.enabled ?? true
+                  )
+                }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
-                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
+                  !(
+                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
+                      ?.enabled ?? true
+                  )
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
@@ -362,7 +401,7 @@ const { error } = await supabase
                 className="text-gray-500 hover:text-gray-700"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                type="button"
+                aria-label="Скопировать расписание на все дни"
               >
                 <Image src="/icons/copy.svg" alt="Скопировать" width={16} height={16} />
               </motion.button>
@@ -372,8 +411,13 @@ const { error } = await supabase
       </motion.section>
 
       {/* График работы магазина (доставка) */}
-      <motion.section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200" variants={itemVariants}>
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">График работы магазина (доставка)</h2>
+      <motion.section
+        className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+        variants={itemVariants}
+      >
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          График работы магазина (доставка)
+        </h2>
         <p className="text-xs text-gray-500 mb-4">
           Укажите часы, в течение которых возможна доставка (например, с 10:00 до 20:00).
         </p>
@@ -424,7 +468,7 @@ const { error } = await supabase
                 className="text-gray-500 hover:text-gray-700"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                type="button"
+                aria-label="Скопировать расписание на все дни"
               >
                 <Image src="/icons/copy.svg" alt="Скопировать" width={16} height={16} />
               </motion.button>
@@ -434,7 +478,10 @@ const { error } = await supabase
       </motion.section>
 
       {/* Баннер временного закрытия */}
-      <motion.section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200" variants={itemVariants}>
+      <motion.section
+        className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+        variants={itemVariants}
+      >
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Баннер временного закрытия</h2>
 
         <label className="flex items-center gap-2 mb-4">
@@ -457,7 +504,9 @@ const { error } = await supabase
             id="bannerMessage"
             value={settings.banner_message || ''}
             onChange={(e) =>
-              setSettings((prev) => (prev ? { ...prev, banner_message: e.target.value || null } : prev))
+              setSettings((prev) =>
+                prev ? { ...prev, banner_message: e.target.value || null } : prev,
+              )
             }
             placeholder="Например: Магазин временно не принимает заказы"
             className="w-full border border-gray-300 rounded-lg p-2 min-h-[80px]"
@@ -486,7 +535,6 @@ const { error } = await supabase
           }`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          type="button"
         >
           {isSaving ? (
             <div className="flex items-center justify-center gap-2">
@@ -506,7 +554,6 @@ const { error } = await supabase
           }`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          type="button"
         >
           Отменить
         </motion.button>
