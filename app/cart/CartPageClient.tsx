@@ -24,7 +24,6 @@ import useCheckoutForm from './hooks/useCheckoutForm';
 import debounce from 'lodash/debounce';
 import { CartItemType, UpsellItem } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
-import AuthWithCall from '@components/AuthWithCall';
 
 import {
   trackCheckoutStart,
@@ -169,7 +168,6 @@ export default function CartPageClient({
   const [bonusBalance, setBonusBalance] = useState<number>(initialBonusBalance);
   const [useBonuses, setUseBonuses] = useState<boolean>(false);
   const [bonusesUsed, setBonusesUsed] = useState<number>(0);
-  const [agreed, setAgreed] = useState<boolean>(false);
 
   const [upsellItems, setUpsellItems] = useState<UpsellItem[]>([]);
   const [isUpsellLoading, setIsUpsellLoading] = useState<boolean>(true);
@@ -232,7 +230,6 @@ export default function CartPageClient({
     resetForm,
   } = useCheckoutForm();
 
-  // ✅ handler для успешной авторизации (один раз)
   const handleAuthSuccess = useCallback(
     (phoneFromAuth: string) => {
       const normalized = normalizePhone(phoneFromAuth);
@@ -258,7 +255,6 @@ export default function CartPageClient({
     [onFormChange],
   );
 
-  // ✅ Кнопки допов (один JSX) - на мобилке сверху, на десктопе справа
   const UpsellButtons = (
     <div className="grid grid-cols-2 gap-3 w-full">
       <motion.button
@@ -436,8 +432,6 @@ export default function CartPageClient({
     syncCartPrices();
   }, [items, clearCart, addMultipleItems]);
 
-  // ✅ Авторизация и бонусы - эффект выполняется один раз
-  // + фикс iOS/Safari BFCache (pageshow + visibilitychange)
   useEffect(() => {
     let isMounted = true;
 
@@ -452,7 +446,7 @@ export default function CartPageClient({
 
       onFormChange({
         target: { name: 'phone', value: normalized },
-      } as React.ChangeEvent<HTMLInputElement>);
+     n: React.ChangeEvent<HTMLInputElement>);
 
       setAuthChecked(true);
       return true;
@@ -603,7 +597,6 @@ export default function CartPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ если пользователь уже авторизован, можно по умолчанию не показывать панель входа
   useEffect(() => {
     if (isAuthenticated) setShowAuthPanel(false);
   }, [isAuthenticated]);
@@ -975,8 +968,9 @@ export default function CartPageClient({
   }, [items]);
 
   const submitOrder = useCallback(async () => {
-    if (!validateStep5(agreed)) {
-      toast.error('Пожалуйста, согласитесь с условиями на шаге 5');
+    // ✅ чекбокс на шаге 5 убрали, поэтому валидируем Step5 без "agreed"
+    if (!validateStep5(true)) {
+      toast.error('Пожалуйста, проверьте корректность данных на шаге 5');
       return;
     }
 
@@ -985,7 +979,7 @@ export default function CartPageClient({
       validateStep2() &&
       validateStep3() &&
       validateStep4() &&
-      validateStep5(agreed);
+      validateStep5(true);
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
@@ -1000,9 +994,7 @@ export default function CartPageClient({
     }
 
     if (items.length === 0 && selectedUpsells.length === 0) {
-      toast.error(
-        'Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.',
-      );
+      toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
       return;
     }
 
@@ -1115,14 +1107,10 @@ export default function CartPageClient({
           if (bonusRes.ok && bonusJson.success) {
             setBonusBalance(bonusJson.new_balance || 0);
           } else {
-            toast.error(
-              'Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.',
-            );
+            toast.error('Ошибка списания бонусов. Заказ оформлен, но бонусы не списались.');
           }
         } catch {
-          toast.error(
-            'Ошибка списания бонусов. Ваш заказ оформлен, но бонусы не были списаны.',
-          );
+          toast.error('Ошибка списания бонусов. Заказ оформлен, но бонусы не списались.');
         }
       }
 
@@ -1166,7 +1154,6 @@ export default function CartPageClient({
     }
   }, [
     validateStep5,
-    agreed,
     validateStep1,
     validateStep2,
     validateStep3,
@@ -1217,10 +1204,8 @@ export default function CartPageClient({
         initial="hidden"
         animate="visible"
       >
-        <div className="w-full max-w-full md:col-span-2 space-y-4">
-          {/* ✅ Мобилка: две кнопки допов сверху, как на Labberry */}
-          <div className="md:hidden mb-4">{UpsellButtons}</div>
-
+        {/* ✅ Оформление: на мобилке после товаров */}
+        <div className="w-full max-w-full md:col-span-2 space-y-4 order-2 md:order-1">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -1249,13 +1234,6 @@ export default function CartPageClient({
                     showAuthPanel={showAuthPanel}
                     setShowAuthPanel={setShowAuthPanel}
                     onAuthSuccess={handleAuthSuccess}
-                    AuthComponent={
-                      <AuthWithCall
-                        onSuccess={(p: string) => {
-                          handleAuthSuccess(p);
-                        }}
-                      />
-                    }
                   />
                 </OrderStep>
               )}
@@ -1329,16 +1307,17 @@ export default function CartPageClient({
                   onBack={prevStep}
                   isNextDisabled={isSubmittingOrder}
                 >
-                  <Step5Payment agreed={agreed} setAgreed={setAgreed} />
+                  <Step5Payment />
                 </OrderStep>
               )}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <div className="w-full max-w-full space-y-4">
-          {/* ✅ Десктоп: эти же две кнопки остаются справа */}
-          <div className="hidden md:block mb-4">{UpsellButtons}</div>
+        {/* ✅ Товары: на мобилке первой колонкой */}
+        <div className="w-full max-w-full space-y-4 order-1 md:order-2">
+          {/* ✅ Кнопки допов сверху (и на мобилке, и на десктопе) */}
+          <div className="mb-4">{UpsellButtons}</div>
 
           {[...items, ...selectedUpsells]
             .filter(
