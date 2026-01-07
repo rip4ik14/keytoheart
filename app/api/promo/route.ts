@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
       return createBody;
     }
     const { title, subtitle, button_text, href, image_url, type, order_index } = createBody;
+    if (typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 });
+    }
     const data = await prisma.promo_blocks.create({
       data: {
         title,
