@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/(protected)/settings/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -24,10 +23,6 @@ interface StoreSettings {
   order_acceptance_schedule: Record<string, DaySchedule>;
   store_hours: Record<string, DaySchedule>;
 }
-
-// ✅ ВАЖНО: типы таблицы Supabase (fix для never)
-type StoreSettingsRow = Database['public']['Tables']['store_settings']['Row'];
-type StoreSettingsUpdate = Database['public']['Tables']['store_settings']['Update'];
 
 const daysOfWeek = [
   { key: 'monday', label: 'Понедельник' },
@@ -56,12 +51,13 @@ const defaultSettings: StoreSettings = {
 const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   const result: Record<string, DaySchedule> = { ...defaultSchedule };
   if (typeof schedule !== 'object' || schedule === null) return result;
-
   for (const [key, value] of Object.entries(schedule)) {
-    if (daysOfWeek.some((day) => day.key === key) && typeof value === 'object' && value !== null) {
+    if (daysOfWeek.some(day => day.key === key) && typeof value === 'object' && value !== null) {
       const { start, end, enabled } = value as any;
-
-      if (typeof start === 'string' && typeof end === 'string') {
+      if (
+        typeof start === 'string' &&
+        typeof end === 'string'
+      ) {
         result[key] = {
           start,
           end,
@@ -70,7 +66,6 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
       }
     }
   }
-
   return result;
 };
 
@@ -85,7 +80,7 @@ export default function AdminSettingsPage() {
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   const [settings, setSettings] = useState<StoreSettings | null>(null);
@@ -104,12 +99,9 @@ export default function AdminSettingsPage() {
       const { data, error } = await supabase
         .from('store_settings')
         .select('*')
-        // ✅ fix: иначе data может стать never
-        .single<StoreSettingsRow>();
-
+        .single();
       if (error) throw new Error(`Supabase error: ${JSON.stringify(error)}`);
       if (!data) throw new Error('Настройки магазина не найдены');
-
       const transformedData: StoreSettings = {
         id: data.id,
         order_acceptance_enabled: data.order_acceptance_enabled ?? false,
@@ -118,14 +110,10 @@ export default function AdminSettingsPage() {
         order_acceptance_schedule: transformSchedule(data.order_acceptance_schedule),
         store_hours: transformSchedule(data.store_hours),
       };
-
       setSettings(transformedData);
       setOriginalSettings(transformedData);
     } catch (error: any) {
       toast.error('Ошибка загрузки настроек: ' + (error.message || 'Неизвестная ошибка'));
-      // fallback, чтобы не оставлять экран пустым
-      setSettings(defaultSettings);
-      setOriginalSettings(defaultSettings);
     } finally {
       setIsLoading(false);
     }
@@ -134,20 +122,17 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     if (!settings) return;
     setIsSaving(true);
-
     try {
-      const updatePayload: StoreSettingsUpdate = {
-        order_acceptance_enabled: settings.order_acceptance_enabled,
-        banner_message: settings.banner_message,
-        banner_active: settings.banner_active,
-        order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
-        store_hours: settings.store_hours as unknown as Json,
-        updated_at: new Date().toISOString(),
-      };
-
-      // ✅ fix: обход бага тайпинга update() в связке @supabase/ssr (иначе never)
-      const { error } = await (supabase.from('store_settings') as any)
-        .update(updatePayload)
+      const { error } = await supabase
+        .from('store_settings')
+        .update({
+          order_acceptance_enabled: settings.order_acceptance_enabled,
+          banner_message: settings.banner_message,
+          banner_active: settings.banner_active,
+          order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
+          store_hours: settings.store_hours as unknown as Json,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', settings.id);
 
       if (error) throw new Error(`Ошибка сохранения: ${error.message}`);
@@ -172,23 +157,19 @@ export default function AdminSettingsPage() {
     type: 'order_acceptance_schedule' | 'store_hours',
     day: string,
     field: 'start' | 'end' | 'enabled',
-    value: string | boolean,
+    value: string | boolean
   ) => {
     setSettings((prev) => {
       if (!prev) return prev;
-
       const schedule = { ...(prev[type] as Record<string, DaySchedule>) };
       const currentDay = { ...schedule[day] };
-
       (currentDay as any)[field] = value;
-
       if ((field === 'start' || field === 'end') && currentDay.start && currentDay.end) {
         if (currentDay.start >= currentDay.end) {
           toast.error('Время окончания должно быть позже времени начала');
           return prev;
         }
       }
-
       schedule[day] = currentDay;
       return { ...prev, [type]: schedule };
     });
@@ -199,7 +180,6 @@ export default function AdminSettingsPage() {
       acc[day.key] = { start: '00:00', end: '23:59', enabled: true };
       return acc;
     }, {} as Record<string, DaySchedule>);
-
     setSettings((prev) =>
       prev
         ? {
@@ -207,32 +187,23 @@ export default function AdminSettingsPage() {
             order_acceptance_enabled: true,
             order_acceptance_schedule: updatedSchedule,
           }
-        : prev,
+        : prev
     );
-
     toast.success('Приём заказов установлен на 24/7');
   };
 
-  const copyScheduleToAllDays = (
-    type: 'order_acceptance_schedule' | 'store_hours',
-    sourceDay: string,
-  ) => {
+  const copyScheduleToAllDays = (type: 'order_acceptance_schedule' | 'store_hours', sourceDay: string) => {
     setSettings((prev) => {
       if (!prev) return prev;
-
       const sourceSchedule = (prev[type] as Record<string, DaySchedule>)[sourceDay];
       const updatedSchedule = daysOfWeek.reduce((acc, day) => {
         acc[day.key] = { ...sourceSchedule };
         return acc;
       }, {} as Record<string, DaySchedule>);
-
       return { ...prev, [type]: updatedSchedule };
     });
-
     toast.success(
-      `Расписание скопировано на все дни для ${
-        type === 'order_acceptance_schedule' ? 'приёма заказов' : 'графика доставки'
-      }`,
+      `Расписание скопировано на все дни для ${type === 'order_acceptance_schedule' ? 'приёма заказов' : 'графика доставки'}`
     );
   };
 
@@ -258,13 +229,7 @@ export default function AdminSettingsPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
         >
-          <Image
-            src="/icons/spinner.svg"
-            alt="Загрузка"
-            width={24}
-            height={24}
-            className="animate-spin"
-          />
+          <Image src="/icons/spinner.svg" alt="Загрузка" width={24} height={24} className="animate-spin" />
         </motion.div>
       </div>
     );
@@ -296,14 +261,13 @@ export default function AdminSettingsPage() {
               checked={settings.order_acceptance_enabled}
               onChange={(e) =>
                 setSettings((prev) =>
-                  prev ? { ...prev, order_acceptance_enabled: e.target.checked } : prev,
+                  prev ? { ...prev, order_acceptance_enabled: e.target.checked } : prev
                 )
               }
               className="form-checkbox h-5 w-5 text-black"
             />
             <span className="text-sm text-gray-600">Приём заказов включён</span>
           </label>
-
           <motion.button
             onClick={enable24HourOrderAcceptance}
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-all"
@@ -318,90 +282,57 @@ export default function AdminSettingsPage() {
         <p className="text-xs text-gray-500 mb-4">
           Укажите время, в течение которого магазин принимает заказы (например, с 00:00 до 23:59).
         </p>
-
         {daysOfWeek.map((day) => (
           <motion.div key={day.key} className="flex items-center gap-4 mb-2" variants={itemVariants}>
             <span className="w-28 text-sm text-gray-600">{day.label}</span>
-
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={
-                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                    ?.enabled ?? true
-                }
+                checked={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true}
                 onChange={(e) =>
-                  handleScheduleChange(
-                    'order_acceptance_schedule',
-                    day.key,
-                    'enabled',
-                    e.target.checked,
-                  )
+                  handleScheduleChange('order_acceptance_schedule', day.key, 'enabled', e.target.checked)
                 }
                 className="form-checkbox h-5 w-5 text-black"
               />
               <span className="text-sm text-gray-600">Включён</span>
             </label>
-
             <div className="flex gap-2 items-center">
               <input
                 type="time"
-                value={
-                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                    ?.start || '09:00'
-                }
+                value={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.start || '09:00'}
                 onChange={(e) =>
                   handleScheduleChange('order_acceptance_schedule', day.key, 'start', e.target.value)
                 }
                 disabled={
-                  !(
-                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                      ?.enabled ?? true
-                  )
+                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                 }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
-                  !(
-                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                      ?.enabled ?? true
-                  )
+                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
               />
-
               <span className="text-gray-500">-</span>
-
               <input
                 type="time"
-                value={
-                  (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.end ||
-                  '18:00'
-                }
+                value={(settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.end || '18:00'}
                 onChange={(e) =>
                   handleScheduleChange('order_acceptance_schedule', day.key, 'end', e.target.value)
                 }
                 disabled={
-                  !(
-                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                      ?.enabled ?? true
-                  )
+                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                 }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
-                  !(
-                    (settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]
-                      ?.enabled ?? true
-                  )
+                  !((settings.order_acceptance_schedule as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
               />
-
               <motion.button
                 onClick={() => copyScheduleToAllDays('order_acceptance_schedule', day.key)}
                 className="text-gray-500 hover:text-gray-700"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                aria-label="Скопировать расписание на все дни"
               >
                 <Image src="/icons/copy.svg" alt="Скопировать" width={16} height={16} />
               </motion.button>
@@ -410,65 +341,66 @@ export default function AdminSettingsPage() {
         ))}
       </motion.section>
 
-      {/* График работы магазина (доставка) */}
+      {/* График работы магазина (доставки) */}
       <motion.section
         className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
         variants={itemVariants}
       >
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          График работы магазина (доставка)
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">График работы магазина (доставка)</h2>
         <p className="text-xs text-gray-500 mb-4">
           Укажите часы, в течение которых возможна доставка (например, с 10:00 до 20:00).
         </p>
-
         {daysOfWeek.map((day) => (
           <motion.div key={day.key} className="flex items-center gap-4 mb-2" variants={itemVariants}>
             <span className="w-28 text-sm text-gray-600">{day.label}</span>
-
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={(settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true}
-                onChange={(e) => handleScheduleChange('store_hours', day.key, 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  handleScheduleChange('store_hours', day.key, 'enabled', e.target.checked)
+                }
                 className="form-checkbox h-5 w-5 text-black"
               />
               <span className="text-sm text-gray-600">Включён</span>
             </label>
-
             <div className="flex gap-2 items-center">
               <input
                 type="time"
                 value={(settings.store_hours as Record<string, DaySchedule>)[day.key]?.start || '09:00'}
-                onChange={(e) => handleScheduleChange('store_hours', day.key, 'start', e.target.value)}
-                disabled={!((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)}
+                onChange={(e) =>
+                  handleScheduleChange('store_hours', day.key, 'start', e.target.value)
+                }
+                disabled={
+                  !((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
+                }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
                   !((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
               />
-
               <span className="text-gray-500">-</span>
-
               <input
                 type="time"
                 value={(settings.store_hours as Record<string, DaySchedule>)[day.key]?.end || '18:00'}
-                onChange={(e) => handleScheduleChange('store_hours', day.key, 'end', e.target.value)}
-                disabled={!((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)}
+                onChange={(e) =>
+                  handleScheduleChange('store_hours', day.key, 'end', e.target.value)
+                }
+                disabled={
+                  !((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
+                }
                 className={`border border-gray-300 rounded-lg px-3 py-1 ${
                   !((settings.store_hours as Record<string, DaySchedule>)[day.key]?.enabled ?? true)
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
                 }`}
               />
-
               <motion.button
                 onClick={() => copyScheduleToAllDays('store_hours', day.key)}
                 className="text-gray-500 hover:text-gray-700"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                aria-label="Скопировать расписание на все дни"
               >
                 <Image src="/icons/copy.svg" alt="Скопировать" width={16} height={16} />
               </motion.button>
@@ -483,19 +415,19 @@ export default function AdminSettingsPage() {
         variants={itemVariants}
       >
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Баннер временного закрытия</h2>
-
         <label className="flex items-center gap-2 mb-4">
           <input
             type="checkbox"
             checked={settings.banner_active}
             onChange={(e) =>
-              setSettings((prev) => (prev ? { ...prev, banner_active: e.target.checked } : prev))
+              setSettings((prev) =>
+                prev ? { ...prev, banner_active: e.target.checked } : prev
+              )
             }
             className="form-checkbox h-5 w-5 text-black"
           />
           <span className="text-sm text-gray-600">Показывать баннер</span>
         </label>
-
         <div className="mb-4">
           <label htmlFor="bannerMessage" className="text-sm font-medium mb-1 block text-gray-700">
             Текст баннера
@@ -505,14 +437,13 @@ export default function AdminSettingsPage() {
             value={settings.banner_message || ''}
             onChange={(e) =>
               setSettings((prev) =>
-                prev ? { ...prev, banner_message: e.target.value || null } : prev,
+                prev ? { ...prev, banner_message: e.target.value || null } : prev
               )
             }
             placeholder="Например: Магазин временно не принимает заказы"
             className="w-full border border-gray-300 rounded-lg p-2 min-h-[80px]"
           />
         </div>
-
         {settings.banner_active && settings.banner_message && (
           <motion.div
             className="bg-gray-100 p-4 rounded-lg text-center text-sm text-gray-700"
@@ -545,7 +476,6 @@ export default function AdminSettingsPage() {
             'Сохранить настройки'
           )}
         </motion.button>
-
         <motion.button
           onClick={handleCancel}
           disabled={isSaving || !hasUnsavedChanges}
