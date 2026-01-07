@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -13,6 +14,11 @@ function normalizePhone(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string; amount?: number; order_id?: string }>(
       req,
       'REDEEM BONUS API',

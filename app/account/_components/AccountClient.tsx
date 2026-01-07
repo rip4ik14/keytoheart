@@ -15,6 +15,7 @@ import BonusCard from '@components/account/BonusCard';
 import BonusHistory from '@components/account/BonusHistory';
 import AuthWithCall from '@components/AuthWithCall';
 import type { Order, OrderItem, UpsellDetail } from '@/types/order';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface BonusHistoryItem {
   amount: number;
@@ -99,7 +100,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     setIsLoading(true);
     try {
       // 1. Сгораемость бонусов
-      const expireRes = await fetch('/api/account/expire-bonuses', {
+      const expireRes = await csrfFetch('/api/account/expire-bonuses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phoneForApi }),
@@ -110,7 +111,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       }
 
       // 2. Обновляем уровень лояльности
-      const loyaltyRes = await fetch('/api/account/update-loyalty', {
+      const loyaltyRes = await csrfFetch('/api/account/update-loyalty', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +222,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await csrfFetch('/api/auth/logout', { method: 'POST' });
       setIsAuthenticated(false);
       setPhone('');
       setOrders([]);

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 // Формируем Token по правилам Tinkoff:
 // 1) Берём все поля запроса, которые отправим в Init (кроме Token)
@@ -20,8 +21,13 @@ function makeToken(params: Record<string, any>) {
   return crypto.createHash("sha256").update(str).digest("hex");
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ amount?: number; orderId?: string; description?: string }>(
       req,
       'PAYMENT API',

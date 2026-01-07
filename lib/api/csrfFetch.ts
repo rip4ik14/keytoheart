@@ -26,11 +26,16 @@ async function ensureCsrfToken(): Promise<string> {
   });
   const data = await res.json().catch(() => ({}));
 
-  if (!res.ok || !data?.token) {
+  if (!res.ok) {
     throw new Error(data?.error || 'Не удалось получить CSRF-токен');
   }
 
-  return String(data.token);
+  const refreshed = readCookie(COOKIE_NAME);
+  if (!refreshed) {
+    throw new Error('CSRF-токен не установлен в cookie');
+  }
+
+  return refreshed;
 }
 
 export async function csrfFetch(input: RequestInfo | URL, init: RequestInit = {}) {

@@ -1,8 +1,9 @@
 // ✅ Путь: app/api/auth/webhook-call/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { requireCsrf } from '@/lib/api/csrf';
 
 type LogStatus = 'PENDING' | 'VERIFIED' | 'EXPIRED';
 
@@ -16,8 +17,13 @@ function safeText(v: unknown): string {
   return sanitizeHtml(String(v ?? ''), { allowedTags: [], allowedAttributes: {} }).trim();
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     process.env.NODE_ENV !== 'production' &&
       console.log(`[${new Date().toISOString()}] Webhook received`);
 

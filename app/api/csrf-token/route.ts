@@ -12,15 +12,18 @@ export async function GET(req: NextRequest) {
   const token = existing || issueToken();
 
   const res = NextResponse.json({ token }, { status: 200 });
+  res.headers.set('Cache-Control', 'no-store');
 
-  // Всегда гарантируем, что cookie существует и совпадает с тем, что вернули
-  res.cookies.set(COOKIE_NAME, token, {
-    httpOnly: false, // токен нужен фронту
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24, // 1 день
-  });
+  if (!existing) {
+    // Устанавливаем cookie только при отсутствии текущего токена
+    res.cookies.set(COOKIE_NAME, token, {
+      httpOnly: false, // токен нужен фронту
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 1 день
+    });
+  }
 
   return res;
 }

@@ -3,30 +3,50 @@
 
 import { useEffect, useState } from 'react';
 
+const COOKIE_NAME = 'csrf_token';
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const cookies = document.cookie.split(';').map((cookie) => cookie.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith(`${name}=`)) {
+      return decodeURIComponent(cookie.slice(name.length + 1));
+    }
+  }
+  return null;
+}
+
 export default function CSRFToken({
   children,
 }: {
   children: (token: string) => React.ReactNode;
 }) {
-  const [token, setToken] = useState<string>('');
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await fetch('/api/csrf-token', {
-          method: 'GET',
-          cache: 'no-store',
-          credentials: 'include',
-        });
+        if (!readCookie(COOKIE_NAME)) {
+          const res = await fetch('/api/csrf-token', {
+            method: 'GET',
+            cache: 'no-store',
+            credentials: 'include',
+          });
 
-        const data = await res.json().catch(() => ({}));
+          const data = await res.json().catch(() => ({}));
 
-        if (!res.ok || !data?.token) {
-          throw new Error(data?.error || 'Не удалось получить CSRF-токен');
+          if (!res.ok) {
+            throw new Error(data?.error || 'Не удалось получить CSRF-токен');
+          }
         }
 
-        setToken(String(data.token));
+        if (!readCookie(COOKIE_NAME)) {
+          throw new Error('CSRF-токен не установлен в cookie');
+        }
+        setReady(true);
       } catch (e: any) {
         setError(e?.message || 'Ошибка получения CSRF-токена');
       }
@@ -34,6 +54,8 @@ export default function CSRFToken({
 
     init();
   }, []);
+
+  const token = readCookie(COOKIE_NAME);
 
   if (error) {
     return (
@@ -43,7 +65,7 @@ export default function CSRFToken({
     );
   }
 
-  if (!token) {
+  if (!ready || !token) {
     return (
       <div className="min-h-[200px] flex items-center justify-center text-sm text-gray-500">
         Загрузка...

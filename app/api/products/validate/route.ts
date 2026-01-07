@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 interface CartItem {
   id: number;
@@ -15,6 +16,11 @@ interface ProductValidationResult {
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ items?: CartItem[] }>(req, 'PRODUCTS VALIDATE API');
     if (body instanceof NextResponse) {
       return body;

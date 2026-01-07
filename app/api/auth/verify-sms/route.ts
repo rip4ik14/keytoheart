@@ -1,13 +1,19 @@
 // app/api/auth/verify-sms/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string; code?: string }>(request, 'AUTH VERIFY SMS API');
     if (body instanceof NextResponse) {
       return body;

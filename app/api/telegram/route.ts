@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 /**
  * TELEGRAM_BOT_TOKEN  – токен BotFather
@@ -9,8 +10,13 @@ import { safeBody } from '@/lib/api/safeBody';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{
       phone?: string;
       name?: string;

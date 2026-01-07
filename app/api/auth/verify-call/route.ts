@@ -1,14 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string; check_id?: string; code?: string }>(
       request,
       'AUTH VERIFY CALL API',

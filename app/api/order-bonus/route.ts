@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 // Уровни кешбэка
 const CASHBACK_LEVELS = [
@@ -21,8 +22,13 @@ function normalizePhone(raw: string): string {
   return raw.startsWith('+') ? raw : '+' + raw;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string; order_total?: number; order_id?: string }>(
       request,
       'ORDER BONUS API',

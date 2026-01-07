@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string; name?: string }>(
       request,
       'ACCOUNT UPDATE PROFILE API',

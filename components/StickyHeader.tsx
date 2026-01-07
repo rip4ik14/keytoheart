@@ -14,6 +14,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 import { useAuth } from '@context/AuthContext';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 type StickyHeaderProps = {
   initialCategories: Category[];
@@ -97,7 +98,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
+      const response = await csrfFetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });

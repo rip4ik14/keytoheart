@@ -1,7 +1,13 @@
 // app/api/auth/logout/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireCsrf } from '@/lib/api/csrf';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
+  }
+
   const response = NextResponse.json({ success: true });
   // Стираем куку user_phone
   response.headers.set(
