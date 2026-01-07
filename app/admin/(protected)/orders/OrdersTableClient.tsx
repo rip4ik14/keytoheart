@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle, Trash2, Info, X as CloseIcon } from 'lucide-react';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 export interface Order {
   id: string;
@@ -82,10 +83,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   // Обновление статуса
   const updateStatus = async (id: string, newStatus: (typeof statusOptions)[number]['value']) => {
     try {
-      const res = await fetch('/api/orders/update-status', {
+      const res = await csrfFetch('/api/orders/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ orderId: id, status: newStatus }),
       });
       const result = await res.json();
@@ -103,10 +103,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   // Удаление заказа
   const deleteOrder = async (id: string) => {
     try {
-      const res = await fetch('/api/admin/delete-order', {
+      const res = await csrfFetch('/api/admin/delete-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ id }),
       });
       const result = await res.json();

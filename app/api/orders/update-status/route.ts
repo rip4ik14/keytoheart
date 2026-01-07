@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
 import sanitizeHtml from 'sanitize-html';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
@@ -29,6 +30,11 @@ function decimalToNumber(v: any): number {
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ orderId?: string; status?: string }>(
       req,
       'ORDERS UPDATE STATUS API',

@@ -6,8 +6,8 @@ import Image from 'next/image';
 import AdminLayout from '../layout';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import CSRFToken from '@components/CSRFToken';
 import DOMPurify from 'dompurify';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface PromoBlock {
   id: number;
@@ -133,7 +133,7 @@ export default function PromoAdminPage() {
       const block = blocks.find(b => b.id === id);
       if (!block) throw new Error('Блок не найден');
 
-      const res = await fetch('/api/promo', {
+      const res = await csrfFetch('/api/promo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, image_url: block.image_url }),
@@ -149,7 +149,7 @@ export default function PromoAdminPage() {
     }
   }
 
-  async function handleSubmit(csrfToken: string) {
+  async function handleSubmit() {
     try {
       if (!form.title?.trim()) throw new Error('Название обязательно');
       if (!form.href) throw new Error('Ссылка (href) обязательна');
@@ -165,9 +165,8 @@ export default function PromoAdminPage() {
         formData.append('file', file);
         if (editingId && form.image_url) formData.append('oldImageUrl', form.image_url);
 
-        const uploadRes = await fetch('/api/promo/upload-image', {
+        const uploadRes = await csrfFetch('/api/promo/upload-image', {
           method: 'POST',
-          headers: { 'X-CSRF-Token': csrfToken },
           body: formData,
         });
 
@@ -188,18 +187,18 @@ export default function PromoAdminPage() {
 
       if (editingId) {
         payload.id = editingId;
-        const res = await fetch('/api/promo', {
+        const res = await csrfFetch('/api/promo', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Ошибка обновления блока');
         toast.success('Блок обновлён');
       } else {
-        const res = await fetch('/api/promo', {
+        const res = await csrfFetch('/api/promo', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         const data = await res.json();
@@ -231,15 +230,13 @@ export default function PromoAdminPage() {
 
   return (
     <AdminLayout>
-      <CSRFToken>
-        {(csrfToken) => (
-          <motion.div
-            className="max-w-4xl mx-auto py-10 px-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h1 className="text-2xl font-bold mb-6">Промо-блоки на главной</h1>
+      <motion.div
+        className="max-w-4xl mx-auto py-10 px-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <h1 className="text-2xl font-bold mb-6">Промо-блоки на главной</h1>
 
             <div className="space-y-8 mb-6">
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -390,7 +387,7 @@ export default function PromoAdminPage() {
 
             <div className="flex gap-4">
               <motion.button
-                onClick={() => handleSubmit(csrfToken)}
+                onClick={() => handleSubmit()}
                 className="bg-black text-white py-2 px-4 rounded hover:bg-gray-800 transition"
               >
                 {editingId ? 'Сохранить изменения' : 'Добавить блок'}
@@ -451,8 +448,6 @@ export default function PromoAdminPage() {
               )}
             </section>
           </motion.div>
-        )}
-      </CSRFToken>
     </AdminLayout>
   );
 }

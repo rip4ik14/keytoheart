@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
+import { requireCsrf } from '@/lib/api/csrf';
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     // Проверка сессии (вместо fetch — с BASE_URL из .env, если нужен)
     const baseUrl = process.env.BASE_URL || 'https://keytoheart.ru';
     const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {

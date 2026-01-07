@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 // Получить все промо-блоки
 export async function GET() {
@@ -28,6 +29,11 @@ export async function GET() {
 // Создать промо-блок
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const createBody = await safeBody<{
       title?: string;
       subtitle?: string;
@@ -74,6 +80,11 @@ export async function POST(req: NextRequest) {
 // Обновить промо-блок
 export async function PATCH(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const updateBody = await safeBody<{
       id?: number | string;
       title?: string;
@@ -110,7 +121,16 @@ export async function PATCH(req: NextRequest) {
 // Удалить промо-блок
 export async function DELETE(req: NextRequest) {
   try {
-    const { id } = await req.json();
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
+    const deleteBody = await safeBody<{ id?: number | string }>(req, 'PROMO API');
+    if (deleteBody instanceof NextResponse) {
+      return deleteBody;
+    }
+    const { id } = deleteBody;
     await prisma.promo_blocks.delete({ where: { id: Number(id) } });
     return NextResponse.json({ success: true });
   } catch (err: any) {

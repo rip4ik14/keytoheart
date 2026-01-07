@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 export async function POST(req: NextRequest) {
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
+  }
+
   // Не забудь поправить абсолютный url!
   const baseUrl = new URL(req.url).origin;
   const sessionRes = await fetch(`${baseUrl}/api/admin-session`, {

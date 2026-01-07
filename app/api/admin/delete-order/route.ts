@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     // Проверка авторизации
     const token = req.cookies.get('admin_session')?.value;
     if (!token || !(await verifyAdminJwt(token))) {

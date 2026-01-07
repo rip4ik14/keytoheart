@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const existing = req.cookies.get(COOKIE_NAME)?.value;
   const token = existing || issueToken();
 
-  const res = NextResponse.json({ csrfToken: token }, { status: 200 });
+  const res = NextResponse.json({ token }, { status: 200 });
 
   // Всегда гарантируем, что cookie существует и совпадает с тем, что вернули
   res.cookies.set(COOKIE_NAME, token, {

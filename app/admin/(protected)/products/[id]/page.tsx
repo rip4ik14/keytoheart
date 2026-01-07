@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -14,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import type { Database } from '@/lib/supabase/types_new';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 type Product = {
   id: number;
@@ -421,7 +421,7 @@ export default function EditProductPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent, csrfToken: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -526,11 +526,10 @@ export default function EditProductPage() {
 
       process.env.NODE_ENV !== "production" && console.log('Updating product with payload:', updatedProduct);
 
-      const res = await fetch('/api/products', {
+      const res = await csrfFetch('/api/products', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           id: productId,
@@ -566,16 +565,14 @@ export default function EditProductPage() {
   }
 
   return (
-    <CSRFToken>
-      {(csrfToken) => (
-        <motion.div
-          className="max-w-6xl mx-auto p-6 space-y-6 bg-gray-50 rounded-lg shadow-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <h1 className="text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
-          <form onSubmit={(e) => handleSubmit(e, csrfToken)} className="space-y-8">
+    <motion.div
+      className="max-w-6xl mx-auto p-6 space-y-6 bg-gray-50 rounded-lg shadow-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <h1 className="text-3xl font-bold text-gray-800">Редактировать товар #{id}</h1>
+      <form onSubmit={handleSubmit} className="space-y-8">
             {/* Основная информация */}
             <section className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-xl font-semibold text-gray-700">Основная информация</h2>
@@ -957,7 +954,5 @@ export default function EditProductPage() {
             </div>
           </form>
         </motion.div>
-      )}
-    </CSRFToken>
   );
 }
