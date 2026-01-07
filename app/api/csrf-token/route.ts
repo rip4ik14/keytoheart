@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
+      domain: '.keytoheart.ru',
       maxAge: 60 * 60 * 24, // 1 день
     });
   }
