@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
 
-export async function safeBody<T>(req: Request, label: string): Promise<T | NextResponse> {
+export async function safeBody(req: Request, tag: string = 'API') {
+  let body = {};
   try {
-    return (await req.json()) as T;
-  } catch (error) {
-    console.error(`[${label}] Invalid JSON body`, error);
-    return NextResponse.json({ error: 'Некорректное тело запроса' }, { status: 400 });
+    const text = await req.text();
+    console.log(`[${tag}] Raw body length: ${text.length}, preview: ${text.slice(0, 500)}`);
+    if (text.trim()) {
+      body = JSON.parse(text);
+    }
+  } catch (e) {
+    console.error(`[${tag}] Body parse error:`, e);
+    return NextResponse.json({ error: 'Некорректный запрос (bad JSON)' }, { status: 400 });
   }
+  return body;
 }
