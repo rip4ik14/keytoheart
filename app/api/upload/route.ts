@@ -4,6 +4,7 @@ import { mkdirSync, existsSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import { requireCsrf } from '@/lib/api/csrf';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,11 @@ const SUPPORTED_MIME = ['image/webp', 'image/jpeg', 'image/png'];
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const oldImageUrl = formData.get('oldImageUrl') as string | null;

@@ -2,9 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     process.env.NODE_ENV !== 'production' &&
       console.log('POST /api/promo/validate: Starting request');
     const body = await safeBody<{ code?: string }>(req, 'PROMO VALIDATE API');

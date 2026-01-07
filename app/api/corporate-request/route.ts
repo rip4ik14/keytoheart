@@ -1,7 +1,8 @@
 // ✅ Путь: app/api/corporate-request/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const TELEGRAM_TOKEN =
   process.env.CORPORATE_TELEGRAM_BOT_TOKEN ||
@@ -28,8 +29,13 @@ const escapeHtml = (text: string) => {
     .replace(/>/g, '&gt;');
 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<CorporateRequestBody>(req, 'CORPORATE REQUEST API');
     if (body instanceof NextResponse) {
       return body;

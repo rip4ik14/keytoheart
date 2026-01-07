@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 const WHATSAPP_LINK = 'https://wa.me/79886033821';
 
@@ -161,7 +162,7 @@ export default function AuthWithCall({ onSuccess }: Props) {
     setCheckId(null);
     const clearPhone = '+7' + phone.replace(/\D/g, '').slice(1, 11);
     try {
-      const res = await fetch('/api/auth/send-call', {
+      const res = await csrfFetch('/api/auth/send-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: clearPhone }),

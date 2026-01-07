@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface ImportantDatesProps {
   phone: string;
@@ -81,7 +82,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/account/important-dates', {
+      const res = await csrfFetch('/api/account/important-dates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

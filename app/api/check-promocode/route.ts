@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
+  }
+
   const body = await safeBody<{ code?: string }>(req, 'CHECK PROMOCODE API');
   if (body instanceof NextResponse) {
     return body;

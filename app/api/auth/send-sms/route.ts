@@ -1,8 +1,9 @@
 // app/api/auth/send-sms/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 // используем any, чтобы убрать ошибки по неописанным в Database таблицам
 const supabase = createClient<any>(
@@ -12,8 +13,13 @@ const supabase = createClient<any>(
 
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string }>(request, 'AUTH SEND SMS API');
     if (body instanceof NextResponse) {
       return body;

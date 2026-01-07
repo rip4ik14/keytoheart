@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireCsrf } from '@/lib/api/csrf';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const response = NextResponse.json({ success: true });
     response.cookies.delete('access_token');
     response.cookies.delete('refresh_token');

@@ -42,11 +42,22 @@ interface Order {
 }
 
 export default async function AdminOrdersPage() {
+  const cookieStore = await cookies();
+  const csrfToken = cookieStore.get('csrf_token')?.value;
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join('; ');
+
   // Очищаем cookies Supabase через API
   try {
     const res = await fetch('http://localhost:3000/api/clear-supabase-cookies', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      },
     });
     const result = await res.json();
     if (!res.ok || !result.success) {
@@ -57,7 +68,6 @@ export default async function AdminOrdersPage() {
   }
 
   // Проверка сессии
-  const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
   if (!token) {
     redirect('/admin/login?error=no-session');

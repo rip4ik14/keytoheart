@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
@@ -37,8 +38,13 @@ interface OrderRequest {
   ask_address_from_recipient?: boolean;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<OrderRequest>(req, 'ORDERS API');
     if (body instanceof NextResponse) {
       return body;
@@ -253,9 +259,14 @@ export async function POST(req: Request) {
 
     if (bonuses_used > 0) {
       try {
+        const csrfToken = req.cookies.get('csrf_token')?.value;
         const res = await fetch(`${baseUrl}/api/redeem-bonus`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+            cookie: req.headers.get('cookie') || '',
+          },
           body: JSON.stringify({
             phone: sanitizedPhone,
             amount: bonuses_used,

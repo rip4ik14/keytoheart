@@ -1,9 +1,10 @@
 // ✅ Путь: app/api/account/bonuses/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const log = (...args: any[]) => {
   if (process.env.NODE_ENV !== 'production') console.log('[account/bonuses]', ...args);
@@ -70,10 +71,15 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   log('POST expire-check');
 
   try {
+    const csrfError = requireCsrf(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ phone?: string }>(request, 'ACCOUNT BONUSES API');
     if (body instanceof NextResponse) {
       return body;

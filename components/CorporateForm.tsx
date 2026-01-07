@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface FormData {
   name: string;
@@ -127,7 +128,7 @@ export default function CorporateForm() {
     }
 
     try {
-      const response = await fetch('/api/corporate-request', {
+      const response = await csrfFetch('/api/corporate-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

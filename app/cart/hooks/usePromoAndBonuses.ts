@@ -4,6 +4,7 @@ import { YM_ID } from '@/utils/ym';
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface PromoDiscount {
   amount: number;
@@ -47,7 +48,7 @@ export function usePromoAndBonuses({
     }
     setIsApplyingPromo(true);
     try {
-      const res = await fetch('/api/promo/validate', {
+      const res = await csrfFetch('/api/promo/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: promoCode }),

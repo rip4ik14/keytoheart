@@ -5,6 +5,7 @@ import { YM_ID } from '@/utils/ym';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface PersonalFormProps {
   onUpdate: () => Promise<void>;
@@ -102,7 +103,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/account/profile', {
+      const res = await csrfFetch('/api/account/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

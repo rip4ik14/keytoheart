@@ -33,6 +33,7 @@ import {
 
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -314,7 +315,7 @@ export default function CartPageClient({
           .filter((id: number) => !isNaN(id));
         if (productIds.length === 0) return;
 
-        const res = await fetch('/api/products/validate', {
+        const res = await csrfFetch('/api/products/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -381,7 +382,7 @@ export default function CartPageClient({
           .filter((id: number) => !isNaN(id));
         if (productIds.length === 0) return;
 
-        const res = await fetch('/api/products/validate', {
+        const res = await csrfFetch('/api/products/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -901,7 +902,7 @@ export default function CartPageClient({
     }
 
     try {
-      const response = await fetch('/api/promo/validate', {
+      const response = await csrfFetch('/api/promo/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: promoCode }),
@@ -939,7 +940,7 @@ export default function CartPageClient({
     if (itemsToValidate.length === 0) return true;
 
     try {
-      const res = await fetch('/api/products/validate', {
+      const res = await csrfFetch('/api/products/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: itemsToValidate }),
@@ -1074,7 +1075,7 @@ export default function CartPageClient({
         whatsapp: form.whatsapp,
       };
 
-      const res = await fetch('/api/orders', {
+      const res = await csrfFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1092,7 +1093,7 @@ export default function CartPageClient({
 
       if (bonusesUsed > 0 && isAuthenticated) {
         try {
-          const bonusRes = await fetch('/api/redeem-bonus', {
+          const bonusRes = await csrfFetch('/api/redeem-bonus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
