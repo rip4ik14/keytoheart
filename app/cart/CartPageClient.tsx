@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { FC } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -436,22 +436,21 @@ export default function CartPageClient({
     let isMounted = true;
 
     const bootstrapFromProps = () => {
-  if (!initialIsAuthenticated || !initialPhone) return false;
+      if (!initialIsAuthenticated || !initialPhone) return false;
 
-  const normalized = normalizePhone(initialPhone);
+      const normalized = normalizePhone(initialPhone);
 
-  setIsAuthenticated(true);
-  setPhone(normalized);
-  setBonusBalance(initialBonusBalance ?? 0);
+      setIsAuthenticated(true);
+      setPhone(normalized);
+      setBonusBalance(initialBonusBalance ?? 0);
 
-  onFormChange({
-    target: { name: 'phone', value: normalized },
-  } as React.ChangeEvent<HTMLInputElement>);
+      onFormChange({
+        target: { name: 'phone', value: normalized },
+      } as ChangeEvent<HTMLInputElement>);
 
-  setAuthChecked(true);
-  return true;
-};
-
+      setAuthChecked(true);
+      return true;
+    };
 
     const alreadyAuthedFromProps = bootstrapFromProps();
 
@@ -466,7 +465,7 @@ export default function CartPageClient({
 
       onFormChange({
         target: { name: 'phone', value: normalized },
-      } as React.ChangeEvent<HTMLInputElement>);
+      } as ChangeEvent<HTMLInputElement>);
 
       try {
         const bonusRes = await fetch(
@@ -798,7 +797,7 @@ export default function CartPageClient({
     (address: string) => {
       onFormChange({
         target: { name: 'street', value: address },
-      } as React.ChangeEvent<HTMLInputElement>);
+      } as ChangeEvent<HTMLInputElement>);
       setShowSuggestions(false);
       setAddressError('');
     },
@@ -806,7 +805,7 @@ export default function CartPageClient({
   );
 
   const handleAddressChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       onFormChange(e);
 

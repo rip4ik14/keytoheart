@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/components/steps/Step5Payment.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -36,14 +35,14 @@ export default function Step5Payment() {
       </motion.div>
 
       <motion.p
-        className="text-xs text-gray-500"
+        className="text-xs text-gray-500 leading-relaxed"
         initial="hidden"
         animate="visible"
         custom={1}
         variants={containerVariants}
       >
-        После оформления заказа мы свяжемся с вами, уточним детали и отправим ссылку на оплату или
-        реквизиты удобным способом.
+        После оформления заказа мы свяжемся с вами, уточним детали и отправим ссылку
+        на оплату или реквизиты удобным способом.
       </motion.p>
     </div>
   );

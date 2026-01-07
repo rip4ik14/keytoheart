@@ -1,6 +1,8 @@
+// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 
 interface FormState {
@@ -90,7 +92,7 @@ export default function useCheckoutForm() {
 
     try {
       const parsed = JSON.parse(saved);
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         ...parsed,
         date: '',
@@ -109,12 +111,12 @@ export default function useCheckoutForm() {
     localStorage.setItem('checkoutForm', JSON.stringify(draft));
   }, [form]);
 
-  const onFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const onFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target;
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setForm(prev => ({ ...prev, [name]: checked }));
+      setForm((prev) => ({ ...prev, [name]: checked }));
       if (name === 'agreedToTerms' && checked) {
         setAgreedToTermsError('');
       }
@@ -125,16 +127,16 @@ export default function useCheckoutForm() {
 
     // ✅ специальные поля из Step4DateTime
     if (name === 'slotValid') {
-      setForm(prev => ({ ...prev, slotValid: value === 'true' }));
+      setForm((prev) => ({ ...prev, slotValid: value === 'true' }));
       return;
     }
 
     if (name === 'slotReason') {
-      setForm(prev => ({ ...prev, slotReason: value || '' }));
+      setForm((prev) => ({ ...prev, slotReason: value || '' }));
       return;
     }
 
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const validateStep1 = () => {
@@ -146,7 +148,7 @@ export default function useCheckoutForm() {
       ok = false;
     } else {
       setPhoneError('');
-      setForm(prev => ({ ...prev, phone: normalized }));
+      setForm((prev) => ({ ...prev, phone: normalized }));
     }
 
     if (!form.name.trim()) {
@@ -164,7 +166,8 @@ export default function useCheckoutForm() {
     }
 
     if (!form.agreedToTerms) {
-      const msg = 'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
+      const msg =
+        'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
       setAgreedToTermsError(msg);
       toast.error(msg);
       ok = false;
@@ -191,7 +194,7 @@ export default function useCheckoutForm() {
       ok = false;
     } else {
       setRecipientPhoneError('');
-      setForm(prev => ({ ...prev, recipientPhone: normalized }));
+      setForm((prev) => ({ ...prev, recipientPhone: normalized }));
     }
 
     return ok;
@@ -246,7 +249,14 @@ export default function useCheckoutForm() {
       ok = false;
     } else {
       const [hh, mm] = form.time.split(':').map(Number);
-      if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+      if (
+        Number.isNaN(hh) ||
+        Number.isNaN(mm) ||
+        hh < 0 ||
+        hh > 23 ||
+        mm < 0 ||
+        mm > 59
+      ) {
         setTimeError('Укажите корректное время доставки');
         ok = false;
       } else {
@@ -256,7 +266,9 @@ export default function useCheckoutForm() {
 
     // ✅ ключевое: запрет прохода, если Step4DateTime пометил слот недоступным
     if (!form.slotValid) {
-      const msg = form.slotReason || 'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
+      const msg =
+        form.slotReason ||
+        'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
       setDateError(msg);
       setTimeError(msg);
       toast.error(msg);
@@ -280,7 +292,7 @@ export default function useCheckoutForm() {
 
     if (!ok) return;
 
-    setStep(prev => {
+    setStep((prev) => {
       const next = (prev + 1) as 1 | 2 | 3 | 4 | 5;
       const safe = next > 5 ? 5 : next;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -289,7 +301,7 @@ export default function useCheckoutForm() {
   };
 
   const prevStep = () => {
-    setStep(prev => {
+    setStep((prev) => {
       const p = (prev - 1) as 1 | 2 | 3 | 4 | 5;
       const safe = p < 1 ? 1 : p;
       window.scrollTo({ top: 0, behavior: 'smooth' });

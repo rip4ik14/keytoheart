@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -52,7 +53,8 @@ export default function Step1ContactDetails({
   setShowAuthPanel,
   onAuthSuccess,
 }: Props) {
-  const canToggleAuth = typeof setShowAuthPanel === 'function' && typeof showAuthPanel === 'boolean';
+  const canToggleAuth =
+    typeof setShowAuthPanel === 'function' && typeof showAuthPanel === 'boolean';
 
   return (
     <div className="space-y-4">
@@ -132,7 +134,13 @@ export default function Step1ContactDetails({
         </label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/envelope.svg" alt="" width={16} height={16} loading="lazy" />
+            <Image
+              src="/icons/envelope.svg"
+              alt=""
+              width={16}
+              height={16}
+              loading="lazy"
+            />
           </div>
           <input
             id="email"
@@ -197,7 +205,8 @@ export default function Step1ContactDetails({
               <p className="text-xs text-gray-500">Проверяем авторизацию...</p>
             ) : (
               <p className="text-xs text-gray-600">
-                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ можно без входа.
+                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ
+                можно без входа.
               </p>
             )}
           </div>
@@ -245,19 +254,31 @@ export default function Step1ContactDetails({
         />
         <span className="text-xs">
           Я согласен(-на) с{' '}
-          <TrackedLink href="/offer" className="underline text-black">
+          <TrackedLink
+            href="/offer"
+            className="underline text-black"
+            ariaLabel="Открыть условия оферты"
+            category="checkout"
+            action="open_legal"
+            label="offer"
+          >
             условиями оферты
           </TrackedLink>{' '}
           и{' '}
-          <TrackedLink href="/policy" className="underline text-black">
+          <TrackedLink
+            href="/policy"
+            className="underline text-black"
+            ariaLabel="Открыть политику конфиденциальности"
+            category="checkout"
+            action="open_legal"
+            label="policy"
+          >
             политикой конфиденциальности
           </TrackedLink>
         </span>
       </motion.div>
 
-      {agreedToTermsError && (
-        <p className="text-red-500 text-xs">{agreedToTermsError}</p>
-      )}
+      {agreedToTermsError && <p className="text-red-500 text-xs">{agreedToTermsError}</p>}
     </div>
   );
 }
