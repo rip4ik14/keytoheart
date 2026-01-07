@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +21,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const body = await safeBody<{ phone?: string; level?: string }>(
+      req,
+      'ADMIN UPDATE LEVEL API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
     const { phone, level } = body;
 
     if (!phone || !level) {

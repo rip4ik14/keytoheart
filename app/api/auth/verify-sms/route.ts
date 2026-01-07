@@ -2,12 +2,17 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 export async function POST(request: Request) {
   try {
-    const { phone, code } = await request.json();
+    const body = await safeBody<{ phone?: string; code?: string }>(request, 'AUTH VERIFY SMS API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, code } = body;
 
     if (!phone || !code) {
       return NextResponse.json(

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function GET(request: Request) {
   try {
@@ -54,7 +55,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { phone, name, last_name, email, birthday, receive_offers } = await request.json();
+    const body = await safeBody<{
+      phone?: string;
+      name?: string;
+      last_name?: string;
+      email?: string;
+      birthday?: string;
+      receive_offers?: boolean;
+    }>(request, 'ACCOUNT PROFILE API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, name, last_name, email, birthday, receive_offers } = body;
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     const normalizedPhone = normalizePhone(sanitizedPhone);

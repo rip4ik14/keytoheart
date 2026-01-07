@@ -3,10 +3,15 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(req: Request) {
   try {
-    const { phone: rawPhone } = await req.json();
+    const body = await safeBody<{ phone?: string }>(req, 'AUTH SEND CALL API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone: rawPhone } = body;
 
     if (!rawPhone) {
       return NextResponse.json(

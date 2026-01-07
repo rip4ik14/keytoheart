@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(request: Request) {
   try {
-    const { phone, name } = await request.json();
+    const body = await safeBody<{ phone?: string; name?: string }>(
+      request,
+      'ACCOUNT UPDATE PROFILE API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, name } = body;
 
     // Валидация входных данных
     if (!phone || !/^\+7\d{10}$/.test(phone)) {

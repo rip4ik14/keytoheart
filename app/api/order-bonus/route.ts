@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { safeBody } from '@/lib/api/safeBody';
 
 // Уровни кешбэка
 const CASHBACK_LEVELS = [
@@ -22,7 +23,14 @@ function normalizePhone(raw: string): string {
 
 export async function POST(request: Request) {
   try {
-    const { phone: rawPhone, order_total, order_id } = await request.json();
+    const body = await safeBody<{ phone?: string; order_total?: number; order_id?: string }>(
+      request,
+      'ORDER BONUS API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone: rawPhone, order_total, order_id } = body;
 
     if (typeof rawPhone !== 'string' || typeof order_total !== 'number' || !order_id) {
       return NextResponse.json(

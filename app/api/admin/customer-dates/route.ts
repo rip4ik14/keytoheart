@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, amount, reason, user_id } = await req.json();
+    const body = await safeBody<{
+      phone?: string;
+      amount?: number;
+      reason?: string;
+      user_id?: string;
+    }>(req, 'ADMIN CUSTOMER DATES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, amount, reason, user_id } = body;
     if (!phone || typeof amount !== 'number' || !reason || !user_id)
       return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
 

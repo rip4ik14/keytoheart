@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { safeBody } from '@/lib/api/safeBody';
 
 interface CartItem {
   id: number;
@@ -14,7 +15,10 @@ interface ProductValidationResult {
 
 export async function POST(req: NextRequest) {
   try {
-    const body: { items: CartItem[] } = await req.json();
+    const body = await safeBody<{ items?: CartItem[] }>(req, 'PRODUCTS VALIDATE API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     process.env.NODE_ENV !== "production" && console.log('Received payload for validation:', body);
 
     const { items } = body;

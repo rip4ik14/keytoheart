@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBody } from '@/lib/api/safeBody';
 
 /**
  * TELEGRAM_BOT_TOKEN  – токен BotFather
@@ -10,7 +11,15 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = await safeBody<{
+      phone?: string;
+      name?: string;
+      total?: number;
+      items?: Array<{ title?: string; quantity?: number; price?: number }>;
+    }>(req, 'TELEGRAM API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     const { phone, name, total, items = [] } = body;
 
     const itemsList =

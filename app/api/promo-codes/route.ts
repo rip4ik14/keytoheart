@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
+import { safeBody } from '@/lib/api/safeBody';
 
 const COOKIE_NAME = 'csrf_token';
 
@@ -111,7 +112,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const body = await safeBody<Record<string, unknown>>(req, 'PROMO CODES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
 
     const code = normalizeCode(body.code);
     const discount_value = parseDiscountValue(body.discount_value);
@@ -144,7 +148,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const body = await safeBody<Record<string, unknown>>(req, 'PROMO CODES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
 
     const id = String(body.id ?? '').trim();
     if (!id) return NextResponse.json({ error: 'Не передан id' }, { status: 400 });

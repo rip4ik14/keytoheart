@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { revalidateTag } from 'next/cache';
+import { safeBody } from '@/lib/api/safeBody';
 
 
 export async function POST(req: NextRequest) {
-  const { id } = await req.json();
+  const body = await safeBody<{ id?: number | string }>(req, 'ADMIN TOGGLE STOCK API');
+  if (body instanceof NextResponse) {
+    return body;
+  }
+  const { id } = body;
 
   // 1. Получаем текущий товар
   const product = await prisma.products.findUnique({

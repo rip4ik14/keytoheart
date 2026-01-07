@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
+import { safeBody } from '@/lib/api/safeBody';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
@@ -38,7 +39,10 @@ interface OrderRequest {
 
 export async function POST(req: Request) {
   try {
-    const body: OrderRequest = await req.json();
+    const body = await safeBody<OrderRequest>(req, 'ORDERS API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     const {
       phone: rawPhone,
       name,

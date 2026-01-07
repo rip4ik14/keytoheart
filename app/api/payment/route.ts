@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { safeBody } from '@/lib/api/safeBody';
 
 // Формируем Token по правилам Tinkoff:
 // 1) Берём все поля запроса, которые отправим в Init (кроме Token)
@@ -21,7 +22,14 @@ function makeToken(params: Record<string, any>) {
 
 export async function POST(req: Request) {
   try {
-    const { amount, orderId, description } = await req.json();
+    const body = await safeBody<{ amount?: number; orderId?: string; description?: string }>(
+      req,
+      'PAYMENT API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { amount, orderId, description } = body;
 
     // Параметры, которые уйдут в /v2/Init
     const initParams = {

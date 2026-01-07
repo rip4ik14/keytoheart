@@ -3,10 +3,14 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await safeBody<{ phone?: string }>(request, 'ACCOUNT UPDATE LOYALTY API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     const rawPhone = body?.phone;
 
     const sanitizedInput = sanitizeHtml(String(rawPhone || ''), {
