@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { safeBody } from '@/lib/api/safeBody';
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -13,7 +14,14 @@ function normalizePhone(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone: rawPhone, amount, reason } = await req.json();
+    const body = await safeBody<{ phone?: string; amount?: number; reason?: string }>(
+      req,
+      'BONUSES UPDATE API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone: rawPhone, amount, reason } = body;
 
     // в теле ожидаем phone, amount (число, может быть отрицательное для списания) и reason
     if (

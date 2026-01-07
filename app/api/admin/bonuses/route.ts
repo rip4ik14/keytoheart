@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
+import { safeBody } from '@/lib/api/safeBody';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +23,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const body = await safeBody<{
+      phone?: string;
+      delta?: number;
+      reason?: string;
+      user_id?: string;
+    }>(req, 'ADMIN BONUSES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     process.env.NODE_ENV !== "production" && console.log('Received bonus update request body:', body);
 
     const { phone, delta, reason, user_id } = body;

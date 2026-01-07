@@ -1,6 +1,7 @@
 // ✅ Путь: app/api/orders/update-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 import sanitizeHtml from 'sanitize-html';
 
 const CASHBACK_LEVELS = [
@@ -28,7 +29,14 @@ function decimalToNumber(v: any): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orderId, status } = await req.json();
+    const body = await safeBody<{ orderId?: string; status?: string }>(
+      req,
+      'ORDERS UPDATE STATUS API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { orderId, status } = body;
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Не указаны orderId или status' }, { status: 400 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 
 // Получить все промо-блоки
 export async function GET() {
@@ -27,7 +28,19 @@ export async function GET() {
 // Создать промо-блок
 export async function POST(req: NextRequest) {
   try {
-    const { title, subtitle, button_text, href, image_url, type, order_index } = await req.json();
+    const createBody = await safeBody<{
+      title?: string;
+      subtitle?: string;
+      button_text?: string;
+      href?: string;
+      image_url?: string;
+      type?: string;
+      order_index?: number;
+    }>(req, 'PROMO API');
+    if (createBody instanceof NextResponse) {
+      return createBody;
+    }
+    const { title, subtitle, button_text, href, image_url, type, order_index } = createBody;
     const data = await prisma.promo_blocks.create({
       data: {
         title,
@@ -49,7 +62,20 @@ export async function POST(req: NextRequest) {
 // Обновить промо-блок
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, title, subtitle, button_text, href, image_url, type, order_index } = await req.json();
+    const updateBody = await safeBody<{
+      id?: number | string;
+      title?: string;
+      subtitle?: string;
+      button_text?: string;
+      href?: string;
+      image_url?: string;
+      type?: string;
+      order_index?: number;
+    }>(req, 'PROMO API');
+    if (updateBody instanceof NextResponse) {
+      return updateBody;
+    }
+    const { id, title, subtitle, button_text, href, image_url, type, order_index } = updateBody;
     const data = await prisma.promo_blocks.update({
       where: { id: Number(id) },
       data: {

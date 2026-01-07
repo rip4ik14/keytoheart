@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { safeBody } from '@/lib/api/safeBody';
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -12,7 +13,14 @@ function normalizePhone(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone: rawPhone, amount, order_id } = await req.json();
+    const body = await safeBody<{ phone?: string; amount?: number; order_id?: string }>(
+      req,
+      'REDEEM BONUS API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone: rawPhone, amount, order_id } = body;
 
     if (typeof rawPhone !== 'string' || typeof amount !== 'number' || !order_id) {
       return NextResponse.json(

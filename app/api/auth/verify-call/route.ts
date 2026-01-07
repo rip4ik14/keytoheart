@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 
 
 const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
@@ -8,7 +9,14 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 
 export async function POST(request: Request) {
   try {
-    const { phone, check_id, code } = await request.json();
+    const body = await safeBody<{ phone?: string; check_id?: string; code?: string }>(
+      request,
+      'AUTH VERIFY CALL API',
+    );
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, check_id, code } = body;
 
     if (!phone || !check_id || !code) {
       process.env.NODE_ENV !== "production" && console.error('Missing parameters:', { phone, check_id, code });

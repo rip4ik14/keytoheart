@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
+import { safeBody } from '@/lib/api/safeBody';
 
 
 export async function POST(request: Request) {
   try {
-    const { phone, events } = await request.json();
+    const body = await safeBody<{
+      phone?: string;
+      events?: Array<{ type: string; date: string; description: string }>;
+    }>(request, 'ACCOUNT IMPORTANT DATES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone, events } = body;
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {

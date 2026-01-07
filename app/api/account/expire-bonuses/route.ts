@@ -1,12 +1,17 @@
 // ✅ Путь: app/api/account/expire-bonuses/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { safeBody } from '@/lib/api/safeBody';
 
 const BONUS_EXPIRE_DAYS = 180; // 6 месяцев
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const body = await safeBody<{ phone?: string }>(request, 'ACCOUNT EXPIRE BONUSES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone } = body;
 
     if (!phone || !/^\+7\d{10}$/.test(phone)) {
       return NextResponse.json(

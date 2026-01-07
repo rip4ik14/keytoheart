@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
+import { safeBody } from '@/lib/api/safeBody';
 
 // используем any, чтобы убрать ошибки по неописанным в Database таблицам
 const supabase = createClient<any>(
@@ -13,7 +14,11 @@ const SMS_RU_API_ID = process.env.SMS_RU_API_ID!;
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const body = await safeBody<{ phone?: string }>(request, 'AUTH SEND SMS API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
+    const { phone } = body;
     if (!phone) {
       return NextResponse.json({ success: false, error: 'Введите номер телефона' }, { status: 400 });
     }

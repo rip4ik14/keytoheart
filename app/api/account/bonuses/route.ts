@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
+import { safeBody } from '@/lib/api/safeBody';
 
 const log = (...args: any[]) => {
   if (process.env.NODE_ENV !== 'production') console.log('[account/bonuses]', ...args);
@@ -73,7 +74,10 @@ export async function POST(request: Request) {
   log('POST expire-check');
 
   try {
-    const body = await request.json();
+    const body = await safeBody<{ phone?: string }>(request, 'ACCOUNT BONUSES API');
+    if (body instanceof NextResponse) {
+      return body;
+    }
     const phoneParam = sanitizeInput(body?.phone || '');
 
     const normalizedPhone = normalizePhone(phoneParam);
