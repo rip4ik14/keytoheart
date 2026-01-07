@@ -2,10 +2,11 @@
 'use client';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 export default function LogoutButton() {
   const handleLogout = async () => {
-    await fetch('/api/admin-logout', { method: 'POST' });
+    await csrfFetch('/api/admin-logout', { method: 'POST' });
     window.location.href = '/admin/login';
     window.gtag?.('event', 'admin_logout', { event_category: 'admin' });
     if (YM_ID !== undefined) {

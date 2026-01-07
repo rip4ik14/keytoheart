@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
 import { supabasePublic } from '@/lib/supabase/public';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface Event {
   type: string;
@@ -172,7 +173,7 @@ export default function CustomerDetailClient({ customer }: Props) {
         user_id: customer.id,
       });
 
-      const response = await fetch('/api/admin/bonuses', {
+      const response = await csrfFetch('/api/admin/bonuses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +209,7 @@ export default function CustomerDetailClient({ customer }: Props) {
     if (!customer) return;
 
     try {
-      const response = await fetch('/api/admin/update-level', {
+      const response = await csrfFetch('/api/admin/update-level', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

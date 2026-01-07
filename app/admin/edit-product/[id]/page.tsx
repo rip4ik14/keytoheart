@@ -5,10 +5,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface Category {
   id: number;
@@ -329,7 +329,7 @@ export default function EditProductPage() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent, csrfToken: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const toastId = toast.loading('Сохранение товара...');
     setLoading(true);
@@ -395,11 +395,10 @@ export default function EditProductPage() {
         }
       }
 
-      const res = await fetch('/api/products', {
+      const res = await csrfFetch('/api/products', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           id: parseInt(id!),
@@ -444,16 +443,14 @@ export default function EditProductPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <CSRFToken>
-      {(csrfToken) => (
-        <motion.div
-          className="max-w-3xl mx-auto p-4 sm:p-8 bg-white rounded-2xl shadow-xl my-8 animate-in fade-in duration-200"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 tracking-tight">Редактировать товар #{id}</h1>
-          <form onSubmit={e => handleSubmit(e, csrfToken)} className="space-y-8">
+    <motion.div
+      className="max-w-3xl mx-auto p-4 sm:p-8 bg-white rounded-2xl shadow-xl my-8 animate-in fade-in duration-200"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 tracking-tight">Редактировать товар #{id}</h1>
+      <form onSubmit={handleSubmit} className="space-y-8">
             {/* ——— Основная информация ——— */}
             <section>
               <h2 className="text-xl font-semibold text-gray-800 mb-3">Основная информация</h2>
@@ -787,7 +784,5 @@ export default function EditProductPage() {
             </div>
           </form>
         </motion.div>
-      )}
-    </CSRFToken>
   );
 }

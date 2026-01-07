@@ -5,6 +5,7 @@ import { verifyAdminJwt } from '@/lib/auth';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
@@ -41,6 +42,11 @@ function mapAdminStatusToDb(statusRu: string): 'pending' | 'processing' | 'deliv
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await safeBody<{ id?: string; status?: string }>(
       req,
       'ADMIN UPDATE ORDER STATUS API',

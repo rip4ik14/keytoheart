@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireCsrf } from '@/lib/api/csrf';
 
 interface ProductData {
   id?: number;
@@ -81,12 +82,9 @@ export async function POST(req: NextRequest) {
   try {
     process.env.NODE_ENV !== "production" && console.log('POST /api/products: Starting request');
 
-    // Проверка CSRF-токена
-    const csrfToken = req.headers.get('X-CSRF-Token');
-    process.env.NODE_ENV !== "production" && console.log('POST /api/products: CSRF Token:', csrfToken);
-    if (!csrfToken) {
-      process.env.NODE_ENV !== "production" && console.log('POST /api/products: CSRF token missing');
-      return NextResponse.json({ error: 'CSRF token missing' }, { status: 403 });
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
     }
 
     // Проверка сессии администратора
@@ -362,12 +360,9 @@ export async function PATCH(req: NextRequest) {
   try {
     process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Starting request');
 
-    // Проверка CSRF-токена
-    const csrfToken = req.headers.get('X-CSRF-Token');
-    process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: CSRF Token:', csrfToken);
-    if (!csrfToken) {
-      process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: CSRF token missing');
-      return NextResponse.json({ error: 'CSRF token missing' }, { status: 403 });
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
     }
 
     // Проверка сессии администратора
@@ -641,6 +636,10 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     process.env.NODE_ENV !== "production" && console.log('DELETE /api/products: Starting request');
+    const csrfError = requireCsrf(req);
+    if (csrfError) {
+      return csrfError;
+    }
     const sessionRes = await fetch(new URL('/api/admin-session', req.url), {
       headers: { cookie: req.headers.get('cookie') || '' },
     });

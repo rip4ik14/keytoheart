@@ -22,11 +22,11 @@ export default function CSRFToken({
 
         const data = await res.json().catch(() => ({}));
 
-        if (!res.ok || !data?.csrfToken) {
+        if (!res.ok || !data?.token) {
           throw new Error(data?.error || 'Не удалось получить CSRF-токен');
         }
 
-        setToken(String(data.csrfToken));
+        setToken(String(data.token));
       } catch (e: any) {
         setError(e?.message || 'Ошибка получения CSRF-токена');
       }

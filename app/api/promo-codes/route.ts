@@ -1,34 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { safeBody } from '@/lib/api/safeBody';
-
-const COOKIE_NAME = 'csrf_token';
-
-function ensureCsrfCookie(req: NextRequest, res: NextResponse) {
-  let token = req.cookies.get(COOKIE_NAME)?.value;
-
-  if (!token) {
-    token = randomBytes(32).toString('hex');
-    res.cookies.set(COOKIE_NAME, token, {
-      httpOnly: false,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24,
-    });
-  }
-
-  return token;
-}
-
-function checkCSRF(req: NextRequest) {
-  const headerToken = req.headers.get('x-csrf-token');
-  const cookieToken = req.cookies.get(COOKIE_NAME)?.value;
-
-  return Boolean(headerToken && cookieToken && headerToken === cookieToken);
-}
+import { requireCsrf } from '@/lib/api/csrf';
 
 function normalizeCode(input: unknown) {
   const code = String(input ?? '').trim().toUpperCase();
@@ -97,9 +71,7 @@ export async function GET(req: NextRequest) {
       orderBy: { created_at: 'desc' },
     });
 
-    const res = NextResponse.json(codes, { status: 200 });
-    ensureCsrfCookie(req, res);
-    return res;
+    return NextResponse.json(codes, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: prismaErrorToMessage(err) }, { status: 500 });
   }
@@ -107,8 +79,9 @@ export async function GET(req: NextRequest) {
 
 // POST: создание промокода
 export async function POST(req: NextRequest) {
-  if (!checkCSRF(req)) {
-    return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
   }
 
   try {
@@ -143,8 +116,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH: обновление промокода
 export async function PATCH(req: NextRequest) {
-  if (!checkCSRF(req)) {
-    return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
   }
 
   try {
@@ -183,8 +157,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE: удаление промокода
 export async function DELETE(req: NextRequest) {
-  if (!checkCSRF(req)) {
-    return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  const csrfError = requireCsrf(req);
+  if (csrfError) {
+    return csrfError;
   }
 
   try {

@@ -5,6 +5,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 function LoginContent() {
   const [password, setPassword] = useState('');
@@ -71,11 +72,10 @@ function LoginContent() {
       process.env.NODE_ENV !== "production" &&
         console.log(`${new Date().toISOString()} AdminLoginPage: Cleared admin_session cookie before login`);
 
-      const res = await fetch('/api/admin-login', {
+      const res = await csrfFetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
-        credentials: 'include',
       });
 
       const data = await res.json();

@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import CSRFToken from '@components/CSRFToken';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
+import { csrfFetch } from '@/lib/api/csrfFetch';
 
 interface PromoCode {
   id: string;
@@ -110,7 +110,7 @@ export default function PromoCodesAdminPage() {
     navigator.clipboard.writeText(code).then(() => toast.success('Код скопирован'));
   }
 
-  async function handleSubmit(csrfToken: string) {
+  async function handleSubmit() {
     try {
       const rawCode = form.code?.trim();
       if (!rawCode) throw new Error('Код обязателен');
@@ -147,12 +147,10 @@ export default function PromoCodesAdminPage() {
 
       const method = editingId ? 'PATCH' : 'POST';
 
-      const res = await fetch('/api/promo-codes', {
+      const res = await csrfFetch('/api/promo-codes', {
         method,
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
         },
         body: JSON.stringify(payload),
       });
@@ -168,19 +166,17 @@ export default function PromoCodesAdminPage() {
     }
   }
 
-  async function handleDelete(promo: PromoCode, csrfToken: string) {
+  async function handleDelete(promo: PromoCode) {
     if (!confirm('Удалить промокод?')) return;
 
     try {
       // двойная гарантия: и query, и body
       const url = `/api/promo-codes?id=${encodeURIComponent(promo.id)}`;
 
-      const res = await fetch(url, {
+      const res = await csrfFetch(url, {
         method: 'DELETE',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
         },
         body: JSON.stringify({ id: promo.id, code: promo.code }),
       });
@@ -202,15 +198,13 @@ export default function PromoCodesAdminPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <CSRFToken>
-      {(csrfToken) => (
-        <motion.div
-          className="max-w-4xl mx-auto py-10 px-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <h1 className="text-2xl font-bold mb-6">Промокоды</h1>
+    <motion.div
+      className="max-w-4xl mx-auto py-10 px-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <h1 className="text-2xl font-bold mb-6">Промокоды</h1>
 
           <div className="space-y-8 mb-6">
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -306,7 +300,7 @@ export default function PromoCodesAdminPage() {
 
           <div className="flex gap-4 mb-6">
             <motion.button
-              onClick={() => handleSubmit(csrfToken)}
+              onClick={() => handleSubmit()}
               className="bg-black text-white py-2 px-4 rounded hover:bg-gray-800 transition"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -392,7 +386,7 @@ export default function PromoCodesAdminPage() {
                           </motion.button>
 
                           <motion.button
-                            onClick={() => handleDelete(promo, csrfToken)}
+                            onClick={() => handleDelete(promo)}
                             className="text-red-600 hover:underline text-sm"
                             whileHover={{ scale: 1.05 }}
                           >
@@ -406,8 +400,6 @@ export default function PromoCodesAdminPage() {
               </div>
             )}
           </section>
-        </motion.div>
-      )}
-    </CSRFToken>
+    </motion.div>
   );
 }
