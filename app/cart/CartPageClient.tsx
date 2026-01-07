@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import type { FC } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -62,7 +63,7 @@ interface ErrorModalProps {
   onRetry: () => Promise<void>;
   onClose: () => void;
 }
-const ErrorModal = ErrorModalComponent as React.FC<ErrorModalProps>;
+const ErrorModal = ErrorModalComponent as FC<ErrorModalProps>;
 
 interface DaySchedule {
   start: string;
@@ -97,13 +98,10 @@ const transformSchedule = (schedule: any): Record<string, DaySchedule> => {
     'sunday',
   ];
 
-  const result: Record<string, DaySchedule> = daysOfWeek.reduce(
-    (acc, day) => {
-      acc[day] = { start: '09:00', end: '18:00' };
-      return acc;
-    },
-    {} as Record<string, DaySchedule>,
-  );
+  const result: Record<string, DaySchedule> = daysOfWeek.reduce((acc, day) => {
+    acc[day] = { start: '09:00', end: '18:00' };
+    return acc;
+  }, {} as Record<string, DaySchedule>);
 
   if (typeof schedule !== 'object' || schedule === null) return result;
 
@@ -206,6 +204,9 @@ export default function CartPageClient({
 
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
+  // ✅ Управление раскрытием панели входа в Step1 (UX)
+  const [showAuthPanel, setShowAuthPanel] = useState<boolean>(false);
+
   const {
     step,
     setStep,
@@ -230,6 +231,61 @@ export default function CartPageClient({
     validateStep5,
     resetForm,
   } = useCheckoutForm();
+
+  // ✅ handler для успешной авторизации (один раз)
+  const handleAuthSuccess = useCallback(
+    (phoneFromAuth: string) => {
+      const normalized = normalizePhone(phoneFromAuth);
+
+      setIsAuthenticated(true);
+      setPhone(normalized);
+
+      onFormChange({
+        target: { name: 'phone', value: normalized },
+      } as any);
+
+      fetch(`/api/account/bonuses?phone=${encodeURIComponent(normalized)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success) {
+            setBonusBalance(json.data.bonus_balance || 0);
+          }
+        })
+        .catch(() => {
+          toast.error('Не удалось обновить бонусный баланс');
+        });
+    },
+    [onFormChange],
+  );
+
+  // ✅ Кнопки допов (один JSX) - на мобилке сверху, на десктопе справа
+  const UpsellButtons = (
+    <div className="grid grid-cols-2 gap-3 w-full">
+      <motion.button
+        type="button"
+        onClick={() => setShowPostcard(true)}
+        className="w-full flex flex-col items-center justify-center gap-2 border border-[#bdbdbd] rounded-xl px-3 py-4 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+        aria-label="Добавить открытку"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <Image src="/icons/postcard.svg" alt="" width={22} height={22} />
+        <span className="text-center leading-tight">Добавить открытку</span>
+      </motion.button>
+
+      <motion.button
+        type="button"
+        onClick={() => setShowBalloons(true)}
+        className="w-full flex flex-col items-center justify-center gap-2 border border-[#bdbdbd] rounded-xl px-3 py-4 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
+        aria-label="Добавить шары"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <Image src="/icons/balloon.svg" alt="" width={22} height={22} />
+        <span className="text-center leading-tight">Добавить шары</span>
+      </motion.button>
+    </div>
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -453,7 +509,6 @@ export default function CartPageClient({
       }
 
       try {
-        // ✅ no-store, чтобы Safari не залипал на кеше
         const response = await fetch('/api/auth/check-session', {
           method: 'GET',
           credentials: 'include',
@@ -518,7 +573,6 @@ export default function CartPageClient({
       checkAuth();
     };
 
-    // ✅ iOS/Safari BFCache fix: при возврате на страницу эффекты могут не перезапускаться
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
         checkAuth();
@@ -548,6 +602,11 @@ export default function CartPageClient({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ если пользователь уже авторизован, можно по умолчанию не показывать панель входа
+  useEffect(() => {
+    if (isAuthenticated) setShowAuthPanel(false);
+  }, [isAuthenticated]);
 
   const handleNextStep = useCallback(() => {
     if (step === 1) {
@@ -601,9 +660,7 @@ export default function CartPageClient({
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
 
   const bonusesToUse =
-    useBonuses && isAuthenticated
-      ? Math.min(bonusBalance, maxBonusesAllowed)
-      : 0;
+    useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
 
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
@@ -630,8 +687,7 @@ export default function CartPageClient({
 
         if (isMounted && res.ok && json.success) {
           setStoreSettings({
-            order_acceptance_enabled:
-              json.data.order_acceptance_enabled ?? false,
+            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
             banner_message: json.data.banner_message ?? null,
             banner_active: json.data.banner_active ?? false,
             order_acceptance_schedule: transformSchedule(
@@ -643,8 +699,7 @@ export default function CartPageClient({
           toast.error('Не удалось загрузить настройки магазина');
         }
       } catch {
-        if (isMounted)
-          toast.error('Не удалось загрузить настройки магазина');
+        if (isMounted) toast.error('Не удалось загрузить настройки магазина');
       } finally {
         if (isMounted) setIsStoreSettingsLoading(false);
       }
@@ -790,9 +845,7 @@ export default function CartPageClient({
   const updateUpsellQuantity = useCallback((id: string, quantity: number) => {
     setSelectedUpsells((prev) =>
       prev.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, quantity) }
-          : item,
+        item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item,
       ),
     );
   }, []);
@@ -814,9 +867,7 @@ export default function CartPageClient({
 
           const { success, data, error } = await res.json();
           if (!success)
-            throw new Error(
-              error || 'Не удалось загрузить дополнительные товары',
-            );
+            throw new Error(error || 'Не удалось загрузить дополнительные товары');
 
           return data || [];
         });
@@ -824,12 +875,12 @@ export default function CartPageClient({
         const results = await Promise.all(fetchPromises);
 
         if (isMounted) {
-          const upsellWithQuantity = results
-            .flat()
-            .map((item: Omit<UpsellItem, 'quantity'>) => ({
+          const upsellWithQuantity = results.flat().map(
+            (item: Omit<UpsellItem, 'quantity'>) => ({
               ...item,
               quantity: 1,
-            }));
+            }),
+          );
 
           setUpsellItems(upsellWithQuantity);
         }
@@ -864,8 +915,7 @@ export default function CartPageClient({
       });
 
       const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error || 'Не удалось применить промокод');
+      if (!response.ok) throw new Error(result.error || 'Не удалось применить промокод');
 
       setPromoDiscount(result.discount);
       setPromoType(result.discountType);
@@ -1168,6 +1218,9 @@ export default function CartPageClient({
         animate="visible"
       >
         <div className="w-full max-w-full md:col-span-2 space-y-4">
+          {/* ✅ Мобилка: две кнопки допов сверху, как на Labberry */}
+          <div className="md:hidden mb-4">{UpsellButtons}</div>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -1190,6 +1243,19 @@ export default function CartPageClient({
                     nameError={nameError}
                     agreedToTermsError={agreedToTermsError}
                     onFormChange={onFormChange as any}
+                    isAuthenticated={isAuthenticated}
+                    authChecked={authChecked}
+                    bonusBalance={bonusBalance}
+                    showAuthPanel={showAuthPanel}
+                    setShowAuthPanel={setShowAuthPanel}
+                    onAuthSuccess={handleAuthSuccess}
+                    AuthComponent={
+                      <AuthWithCall
+                        onSuccess={(p: string) => {
+                          handleAuthSuccess(p);
+                        }}
+                      />
+                    }
                   />
                 </OrderStep>
               )}
@@ -1271,43 +1337,8 @@ export default function CartPageClient({
         </div>
 
         <div className="w-full max-w-full space-y-4">
-          <div className="flex flex-col xs:flex-row gap-3 mb-4 w-full justify-center md:flex-row">
-            <motion.button
-              type="button"
-              onClick={() => setShowPostcard(true)}
-              className="w-full xs:w-1/2 md:w-auto flex items-center justify-center gap-2 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-              aria-label="Добавить открытку"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Image
-                src="/icons/postcard.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform"
-              />
-              <span>Добавить открытку</span>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={() => setShowBalloons(true)}
-              className="w-full xs:w-1/2 md:w-auto flex items-center justify-center gap-2 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-xs uppercase tracking-tight bg-white text-[#535353] transition shadow-sm hover:bg-[#535353] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]"
-              aria-label="Добавить шары"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Image
-                src="/icons/balloon.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="transition-transform"
-              />
-              <span>Добавить шары</span>
-            </motion.button>
-          </div>
+          {/* ✅ Десктоп: эти же две кнопки остаются справа */}
+          <div className="hidden md:block mb-4">{UpsellButtons}</div>
 
           {[...items, ...selectedUpsells]
             .filter(
@@ -1321,9 +1352,7 @@ export default function CartPageClient({
                   key={`${isUpsell ? 'upsell' : 'item'}-${(item as any).id}-${idx}`}
                   item={item as any}
                   removeItem={isUpsell ? removeUpsell : removeItem}
-                  updateQuantity={
-                    isUpsell ? updateUpsellQuantity : updateQuantity
-                  }
+                  updateQuantity={isUpsell ? updateUpsellQuantity : updateQuantity}
                 />
               );
             })}
@@ -1361,9 +1390,7 @@ export default function CartPageClient({
                     <input
                       type="text"
                       value={promoCode}
-                      onChange={(e) =>
-                        setPromoCode(e.target.value.toUpperCase())
-                      }
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="Введите промокод"
                       className="flex-1 min-w-0 w-full py-3 px-3 text-black border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-sm"
                       aria-label="Введите промокод"
@@ -1381,9 +1408,7 @@ export default function CartPageClient({
                     </motion.button>
                   </div>
 
-                  {promoError && (
-                    <p className="mt-2 text-xs text-red-500">{promoError}</p>
-                  )}
+                  {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
 
                   {promoDiscount !== null && (
                     <motion.p
@@ -1416,67 +1441,6 @@ export default function CartPageClient({
             bonusesUsed={bonusesUsed}
             deliveryMethod={form.deliveryMethod}
           />
-
-          <div className="p-4 bg-white border border-gray-300 rounded-lg shadow-sm space-y-3">
-            <h3 className="text-sm font-semibold">Бонусы и личный кабинет</h3>
-
-            {isAuthenticated ? (
-              <>
-                <p className="text-xs text-gray-600">
-                  Вы уже авторизованы по номеру{' '}
-                  <span className="font-semibold">{phone}</span>.
-                </p>
-                <p className="text-xs text-gray-600">
-                  Текущий баланс:&nbsp;
-                  <span className="font-semibold">{bonusBalance}</span> бонусов.
-                </p>
-                <p className="text-xs text-gray-500">
-                  Бонусы можно списать сейчас или накопить и использовать позже.
-                </p>
-              </>
-            ) : !authChecked ? (
-              <p className="text-xs text-gray-500">
-                Проверяем бонусный баланс...
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-gray-600">
-                  Авторизация по звонку нужна только, если вы хотите копить
-                  бонусы и видеть историю заказов. Просто оформить заказ можно
-                  и без неё.
-                </p>
-                <AuthWithCall
-                  onSuccess={(phoneFromAuth: string) => {
-                    const normalized = normalizePhone(phoneFromAuth);
-
-                    setIsAuthenticated(true);
-                    setPhone(normalized);
-
-                    onFormChange({
-                      target: { name: 'phone', value: normalized },
-                    } as any);
-
-                    fetch(
-                      `/api/account/bonuses?phone=${encodeURIComponent(
-                        normalized,
-                      )}`,
-                    )
-                      .then((res) => res.json())
-                      .then((json) => {
-                        if (json.success) {
-                          setBonusBalance(json.data.bonus_balance || 0);
-                        }
-                      })
-                      .catch(() => {
-                        toast.error('Не удалось обновить бонусный баланс');
-                      });
-
-                    console.log('[AuthWithCall] success, phone:', normalized);
-                  }}
-                />
-              </>
-            )}
-          </div>
         </div>
       </motion.div>
 

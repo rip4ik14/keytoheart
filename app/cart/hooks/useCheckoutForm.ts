@@ -22,6 +22,10 @@ interface FormState {
   whatsapp: boolean;
   agreedToTerms: boolean;
   askAddressFromRecipient: boolean;
+
+  // ✅ новые поля
+  slotValid: boolean;
+  slotReason: string;
 }
 
 const initialFormState: FormState = {
@@ -43,9 +47,11 @@ const initialFormState: FormState = {
   whatsapp: false,
   agreedToTerms: false,
   askAddressFromRecipient: false,
+
+  slotValid: false,
+  slotReason: 'Выберите дату и время',
 };
 
-// Нормализация для проверки
 const normalizePhoneForRu = (raw: string): string | null => {
   const digits = raw.replace(/\D/g, '');
 
@@ -78,7 +84,6 @@ export default function useCheckoutForm() {
   const [timeError, setTimeError] = useState<string>('');
   const [agreedToTermsError, setAgreedToTermsError] = useState<string>('');
 
-  // Загружаем черновик
   useEffect(() => {
     const saved = localStorage.getItem('checkoutForm');
     if (!saved) return;
@@ -91,21 +96,20 @@ export default function useCheckoutForm() {
         date: '',
         time: '',
         agreedToTerms: false,
+        slotValid: false,
+        slotReason: 'Выберите дату и время',
       }));
     } catch (e) {
       console.error('Invalid saved form:', e);
     }
   }, []);
 
-  // Сохраняем черновик
   useEffect(() => {
     const { phone, ...draft } = form;
     localStorage.setItem('checkoutForm', JSON.stringify(draft));
   }, [form]);
 
-  const onFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const onFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target;
 
     if (type === 'checkbox') {
@@ -117,10 +121,22 @@ export default function useCheckoutForm() {
       return;
     }
 
-    setForm(prev => ({ ...prev, [name]: e.target.value }));
+    const value = (e.target as HTMLInputElement).value;
+
+    // ✅ специальные поля из Step4DateTime
+    if (name === 'slotValid') {
+      setForm(prev => ({ ...prev, slotValid: value === 'true' }));
+      return;
+    }
+
+    if (name === 'slotReason') {
+      setForm(prev => ({ ...prev, slotReason: value || '' }));
+      return;
+    }
+
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // STEP 1
   const validateStep1 = () => {
     let ok = true;
 
@@ -148,8 +164,7 @@ export default function useCheckoutForm() {
     }
 
     if (!form.agreedToTerms) {
-      const msg =
-        'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
+      const msg = 'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
       setAgreedToTermsError(msg);
       toast.error(msg);
       ok = false;
@@ -160,7 +175,6 @@ export default function useCheckoutForm() {
     return ok;
   };
 
-  // STEP 2
   const validateStep2 = () => {
     let ok = true;
 
@@ -173,9 +187,7 @@ export default function useCheckoutForm() {
 
     const normalized = normalizePhoneForRu(form.recipientPhone);
     if (!normalized) {
-      setRecipientPhoneError(
-        'Введите номер получателя в формате 8(9xx)… или +7(9xx)…',
-      );
+      setRecipientPhoneError('Введите номер получателя в формате 8(9xx)… или +7(9xx)…');
       ok = false;
     } else {
       setRecipientPhoneError('');
@@ -185,7 +197,6 @@ export default function useCheckoutForm() {
     return ok;
   };
 
-  // STEP 3
   const validateStep3 = () => {
     if (form.deliveryMethod === 'pickup') {
       setAddressError('');
@@ -206,11 +217,10 @@ export default function useCheckoutForm() {
     return true;
   };
 
-  // STEP 4 — обновлённая строгая версия
+  // ✅ STEP 4 - теперь учитываем реальную доступность слота
   const validateStep4 = () => {
     let ok = true;
 
-    // Дата
     if (!form.date) {
       setDateError('Выберите дату доставки');
       ok = false;
@@ -231,20 +241,12 @@ export default function useCheckoutForm() {
       }
     }
 
-    // Время
     if (!form.time) {
       setTimeError('Выберите время доставки');
       ok = false;
     } else {
       const [hh, mm] = form.time.split(':').map(Number);
-      if (
-        Number.isNaN(hh) ||
-        Number.isNaN(mm) ||
-        hh < 0 ||
-        hh > 23 ||
-        mm < 0 ||
-        mm > 59
-      ) {
+      if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
         setTimeError('Укажите корректное время доставки');
         ok = false;
       } else {
@@ -252,19 +254,22 @@ export default function useCheckoutForm() {
       }
     }
 
+    // ✅ ключевое: запрет прохода, если Step4DateTime пометил слот недоступным
+    if (!form.slotValid) {
+      const msg = form.slotReason || 'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
+      setDateError(msg);
+      setTimeError(msg);
+      toast.error(msg);
+      ok = false;
+    }
+
     return ok;
   };
 
-  // STEP 5
-  const validateStep5 = (agreed: boolean) => {
-    if (!agreed) {
-      toast.error('Пожалуйста, согласитесь с условиями');
-      return false;
-    }
+  const validateStep5 = (_agreed: boolean) => {
     return true;
   };
 
-  // MOVE NEXT
   const nextStep = () => {
     let ok = true;
 
@@ -283,7 +288,6 @@ export default function useCheckoutForm() {
     });
   };
 
-  // MOVE BACK
   const prevStep = () => {
     setStep(prev => {
       const p = (prev - 1) as 1 | 2 | 3 | 4 | 5;
