@@ -70,6 +70,7 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
 };
 
 type StoreSettingsRow = Database['public']['Tables']['store_settings']['Row'];
+type StoreSettingsUpdate = Database['public']['Tables']['store_settings']['Update'];
 
 export default function AdminSettingsPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -133,17 +134,21 @@ export default function AdminSettingsPage() {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
-        .from('store_settings')
-        .update({
-          order_acceptance_enabled: settings.order_acceptance_enabled,
-          banner_message: settings.banner_message,
-          banner_active: settings.banner_active,
-          order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
-          store_hours: settings.store_hours as unknown as Json,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', settings.id);
+      const updatePayload: StoreSettingsUpdate = {
+  order_acceptance_enabled: settings.order_acceptance_enabled,
+  banner_message: settings.banner_message,
+  banner_active: settings.banner_active,
+  order_acceptance_schedule: settings.order_acceptance_schedule as unknown as Json,
+  store_hours: settings.store_hours as unknown as Json,
+  updated_at: new Date().toISOString(),
+};
+
+const { error } = await supabase
+  .from('store_settings')
+  // ✅ важно: явно типизируем апдейт, иначе может стать never
+  .update<StoreSettingsUpdate>(updatePayload)
+  .eq('id', settings.id);
+
 
       if (error) throw new Error(`Ошибка сохранения: ${error.message}`);
 
