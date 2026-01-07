@@ -436,21 +436,22 @@ export default function CartPageClient({
     let isMounted = true;
 
     const bootstrapFromProps = () => {
-      if (!initialIsAuthenticated || !initialPhone) return false;
+  if (!initialIsAuthenticated || !initialPhone) return false;
 
-      const normalized = normalizePhone(initialPhone);
+  const normalized = normalizePhone(initialPhone);
 
-      setIsAuthenticated(true);
-      setPhone(normalized);
-      setBonusBalance(initialBonusBalance ?? 0);
+  setIsAuthenticated(true);
+  setPhone(normalized);
+  setBonusBalance(initialBonusBalance ?? 0);
 
-      onFormChange({
-        target: { name: 'phone', value: normalized },
-     n: React.ChangeEvent<HTMLInputElement>);
+  onFormChange({
+    target: { name: 'phone', value: normalized },
+  } as React.ChangeEvent<HTMLInputElement>);
 
-      setAuthChecked(true);
-      return true;
-    };
+  setAuthChecked(true);
+  return true;
+};
+
 
     const alreadyAuthedFromProps = bootstrapFromProps();
 
