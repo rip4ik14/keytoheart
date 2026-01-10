@@ -1,14 +1,13 @@
-// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import TrackedLink from '@components/TrackedLink';
 import AuthWithCall from '@components/AuthWithCall';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface Props {
   form: {
-    phone: string;
+    phone: string; // храним НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
     whatsapp: boolean;
     email: string;
     name: string;
@@ -20,7 +19,6 @@ interface Props {
   agreedToTermsError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
-  // optional auth panel (если не передашь - кнопка входа не появится)
   isAuthenticated?: boolean;
   authChecked?: boolean;
   bonusBalance?: number;
@@ -30,13 +28,50 @@ interface Props {
 }
 
 const containerVariants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 12 },
   visible: (i = 1) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.06, duration: 0.35 },
+    transition: { delay: i * 0.05, duration: 0.25 },
   }),
 };
+
+function digitsOnly(v: string) {
+  return (v || '').replace(/\D/g, '');
+}
+
+/**
+ * ВАЖНО: корректно вынимаем "локальные 10 цифр" даже из НЕПОЛНОГО значения.
+ * - "+79" -> "9"
+ * - "+7"  -> ""
+ * - "79"  -> "9"
+ * - "+791234..." -> "91234..."
+ */
+function toLocal10FromStoredPhone(stored: string) {
+  const d = digitsOnly(stored);
+  if (!d) return '';
+
+  if (d.startsWith('7')) return d.slice(1, 11);
+  if (d.startsWith('8')) return d.slice(1, 11);
+
+  // если вдруг прилетело без префикса
+  if (d.length > 10) return d.slice(-10);
+  return d.slice(0, 10);
+}
+
+function formatLocal10ForInput(local10: string) {
+  const d = digitsOnly(local10).slice(0, 10);
+  const a = d.slice(0, 3);
+  const b = d.slice(3, 6);
+  const c = d.slice(6, 8);
+  const e = d.slice(8, 10);
+
+  if (!d) return '';
+  if (d.length <= 3) return `(${a}`;
+  if (d.length <= 6) return `(${a}) ${b}`;
+  if (d.length <= 8) return `(${a}) ${b}-${c}`;
+  return `(${a}) ${b}-${c}-${e}`;
+}
 
 export default function Step1ContactDetails({
   form,
@@ -56,114 +91,115 @@ export default function Step1ContactDetails({
   const canToggleAuth =
     typeof setShowAuthPanel === 'function' && typeof showAuthPanel === 'boolean';
 
+  // UI-значение телефона (без +7)
+  const [phoneUi, setPhoneUi] = useState<string>('');
+
+  // чтобы не перетирать ввод синком во время печати
+  const isFocusedRef = useRef(false);
+
+  const local10FromForm = useMemo(
+    () => toLocal10FromStoredPhone(form.phone),
+    [form.phone],
+  );
+
+  // синхронизация UI с form.phone только когда:
+  // - инпут не в фокусе, или
+  // - значение реально пришло "снаружи" и отличается от того, что сейчас в UI
+  useEffect(() => {
+    const uiDigits = digitsOnly(phoneUi);
+    const nextDigits = digitsOnly(local10FromForm);
+
+    if (isFocusedRef.current && uiDigits === nextDigits) return;
+    if (isFocusedRef.current && uiDigits.length > 0 && nextDigits.startsWith(uiDigits)) {
+      // во время ввода не мешаем каретке
+      return;
+    }
+
+    setPhoneUi(formatLocal10ForInput(local10FromForm));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local10FromForm]);
+
   return (
     <div className="space-y-4">
-      {/* Телефон */}
+      {/* Имя */}
       <motion.div
-        className="space-y-1"
+        className="space-y-2"
         initial="hidden"
         animate="visible"
         custom={0}
         variants={containerVariants}
       >
-        <label htmlFor="phone" className="block text-xs text-gray-500">
-          Телефон для связи*
-        </label>
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/phone.svg" alt="" width={16} height={16} loading="lazy" />
-          </div>
-          <input
-            id="phone"
-            name="phone"
-            value={form.phone}
-            onChange={onFormChange}
-            placeholder="+7XXXXXXXXXX"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
-              phoneError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-black`}
-            inputMode="tel"
-            autoComplete="tel"
-            aria-invalid={!!phoneError}
-          />
-        </div>
-        {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
+        <input
+          id="name"
+          name="name"
+          value={form.name}
+          onChange={onFormChange}
+          placeholder="Ваше имя"
+          className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+            nameError ? 'border-red-500' : 'border-[#bdbdbd]'
+          } focus:border-black`}
+          autoComplete="name"
+          aria-invalid={!!nameError}
+        />
+        {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
       </motion.div>
 
-      {/* Имя */}
+      {/* Телефон */}
       <motion.div
-        className="space-y-1"
+        className="space-y-2"
         initial="hidden"
         animate="visible"
         custom={1}
         variants={containerVariants}
       >
-        <label htmlFor="name" className="block text-xs text-gray-500">
-          Как вас зовут?*
-        </label>
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image src="/icons/user.svg" alt="" width={16} height={16} loading="lazy" />
+        <div className="grid grid-cols-[92px_1fr] gap-3">
+          <div className="rounded-[18px] border border-[#bdbdbd] px-3 py-4 flex items-center justify-between">
+            <span className="text-[15px] font-medium">+7</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
           </div>
-          <input
-            id="name"
-            name="name"
-            value={form.name}
-            onChange={onFormChange}
-            placeholder="Ваше имя"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
-              nameError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-black`}
-            autoComplete="name"
-            aria-invalid={!!nameError}
-          />
-        </div>
-        {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
-      </motion.div>
 
-      {/* Email */}
-      <motion.div
-        className="space-y-1"
-        initial="hidden"
-        animate="visible"
-        custom={2}
-        variants={containerVariants}
-      >
-        <label htmlFor="email" className="block text-xs text-gray-500">
-          Email (по желанию)
-        </label>
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-            <Image
-              src="/icons/envelope.svg"
-              alt=""
-              width={16}
-              height={16}
-              loading="lazy"
-            />
-          </div>
           <input
-            id="email"
-            name="email"
-            value={form.email}
-            onChange={onFormChange}
-            placeholder="example@mail.ru"
-            className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
-              emailError ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-black`}
-            autoComplete="email"
-            aria-invalid={!!emailError}
+            id="phone"
+            name="phone_ui"
+            value={phoneUi}
+            onFocus={() => {
+              isFocusedRef.current = true;
+            }}
+            onBlur={() => {
+              isFocusedRef.current = false;
+            }}
+            onChange={(e) => {
+              const rawUi = e.target.value;
+              const d10 = digitsOnly(rawUi).slice(0, 10);
+
+              setPhoneUi(formatLocal10ForInput(d10));
+
+              const normalized = d10.length ? `+7${d10}` : '';
+              onFormChange({
+                target: { name: 'phone', value: normalized },
+              } as any);
+            }}
+            placeholder="(___) ___-__-__"
+            className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+              phoneError ? 'border-red-500' : 'border-[#bdbdbd]'
+            } focus:border-black`}
+            inputMode="tel"
+            autoComplete="tel"
+            aria-invalid={!!phoneError}
           />
         </div>
-        {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
+
+        {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
       </motion.div>
 
       {/* WhatsApp */}
-      <motion.div
-        className="flex items-center gap-2 mt-3"
+      <motion.label
+        className="flex items-center gap-3 pt-1"
         initial="hidden"
         animate="visible"
-        custom={3}
+        custom={2}
         variants={containerVariants}
       >
         <input
@@ -171,18 +207,40 @@ export default function Step1ContactDetails({
           name="whatsapp"
           checked={form.whatsapp}
           onChange={onFormChange}
-          className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
-          aria-label="Связаться через WhatsApp"
+          className="h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
+          aria-label="Не звонить, а написать в WhatsApp"
         />
-        <Image src="/icons/whatsapp.svg" alt="" width={16} height={16} loading="lazy" />
-        <span className="text-sm text-gray-700">
-          Можно присылать информацию по заказу в WhatsApp
-        </span>
+        <span className="text-[13px] text-[#2f2f2f]">Не звонить, а написать в WhatsApp</span>
+      </motion.label>
+
+      {/* Email */}
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        custom={3}
+        variants={containerVariants}
+      >
+        <input
+          id="email"
+          name="email"
+          value={form.email}
+          onChange={onFormChange}
+          placeholder="E-mail"
+          className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+            emailError ? 'border-red-500' : 'border-[#bdbdbd]'
+          } focus:border-black`}
+          autoComplete="email"
+          aria-invalid={!!emailError}
+        />
+        {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
+
+        <p className="text-[12px] text-[#6f6f6f]">Текст открытки можно написать далее</p>
       </motion.div>
 
-      {/* Бонусы и вход - мягко, без принуждения */}
+      {/* Бонусы и вход */}
       <motion.div
-        className="mt-4 p-4 border border-gray-200 rounded-lg bg-white space-y-2"
+        className="mt-2 rounded-[22px] border border-[#bdbdbd] p-4 bg-white space-y-2"
         initial="hidden"
         animate="visible"
         custom={4}
@@ -190,23 +248,23 @@ export default function Step1ContactDetails({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-sm font-semibold">Бонусы и личный кабинет</p>
+            <p className="text-[13px] font-semibold text-black">Бонусы и личный кабинет</p>
 
             {isAuthenticated ? (
               <>
-                <p className="text-xs text-gray-600">
+                <p className="text-[12px] text-[#6f6f6f]">
                   Вы вошли, бонусы начисляются автоматически
                 </p>
-                <p className="text-xs text-gray-600">
-                  Баланс: <span className="font-semibold">{bonusBalance}</span>
+                <p className="text-[12px] text-[#6f6f6f]">
+                  Баланс: <span className="font-semibold text-black">{bonusBalance}</span>
                 </p>
               </>
             ) : !authChecked ? (
-              <p className="text-xs text-gray-500">Проверяем авторизацию...</p>
+              <p className="text-[12px] text-[#6f6f6f]">Проверяем авторизацию...</p>
             ) : (
-              <p className="text-xs text-gray-600">
-                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ
-                можно без входа.
+              <p className="text-[12px] text-[#6f6f6f]">
+                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ можно без
+                входа.
               </p>
             )}
           </div>
@@ -215,7 +273,7 @@ export default function Step1ContactDetails({
             <button
               type="button"
               onClick={() => setShowAuthPanel(!showAuthPanel)}
-              className="shrink-0 border border-[#bdbdbd] rounded-lg px-3 py-2 font-bold text-[10px] uppercase tracking-tight bg-white text-[#535353] hover:bg-[#535353] hover:text-white transition"
+              className="shrink-0 rounded-[14px] border border-[#bdbdbd] px-3 py-2 text-[10px] font-bold uppercase tracking-tight bg-white text-[#4b4b4b] active:scale-[0.99]"
             >
               {showAuthPanel ? 'Скрыть' : 'Войти для бонусов'}
             </button>
@@ -235,8 +293,8 @@ export default function Step1ContactDetails({
 
       {/* Согласие */}
       <motion.div
-        className={`flex items-start gap-2 mt-4 ${
-          agreedToTermsError ? 'text-red-500' : 'text-gray-700'
+        className={`flex items-start gap-3 mt-2 ${
+          agreedToTermsError ? 'text-red-500' : 'text-[#2f2f2f]'
         }`}
         initial="hidden"
         animate="visible"
@@ -248,23 +306,12 @@ export default function Step1ContactDetails({
           name="agreedToTerms"
           checked={form.agreedToTerms || false}
           onChange={onFormChange}
-          className="mt-1 h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+          className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
           aria-label="Согласие с офертой и политикой"
           required
         />
-        <span className="text-xs">
-          Я согласен(-на) с{' '}
-          <TrackedLink
-            href="/offer"
-            className="underline text-black"
-            ariaLabel="Открыть условия оферты"
-            category="checkout"
-            action="open_legal"
-            label="offer"
-          >
-            условиями оферты
-          </TrackedLink>{' '}
-          и{' '}
+        <span className="text-[12px] leading-snug">
+          Нажимая кнопку "Продолжить", вы подтверждаете согласие с{' '}
           <TrackedLink
             href="/policy"
             className="underline text-black"
@@ -273,8 +320,20 @@ export default function Step1ContactDetails({
             action="open_legal"
             label="policy"
           >
-            политикой конфиденциальности
+            политикой обработки персональных данных
+          </TrackedLink>{' '}
+          и{' '}
+          <TrackedLink
+            href="/offer"
+            className="underline text-black"
+            ariaLabel="Открыть условия оферты"
+            category="checkout"
+            action="open_legal"
+            label="offer"
+          >
+            пользовательским соглашением
           </TrackedLink>
+          .
         </span>
       </motion.div>
 

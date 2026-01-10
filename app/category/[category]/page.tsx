@@ -53,7 +53,7 @@ export async function generateMetadata({
 
   const titleFallback = `${name} - доставка в ${city}`;
   const descFallback =
-    `Закажите ${normalized} с доставкой по ${city} от 60 минут. ` +
+    `Закажите ${normalized} с доставкой по ${city} от 30 минут. ` +
     `Свежие ингредиенты, аккуратная сборка, фото перед отправкой, оплата онлайн.`;
 
   const title = (cat.seo_title || '').trim() || titleFallback;

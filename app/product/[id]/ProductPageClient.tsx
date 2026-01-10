@@ -1,9 +1,10 @@
+// ✅ Путь: app/product/[id]/ProductPageClient.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -14,6 +15,11 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
 import type { Product, ComboItem } from './types';
+
+import ComboBuilderModal, {
+  type ComboPickerType,
+  type SelectableProduct,
+} from './ComboBuilderModal';
 
 // blur placeholder
 const BLUR_PLACEHOLDER =
@@ -63,13 +69,13 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
 };
 
 const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 const buttonVariants = {
   rest: { scale: 1 },
-  hover: { scale: 1.03 },
-  tap: { scale: 0.98 },
+  hover: { scale: 1.02 },
+  tap: { scale: 0.985 },
 };
 const notificationVariants = {
   hidden: { opacity: 0, y: -16 },
@@ -94,6 +100,61 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
+function money(n: number) {
+  return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+}
+
+function percentToMultiplier(p: number) {
+  return 1 - p / 100;
+}
+
+// 5% за второй базовый и/или за шары (итого 0/5/10)
+function calcDiscountPercent(opts: { hasSecondBase: boolean; hasBalloons: boolean }) {
+  const parts = (opts.hasSecondBase ? 1 : 0) + (opts.hasBalloons ? 1 : 0);
+  return parts * 5;
+}
+
+type RawProductAny = any;
+
+function toSelectable(raw: RawProductAny, kind: ComboPickerType): SelectableProduct | null {
+  const id = Number(raw?.id);
+  const title = String(raw?.title ?? '');
+  const price = Number(raw?.price ?? 0);
+
+  const image = String(
+    raw?.image_url ??
+      raw?.image ??
+      raw?.imageUrl ??
+      (Array.isArray(raw?.images) && raw.images[0] ? raw.images[0] : '') ??
+      '',
+  );
+
+  const production_time =
+    raw?.production_time != null ? Number(raw.production_time) : null;
+
+  if (!id || !title || !Number.isFinite(price)) return null;
+
+  return {
+    id,
+    title,
+    price,
+    image: image || '/placeholder.jpg',
+    production_time,
+    kind,
+  };
+}
+
+/* -------------------------- IDs (как у тебя) -------------------------- */
+
+// ⚠️ проверь свои ID категорий/подкатегорий - оставляю как у тебя
+const CATEGORY_FLOWERS_ID = 3;
+const CATEGORY_BERRIES_ID = 1;
+const CATEGORY_GIFTS_ID = 8;
+
+// подкатегории в "Подарки"
+const SUB_BALLOONS_ID = 173; // Шары
+const SUB_CARDS_ID = 171; // Открытки
+
 export default function ProductPageClient({
   product,
   combos,
@@ -114,7 +175,7 @@ export default function ProductPageClient({
   const [isStoreSettingsLoading, setIsStoreSettingsLoading] = useState(true);
   const [earliestDelivery, setEarliestDelivery] = useState<string | null>(null);
 
-  // допродажи (шары/открытки)
+  // блок "Добавьте к заказу" (вне комбо)
   const [recommendedItems, setRecommendedItems] = useState<ComboItem[]>(combos || []);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
 
@@ -130,7 +191,10 @@ export default function ProductPageClient({
 
   const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
-  const images = useMemo(() => (Array.isArray(product.images) ? product.images : []), [product.images]);
+  const images = useMemo(
+    () => (Array.isArray(product.images) ? product.images : []),
+    [product.images],
+  );
 
   // определяем тип товара без description, чтобы цветы не ловили клубнику из текста
   const textBlob = useMemo(() => {
@@ -154,40 +218,43 @@ export default function ProductPageClient({
   const recommendLoop = recommendedItems.length > 4;
   const similarLoop = similarItems.length > 4;
 
-  const handleAdd = (
-    id: number,
-    title: string,
-    price: number,
-    img: string | null,
-    productionTime: number | null,
-    isCombo = false,
-  ) => {
-    addItem({
-      id: String(id),
-      title,
-      price,
-      quantity: 1,
-      imageUrl: img || '',
-      production_time: productionTime,
-    });
-
-    if (isCombo) {
-      setComboNotifications((p) => ({ ...p, [id]: true }));
-      setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1800);
-    } else {
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 1800);
-    }
-
-    try {
-      window.gtag?.('event', 'add_to_cart', {
-        event_category: 'ecommerce',
-        event_label: title,
-        value: price,
+  const handleAdd = useCallback(
+    (
+      id: number,
+      title: string,
+      price: number,
+      img: string | null,
+      productionTime: number | null,
+      isCombo = false,
+    ) => {
+      addItem({
+        id: String(id),
+        title,
+        price,
+        quantity: 1,
+        imageUrl: img || '',
+        production_time: productionTime,
       });
-      YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
-    } catch {}
-  };
+
+      if (isCombo) {
+        setComboNotifications((p) => ({ ...p, [id]: true }));
+        setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1800);
+      } else {
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 1800);
+      }
+
+      try {
+        window.gtag?.('event', 'add_to_cart', {
+          event_category: 'ecommerce',
+          event_label: title,
+          value: price,
+        });
+        YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
+      } catch {}
+    },
+    [addItem],
+  );
 
   const handleShare = () => {
     if (typeof window === 'undefined') return;
@@ -214,7 +281,7 @@ export default function ProductPageClient({
     if (typeof window !== 'undefined') window.history.back();
   };
 
-  // store settings
+  /* -------------------------- STORE SETTINGS -------------------------- */
   useEffect(() => {
     const fetchSettings = async () => {
       setIsStoreSettingsLoading(true);
@@ -237,26 +304,31 @@ export default function ProductPageClient({
     fetchSettings();
   }, []);
 
-  // допродажи (шары/открытки) - как у тебя было
+  /* -------------------------- UPSELL (вне комбо): ШАРЫ + ОТКРЫТКИ -------------------------- */
   useEffect(() => {
     const fetchRecommendedItems = async () => {
       const cacheKey = 'recommended_items_podarki';
       const tsKey = `${cacheKey}_ts`;
-      const cached = localStorage.getItem(cacheKey);
-      const ts = localStorage.getItem(tsKey);
 
-      if (cached && ts && Date.now() - +ts < 3_600_000) {
-        setRecommendedItems(JSON.parse(cached));
-        setIsLoadingRecommended(false);
-        return;
-      }
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        const ts = localStorage.getItem(tsKey);
+        if (cached && ts && Date.now() - +ts < 3_600_000) {
+          setRecommendedItems(JSON.parse(cached));
+          setIsLoadingRecommended(false);
+          return;
+        }
+      } catch {}
 
       try {
         setIsLoadingRecommended(true);
-        const subIds = [171, 173];
+
+        const subIds = [SUB_CARDS_ID, SUB_BALLOONS_ID];
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
-            const r = await fetch(`/api/upsell/products?category_id=8&subcategory_id=${sub}`);
+            const r = await fetch(
+              `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${sub}`,
+            );
             if (!r.ok) return [];
             const { success, data } = await r.json();
             return success ? data : [];
@@ -265,17 +337,20 @@ export default function ProductPageClient({
 
         const items: ComboItem[] = resArr
           .flat()
-          .filter((it: any) => it.id !== String(product.id))
+          .filter((it: any) => Number(it.id) !== Number(product.id))
           .map((it: any) => ({
-            id: +it.id,
+            id: Number(it.id),
             title: it.title,
             price: it.price,
-            image: it.image_url || '/placeholder.jpg',
+            image: it.image_url || it.image || '/placeholder.jpg',
           }));
 
         setRecommendedItems(items);
-        localStorage.setItem(cacheKey, JSON.stringify(items));
-        localStorage.setItem(tsKey, String(Date.now()));
+
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(items));
+          localStorage.setItem(tsKey, String(Date.now()));
+        } catch {}
       } catch (error) {
         console.error('Ошибка загрузки допродаж:', error);
       } finally {
@@ -286,7 +361,7 @@ export default function ProductPageClient({
     fetchRecommendedItems();
   }, [product.id]);
 
-  // похожие товары - по category_id текущего товара
+  /* -------------------------- SIMILAR -------------------------- */
   useEffect(() => {
     const fetchSimilar = async () => {
       const cacheKey = `similar_items_${product.id}`;
@@ -327,7 +402,7 @@ export default function ProductPageClient({
     fetchSimilar();
   }, [product.id]);
 
-  // earliest delivery calc
+  /* -------------------------- EARLIEST DELIVERY -------------------------- */
   useEffect(() => {
     if (!storeSettings || isStoreSettingsLoading || !product.production_time) {
       setEarliestDelivery(null);
@@ -392,7 +467,7 @@ export default function ProductPageClient({
     setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
   }, [storeSettings, isStoreSettingsLoading, product.production_time]);
 
-  // analytics view_item
+  /* -------------------------- ANALYTICS view_item -------------------------- */
   useEffect(() => {
     try {
       window.gtag?.('event', 'view_item', {
@@ -400,12 +475,201 @@ export default function ProductPageClient({
         event_label: product.title,
         value: product.price,
       });
-      if (YM_ID !== undefined) {
-        callYm(YM_ID, 'reachGoal', 'view_item', { product_id: product.id });
-      }
+      if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'view_item', { product_id: product.id });
     } catch {}
   }, [product.id, product.title, product.price]);
 
+  /* -------------------------- COMBO STATE -------------------------- */
+
+  const [comboOpen, setComboOpen] = useState(false);
+  const [comboView, setComboView] = useState<'main' | 'pick'>('main');
+  const [activePick, setActivePick] = useState<ComboPickerType>('flowers');
+
+  const [selSecondBase, setSelSecondBase] = useState<SelectableProduct | null>(null);
+  const [selBalloons, setSelBalloons] = useState<SelectableProduct | null>(null);
+  const [selCard, setSelCard] = useState<SelectableProduct | null>(null);
+
+  const [listFlowers, setListFlowers] = useState<SelectableProduct[] | null>(null);
+  const [listBerries, setListBerries] = useState<SelectableProduct[] | null>(null);
+  const [listBalloons, setListBalloons] = useState<SelectableProduct[] | null>(null);
+  const [listCards, setListCards] = useState<SelectableProduct[] | null>(null);
+
+  const [loadingPick, setLoadingPick] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
+
+  const resetCombo = useCallback(() => {
+    setSelSecondBase(null);
+    setSelBalloons(null);
+    setSelCard(null);
+    setComboView('main');
+    setActivePick(isBerryProduct ? 'flowers' : 'berries');
+  }, [isBerryProduct]);
+
+  const openCombo = () => {
+    setComboOpen(true);
+    setComboView('main');
+    setPickError(null);
+    setActivePick(isBerryProduct ? 'flowers' : 'berries');
+  };
+
+  const closeCombo = () => {
+    setComboOpen(false);
+    setComboView('main');
+    setPickError(null);
+  };
+
+  const fetchPickList = useCallback(
+    async (type: ComboPickerType) => {
+      if (type === 'flowers' && listFlowers) return;
+      if (type === 'berries' && listBerries) return;
+      if (type === 'balloons' && listBalloons) return;
+      if (type === 'cards' && listCards) return;
+
+      setLoadingPick(true);
+      setPickError(null);
+
+      try {
+        let url = '';
+
+        if (type === 'flowers') url = `/api/upsell/products?category_id=${CATEGORY_FLOWERS_ID}`;
+        if (type === 'berries') url = `/api/upsell/products?category_id=${CATEGORY_BERRIES_ID}`;
+
+        // ⚠️ ключевое: шары и открытки только из ПОДАРКОВ
+        if (type === 'balloons')
+          url = `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${SUB_BALLOONS_ID}`;
+        if (type === 'cards')
+          url = `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${SUB_CARDS_ID}`;
+
+        const r = await fetch(url);
+        const j = await r.json();
+        if (!r.ok || !j?.success) throw new Error(j?.error || 'Не удалось загрузить товары');
+
+        const items = (j.data || [])
+          .map((it: any) => toSelectable(it, type))
+          .filter(Boolean) as SelectableProduct[];
+
+        // не даём выбрать тот же товар, что открыт сейчас
+        const filtered = items.filter((it) => it.id !== product.id);
+
+        if (type === 'flowers') setListFlowers(filtered);
+        if (type === 'berries') setListBerries(filtered);
+        if (type === 'balloons') setListBalloons(filtered);
+        if (type === 'cards') setListCards(filtered);
+      } catch (e: any) {
+        setPickError(e?.message || 'Ошибка загрузки');
+      } finally {
+        setLoadingPick(false);
+      }
+    },
+    [listFlowers, listBerries, listBalloons, listCards, product.id],
+  );
+
+  const startPick = async (type: ComboPickerType) => {
+    setActivePick(type);
+    setComboView('pick');
+    await fetchPickList(type);
+  };
+
+  const removeSelection = (type: ComboPickerType) => {
+    if (type === 'flowers' || type === 'berries') setSelSecondBase(null);
+    if (type === 'balloons') setSelBalloons(null);
+    if (type === 'cards') setSelCard(null);
+  };
+
+  const selectItem = (it: SelectableProduct) => {
+    if (it.kind === 'flowers' || it.kind === 'berries') setSelSecondBase(it);
+    if (it.kind === 'balloons') setSelBalloons(it);
+    if (it.kind === 'cards') setSelCard(it);
+    setComboView('main');
+  };
+
+  const baseSelectable: SelectableProduct = useMemo(
+    () => ({
+      id: product.id,
+      title: product.title,
+      price: discountedPrice,
+      image: images[0] || '/placeholder.jpg',
+      production_time: product.production_time ?? null,
+      kind: isBerryProduct ? 'berries' : 'flowers',
+    }),
+    [product.id, product.title, discountedPrice, images, product.production_time, isBerryProduct],
+  );
+
+  const comboDiscountPercent = useMemo(() => {
+    const hasSecondBase = !!selSecondBase;
+    const hasBalloons = !!selBalloons;
+    return calcDiscountPercent({ hasSecondBase, hasBalloons });
+  }, [selSecondBase, selBalloons]);
+
+  const comboItemsForCalc = useMemo(() => {
+    // скидка применяется к "основе + второй базе + шарам"
+    // открытка отдельная (без скидки)
+    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [
+      { it: baseSelectable, discounted: comboDiscountPercent > 0 },
+    ];
+    if (selSecondBase) items.push({ it: selSecondBase, discounted: comboDiscountPercent > 0 });
+    if (selBalloons) items.push({ it: selBalloons, discounted: comboDiscountPercent > 0 });
+    if (selCard) items.push({ it: selCard, discounted: false });
+    return items;
+  }, [baseSelectable, selSecondBase, selBalloons, selCard, comboDiscountPercent]);
+
+  const comboTotals = useMemo(() => {
+    const multiplier = percentToMultiplier(comboDiscountPercent);
+
+    const originalSum = comboItemsForCalc.reduce((acc, row) => acc + row.it.price, 0);
+    const discountedSum = comboItemsForCalc.reduce((acc, row) => {
+      const price = row.discounted ? Math.round(row.it.price * multiplier) : row.it.price;
+      return acc + price;
+    }, 0);
+
+    const discountRub = Math.max(0, originalSum - discountedSum);
+    return { originalSum, discountedSum, discountRub };
+  }, [comboItemsForCalc, comboDiscountPercent]);
+
+  const addComboToCart = () => {
+    const multiplier = percentToMultiplier(comboDiscountPercent);
+
+    comboItemsForCalc.forEach(({ it, discounted }) => {
+      const finalPrice = discounted ? Math.round(it.price * multiplier) : it.price;
+
+      handleAdd(it.id, it.title, finalPrice, it.image || null, it.production_time ?? null, true);
+    });
+
+    closeCombo();
+    resetCombo();
+  };
+
+  const pickList = useMemo(() => {
+    if (activePick === 'flowers') return listFlowers ?? [];
+    if (activePick === 'berries') return listBerries ?? [];
+    if (activePick === 'balloons') return listBalloons ?? [];
+    return listCards ?? [];
+  }, [activePick, listFlowers, listBerries, listBalloons, listCards]);
+
+  const pickTitle = useMemo(() => {
+    if (activePick === 'flowers') return 'Выберите букет';
+    if (activePick === 'berries') return 'Выберите клубнику';
+    if (activePick === 'balloons') return 'Выберите шары';
+    return 'Выберите открытку';
+  }, [activePick]);
+
+  const pickTabs = useMemo(() => {
+    const baseIsBerry = isBerryProduct;
+    const baseSecondTab: ComboPickerType = baseIsBerry ? 'flowers' : 'berries';
+    return [
+      { t: baseSecondTab, label: 'Букеты' },
+      { t: baseIsBerry ? 'berries' : 'flowers', label: 'Клубника' },
+      { t: 'balloons', label: 'Шары' },
+      { t: 'cards', label: 'Подарки' },
+    ] as const;
+  }, [isBerryProduct]);
+
+  const onTabChange = async (t: ComboPickerType) => {
+    setActivePick(t);
+    await fetchPickList(t);
+  };
+
+  /* -------------------------- RENDER -------------------------- */
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
@@ -450,10 +714,7 @@ export default function ProductPageClient({
                 <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
                 <a
                   href="/cart"
-                  className="
-                    text-[11px] sm:text-xs font-semibold uppercase tracking-tight
-                    bg-white text-black rounded-full px-3 py-1
-                  "
+                  className="text-[11px] sm:text-xs font-semibold uppercase tracking-tight bg-white text-black rounded-full px-3 py-1"
                 >
                   В корзину
                 </a>
@@ -482,10 +743,7 @@ export default function ProductPageClient({
                     <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
                     <a
                       href="/cart"
-                      className="
-                        text-[11px] sm:text-xs font-semibold uppercase tracking-tight
-                        bg-white text-black rounded-full px-3 py-1
-                      "
+                      className="text-[11px] sm:text-xs font-semibold uppercase tracking-tight bg-white text-black rounded-full px-3 py-1"
                     >
                       В корзину
                     </a>
@@ -496,7 +754,7 @@ export default function ProductPageClient({
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
-          {/* GALERY + desktop blocks to fill empty space */}
+          {/* GALERY */}
           <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
             <div className="relative">
               <Swiper
@@ -600,7 +858,7 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* DESKTOP - Похожие товары (заполняем пустоту) */}
+            {/* DESKTOP - Похожие товары */}
             <div className="hidden lg:block mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold tracking-tight">Похожие товары</h2>
@@ -673,7 +931,7 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* DESKTOP - Допродажи тоже под фото (вторая полка, чтобы не было пустоты) */}
+            {/* DESKTOP - Допродажи */}
             <div className="hidden lg:block mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold tracking-tight">Добавьте к заказу</h2>
@@ -777,7 +1035,9 @@ export default function ProductPageClient({
             {/* цена */}
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-3 lg:gap-4">
-                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">{discountedPrice} ₽</span>
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                  {discountedPrice} ₽
+                </span>
                 {discountPercent > 0 && (
                   <>
                     <span className="text-base sm:text-lg text-gray-500 line-through">
@@ -791,10 +1051,7 @@ export default function ProductPageClient({
               </div>
 
               <span className="text-sm sm:text-base flex items-center gap-1 text-gray-700">
-                + бонус {bonus}₽
-                <span className="ml-1 text-gray-500 cursor-pointer" title="Бонус за оплату заказа">
-                  ⓘ
-                </span>
+                + бонус {bonus}₽ <span className="ml-1 text-gray-500 cursor-pointer" title="Бонус за оплату заказа">ⓘ</span>
               </span>
             </div>
 
@@ -832,13 +1089,7 @@ export default function ProductPageClient({
             <div className="hidden lg:flex gap-3">
               <motion.button
                 onClick={() =>
-                  handleAdd(
-                    product.id,
-                    product.title,
-                    discountedPrice,
-                    images[0] || null,
-                    product.production_time ?? null,
-                  )
+                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
                 }
                 className="flex-1 py-3 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition"
                 variants={buttonVariants}
@@ -849,6 +1100,19 @@ export default function ProductPageClient({
                 rel="nofollow"
               >
                 ДОБАВИТЬ В КОРЗИНУ
+              </motion.button>
+
+              <motion.button
+                onClick={openCombo}
+                className="flex-1 py-3 rounded-lg font-bold border border-black bg-white text-black hover:bg-gray-50 transition"
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Собрать комбо"
+                rel="nofollow"
+              >
+                СОБРАТЬ КОМБО -10%
               </motion.button>
 
               <motion.button
@@ -1005,7 +1269,7 @@ export default function ProductPageClient({
           )}
         </motion.section>
 
-        {/* MOBILE - допродажи (внизу, как ты хотел) */}
+        {/* MOBILE - допродажи */}
         <motion.section
           className="lg:hidden mt-6 pt-6 border-t"
           variants={containerVariants}
@@ -1093,32 +1357,88 @@ export default function ProductPageClient({
         </motion.section>
 
         {/* мобильная нижняя панель */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white px-3 py-3 flex items-center justify-between lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col">
-            <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
-            <span className="text-[11px] text-gray-500 leading-none mt-1">+ бонус {bonus} ₽</span>
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white px-3 py-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
+              <span className="text-[11px] text-gray-500 leading-none mt-1">+ бонус {bonus} ₽</span>
+            </div>
+
+            <div className="flex-1 ml-3 flex gap-2">
+              <motion.button
+                onClick={() =>
+                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
+                }
+                className="flex-1 py-3 bg-black text-white rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-gray-800 transition"
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Добавить в корзину"
+                rel="nofollow"
+              >
+                В корзину
+              </motion.button>
+
+              <motion.button
+                onClick={openCombo}
+                className="flex-1 py-3 bg-white text-black border border-black rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-gray-50 transition"
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Собрать комбо"
+                rel="nofollow"
+              >
+                Комбо -10%
+              </motion.button>
+            </div>
           </div>
-          <motion.button
-            onClick={() =>
-              handleAdd(
-                product.id,
-                product.title,
-                discountedPrice,
-                images[0] || null,
-                product.production_time ?? null,
-              )
-            }
-            className="flex-1 ml-3 py-3 bg-black text-white rounded-lg font-bold text-sm uppercase tracking-wide hover:bg-gray-800 transition"
-            variants={buttonVariants}
-            initial="rest"
-            whileHover="hover"
-            whileTap="tap"
-            aria-label="Добавить в корзину"
-            rel="nofollow"
-          >
-            В КОРЗИНУ
-          </motion.button>
         </div>
+
+        {/* -------------------------- COMBO MODAL -------------------------- */}
+        <ComboBuilderModal
+          open={comboOpen}
+          view={comboView}
+          onClose={closeCombo}
+          onBackToMain={() => setComboView('main')}
+          heroImage={images[0] || '/placeholder.jpg'}
+          heroTitle="СОБЕРИ КОМБО И ПОЛУЧИ СКИДКУ ДО 10%"
+
+          baseItem={baseSelectable}
+
+          selSecondBase={selSecondBase}
+          selBalloons={selBalloons}
+          selCard={selCard}
+
+          comboDiscountPercent={comboDiscountPercent}
+          totalDiscountRub={comboTotals.discountRub}
+          totalFinal={comboTotals.discountedSum}
+
+          onPickSecondBase={() => startPick(isBerryProduct ? 'flowers' : 'berries')}
+          onPickBalloons={() => startPick('balloons')}
+          onPickCards={() => startPick('cards')}
+
+          onReplaceSecondBase={() => startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))}
+          onReplaceBalloons={() => startPick('balloons')}
+          onReplaceCards={() => startPick('cards')}
+
+          onRemoveSecondBase={() => removeSelection(isBerryProduct ? 'flowers' : 'berries')}
+          onRemoveBalloons={() => removeSelection('balloons')}
+          onRemoveCards={() => removeSelection('cards')}
+
+          pickTitle={pickTitle}
+          pickTabs={pickTabs as any}
+          activePick={activePick}
+          onTabChange={onTabChange}
+          loadingPick={loadingPick}
+          pickError={pickError}
+          pickList={pickList}
+          onSelectPick={selectItem}
+
+          onAddComboToCart={addComboToCart}
+          isBerryBase={isBerryProduct}
+        />
       </div>
     </section>
   );

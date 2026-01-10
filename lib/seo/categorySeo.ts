@@ -10,7 +10,7 @@ export function buildCategorySeoFallback(input: {
   const normalized = name.toLowerCase();
   const title = `${name} - доставка в ${city} | KEY TO HEART`;
   const description =
-    `Закажите ${normalized} с доставкой по ${city} от 60 минут. ` +
+    `Закажите ${normalized} с доставкой по ${city} от 30 минут. ` +
     `Свежие ингредиенты, аккуратная сборка, фото перед отправкой, оплата онлайн.`;
 
   const h1 = name;

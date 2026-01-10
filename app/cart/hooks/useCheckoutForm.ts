@@ -25,7 +25,6 @@ interface FormState {
   agreedToTerms: boolean;
   askAddressFromRecipient: boolean;
 
-  // ✅ новые поля
   slotValid: boolean;
   slotReason: string;
 }
@@ -54,20 +53,27 @@ const initialFormState: FormState = {
   slotReason: 'Выберите дату и время',
 };
 
-const normalizePhoneForRu = (raw: string): string | null => {
-  const digits = raw.replace(/\D/g, '');
+const digitsOnly = (v: string) => (v || '').replace(/\D/g, '');
 
-  if (digits.length === 11 && digits.startsWith('8')) {
-    return `+7${digits.slice(1)}`;
+// Строгая нормализация на подтверждение шага
+const normalizePhoneForRuStrict = (raw: string): string | null => {
+  const d = digitsOnly(raw);
+  if (!d) return null;
+
+  // если вставили длиннее (например, +7, 007, 7 7..., и т.д.) - берем последние 10 и делаем +7
+  if (d.length > 11) {
+    const last10 = d.slice(-10);
+    return `+7${last10}`;
   }
 
-  if (digits.length === 11 && digits.startsWith('7')) {
-    return `+7${digits.slice(1)}`;
-  }
+  // уже 7XXXXXXXXXX (11 цифр)
+  if (d.length === 11 && d.startsWith('7')) return `+7${d.slice(1)}`;
 
-  if (digits.length === 10 && digits.startsWith('9')) {
-    return `+7${digits}`;
-  }
+  // 8XXXXXXXXXX (11 цифр)
+  if (d.length === 11 && d.startsWith('8')) return `+7${d.slice(1)}`;
+
+  // 10 цифр - просто дописываем +7
+  if (d.length === 10) return `+7${d}`;
 
   return null;
 };
@@ -107,32 +113,42 @@ export default function useCheckoutForm() {
   }, []);
 
   useEffect(() => {
-    const { phone, ...draft } = form;
+    const { phone, recipientPhone, ...draft } = form;
     localStorage.setItem('checkoutForm', JSON.stringify(draft));
   }, [form]);
 
   const onFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, type } = e.target;
+    const { name, type } = e.target as HTMLInputElement;
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setForm((prev) => ({ ...prev, [name]: checked }));
-      if (name === 'agreedToTerms' && checked) {
-        setAgreedToTermsError('');
-      }
+      if (name === 'agreedToTerms' && checked) setAgreedToTermsError('');
       return;
     }
 
     const value = (e.target as HTMLInputElement).value;
 
-    // ✅ специальные поля из Step4DateTime
+    // спец поля из Step4DateTime
     if (name === 'slotValid') {
       setForm((prev) => ({ ...prev, slotValid: value === 'true' }));
       return;
     }
-
     if (name === 'slotReason') {
       setForm((prev) => ({ ...prev, slotReason: value || '' }));
+      return;
+    }
+
+    // ✅ телефоны НЕ нормализуем здесь, чтобы не было "залипания"
+    if (name === 'phone') {
+      setForm((prev) => ({ ...prev, phone: value }));
+      if (phoneError) setPhoneError('');
+      return;
+    }
+
+    if (name === 'recipientPhone') {
+      setForm((prev) => ({ ...prev, recipientPhone: value }));
+      if (recipientPhoneError) setRecipientPhoneError('');
       return;
     }
 
@@ -142,7 +158,7 @@ export default function useCheckoutForm() {
   const validateStep1 = () => {
     let ok = true;
 
-    const normalized = normalizePhoneForRu(form.phone);
+    const normalized = normalizePhoneForRuStrict(form.phone);
     if (!normalized) {
       setPhoneError('Введите номер в формате 8(9xx)… или +7(9xx)…');
       ok = false;
@@ -188,7 +204,7 @@ export default function useCheckoutForm() {
       setRecipientError('');
     }
 
-    const normalized = normalizePhoneForRu(form.recipientPhone);
+    const normalized = normalizePhoneForRuStrict(form.recipientPhone);
     if (!normalized) {
       setRecipientPhoneError('Введите номер получателя в формате 8(9xx)… или +7(9xx)…');
       ok = false;
@@ -220,7 +236,6 @@ export default function useCheckoutForm() {
     return true;
   };
 
-  // ✅ STEP 4 - теперь учитываем реальную доступность слота
   const validateStep4 = () => {
     let ok = true;
 
@@ -264,7 +279,6 @@ export default function useCheckoutForm() {
       }
     }
 
-    // ✅ ключевое: запрет прохода, если Step4DateTime пометил слот недоступным
     if (!form.slotValid) {
       const msg =
         form.slotReason ||
@@ -278,9 +292,7 @@ export default function useCheckoutForm() {
     return ok;
   };
 
-  const validateStep5 = (_agreed: boolean) => {
-    return true;
-  };
+  const validateStep5 = (_agreed: boolean) => true;
 
   const nextStep = () => {
     let ok = true;

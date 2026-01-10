@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/components/steps/Step3Address.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -13,7 +12,7 @@ interface Props {
     apartment: string;
     entrance: string;
     deliveryInstructions: string;
-    askAddressFromRecipient: boolean; // 🔹 флаг "адрес уточнить у получателя"
+    askAddressFromRecipient: boolean;
   };
   addressError: string;
   showSuggestions: boolean;
@@ -25,8 +24,8 @@ interface Props {
 }
 
 const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.1 } },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
 };
 
 export default function Step3Address({
@@ -47,39 +46,49 @@ export default function Step3Address({
   const isDelivery = form.deliveryMethod === 'delivery';
   const askFromRecipient = form.askAddressFromRecipient;
 
+  const inputCls =
+    'w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[15px] outline-none focus:border-black transition';
+
   return (
     <div className="space-y-4">
-      {/* Переключатель доставка / самовывоз */}
+      {/* Переключатель */}
       <motion.div
-        className="flex gap-6 border-b pb-4"
+        className="space-y-2"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
       >
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="deliveryMethod"
-            value="pickup"
-            checked={form.deliveryMethod === 'pickup'}
-            onChange={onFormChange}
-            className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
-          />
-          <Image src="/icons/store.svg" alt="Самовывоз" width={16} height={16} />
-          <span className="text-sm text-gray-700">Самовывоз</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="deliveryMethod"
-            value="delivery"
-            checked={form.deliveryMethod === 'delivery'}
-            onChange={onFormChange}
-            className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
-          />
-          <Image src="/icons/truck.svg" alt="Доставка" width={16} height={16} />
-          <span className="text-sm text-gray-700">Доставка</span>
-        </label>
+        <div className="flex items-center gap-6">
+          <label className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="deliveryMethod"
+              value="pickup"
+              checked={form.deliveryMethod === 'pickup'}
+              onChange={onFormChange}
+              className="h-5 w-5 text-black border-[#bdbdbd] focus:ring-black"
+            />
+            <span className="text-[13px] text-[#2f2f2f]">Самовывоз</span>
+          </label>
+
+          <label className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="deliveryMethod"
+              value="delivery"
+              checked={form.deliveryMethod === 'delivery'}
+              onChange={onFormChange}
+              className="h-5 w-5 text-black border-[#bdbdbd] focus:ring-black"
+            />
+            <span className="text-[13px] text-[#2f2f2f]">Доставка</span>
+          </label>
+        </div>
+
+        {!isDelivery && (
+          <p className="text-[13px] text-[#2f2f2f]">
+            Адрес самовывоза: ул. Героев Разведчиков, 17/1
+          </p>
+        )}
       </motion.div>
 
       {isDelivery ? (
@@ -89,140 +98,134 @@ export default function Step3Address({
           animate="visible"
           variants={containerVariants}
         >
-          {/* 🔹 Чекбокс "я не знаю адрес" */}
-          <div className="space-y-1">
-            <label className="flex items-center gap-2">
+          {/* Чекбокс "не знаю адрес" */}
+          <div className="space-y-2">
+            <label className="flex items-start gap-3">
               <input
                 type="checkbox"
                 name="askAddressFromRecipient"
                 checked={askFromRecipient}
                 onChange={onFormChange}
-                className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+                className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
               />
-              <span className="text-sm text-gray-700">
+              <span className="text-[13px] text-[#2f2f2f]">
                 Я не знаю точный адрес, уточните его у получателя по телефону
               </span>
             </label>
-            <p className="text-[11px] text-gray-500">
+
+            <p className="text-[11px] text-[#6f6f6f]">
               Если вы не знаете адрес, мы аккуратно свяжемся с получателем, уточним адрес и время доставки.
               Если знаете хотя бы часть адреса - заполните поля ниже, это ускорит доставку.
             </p>
           </div>
 
-          {/* Если клиент сам знает адрес – показываем поля и подсказки */}
           {!askFromRecipient && (
             <>
-              <div className="space-y-1">
-                <label htmlFor="street" className="block text-xs text-gray-500">
-                  Улица
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600">
-                    <Image src="/icons/map-marker-alt.svg" alt="Улица" width={16} height={16} />
-                  </div>
-                  <input
-                    id="street"
-                    name="street"
-                    value={form.street}
-                    onChange={handleAddressChange}
-                    placeholder="Введите улицу"
-                    className={`w-full pl-10 pr-3 py-2 border rounded-md text-base sm:text-sm ${
-                      addressError ? 'border-red-500' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-black`}
-                    aria-invalid={!!addressError}
-                    aria-autocomplete="list"
-                    inputMode="text"
-                    autoComplete="street-address"
-                  />
-                  {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
+              {/* Улица */}
+              <div className="space-y-2">
+                <input
+                  id="street"
+                  name="street"
+                  value={form.street}
+                  onChange={handleAddressChange}
+                  placeholder="Улица:"
+                  className={`${inputCls} ${addressError ? 'border-red-500' : ''}`}
+                  aria-invalid={!!addressError}
+                  aria-autocomplete="list"
+                  inputMode="text"
+                  autoComplete="street-address"
+                />
+                {addressError && <p className="text-red-500 text-xs">{addressError}</p>}
 
-                  {showSuggestions && (
-                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-sm max-h-48 overflow-auto">
-                      {isLoadingSuggestions ? (
-                        <li className="p-2 text-gray-500 flex items-center gap-2">
-                          <Image
-                            src="/icons/spinner.svg"
-                            alt="..."
-                            width={16}
-                            height={16}
-                            className="animate-spin"
-                          />
-                          Загрузка...
+                {showSuggestions && (
+                  <ul className="relative z-10 w-full bg-white border border-[#bdbdbd] rounded-[14px] shadow-sm max-h-48 overflow-auto">
+                    {isLoadingSuggestions ? (
+                      <li className="px-4 py-3 text-[#6f6f6f] flex items-center gap-2">
+                        <Image
+                          src="/icons/spinner.svg"
+                          alt="..."
+                          width={16}
+                          height={16}
+                          className="animate-spin"
+                        />
+                        Загрузка...
+                      </li>
+                    ) : addressSuggestions.length > 0 ? (
+                      addressSuggestions.map((s, i) => (
+                        <li
+                          key={i}
+                          onClick={() => handleSelectAddress(s)}
+                          className="px-4 py-3 text-[#2f2f2f] hover:bg-[#f5f5f5] cursor-pointer"
+                        >
+                          {s}
                         </li>
-                      ) : addressSuggestions.length > 0 ? (
-                        addressSuggestions.map((s, i) => (
-                          <li
-                            key={i}
-                            onClick={() => handleSelectAddress(s)}
-                            className="p-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
-                          >
-                            {s}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="p-2 text-gray-500">Ничего не найдено</li>
-                      )}
-                    </ul>
-                  )}
-                </div>
+                      ))
+                    ) : (
+                      <li className="px-4 py-3 text-[#6f6f6f]">Ничего не найдено</li>
+                    )}
+                  </ul>
+                )}
               </div>
 
-              <div className="flex gap-4">
-                {['house', 'apartment', 'entrance'].map((field) => (
-                  <div key={field} className="flex-1 space-y-1">
-                    <label htmlFor={field} className="block text-xs text-gray-500">
-                      {field === 'house' ? 'Дом' : field === 'apartment' ? 'Квартира' : 'Подъезд'}
-                    </label>
-                    <input
-                      id={field}
-                      name={field}
-                      value={(form as any)[field]}
-                      onChange={onFormChange}
-                      placeholder={field === 'house' ? 'Дом' : field === 'apartment' ? 'Кв.' : 'Подъезд'}
-                      className="w-full pl-3 pr-3 py-2 border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                      inputMode={field === 'apartment' || field === 'house' ? 'numeric' : 'text'}
-                      autoComplete={field === 'house' ? 'address-line2' : undefined}
-                    />
-                  </div>
-                ))}
+              {/* Дом/кв/подъезд */}
+              <div className="grid grid-cols-3 gap-3">
+                <input
+                  id="house"
+                  name="house"
+                  value={form.house}
+                  onChange={onFormChange}
+                  placeholder="Дом:"
+                  className={inputCls}
+                  inputMode="numeric"
+                />
+                <input
+                  id="apartment"
+                  name="apartment"
+                  value={form.apartment}
+                  onChange={onFormChange}
+                  placeholder="Кв.:"
+                  className={inputCls}
+                  inputMode="numeric"
+                />
+                <input
+                  id="entrance"
+                  name="entrance"
+                  value={form.entrance}
+                  onChange={onFormChange}
+                  placeholder="Подъезд:"
+                  className={inputCls}
+                  inputMode="text"
+                />
               </div>
             </>
           )}
-
-          {/* Инструкции для доставки – всегда доступны, но текст под сценарий */}
-          <div className="space-y-1">
-            <label htmlFor="deliveryInstructions" className="block text-xs text-gray-500">
-              Инструкции для доставки
-            </label>
-            <textarea
-              id="deliveryInstructions"
-              name="deliveryInstructions"
-              value={form.deliveryInstructions}
-              onChange={handleInstr}
-              placeholder={
-                askFromRecipient
-                  ? 'Например: позвонить получателю в день доставки, представиться курьером сервиса и аккуратно уточнить адрес, не раскрывая деталей сюрприза.'
-                  : 'Например: не звонить получателю заранее, это сюрприз; позвонить сначала вам; позвонить за 10–15 минут до приезда.'
-              }
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black min-h-[80px] text-base sm:text-sm"
-            />
-            <p className="mt-1 text-[11px] text-gray-500">
-              {askFromRecipient
-                ? 'Так как адрес будем уточнять у получателя, укажите, пожалуйста, в какое время лучше звонить и как сохранить эффект сюрприза.'
-                : 'Если это сюрприз, опишите, как с вами лучше связаться и как курьеру себя вести (звонок заранее, только сообщение и т.п.).'}
-            </p>
-          </div>
         </motion.div>
-      ) : (
-        <motion.p
-          className="text-sm text-gray-700"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          Самовывоз: г. Краснодар, ул. Героев Разведчиков, 17/1
-        </motion.p>
-      )}
+      ) : null}
+
+      {/* Пожелания - ВСЕГДА, как на Labberry */}
+      <motion.div
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        <span className="text-[13px] font-semibold text-black">Пожелания:</span>
+
+        <textarea
+          id="deliveryInstructions"
+          name="deliveryInstructions"
+          value={form.deliveryInstructions}
+          onChange={handleInstr}
+          placeholder={
+            isDelivery
+              ? askFromRecipient
+                ? 'Например: позвонить получателю в день доставки, представиться курьером сервиса и аккуратно уточнить адрес, не раскрывая деталей сюрприза.'
+                : 'Например: не звонить получателю заранее, это сюрприз; позвонить сначала вам; позвонить за 10-15 минут до приезда.'
+              : 'Например: подготовьте, пожалуйста, букет к 18:00; можно подписать открытку.'
+          }
+          className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[14px] outline-none focus:border-black min-h-[110px] resize-none"
+        />
+      </motion.div>
     </div>
   );
 }

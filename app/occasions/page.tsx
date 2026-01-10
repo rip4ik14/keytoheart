@@ -93,7 +93,7 @@ export default function OccasionListPage() {
         <p className="text-center max-w-2xl mx-auto mb-8 text-gray-700 text-base sm:text-lg leading-relaxed">
           Выбирайте <b>клубнику в шоколаде</b>, клубничные букеты и цветы на все случаи жизни — от 8&nbsp;марта и Дня рождения до 1&nbsp;сентября и Нового года. <br />
           <span className="hidden md:inline">
-            Быстрая доставка по Краснодару — от 60 минут. В каждой категории вы найдёте идеальный подарок: <Link href="/category/klubnichnye-bukety" className="underline hover:text-black">клубничные букеты</Link>, <Link href="/category/flowers" className="underline hover:text-black">свежие цветы</Link>, <Link href="/category/combo" className="underline hover:text-black">комбо-наборы</Link>, <Link href="/category/podarki" className="underline hover:text-black">оригинальные подарки</Link>.
+            Быстрая доставка по Краснодару — от 30 минут. В каждой категории вы найдёте идеальный подарок: <Link href="/category/klubnichnye-bukety" className="underline hover:text-black">клубничные букеты</Link>, <Link href="/category/flowers" className="underline hover:text-black">свежие цветы</Link>, <Link href="/category/combo" className="underline hover:text-black">комбо-наборы</Link>, <Link href="/category/podarki" className="underline hover:text-black">оригинальные подарки</Link>.
           </span>
         </p>
       </AnimatedSection>

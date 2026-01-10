@@ -36,13 +36,21 @@ export async function generateStaticParams() {
   return data?.map((p) => ({ id: String(p.id) })) ?? [];
 }
 
+type RouteParams = { id: string };
+async function resolveParams(
+  params: RouteParams | Promise<RouteParams>,
+): Promise<RouteParams> {
+  return await Promise.resolve(params);
+}
+
 /* ----------------------- Metadata ------------------------ */
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: RouteParams | Promise<RouteParams>;
 }): Promise<Metadata> {
-  const id = Number(params.id);
+  const { id: idParam } = await resolveParams(params);
+  const id = Number(idParam);
   if (Number.isNaN(id)) return {};
 
   const { data } = await supabaseAnon
@@ -53,7 +61,7 @@ export async function generateMetadata({
 
   if (!data) {
     return {
-      title: 'Товар не найден', // бренд приклеит шаблон в layout
+      title: 'Товар не найден',
       description: 'Страница товара не найдена.',
       robots: { index: false, follow: false },
     };
@@ -72,7 +80,7 @@ export async function generateMetadata({
   const url = `https://keytoheart.ru/product/${id}`;
 
   return {
-    title: data.title, // ← без " | KEY TO HEART", шаблон добавит сам
+    title: data.title,
     description: desc.slice(0, 160),
     openGraph: {
       title: data.title,
@@ -96,9 +104,10 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: { id: string };
+  params: RouteParams | Promise<RouteParams>;
 }) {
-  const id = Number(params.id);
+  const { id: idParam } = await resolveParams(params);
+  const id = Number(idParam);
   if (Number.isNaN(id)) notFound();
 
   /* ---------- Supabase SSR-client ---------- */
@@ -181,7 +190,6 @@ export default async function ProductPage({
       ? Math.round(product.price * (1 - product.discount_percent / 100))
       : product.price;
 
-  /* ---------- Offer (правильно для 1 оффера) ---------- */
   const productUrl = `https://keytoheart.ru/product/${product.id}`;
 
   const offer: Offer = {
@@ -223,23 +231,18 @@ export default async function ProductPage({
     },
   };
 
-  /* ---------- Render ---------- */
   return (
     <main aria-label={`Товар ${product.title}`}>
-      {/* ---------- JSON-LD Product ---------- */}
       <JsonLd<SchemaProduct>
         item={{
           '@type': 'Product',
           sku: String(product.id),
           name: product.title,
           url: productUrl,
-
-          // стабильнее для парсеров: массив строк-URL
           image:
             Array.isArray(product.images) && product.images.length > 0
               ? product.images
               : undefined,
-
           description: product.description || undefined,
           additionalProperty: product.production_time
             ? [
@@ -253,13 +256,10 @@ export default async function ProductPage({
           material: product.composition || undefined,
           category: categoryName || undefined,
           brand: { '@type': 'Brand', name: 'KEY TO HEART' },
-
-          // 1 оффер - Offer
           offers: offer,
         }}
       />
 
-      {/* ---------- JSON-LD BreadcrumbList (до 3-х звеньев) ---------- */}
       <JsonLd
         item={{
           '@type': 'BreadcrumbList',
@@ -290,7 +290,6 @@ export default async function ProductPage({
         }}
       />
 
-      {/* ---------- Визуальные хлебные крошки (без JSON-LD внутри компонента) ---------- */}
       <Suspense fallback={null}>
         <Breadcrumbs
           productTitle={product.title}
@@ -299,7 +298,6 @@ export default async function ProductPage({
         />
       </Suspense>
 
-      {/* ---------- Основной контент ---------- */}
       <Suspense fallback={<div className="text-center py-8">Загрузка…</div>}>
         <ProductPageClient product={product} combos={combos} />
       </Suspense>

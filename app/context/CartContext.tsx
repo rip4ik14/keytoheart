@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 interface CartItem {
   id: string;
   title: string;
-  price: number;
+  price: number; // цена за 1 шт
   quantity: number;
   imageUrl: string;
   production_time?: number | null;
@@ -38,7 +38,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems(
           Array.isArray(parsed)
             ? parsed.map((item) => ({ ...item, id: String(item.id) }))
-            : []
+            : [],
         );
       } catch {
         localStorage.removeItem('cart');
@@ -53,13 +53,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = (item: CartItem) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
+
       if (existing) {
         const newQuantity = existing.quantity + item.quantity;
+
+        // ✅ ключевой момент: цена должна быть минимальной (чтобы комбо-скидка не терялась)
+        const newUnitPrice = Math.min(existing.price, item.price);
+
         const updatedItems = prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: newQuantity } : i
+          i.id === item.id ? { ...i, quantity: newQuantity, price: newUnitPrice } : i,
         );
 
         toast.success(`${item.title} обновлён в корзине (x${newQuantity})`);
+
         window.gtag?.('event', 'update_cart_item', {
           event_category: 'cart',
           item_id: item.id,
@@ -71,10 +77,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
             quantity: newQuantity,
           });
         }
+
         return updatedItems;
       }
 
       toast.success(`${item.title} добавлен в корзину`);
+
       window.gtag?.('event', 'add_to_cart', {
         event_category: 'cart',
         item_id: item.id,
@@ -82,6 +90,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (YM_ID !== undefined) {
         callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: item.id });
       }
+
       return [...prev, { ...item, id: String(item.id) }];
     });
   };
@@ -89,13 +98,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addMultipleItems = (newItems: CartItem[]) => {
     setItems((prev) => {
       const updated = [...prev];
+
       newItems.forEach((newItem) => {
         const idx = updated.findIndex((i) => i.id === newItem.id);
+
         if (idx !== -1) {
           updated[idx].quantity += newItem.quantity;
-          toast.success(
-            `${newItem.title} обновлён в корзине (x${updated[idx].quantity})`
-          );
+
+          // ✅ цена всегда минимальная
+          updated[idx].price = Math.min(updated[idx].price, newItem.price);
+
+          toast.success(`${newItem.title} обновлён в корзине (x${updated[idx].quantity})`);
+
           window.gtag?.('event', 'update_cart_item', {
             event_category: 'cart',
             item_id: newItem.id,
@@ -109,18 +123,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } else {
           updated.push({ ...newItem, id: String(newItem.id) });
+
           toast.success(`${newItem.title} добавлен в корзину`);
+
           window.gtag?.('event', 'add_to_cart', {
             event_category: 'cart',
             item_id: newItem.id,
           });
           if (YM_ID !== undefined) {
-            callYm(YM_ID, 'reachGoal', 'add_to_cart', {
-              item_id: newItem.id,
-            });
+            callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
           }
         }
       });
+
       return updated;
     });
   };
@@ -130,13 +145,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const item = prev.find((i) => i.id === id);
       if (item) {
         toast.success(`${item.title} удалён из корзины`);
-        window.gtag?.('event', 'remove_from_cart', {
-          event_category: 'cart',
-          item_id: id,
-        });
-        if (YM_ID !== undefined) {
-          callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
-        }
+        window.gtag?.('event', 'remove_from_cart', { event_category: 'cart', item_id: id });
+        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
       }
       return prev.filter((i) => i.id !== id);
     });
@@ -145,23 +155,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateQuantity = (id: string, quantity: number) => {
     setItems((prev) => {
       const item = prev.find((i) => i.id === id);
+
       if (quantity <= 0) {
         if (item) {
           toast.success(`${item.title} удалён из корзины`);
-          window.gtag?.('event', 'remove_from_cart', {
-            event_category: 'cart',
-            item_id: id,
-          });
-          if (YM_ID !== undefined) {
-            callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
-          }
+          window.gtag?.('event', 'remove_from_cart', { event_category: 'cart', item_id: id });
+          if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'remove_from_cart', { item_id: id });
         }
         return prev.filter((i) => i.id !== id);
       }
 
-      const updatedItems = prev.map((i) =>
-        i.id === id ? { ...i, quantity } : i
-      );
+      const updatedItems = prev.map((i) => (i.id === id ? { ...i, quantity } : i));
+
       if (item) {
         toast.success(`${item.title} обновлён (x${quantity})`);
         window.gtag?.('event', 'update_cart_quantity', {
@@ -170,12 +175,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           quantity,
         });
         if (YM_ID !== undefined) {
-          callYm(YM_ID, 'reachGoal', 'update_cart_quantity', {
-            item_id: id,
-            quantity,
-          });
+          callYm(YM_ID, 'reachGoal', 'update_cart_quantity', { item_id: id, quantity });
         }
       }
+
       return updatedItems;
     });
   };
@@ -185,15 +188,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart');
     toast.success('Корзина очищена');
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'clear_cart');
-    }
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'clear_cart');
   };
 
   const maxProductionTime =
-    items.length > 0
-      ? Math.max(...items.map((item) => item.production_time ?? 0))
-      : null;
+    items.length > 0 ? Math.max(...items.map((item) => item.production_time ?? 0)) : null;
 
   const value: CartContextType = {
     items,
@@ -211,8 +210,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 export function useCart(): CartContextType {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
+  if (!context) throw new Error('useCart must be used within a CartProvider');
   return context;
 }

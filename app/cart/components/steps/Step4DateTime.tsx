@@ -11,7 +11,7 @@ interface FormSlice {
   time?: string;
   deliveryMethod?: 'pickup' | 'delivery';
 
-  // ✅ новые поля для жесткой валидации доступности слота
+  // новые поля для жесткой валидации доступности слота
   slotValid?: boolean;
   slotReason?: string;
 }
@@ -114,11 +114,6 @@ const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
   return base;
 };
 
-const containerVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
-};
-
 export default function Step4DateTime({ form, dateError, timeError, onFormChange }: Props) {
   const { items } = useCart() as any;
 
@@ -207,7 +202,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     return `${start}-${minutesToTimeString(m + TIME_STEP_MINUTES)}`;
   };
 
-  // ===== загрузка настроек магазина =====
+  // загрузка настроек магазина
   useEffect(() => {
     const fetchSettings = async () => {
       setIsLoadingSettings(true);
@@ -233,7 +228,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     fetchSettings();
   }, []);
 
-  // ===== функция поиска ближайшего слота =====
+  // функция поиска ближайшего слота
   const findNearestSlot = useMemo(() => {
     if (!storeSettings) return null;
 
@@ -294,7 +289,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     };
   }, [storeSettings, isPickup, extraMinutesTotal]);
 
-  // ===== пересчет слотов для выбранной даты =====
+  // пересчет слотов для выбранной даты
   useEffect(() => {
     if (!storeSettings || isLoadingSettings || !form?.date) {
       setAvailableSlots([]);
@@ -404,8 +399,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
       handleTimeSet(slots[0]);
     }
 
-    // ✅ финальная валидация слота
-    const finalTime = (form?.time && slots.includes(form.time)) ? form.time : slots[0];
+    // финальная валидация слота
     setSlotValidation(true, '');
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -421,7 +415,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     maxDateIso,
   ]);
 
-  // ===== если nearest был нажат пока грузились настройки =====
+  // если nearest был нажат пока грузились настройки
   useEffect(() => {
     if (!pendingNearestRef.current) return;
     if (isLoadingSettings) return;
@@ -488,7 +482,6 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
 
     handleTimeSet(finalValue);
 
-    // ✅ если время не входит в доступные слоты - помечаем как невалидно
     if (availableSlots.length > 0 && !availableSlots.includes(finalValue)) {
       setSlotValidation(false, 'Выбранное время недоступно, выберите интервал из списка.');
     } else {
@@ -506,7 +499,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
 
   const hasErrors = !!dateError || !!timeError;
 
-  // ===== swipe to close for modal (mobile) =====
+  // swipe to close for modal (mobile)
   const touchStartYRef = useRef<number | null>(null);
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartYRef.current = e.touches?.[0]?.clientY ?? null;
@@ -525,8 +518,9 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     touchStartYRef.current = null;
   };
 
+  // ВАЖНО: корень НЕ motion, чтобы не было transform-контекста и прыжков при переходе 4 -> 5
   return (
-    <motion.div className="space-y-4" variants={containerVariants} initial="hidden" animate="visible">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">{sectionTitle}</div>
         <div className="text-xs text-gray-500">{intervalSummary}</div>
@@ -558,14 +552,23 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
             <span
               className={[
                 'w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0',
-                mode === 'nearest' && safeDate && safeTime ? 'border-white bg-white' : mode === 'nearest' ? 'border-black' : 'border-gray-400',
+                mode === 'nearest' && safeDate && safeTime
+                  ? 'border-white bg-white'
+                  : mode === 'nearest'
+                  ? 'border-black'
+                  : 'border-gray-400',
               ].join(' ')}
             >
               {mode === 'nearest' && safeDate && safeTime && <span className="w-2 h-2 rounded-full bg-black" />}
             </span>
           </div>
 
-          <div className={['mt-1 text-xs leading-snug', mode === 'nearest' && safeDate && safeTime ? 'text-white/85' : 'text-gray-600'].join(' ')}>
+          <div
+            className={[
+              'mt-1 text-xs leading-snug',
+              mode === 'nearest' && safeDate && safeTime ? 'text-white/85' : 'text-gray-600',
+            ].join(' ')}
+          >
             {mode === 'nearest' && safeDate && safeTime
               ? `${formatDateRuShort(safeDate)}, ${intervalLabel(safeTime)}`
               : isPickup
@@ -728,7 +731,9 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
                             type="button"
                             onClick={() => handleQuickSlotClick(slot)}
                             className={`px-3 py-1.5 rounded-full border text-xs ${
-                              safeTime === slot ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-300'
+                              safeTime === slot
+                                ? 'bg-black text-white border-black'
+                                : 'bg-white text-black border-gray-300'
                             }`}
                           >
                             {intervalLabel(slot)}
@@ -770,6 +775,6 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

@@ -7,7 +7,7 @@ import clsx from 'clsx';
 export default function AdvantagesClient() {
   const advantages = [
     { icon: '/icons/camera.svg', text: 'Фото букета перед доставкой', alt: 'Camera' },
-    { icon: '/icons/truck.svg',  text: 'Доставка от 60 минут',        alt: 'Truck'  },
+    { icon: '/icons/truck.svg',  text: 'Доставка от 30 минут',        alt: 'Truck'  },
     { icon: '/icons/dollar-sign.svg', text: 'Кешбэк до 15 %',         alt: 'Dollar' },
   ];
 

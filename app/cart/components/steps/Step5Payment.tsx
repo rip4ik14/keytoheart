@@ -4,11 +4,10 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 
 const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0 },
   visible: (i = 1) => ({
     opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.4 },
+    transition: { delay: i * 0.08, duration: 0.25 },
   }),
 };
 
@@ -22,13 +21,7 @@ export default function Step5Payment() {
         custom={0}
         variants={containerVariants}
       >
-        <Image
-          src="/icons/credit-card.svg"
-          alt="Оплата"
-          width={16}
-          height={16}
-          loading="lazy"
-        />
+        <Image src="/icons/credit-card.svg" alt="Оплата" width={16} height={16} loading="lazy" />
         <span className="text-base sm:text-sm text-gray-700">
           Оплата после подтверждения заказа менеджером
         </span>
@@ -41,8 +34,8 @@ export default function Step5Payment() {
         custom={1}
         variants={containerVariants}
       >
-        После оформления заказа мы свяжемся с вами, уточним детали и отправим ссылку
-        на оплату или реквизиты удобным способом.
+        После оформления заказа мы свяжемся с вами, уточним детали и отправим ссылку на оплату или реквизиты удобным
+        способом.
       </motion.p>
     </div>
   );

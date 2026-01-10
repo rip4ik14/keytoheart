@@ -264,7 +264,7 @@ export default function PromoGridClient({
       {/* Подзаголовок под промо-блоком */}
       <div className="mt-4 sm:mt-6 mb-2 sm:mb-4 text-center">
         <p className="text-sm sm:text-base md:text-lg text-black/70 font-medium leading-snug">
-          Клубника в бельгийском шоколаде и цветы с доставкой 60 минут по
+          Клубника в бельгийском шоколаде и цветы с доставкой 30 минут по
           Краснодару
         </p>
       </div>
