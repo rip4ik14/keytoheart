@@ -1,4 +1,4 @@
-// ✅ Путь: app/utils/ymEvents.ts
+// utils/ymEvents.ts
 'use client';
 
 import { YM_ID } from '@/utils/ym';
@@ -11,8 +11,62 @@ type CartEventProduct = {
   quantity: number;
 };
 
+const SS_KEY_ORDER_SUCCESS = 'kth_ym_order_success_ids';
+
+function safeSessionStorage(): Storage | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readSentOrderIds(): Set<string> {
+  const ss = safeSessionStorage();
+  if (!ss) return new Set();
+
+  try {
+    const raw = ss.getItem(SS_KEY_ORDER_SUCCESS);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.map(String));
+  } catch {
+    return new Set();
+  }
+}
+
+function markOrderIdSent(orderId: string) {
+  const ss = safeSessionStorage();
+  if (!ss) return;
+
+  try {
+    const ids = readSentOrderIds();
+    ids.add(orderId);
+    const arr = Array.from(ids).slice(-30);
+    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
+function unmarkOrderIdSent(orderId: string) {
+  const ss = safeSessionStorage();
+  if (!ss) return;
+
+  try {
+    const ids = readSentOrderIds();
+    ids.delete(orderId);
+    const arr = Array.from(ids).slice(-30);
+    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
 /**
- * Добавление товара в корзину (используется в ProductCard)
+ * Добавление товара в корзину
  */
 export function trackAddToCart(product: CartEventProduct) {
   if (!YM_ID) return;
@@ -37,14 +91,12 @@ export function trackAddToCart(product: CartEventProduct) {
       },
     });
   } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[YM] trackAddToCart error', e);
-    }
+    if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackAddToCart error', e);
   }
 }
 
 /**
- * Старт оформления заказа (вход в корзину/чекаут)
+ * Старт оформления заказа
  */
 export function trackCheckoutStart() {
   if (!YM_ID) return;
@@ -52,19 +104,14 @@ export function trackCheckoutStart() {
   try {
     callYm(YM_ID, 'reachGoal', 'start_checkout');
   } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[YM] trackCheckoutStart error', e);
-    }
+    if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackCheckoutStart error', e);
   }
 }
 
 /**
  * Переход по шагам чекаута
  */
-export function trackCheckoutStep(
-  step: number,
-  extra?: Record<string, any>
-) {
+export function trackCheckoutStep(step: number, extra?: Record<string, any>) {
   if (!YM_ID) return;
 
   try {
@@ -73,14 +120,12 @@ export function trackCheckoutStep(
       ...(extra || {}),
     });
   } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[YM] trackCheckoutStep error', e);
-    }
+    if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackCheckoutStep error', e);
   }
 }
 
 /**
- * Успешное оформление заказа
+ * Успешное оформление заказа (order_success) - с дедупом по orderId
  */
 export function trackOrderSuccess(params: {
   orderId: string | number;
@@ -91,10 +136,22 @@ export function trackOrderSuccess(params: {
   if (!YM_ID) return;
 
   const { orderId, revenue, promoCode, products } = params;
+  const orderKey = String(orderId);
+
+  const sent = readSentOrderIds();
+  if (sent.has(orderKey)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[YM] trackOrderSuccess dedup - already sent for', orderKey);
+    }
+    return;
+  }
+
+  // mark BEFORE send (anti-race)
+  markOrderIdSent(orderKey);
 
   try {
     callYm(YM_ID, 'reachGoal', 'order_success', {
-      order_id: orderId,
+      order_id: orderKey,
       revenue,
       promo: promoCode || undefined,
       ecommerce: {
@@ -109,8 +166,8 @@ export function trackOrderSuccess(params: {
       },
     });
   } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[YM] trackOrderSuccess error', e);
-    }
+    // rollback if failed
+    unmarkOrderIdSent(orderKey);
+    if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackOrderSuccess error', e);
   }
 }

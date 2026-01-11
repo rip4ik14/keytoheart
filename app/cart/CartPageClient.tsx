@@ -1,7 +1,7 @@
 // app/cart/CartPageClient.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
@@ -63,14 +63,10 @@ export default function CartPageClient({
   initialPhone = null,
 }: CartPageClientProps) {
   // ---------------------------
-  // YM start
+  // YM dedupe guards
   // ---------------------------
-  useEffect(() => {
-    trackCheckoutStart();
-    if (typeof window !== 'undefined') {
-      (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
-    }
-  }, []);
+  const hasTrackedCheckoutStartRef = useRef(false);
+  const lastTrackedCheckoutStepRef = useRef<number | null>(null);
 
   // ---------------------------
   // Cart context
@@ -134,7 +130,7 @@ export default function CartPageClient({
   // Extra UI state
   // ---------------------------
   const [postcardText, setPostcardText] = useState<string>('');
-  const [occasion, setOccasion] = useState<string>(''); // повод покупки
+  const [occasion, setOccasion] = useState<string>('');
 
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
@@ -163,16 +159,10 @@ export default function CartPageClient({
   // ---------------------------
   const upsellSubcategoryIds = useMemo(() => [173, 171] as const, []);
 
-const {
-  selectedUpsells,
-  setSelectedUpsells,
-  removeUpsell,
-  updateUpsellQuantity,
-} = useUpsells({
-  categoryId: 8,
-  subcategoryIds: upsellSubcategoryIds as unknown as number[],
-});
-
+  const { selectedUpsells, setSelectedUpsells, removeUpsell, updateUpsellQuantity } = useUpsells({
+    categoryId: 8,
+    subcategoryIds: upsellSubcategoryIds as unknown as number[],
+  });
 
   // ---------------------------
   // Mobile sticky upsell + smart scroll
@@ -200,20 +190,15 @@ const {
     useStoreSettings();
 
   // ---------------------------
-  // Cart validate + sync (1 запрос вместо 2)
+  // Cart validate + sync
   // ---------------------------
-  const baseCartItems = useMemo(
-  () => items.filter((i: CartItemType) => !i.isUpsell),
-  [items],
-);
+  const baseCartItems = useMemo(() => items.filter((i: CartItemType) => !i.isUpsell), [items]);
 
-useCartValidateAndSync({
-  items: baseCartItems,
-  clearCart,
-  addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
-});
-
-
+  useCartValidateAndSync({
+    items: baseCartItems,
+    clearCart,
+    addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
+  });
 
   // ---------------------------
   // Yandex address suggest
@@ -230,7 +215,6 @@ useCartValidateAndSync({
     setAddressError,
   });
 
-  // close suggest on outside click
   useEffect(() => {
     const handleClickOutside = () => setShowSuggestions(false);
     document.addEventListener('click', handleClickOutside);
@@ -238,7 +222,7 @@ useCartValidateAndSync({
   }, [setShowSuggestions]);
 
   // ---------------------------
-  // Auth bootstrap
+  // Auth bootstrap (твой код - без изменений)
   // ---------------------------
   useEffect(() => {
     let isMounted = true;
@@ -285,14 +269,12 @@ useCartValidateAndSync({
     };
 
     const bootstrapFromProps = () => {
-  if (!initialIsAuthenticated || !initialPhone) return false;
-  const normalized = applyPhoneToForm(initialPhone);
-  setIsAuthenticated(true);
-  setBonusBalance(initialBonusBalance ?? 0);
-  setAuthChecked(true);
-  return !!normalized;
-};
-
+      if (!initialIsAuthenticated || !initialPhone) return false;
+      const normalized = applyPhoneToForm(initialPhone);
+      setIsAuthenticated(true);
+      setAuthChecked(true);
+      return !!normalized;
+    };
 
     const checkAuth = async () => {
       if (bootstrapFromProps()) return;
@@ -394,38 +376,58 @@ useCartValidateAndSync({
   );
 
   // ---------------------------
-  // Next step
+  // YM: start_checkout - once, not on page mount
   // ---------------------------
-  const handleNextStep = useCallback(() => {
+  useEffect(() => {
+    if (hasTrackedCheckoutStartRef.current) return;
+
+    const hasAnyItems = items.length > 0 || selectedUpsells.length > 0;
+    if (!hasAnyItems) return;
+
+    // На странице чекаута шаги 1..5 всегда есть, поэтому считаем фактом старта
+    // наличие товаров + открытый процесс (step >= 1)
+    if (step >= 1) {
+      hasTrackedCheckoutStartRef.current = true;
+
+      trackCheckoutStart();
+      (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
+    }
+  }, [step, items.length, selectedUpsells.length]);
+
+  // ---------------------------
+  // Next step must return success
+  // ---------------------------
+  const handleNextStep = useCallback((): boolean => {
     if (step === 1) {
-      if (!validateStep1()) return;
+      if (!validateStep1()) return false;
       nextStep();
-      return;
+      return true;
     }
     if (step === 2) {
-      if (!validateStep2()) return;
+      if (!validateStep2()) return false;
       nextStep();
-      return;
+      return true;
     }
     if (step === 3) {
-      if (!validateStep3()) return;
+      if (!validateStep3()) return false;
       nextStep();
-      return;
+      return true;
     }
     if (step === 4) {
       const ok = validateStep4();
       if (!ok) {
         toast.error('Пожалуйста, выберите корректные дату и время доставки');
-        return;
+        return false;
       }
       nextStep();
-      return;
+      return true;
     }
     nextStep();
+    return true;
   }, [step, validateStep1, validateStep2, validateStep3, validateStep4, nextStep]);
 
   // ---------------------------
-  // Totals (typed)
+  // Totals
   // ---------------------------
   const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [
     form.deliveryMethod,
@@ -436,7 +438,10 @@ useCartValidateAndSync({
   }, [items]);
 
   const upsellTotal = useMemo(() => {
-    return selectedUpsells.reduce((sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity, 0);
+    return selectedUpsells.reduce(
+      (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
+      0,
+    );
   }, [selectedUpsells]);
 
   const baseTotal = subtotal + upsellTotal;
@@ -457,9 +462,15 @@ useCartValidateAndSync({
   const finalTotal = Math.max(0, baseTotal - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
+  // ---------------------------
+  // YM: checkout_step - only when step changes (once per step)
+  // ---------------------------
   useEffect(() => {
+    if (lastTrackedCheckoutStepRef.current === step) return;
+    lastTrackedCheckoutStepRef.current = step;
+
     trackCheckoutStep(step, { total: finalTotal, itemsCount: items.length });
-  }, [step, finalTotal, items.length]);
+  }, [step]);
 
   // ---------------------------
   // Promo apply
@@ -536,12 +547,14 @@ useCartValidateAndSync({
   }, [items]);
 
   // ---------------------------
-  // Submit order
+  // Submit order (returns boolean success)
   // ---------------------------
-  const submitOrder = useCallback(async () => {
+  const submitOrder = useCallback(async (): Promise<boolean> => {
+    if (isSubmittingOrder) return false;
+
     if (!validateStep5(true)) {
       toast.error('Пожалуйста, проверьте корректность данных на шаге 5');
-      return;
+      return false;
     }
 
     const isFormValid =
@@ -553,24 +566,24 @@ useCartValidateAndSync({
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
-      return;
+      return false;
     }
 
     if (!storeSettings || isStoreSettingsLoading) {
-      // ok - не стопаем
+      // ok
     } else if (!storeSettings.order_acceptance_enabled) {
       toast.error('Магазин временно не принимает заказы. Попробуйте позже или свяжитесь с поддержкой.');
-      return;
+      return false;
     }
 
     if (items.length === 0 && selectedUpsells.length === 0) {
       toast.error('Ваша корзина пуста. Пожалуйста, добавьте товары перед оформлением заказа.');
-      return;
+      return false;
     }
 
     if (!(await checkItemsBeforeSubmit())) {
       toast.error('Некоторые товары недоступны. Пожалуйста, обновите корзину и попробуйте снова.');
-      return;
+      return false;
     }
 
     const customerPhoneRaw = phone || (form as any).phone;
@@ -580,7 +593,7 @@ useCartValidateAndSync({
     if (!cleanPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith('7')) {
       toast.error('Введите корректный номер телефона на шаге 1');
       setStep(1);
-      return;
+      return false;
     }
 
     setIsSubmittingOrder(true);
@@ -656,7 +669,7 @@ useCartValidateAndSync({
           json.error ||
             'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
         );
-        return;
+        return false;
       }
 
       if (bonusesUsed > 0 && isAuthenticated) {
@@ -713,16 +726,20 @@ useCartValidateAndSync({
       setPromoId(null);
       setUseBonuses(false);
       setBonusesUsed(0);
+
+      return true;
     } catch (error: any) {
       setErrorModal(
         'Произошла неизвестная ошибка при оформлении заказа: ' +
           error.message +
           '. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
       );
+      return false;
     } finally {
       setIsSubmittingOrder(false);
     }
   }, [
+    isSubmittingOrder,
     validateStep5,
     validateStep1,
     validateStep2,
@@ -900,7 +917,9 @@ useCartValidateAndSync({
             {[1, 2, 3, 4, 5].map((s) => {
               const stepNum = s as Step;
 
-              const onNext = stepNum === 5 ? submitOrder : stepNum === step ? handleNextStep : undefined;
+              const onNext =
+                stepNum === 5 ? submitOrder : stepNum === step ? (async () => handleNextStep()) : undefined;
+
               const onBack = stepNum === step && stepNum !== 1 ? prevStep : undefined;
 
               const isNextDisabled = stepNum === 5 ? isSubmittingOrder : false;
@@ -989,14 +1008,10 @@ useCartValidateAndSync({
             setUseBonuses={setUseBonuses}
             bonusesUsed={bonusesUsed}
             deliveryMethod={form.deliveryMethod}
-
-            // IMPORTANT:
-            // если в твоем CartSummaryProps нет промо - удали 4 строки ниже
             promoCode={promoCode}
-setPromoCode={setPromoCode}
-promoError={promoError}
-onApplyPromo={handleApplyPromo}
-
+            setPromoCode={setPromoCode}
+            promoError={promoError}
+            onApplyPromo={handleApplyPromo}
           />
         </div>
       </div>
@@ -1041,7 +1056,7 @@ onApplyPromo={handleApplyPromo}
       />
 
       {errorModal && (
-        <ErrorModal message={errorModal} onRetry={submitOrder} onClose={() => setErrorModal(null)} />
+        <ErrorModal message={errorModal} onRetry={async () => { await submitOrder(); }} onClose={() => setErrorModal(null)} />
       )}
     </div>
   );

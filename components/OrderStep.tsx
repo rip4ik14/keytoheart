@@ -1,3 +1,4 @@
+// components/OrderStep.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
@@ -12,8 +13,9 @@ interface OrderStepProps {
   title: string;
   children: ReactNode;
 
-  onNext?: () => void | Promise<void>;
-  onBack?: () => void;
+  // IMPORTANT: now returns success flag
+  onNext?: () => boolean | Promise<boolean>;
+  onBack?: () => void | Promise<void>;
 
   isNextDisabled?: boolean;
   isSubmitting?: boolean;
@@ -101,9 +103,7 @@ export default function OrderStep({
             </div>
 
             {!isActive && summary && (
-              <div className="mt-3 text-[12px] leading-snug text-[#9b9b9b]">
-                {summary}
-              </div>
+              <div className="mt-3 text-[12px] leading-snug text-[#9b9b9b]">{summary}</div>
             )}
           </div>
         </div>
@@ -126,10 +126,10 @@ export default function OrderStep({
                 {onBack && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       if (isSubmitting) return;
 
-                      onBack?.();
+                      await onBack?.();
                       window.gtag?.('event', 'order_step_back', {
                         event_category: 'order',
                         step,
@@ -152,7 +152,9 @@ export default function OrderStep({
                     onClick={async () => {
                       if (isNextDisabled || isSubmitting) return;
 
-                      await onNext();
+                      const ok = await onNext();
+                      if (!ok) return; // <-- IMPORTANT: no success, no goal
+
                       window.gtag?.('event', 'order_step_next', {
                         event_category: 'order',
                         step,
