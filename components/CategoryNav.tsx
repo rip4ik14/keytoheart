@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
 
+import CatalogFilterModal from '@components/CatalogFilterModal';
+
 let categoryCache: Category[] | null = null;
 
 const transliterate = (text: string) => {
@@ -31,12 +33,25 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-export default function CategoryNav({ initialCategories }: { initialCategories: Category[] }) {
+type CategoryNavProps = {
+  initialCategories: Category[];
+  showMobileFilter?: boolean;
+};
+
+export default function CategoryNav({ initialCategories, showMobileFilter = false }: CategoryNavProps) {
   const pathname = usePathname() || '/';
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const currentCategorySlug = (() => {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts[0] !== 'category') return null;
+    return parts[1] || null;
+  })();
 
   const fetchCategories = async () => {
     try {
@@ -46,6 +61,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         return;
       }
       setLoading(true);
+
       const { data, error } = await supabase
         .from('categories')
         .select(`
@@ -57,8 +73,10 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
         `)
         .eq('is_visible', true)
         .order('id', { ascending: true });
+
       if (error) throw error;
-      const updatedData: Category[] = data.map((cat: any) => {
+
+      const updatedData: Category[] = (data || []).map((cat: any) => {
         const subcategories = cat.subcategories
           ? cat.subcategories
               .filter((sub: any) => sub.is_visible !== false)
@@ -68,6 +86,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                 is_visible: sub.is_visible ?? true,
               }))
           : [];
+
         return {
           ...cat,
           is_visible: cat.is_visible ?? true,
@@ -75,6 +94,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           subcategories,
         };
       });
+
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch {
@@ -96,6 +116,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
             : [];
           return { ...cat, slug: cat.slug || generateSlug(cat.name), subcategories: subs };
         });
+
       setCategories(updated);
       categoryCache = updated;
     } else {
@@ -104,38 +125,62 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
 
     const channel = supabase
       .channel('categories-subcategories-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'categories' },
-        () => {
-          categoryCache = null;
-          fetchCategories();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'subcategories' },
-        () => {
-          categoryCache = null;
-          fetchCategories();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        categoryCache = null;
+        fetchCategories();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, () => {
+        categoryCache = null;
+        fetchCategories();
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCategories]);
 
+  const trackCategory = (name: string) => {
+    window.gtag?.('event', 'category_nav_click', {
+      event_category: 'navigation',
+      category: name,
+      type: 'category',
+    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'category_nav_click', { category: name, type: 'category' });
+    }
+  };
+
+  const trackSubcategory = (name: string) => {
+    window.gtag?.('event', 'subcategory_nav_click', {
+      event_category: 'navigation',
+      subcategory: name,
+      type: 'subcategory',
+    });
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
+    }
+  };
+
   return (
-    <nav
-      className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
-      aria-label="Навигация по категориям"
-    >
+    <nav className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans" aria-label="Навигация по категориям">
       {/* mobile */}
       <div className="sm:hidden relative">
         <div className="overflow-x-auto no-scrollbar" ref={scrollRef}>
           <ul className="flex gap-2 px-4 py-4">
+            {showMobileFilter && (
+              <li className="flex-shrink-0">
+                <button
+                  onClick={() => setFilterOpen(true)}
+                  className="inline-flex items-center whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm transition-all focus:ring-2 focus:ring-gray-500"
+                  aria-label="Открыть фильтр"
+                >
+                  Фильтр
+                </button>
+              </li>
+            )}
+
             {loading
               ? Array.from({ length: 6 }).map((_, i) => (
                   <li key={i} className="flex-shrink-0">
@@ -172,19 +217,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
                         } focus:ring-2 focus:ring-gray-500`}
                         aria-current={active ? 'page' : undefined}
-                        onClick={() => {
-                          window.gtag?.('event', 'category_nav_click', {
-                            event_category: 'navigation',
-                            category: cat.name,
-                            type: 'category',
-                          });
-                          if (YM_ID !== undefined) {
-                            callYm(YM_ID, 'reachGoal', 'category_nav_click', {
-                              category: cat.name,
-                              type: 'category',
-                            });
-                          }
-                        }}
+                        onClick={() => trackCategory(cat.name)}
                       >
                         {cat.name}
                       </Link>
@@ -219,23 +252,9 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                     <Link
                       href={href}
                       className={`px-2 py-1 text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'text-black underline'
-                          : 'text-gray-500 hover:text-black hover:underline'
+                        isActive ? 'text-black underline' : 'text-gray-500 hover:text-black hover:underline'
                       } focus:ring-2 focus:ring-gray-500`}
-                      onClick={() => {
-                        window.gtag?.('event', 'category_nav_click', {
-                          event_category: 'navigation',
-                          category: cat.name,
-                          type: 'category',
-                        });
-                        if (YM_ID !== undefined) {
-                          callYm(YM_ID, 'reachGoal', 'category_nav_click', {
-                            category: cat.name,
-                            type: 'category',
-                          });
-                        }
-                      }}
+                      onClick={() => trackCategory(cat.name)}
                       aria-current={isActive ? 'page' : undefined}
                     >
                       {cat.name}
@@ -271,19 +290,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                             className="block px-4 py-2 text-sm text-black hover:bg-gray-100 font-sans focus:bg-gray-100 outline-none"
                             role="menuitem"
                             tabIndex={0}
-                            onClick={() => {
-                              window.gtag?.('event', 'subcategory_nav_click', {
-                                event_category: 'navigation',
-                                subcategory: sub.name,
-                                type: 'subcategory',
-                              });
-                              if (YM_ID !== undefined) {
-                                callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', {
-                                  subcategory: sub.name,
-                                  type: 'subcategory',
-                                });
-                              }
-                            }}
+                            onClick={() => trackSubcategory(sub.name)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
@@ -297,6 +304,7 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
                       </div>
                     )}
                   </div>
+
                   {idx < categories.length - 1 && (
                     <span aria-hidden="true" className="mx-4 text-gray-300 select-none font-bold text-lg">
                       ·
@@ -323,6 +331,13 @@ export default function CategoryNav({ initialCategories }: { initialCategories: 
           </button>
         </div>
       )}
+
+      <CatalogFilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        categories={(categories as any) || []}
+        currentCategorySlug={currentCategorySlug}
+      />
     </nav>
   );
 }

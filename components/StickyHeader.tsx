@@ -317,8 +317,13 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         {flyBall}
 
         <div className="border-t">
-          <CategoryNav initialCategories={initialCategories} />
-        </div>
+  <CategoryNav
+    initialCategories={initialCategories}
+    showMobileFilter={pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')}
+
+  />
+</div>
+
       </header>
 
       <AnimatePresence>
