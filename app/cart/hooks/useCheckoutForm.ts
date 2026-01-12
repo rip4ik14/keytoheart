@@ -53,30 +53,34 @@ const initialFormState: FormState = {
   slotReason: 'Выберите дату и время',
 };
 
+const STORAGE_KEY = 'checkoutForm_v2';
+
 const digitsOnly = (v: string) => (v || '').replace(/\D/g, '');
 
-// Строгая нормализация на подтверждение шага
 const normalizePhoneForRuStrict = (raw: string): string | null => {
   const d = digitsOnly(raw);
   if (!d) return null;
 
-  // если вставили длиннее (например, +7, 007, 7 7..., и т.д.) - берем последние 10 и делаем +7
   if (d.length > 11) {
     const last10 = d.slice(-10);
     return `+7${last10}`;
   }
 
-  // уже 7XXXXXXXXXX (11 цифр)
   if (d.length === 11 && d.startsWith('7')) return `+7${d.slice(1)}`;
-
-  // 8XXXXXXXXXX (11 цифр)
   if (d.length === 11 && d.startsWith('8')) return `+7${d.slice(1)}`;
-
-  // 10 цифр - просто дописываем +7
   if (d.length === 10) return `+7${d}`;
 
   return null;
 };
+
+function safeParse<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
 
 export default function useCheckoutForm() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -92,30 +96,55 @@ export default function useCheckoutForm() {
   const [timeError, setTimeError] = useState<string>('');
   const [agreedToTermsError, setAgreedToTermsError] = useState<string>('');
 
+  // ---------------------------
+  // Load draft once
+  // ---------------------------
   useEffect(() => {
-    const saved = localStorage.getItem('checkoutForm');
-    if (!saved) return;
+    if (typeof window === 'undefined') return;
 
-    try {
-      const parsed = JSON.parse(saved);
-      setForm((prev) => ({
-        ...prev,
-        ...parsed,
-        date: '',
-        time: '',
-        agreedToTerms: false,
-        slotValid: false,
-        slotReason: 'Выберите дату и время',
-      }));
-    } catch (e) {
-      console.error('Invalid saved form:', e);
+    // миграция со старого ключа, если был
+    const legacy = safeParse<any>(window.localStorage.getItem('checkoutForm'));
+    const v2 = safeParse<any>(window.localStorage.getItem(STORAGE_KEY));
+
+    const parsed = v2 || legacy;
+    if (!parsed) return;
+
+    // ВАЖНО: ничего не сбрасываем принудительно.
+    // Если ты хочешь сбрасывать дату/время только при новом дне или смене режима - делай это точечно в Step4.
+    setForm((prev) => ({
+      ...prev,
+      ...parsed,
+      slotValid: typeof parsed.slotValid === 'boolean' ? parsed.slotValid : prev.slotValid,
+      slotReason: typeof parsed.slotReason === 'string' ? parsed.slotReason : prev.slotReason,
+    }));
+
+    // если сохраняли step - можно восстановить, но только в безопасном диапазоне
+    if (parsed.step && Number.isFinite(parsed.step)) {
+      const s = Number(parsed.step);
+      if (s >= 1 && s <= 5) setStep(s as 1 | 2 | 3 | 4 | 5);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ---------------------------
+  // Save draft (debounced)
+  // ---------------------------
   useEffect(() => {
-    const { phone, recipientPhone, ...draft } = form;
-    localStorage.setItem('checkoutForm', JSON.stringify(draft));
-  }, [form]);
+    if (typeof window === 'undefined') return;
+
+    const t = window.setTimeout(() => {
+      const payload = {
+        ...form,
+        step,
+        updatedAt: Date.now(),
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      // на всякий случай удалим старый ключ, чтобы не мешал
+      window.localStorage.removeItem('checkoutForm');
+    }, 150);
+
+    return () => window.clearTimeout(t);
+  }, [form, step]);
 
   const onFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target as HTMLInputElement;
@@ -139,7 +168,7 @@ export default function useCheckoutForm() {
       return;
     }
 
-    // ✅ телефоны НЕ нормализуем здесь, чтобы не было "залипания"
+    // телефоны НЕ нормализуем тут
     if (name === 'phone') {
       setForm((prev) => ({ ...prev, phone: value }));
       if (phoneError) setPhoneError('');
@@ -167,12 +196,9 @@ export default function useCheckoutForm() {
       setForm((prev) => ({ ...prev, phone: normalized }));
     }
 
-    if (!form.name.trim()) {
-      setNameError('Введите ваше имя');
-      ok = false;
-    } else {
-      setNameError('');
-    }
+    // ✅ имя делаем необязательным для конверсии (как ты просил)
+    // если хочешь вернуть обязательность - верни старую проверку
+    setNameError('');
 
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) {
       setEmailError('Введите корректный email');
@@ -182,8 +208,7 @@ export default function useCheckoutForm() {
     }
 
     if (!form.agreedToTerms) {
-      const msg =
-        'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
+      const msg = 'Необходимо согласиться с пользовательским соглашением и политикой конфиденциальности';
       setAgreedToTermsError(msg);
       toast.error(msg);
       ok = false;
@@ -333,7 +358,11 @@ export default function useCheckoutForm() {
     setTimeError('');
     setAgreedToTermsError('');
     setStep(1);
-    localStorage.removeItem('checkoutForm');
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem('checkoutForm');
+    }
   };
 
   return {

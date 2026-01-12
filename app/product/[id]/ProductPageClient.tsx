@@ -11,9 +11,12 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@context/CartContext';
+import { createClient } from '@supabase/supabase-js';
+
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
+
 import type { Product, ComboItem } from './types';
 
 import ComboBuilderModal, {
@@ -74,8 +77,8 @@ const containerVariants = {
 };
 const buttonVariants = {
   rest: { scale: 1 },
-  hover: { scale: 1.02 },
-  tap: { scale: 0.985 },
+  hover: { scale: 1.01 },
+  tap: { scale: 0.99 },
 };
 const notificationVariants = {
   hidden: { opacity: 0, y: -16 },
@@ -114,6 +117,15 @@ function calcDiscountPercent(opts: { hasSecondBase: boolean; hasBalloons: boolea
   return parts * 5;
 }
 
+function splitTitle(raw: string) {
+  const s = String(raw || '').trim();
+  const parts = s.split(/\s[-–—:]\s/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return { title: s, subtitle: '' };
+  const title = parts[0];
+  const subtitle = parts.slice(1).join(' - ');
+  return { title, subtitle };
+}
+
 type RawProductAny = any;
 
 function toSelectable(raw: RawProductAny, kind: ComboPickerType): SelectableProduct | null {
@@ -142,6 +154,31 @@ function toSelectable(raw: RawProductAny, kind: ComboPickerType): SelectableProd
     production_time,
     kind,
   };
+}
+
+/* -------------------------- Supabase category badge -------------------------- */
+
+function getPublicSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+function pickCategoryIdFromProduct(p: any): number | null {
+  const candidates = [
+    p?.category_id,
+    p?.categoryId,
+    p?.category?.id,
+    p?.category?.category_id,
+  ];
+  for (const v of candidates) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
 }
 
 /* -------------------------- IDs (как у тебя) -------------------------- */
@@ -183,6 +220,12 @@ export default function ProductPageClient({
   const [similarItems, setSimilarItems] = useState<ComboItem[]>([]);
   const [isLoadingSimilar, setIsLoadingSimilar] = useState(true);
 
+  const [showFullDesc, setShowFullDesc] = useState(false);
+
+  // категория
+  const [categoryLabel, setCategoryLabel] = useState<string>('');
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+
   const mainSwiperRef = useRef<any>(null);
 
   const discountPercent = product.discount_percent ?? 0;
@@ -194,6 +237,11 @@ export default function ProductPageClient({
   const images = useMemo(
     () => (Array.isArray(product.images) ? product.images : []),
     [product.images],
+  );
+
+  const { title: uiTitle, subtitle: uiSubtitle } = useMemo(
+    () => splitTitle(product.title),
+    [product.title],
   );
 
   // определяем тип товара без description, чтобы цветы не ловили клубнику из текста
@@ -217,6 +265,20 @@ export default function ProductPageClient({
 
   const recommendLoop = recommendedItems.length > 4;
   const similarLoop = similarItems.length > 4;
+
+  // ✅ стили кнопок как ты хотел:
+  // - главная CTA красная всегда
+  // - маленькие карточки: базово спокойные, красные только на hover/focus
+  const primaryBtnMain =
+    'bg-rose-600 text-white hover:bg-rose-700 shadow-[0_10px_25px_rgba(225,29,72,0.25)]';
+  const cardBtnHoverRed =
+    'bg-[#141414] text-white hover:bg-rose-600 focus-visible:bg-rose-600 shadow-none';
+  const primaryBtnSoft =
+    'bg-rose-600/10 text-rose-700 hover:bg-rose-600/15 border border-rose-600/20';
+  const secondaryBtn =
+    'bg-white text-black border border-black/15 hover:border-black/30 hover:bg-black/[0.02]';
+  const iconBtn =
+    'bg-white border border-black/10 hover:border-black/20 hover:bg-black/[0.02]';
 
   const handleAdd = useCallback(
     (
@@ -280,6 +342,65 @@ export default function ProductPageClient({
   const handleBack = () => {
     if (typeof window !== 'undefined') window.history.back();
   };
+
+  /* -------------------------- CATEGORY LABEL (replaces Premium) -------------------------- */
+  useEffect(() => {
+    const fromProduct =
+      String((product as any)?.category_name || (product as any)?.categoryName || '').trim();
+    if (fromProduct) {
+      setCategoryLabel(fromProduct);
+      return;
+    }
+
+    const categoryId = pickCategoryIdFromProduct(product as any);
+    const supabase = getPublicSupabase();
+
+    if (!categoryId || !supabase) {
+      setCategoryLabel('');
+      return;
+    }
+
+    const cacheKey = `cat_label_${categoryId}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setCategoryLabel(cached);
+        return;
+      }
+    } catch {}
+
+    let alive = true;
+    setIsCategoryLoading(true);
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('name')
+          .eq('id', categoryId)
+          .maybeSingle<{ name: string }>();
+
+        if (!alive) return;
+
+        if (!error && data?.name) {
+          setCategoryLabel(data.name);
+          try {
+            sessionStorage.setItem(cacheKey, data.name);
+          } catch {}
+        } else {
+          setCategoryLabel('');
+        }
+      } catch {
+        if (alive) setCategoryLabel('');
+      } finally {
+        if (alive) setIsCategoryLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [product]);
 
   /* -------------------------- STORE SETTINGS -------------------------- */
   useEffect(() => {
@@ -631,7 +752,6 @@ export default function ProductPageClient({
 
     comboItemsForCalc.forEach(({ it, discounted }) => {
       const finalPrice = discounted ? Math.round(it.price * multiplier) : it.price;
-
       handleAdd(it.id, it.title, finalPrice, it.image || null, it.production_time ?? null, true);
     });
 
@@ -672,29 +792,30 @@ export default function ProductPageClient({
   /* -------------------------- RENDER -------------------------- */
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-8">
-        {/* мобильная верхняя панель */}
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-10">
+        {/* mobile top bar */}
         <div className="flex items-center justify-between mb-3 lg:hidden">
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm"
+            className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-sm hover:bg-black/[0.02]"
             aria-label="Назад"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Назад</span>
           </button>
+
           <button
             type="button"
             onClick={handleShare}
-            className="rounded-full bg-gray-100 p-2"
+            className="rounded-full border border-black/10 bg-white p-2 hover:bg-black/[0.02]"
             aria-label="Поделиться"
           >
             <Share2 className="w-5 h-5" />
           </button>
         </div>
 
-        {/* уведомления */}
+        {/* notifications */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -753,10 +874,10 @@ export default function ProductPageClient({
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6 lg:gap-12 items-start">
-          {/* GALERY */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-8 lg:gap-12 items-start">
+          {/* GALLERY */}
           <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
-            <div className="relative">
+            <div className="relative rounded-3xl border border-black/10 overflow-hidden bg-gray-50">
               <Swiper
                 onSwiper={(s) => (mainSwiperRef.current = s)}
                 onSlideChange={(s) => setActiveIndex(s.activeIndex)}
@@ -767,7 +888,7 @@ export default function ProductPageClient({
                 thumbs={thumbsSwiper ? { swiper: thumbsSwiper } : undefined}
                 loop={false}
                 modules={[Navigation, Thumbs]}
-                className="customSwiper rounded-2xl overflow-hidden relative"
+                className="customSwiper"
                 slidesPerView={1}
                 style={{ minHeight: 320 }}
               >
@@ -806,71 +927,71 @@ export default function ProductPageClient({
                 )}
 
                 <button
-                  className="customSwiperButtonPrev hidden lg:flex absolute left-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
+                  className="customSwiperButtonPrev hidden lg:flex absolute left-4 top-1/2 z-20 -translate-y-1/2 w-11 h-11 bg-black/30 rounded-full items-center justify-center hover:bg-black/60 transition"
                   aria-label="Предыдущее изображение"
                 >
                   <ChevronLeft className="text-white text-2xl" />
                 </button>
                 <button
-                  className="customSwiperButtonNext hidden lg:flex absolute right-3 top-1/2 z-20 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full items-center justify-center hover:bg-black/70 transition"
+                  className="customSwiperButtonNext hidden lg:flex absolute right-4 top-1/2 z-20 -translate-y-1/2 w-11 h-11 bg-black/30 rounded-full items-center justify-center hover:bg-black/60 transition"
                   aria-label="Следующее изображение"
                 >
                   <ChevronRight className="text-white text-2xl" />
                 </button>
               </Swiper>
-
-              {images.length > 1 && (
-                <Swiper
-                  onSwiper={setThumbsSwiper}
-                  spaceBetween={8}
-                  slidesPerView={Math.min(images.length, 6)}
-                  watchSlidesProgress
-                  modules={[Navigation, Thumbs]}
-                  className="mt-1 sm:mt-3"
-                  breakpoints={{
-                    320: { slidesPerView: 4 },
-                    640: { slidesPerView: 5 },
-                    1024: { slidesPerView: 6 },
-                  }}
-                >
-                  {images.map((src, i) => (
-                    <SwiperSlide key={i} className="cursor-pointer group">
-                      <div
-                        className={`relative aspect-[4/3] rounded-xl overflow-hidden border transition ${
-                          activeIndex === i ? 'border-black shadow-lg' : 'border-gray-200'
-                        }`}
-                        onClick={() => mainSwiperRef.current?.slideTo(i)}
-                      >
-                        <Image
-                          src={src}
-                          alt={`Миниатюра ${i + 1}`}
-                          fill
-                          placeholder="blur"
-                          blurDataURL={BLUR_PLACEHOLDER}
-                          loading="lazy"
-                          sizes="(max-width:768px) 20vw, 8vw"
-                          className="object-cover group-hover:scale-105 transition-transform"
-                        />
-                      </div>
-                    </SwiperSlide>
-                  ))}
-                </Swiper>
-              )}
             </div>
 
-            {/* DESKTOP - Похожие товары */}
-            <div className="hidden lg:block mt-8">
+            {images.length > 1 && (
+              <Swiper
+                onSwiper={setThumbsSwiper}
+                spaceBetween={10}
+                slidesPerView={Math.min(images.length, 6)}
+                watchSlidesProgress
+                modules={[Navigation, Thumbs]}
+                className="mt-2 sm:mt-3"
+                breakpoints={{
+                  320: { slidesPerView: 4 },
+                  640: { slidesPerView: 5 },
+                  1024: { slidesPerView: 6 },
+                }}
+              >
+                {images.map((src, i) => (
+                  <SwiperSlide key={i} className="cursor-pointer group">
+                    <div
+                      className={`relative aspect-[4/3] rounded-2xl overflow-hidden border transition ${
+                        activeIndex === i ? 'border-black/40 shadow-lg' : 'border-black/10'
+                      }`}
+                      onClick={() => mainSwiperRef.current?.slideTo(i)}
+                    >
+                      <Image
+                        src={src}
+                        alt={`Миниатюра ${i + 1}`}
+                        fill
+                        placeholder="blur"
+                        blurDataURL={BLUR_PLACEHOLDER}
+                        loading="lazy"
+                        sizes="(max-width:768px) 20vw, 8vw"
+                        className="object-cover group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            )}
+
+            {/* DESKTOP - Similar */}
+            <div className="hidden lg:block mt-10">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold tracking-tight">Похожие товары</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Похожие товары</h2>
                 <div className="flex gap-2">
                   <button
-                    className="similarPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    className="similarPrevInline w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-black/[0.02] transition flex items-center justify-center"
                     aria-label="Назад"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    className="similarNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    className="similarNextInline w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-black/[0.02] transition flex items-center justify-center"
                     aria-label="Вперёд"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -887,12 +1008,12 @@ export default function ProductPageClient({
                   navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }}
                   loop={similarLoop}
                   modules={[Navigation]}
-                  spaceBetween={12}
+                  spaceBetween={14}
                   slidesPerView={2}
                 >
                   {similarItems.slice(0, 8).map((it) => (
                     <SwiperSlide key={it.id}>
-                      <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                      <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
                         <Link href={`/product/${it.id}`} className="block">
                           <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                             <Image
@@ -907,17 +1028,17 @@ export default function ProductPageClient({
                           </div>
                         </Link>
 
-                        <div className="p-3">
+                        <div className="p-4">
                           <Link href={`/product/${it.id}`} className="block">
                             <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
                               {it.title}
                             </p>
                           </Link>
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <span className="font-bold">{it.price} ₽</span>
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <span className="font-semibold">{money(it.price)} ₽</span>
                             <button
                               onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
-                              className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
                               rel="nofollow"
                             >
                               В корзину
@@ -931,19 +1052,19 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {/* DESKTOP - Допродажи */}
-            <div className="hidden lg:block mt-8">
+            {/* DESKTOP - Upsell */}
+            <div className="hidden lg:block mt-10">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold tracking-tight">Добавьте к заказу</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Добавьте к заказу</h2>
                 <div className="flex gap-2">
                   <button
-                    className="recommendPrevInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    className="recommendPrevInline w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-black/[0.02] transition flex items-center justify-center"
                     aria-label="Назад"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    className="recommendNextInline w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 transition flex items-center justify-center"
+                    className="recommendNextInline w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-black/[0.02] transition flex items-center justify-center"
                     aria-label="Вперёд"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -960,12 +1081,12 @@ export default function ProductPageClient({
                   navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }}
                   loop={recommendLoop}
                   modules={[Navigation]}
-                  spaceBetween={12}
+                  spaceBetween={14}
                   slidesPerView={2}
                 >
                   {recommendedItems.slice(0, 10).map((combo) => (
                     <SwiperSlide key={combo.id}>
-                      <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                      <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
                         <Link href={`/product/${combo.id}`} className="block">
                           <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                             <Image
@@ -980,19 +1101,19 @@ export default function ProductPageClient({
                           </div>
                         </Link>
 
-                        <div className="p-3">
+                        <div className="p-4">
                           <Link href={`/product/${combo.id}`} className="block">
                             <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
                               {combo.title}
                             </p>
                           </Link>
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <span className="font-bold">{combo.price} ₽</span>
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <span className="font-semibold">{money(combo.price)} ₽</span>
                             <button
                               onClick={() =>
                                 handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)
                               }
-                              className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
                               rel="nofollow"
                             >
                               В корзину
@@ -1007,195 +1128,309 @@ export default function ProductPageClient({
             </div>
           </motion.div>
 
-          {/* правая колонка */}
+          {/* RIGHT COLUMN */}
           <motion.div
             className="flex flex-col space-y-4 sm:space-y-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {/* скидки */}
-            <div className="flex items-center gap-3 mt-1">
-              {discountPercent > 0 && (
-                <>
-                  <span className="px-2 py-1 text-xs font-bold rounded bg-black text-white">
-                    -{discountPercent}%
-                  </span>
-                  <span className="px-2 py-1 text-xs font-medium rounded bg-gray-200">
-                    РАСПРОДАЖА
-                  </span>
-                </>
-              )}
-            </div>
-
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold uppercase tracking-tight leading-tight">
-              {product.title}
-            </h1>
-
-            {/* цена */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-end gap-3 lg:gap-4">
-                <span className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-                  {discountedPrice} ₽
-                </span>
+            {/* purchase card */}
+            <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_14px_40px_rgba(0,0,0,0.08)]">
+              {/* badges */}
+              <div className="flex flex-wrap items-center gap-2">
                 {discountPercent > 0 && (
                   <>
-                    <span className="text-base sm:text-lg text-gray-500 line-through">
-                      {product.price}₽
+                    <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-black text-white">
+                      Скидка -{discountPercent}%
                     </span>
-                    <span className="px-2 py-1 text-xs font-semibold rounded bg-black text-white">
-                      -{product.price - discountedPrice}₽
+                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+                      Акция
                     </span>
                   </>
                 )}
+
+                {/* ✅ вместо Premium - категория */}
+                {!!categoryLabel && (
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+                    {categoryLabel}
+                  </span>
+                )}
+
+                {!categoryLabel && isCategoryLoading && (
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10 text-black/50">
+                    Загрузка…
+                  </span>
+                )}
               </div>
 
-              <span className="text-sm sm:text-base flex items-center gap-1 text-gray-700">
-                + бонус {bonus}₽ <span className="ml-1 text-gray-500 cursor-pointer" title="Бонус за оплату заказа">ⓘ</span>
-              </span>
-            </div>
+              {/* title */}
+              <div className="mt-4">
+                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-semibold tracking-tight leading-tight">
+                  {uiTitle}
+                </h1>
+                {uiSubtitle && (
+                  <p className="mt-2 text-sm sm:text-base text-black/60 leading-relaxed">
+                    {uiSubtitle}
+                  </p>
+                )}
+              </div>
 
-            {/* изготовление / доставка */}
-            <div className="flex flex-col gap-2 text-sm sm:text-base">
-              {product.production_time != null && (
-                <div className="flex items-center gap-2">
-                  <Image src="/icons/clock.svg" alt="" width={20} height={20} />
-                  <span>
-                    Время изготовления: {formatProductionTime(product.production_time) || 'Не указано'}
+              {/* price */}
+              <div className="mt-5">
+                <div className="flex items-end gap-3">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight">
+                    {money(discountedPrice)} ₽
+                  </span>
+
+                  {discountPercent > 0 && (
+                    <div className="flex items-center gap-2 pb-1">
+                      <span className="text-sm sm:text-base text-black/45 line-through">
+                        {money(product.price)} ₽
+                      </span>
+                      <span className="px-2 py-1 text-[11px] font-semibold rounded-full bg-rose-600/10 text-rose-700 border border-rose-600/20">
+                        -{money(product.price - discountedPrice)} ₽
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 flex items-center gap-2 text-sm text-black/60">
+                  <span className="inline-flex items-center gap-1">
+                    + бонус {bonus} ₽
+                    <span className="text-black/35 cursor-pointer" title="Бонус за оплату заказа">
+                      ⓘ
+                    </span>
                   </span>
                 </div>
-              )}
-              {earliestDelivery && (
-                <div className="flex items-center gap-2">
-                  <Image src="/icons/truck.svg" alt="" width={20} height={20} />
-                  <span>{earliestDelivery}</span>
-                </div>
-              )}
-            </div>
+              </div>
 
-            {/* trust chips */}
-            <div className="grid grid-cols-2 gap-2">
-              {trustLines.map((t) => (
-                <div
-                  key={t}
-                  className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-semibold"
-                >
-                  {t}
-                </div>
-              ))}
-            </div>
-
-            {/* кнопки (desktop) */}
-            <div className="hidden lg:flex gap-3">
-              <motion.button
-                onClick={() =>
-                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
-                }
-                className="flex-1 py-3 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition"
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Добавить в корзину"
-                rel="nofollow"
-              >
-                ДОБАВИТЬ В КОРЗИНУ
-              </motion.button>
-
-              <motion.button
-                onClick={openCombo}
-                className="flex-1 py-3 rounded-lg font-bold border border-black bg-white text-black hover:bg-gray-50 transition"
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Собрать комбо"
-                rel="nofollow"
-              >
-                СОБРАТЬ КОМБО -10%
-              </motion.button>
-
-              <motion.button
-                onClick={handleShare}
-                className="p-3 rounded-lg border bg-gray-100 hover:bg-gray-200 transition"
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Поделиться"
-              >
-                <Share2 size={20} />
-              </motion.button>
-            </div>
-
-            {/* описание */}
-            {product.description && (
-              <section className="space-y-1 pt-3 border-t">
-                <h2 className="font-bold text-lg">О товаре</h2>
-                <p className="whitespace-pre-line leading-relaxed text-sm sm:text-base">
-                  {product.description}
-                </p>
-              </section>
-            )}
-
-            {/* состав */}
-            {product.composition && (
-              <section className="space-y-1">
-                <h2 className="font-bold text-lg">Состав</h2>
-                <ul className="list-disc pl-5 leading-relaxed text-sm sm:text-base">
-                  {product.composition.split('\n').map((row, i) => (
-                    <li key={i}>{row.trim()}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* отзывы */}
-            <section className="space-y-4">
-              <h2 className="font-bold text-lg">Отзывы клиентов</h2>
-              {[
-                {
-                  name: 'Анна',
-                  rating: 5,
-                  text: 'Дарила подруге на ДР, она была приятно удивлена! Радовалась, что вкусно и красиво! Спасибо! 🤍',
-                },
-                {
-                  name: 'Екатерина',
-                  rating: 5,
-                  text: 'Замечательный букет, очень понравился и по вкусу и по виду!',
-                },
-                {
-                  name: 'Ольга',
-                  rating: 5,
-                  text: 'Спасибо большое за вкусный букет! Это был важный знак внимания для любимой семьи и вы в этом мне очень помогли! Благодарю ❤️🙏🏻🍓',
-                },
-              ].map((review, i) => (
-                <div key={i} className="border-t pt-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{review.name}</span>
-                    <div className="flex">
-                      {Array(review.rating)
-                        .fill(0)
-                        .map((_, j) => (
-                          <Star key={j} size={16} className="text-yellow-500 fill-current" />
-                        ))}
-                    </div>
+              {/* meta */}
+              <div className="mt-5 grid grid-cols-1 gap-2 text-sm sm:text-base">
+                {product.production_time != null && (
+                  <div className="flex items-center gap-2 text-black/80">
+                    <Image src="/icons/clock.svg" alt="" width={20} height={20} />
+                    <span>
+                      Изготовление: {formatProductionTime(product.production_time) || 'Не указано'}
+                    </span>
                   </div>
-                  <p className="text-gray-700 mt-1 text-sm sm:text-base">{review.text}</p>
-                </div>
-              ))}
-            </section>
+                )}
+                {earliestDelivery && (
+                  <div className="flex items-center gap-2 text-black/80">
+                    <Image src="/icons/truck.svg" alt="" width={20} height={20} />
+                    <span>{earliestDelivery}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* trust chips */}
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                {trustLines.map((t) => (
+                  <div
+                    key={t}
+                    className="px-3 py-2 rounded-2xl border border-black/10 bg-white text-xs sm:text-sm font-semibold text-black/75"
+                  >
+                    {t}
+                  </div>
+                ))}
+              </div>
+
+              {/* actions */}
+              <div className="mt-6 hidden lg:flex gap-3">
+                <motion.button
+                  onClick={() =>
+                    handleAdd(
+                      product.id,
+                      product.title,
+                      discountedPrice,
+                      images[0] || null,
+                      product.production_time ?? null,
+                    )
+                  }
+                  className={`flex-1 py-3.5 rounded-2xl font-bold tracking-tight transition ${primaryBtnMain}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Добавить в корзину"
+                  rel="nofollow"
+                >
+                  Добавить в корзину
+                </motion.button>
+
+                <motion.button
+                  onClick={openCombo}
+                  className={`flex-1 py-3.5 rounded-2xl font-bold tracking-tight transition ${secondaryBtn}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Собрать комбо"
+                  rel="nofollow"
+                >
+                  Собрать комбо -10%
+                </motion.button>
+
+                <motion.button
+                  onClick={handleShare}
+                  className={`p-3.5 rounded-2xl transition ${iconBtn}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Поделиться"
+                >
+                  <Share2 size={20} />
+                </motion.button>
+              </div>
+
+              {/* mobile quick actions inside card */}
+              <div className="mt-6 lg:hidden grid grid-cols-2 gap-2">
+                <motion.button
+                  onClick={() =>
+                    handleAdd(
+                      product.id,
+                      product.title,
+                      discountedPrice,
+                      images[0] || null,
+                      product.production_time ?? null,
+                    )
+                  }
+                  className={`py-3 rounded-2xl font-bold text-sm transition ${primaryBtnMain}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Добавить в корзину"
+                  rel="nofollow"
+                >
+                  В корзину
+                </motion.button>
+
+                <motion.button
+                  onClick={openCombo}
+                  className={`py-3 rounded-2xl font-bold text-sm transition ${secondaryBtn}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Собрать комбо"
+                  rel="nofollow"
+                >
+                  Комбо -10%
+                </motion.button>
+              </div>
+            </div>
+
+            {/* content blocks */}
+            {(product.description || product.composition) && (
+              <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+                {product.description && (
+                  <section className="space-y-3">
+                    <h2 className="text-lg font-semibold tracking-tight">О товаре</h2>
+
+                    <div className="relative">
+                      <p
+                        className={`whitespace-pre-line leading-relaxed text-sm sm:text-base text-black/75 ${
+                          showFullDesc ? '' : 'line-clamp-6'
+                        }`}
+                      >
+                        {product.description}
+                      </p>
+
+                      {!showFullDesc && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowFullDesc((v) => !v)}
+                        className={`px-3 py-2 rounded-2xl text-sm font-semibold transition ${primaryBtnSoft}`}
+                      >
+                        {showFullDesc ? 'Свернуть' : 'Показать полностью'}
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                {product.composition && (
+                  <section className={`${product.description ? 'mt-6 pt-6 border-t border-black/10' : ''}`}>
+                    <h2 className="text-lg font-semibold tracking-tight">Состав</h2>
+                    <ul className="mt-3 space-y-2 text-sm sm:text-base text-black/75">
+                      {product.composition
+                        .split('\n')
+                        .map((row) => row.trim())
+                        .filter(Boolean)
+                        .map((row, i) => (
+                          <li key={i} className="flex gap-2">
+                            <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0" />
+                            <span>{row}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  </section>
+                )}
+              </div>
+            )}
+
+            {/* reviews */}
+            <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+              <h2 className="text-lg font-semibold tracking-tight">Отзывы клиентов</h2>
+
+              <div className="mt-4 space-y-5">
+                {[
+                  {
+                    name: 'Анна',
+                    rating: 5,
+                    text: 'Дарила подруге на ДР, она была приятно удивлена! Радовалась, что вкусно и красиво! Спасибо! 🤍',
+                  },
+                  {
+                    name: 'Екатерина',
+                    rating: 5,
+                    text: 'Замечательный букет, очень понравился и по вкусу и по виду!',
+                  },
+                  {
+                    name: 'Ольга',
+                    rating: 5,
+                    text: 'Спасибо большое за вкусный букет! Это был важный знак внимания для любимой семьи и вы в этом мне очень помогли! Благодарю ❤️🙏🏻🍓',
+                  },
+                ].map((review, i) => (
+                  <div key={i} className={`${i ? 'pt-5 border-t border-black/10' : ''}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{review.name}</span>
+                        <div className="flex">
+                          {Array(review.rating)
+                            .fill(0)
+                            .map((_, j) => (
+                              <Star key={j} size={16} className="text-rose-600 fill-current" />
+                            ))}
+                        </div>
+                      </div>
+
+                      <span className="text-xs text-black/45">Проверенный отзыв</span>
+                    </div>
+
+                    <p className="text-black/70 mt-2 text-sm sm:text-base leading-relaxed">
+                      {review.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </motion.div>
         </div>
 
-        {/* MOBILE - похожие товары */}
+        {/* MOBILE - Similar */}
         <motion.section
-          className="lg:hidden mt-6 pt-6 border-t"
+          className="lg:hidden mt-8 pt-8 border-t border-black/10"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          <h2 className="text-xl font-bold mb-4 tracking-tight">Похожие товары</h2>
+          <h2 className="text-xl font-semibold mb-4 tracking-tight">Похожие товары</h2>
 
           {isLoadingSimilar ? (
             <p className="text-gray-500">Загрузка…</p>
@@ -1218,7 +1453,7 @@ export default function ProductPageClient({
             >
               {similarItems.map((it) => (
                 <SwiperSlide key={it.id}>
-                  <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                  <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
                     <Link href={`/product/${it.id}`} className="block">
                       <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                         <Image
@@ -1232,17 +1467,17 @@ export default function ProductPageClient({
                         />
                       </div>
                     </Link>
-                    <div className="p-3">
+                    <div className="p-4">
                       <Link href={`/product/${it.id}`} className="block">
                         <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
                           {it.title}
                         </p>
                       </Link>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="font-bold">{it.price} ₽</span>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <span className="font-semibold">{money(it.price)} ₽</span>
                         <button
                           onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
-                          className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
                           rel="nofollow"
                         >
                           В корзину
@@ -1254,13 +1489,13 @@ export default function ProductPageClient({
               ))}
 
               <button
-                className="similarPrevMobile absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                className="similarPrevMobile absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/60 transition z-10"
                 aria-label="Назад"
               >
                 <ChevronLeft className="text-white text-2xl" />
               </button>
               <button
-                className="similarNextMobile absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                className="similarNextMobile absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/60 transition z-10"
                 aria-label="Вперёд"
               >
                 <ChevronRight className="text-white text-2xl" />
@@ -1269,14 +1504,14 @@ export default function ProductPageClient({
           )}
         </motion.section>
 
-        {/* MOBILE - допродажи */}
+        {/* MOBILE - Upsell */}
         <motion.section
-          className="lg:hidden mt-6 pt-6 border-t"
+          className="lg:hidden mt-8 pt-8 border-t border-black/10"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          <h2 className="text-xl font-bold mb-4 tracking-tight">Добавьте к заказу</h2>
+          <h2 className="text-xl font-semibold mb-4 tracking-tight">Добавьте к заказу</h2>
 
           {isLoadingRecommended ? (
             <p className="text-gray-500">Загрузка…</p>
@@ -1295,12 +1530,12 @@ export default function ProductPageClient({
                 slidesPerView={2}
                 breakpoints={{
                   320: { slidesPerView: 2, spaceBetween: 12 },
-                  640: { slidesPerView: 3, spaceBetween: 20 },
+                  640: { slidesPerView: 3, spaceBetween: 18 },
                 }}
               >
                 {recommendedItems.map((combo) => (
                   <SwiperSlide key={combo.id}>
-                    <div className="group rounded-xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
+                    <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
                       <Link href={`/product/${combo.id}`} className="block">
                         <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                           <Image
@@ -1315,20 +1550,20 @@ export default function ProductPageClient({
                         </div>
                       </Link>
 
-                      <div className="p-3">
+                      <div className="p-4">
                         <Link href={`/product/${combo.id}`} className="block">
                           <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
                             {combo.title}
                           </p>
                         </Link>
 
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="font-bold">{combo.price} ₽</span>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <span className="font-semibold">{money(combo.price)} ₽</span>
                           <button
                             onClick={() =>
                               handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)
                             }
-                            className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-gray-800 transition"
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
                             rel="nofollow"
                           >
                             В корзину
@@ -1341,13 +1576,13 @@ export default function ProductPageClient({
               </Swiper>
 
               <button
-                className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                className="recommendSwiperButtonPrev absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/60 transition z-10"
                 aria-label="Назад"
               >
                 <ChevronLeft className="text-white text-2xl" />
               </button>
               <button
-                className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/70 transition z-10"
+                className="recommendSwiperButtonNext absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/30 rounded-full flex items-center justify-center hover:bg-black/60 transition z-10"
                 aria-label="Вперёд"
               >
                 <ChevronRight className="text-white text-2xl" />
@@ -1356,20 +1591,26 @@ export default function ProductPageClient({
           )}
         </motion.section>
 
-        {/* мобильная нижняя панель */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white px-3 py-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-          <div className="flex items-center justify-between">
+        {/* mobile bottom bar */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur px-3 py-3 lg:hidden shadow-[0_-8px_22px_rgba(0,0,0,0.10)]">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="text-lg font-bold leading-none">{discountedPrice} ₽</span>
-              <span className="text-[11px] text-gray-500 leading-none mt-1">+ бонус {bonus} ₽</span>
+              <span className="text-lg font-semibold leading-none">{money(discountedPrice)} ₽</span>
+              <span className="text-[11px] text-black/50 leading-none mt-1">+ бонус {bonus} ₽</span>
             </div>
 
-            <div className="flex-1 ml-3 flex gap-2">
+            <div className="flex-1 flex gap-2">
               <motion.button
                 onClick={() =>
-                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
+                  handleAdd(
+                    product.id,
+                    product.title,
+                    discountedPrice,
+                    images[0] || null,
+                    product.production_time ?? null,
+                  )
                 }
-                className="flex-1 py-3 bg-black text-white rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-gray-800 transition"
+                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
                 variants={buttonVariants}
                 initial="rest"
                 whileHover="hover"
@@ -1382,7 +1623,7 @@ export default function ProductPageClient({
 
               <motion.button
                 onClick={openCombo}
-                className="flex-1 py-3 bg-white text-black border border-black rounded-lg font-bold text-xs uppercase tracking-wide hover:bg-gray-50 transition"
+                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${secondaryBtn}`}
                 variants={buttonVariants}
                 initial="rest"
                 whileHover="hover"
@@ -1396,37 +1637,32 @@ export default function ProductPageClient({
           </div>
         </div>
 
-        {/* -------------------------- COMBO MODAL -------------------------- */}
+        {/* COMBO MODAL */}
         <ComboBuilderModal
           open={comboOpen}
           view={comboView}
           onClose={closeCombo}
           onBackToMain={() => setComboView('main')}
           heroImage={images[0] || '/placeholder.jpg'}
-          heroTitle="СОБЕРИ КОМБО И ПОЛУЧИ СКИДКУ ДО 10%"
-
+          heroTitle="Собери комбо и получи скидку до 10%"
           baseItem={baseSelectable}
-
           selSecondBase={selSecondBase}
           selBalloons={selBalloons}
           selCard={selCard}
-
           comboDiscountPercent={comboDiscountPercent}
           totalDiscountRub={comboTotals.discountRub}
           totalFinal={comboTotals.discountedSum}
-
           onPickSecondBase={() => startPick(isBerryProduct ? 'flowers' : 'berries')}
           onPickBalloons={() => startPick('balloons')}
           onPickCards={() => startPick('cards')}
-
-          onReplaceSecondBase={() => startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))}
+          onReplaceSecondBase={() =>
+            startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))
+          }
           onReplaceBalloons={() => startPick('balloons')}
           onReplaceCards={() => startPick('cards')}
-
           onRemoveSecondBase={() => removeSelection(isBerryProduct ? 'flowers' : 'berries')}
           onRemoveBalloons={() => removeSelection('balloons')}
           onRemoveCards={() => removeSelection('cards')}
-
           pickTitle={pickTitle}
           pickTabs={pickTabs as any}
           activePick={activePick}
@@ -1435,7 +1671,6 @@ export default function ProductPageClient({
           pickError={pickError}
           pickList={pickList}
           onSelectPick={selectItem}
-
           onAddComboToCart={addComboToCart}
           isBerryBase={isBerryProduct}
         />

@@ -41,6 +41,32 @@ const modal = {
   exit: { y: 18, opacity: 0, transition: { duration: 0.18 } },
 };
 
+const btnBase =
+  'inline-flex items-center justify-center select-none ' +
+  'transition-colors transition-shadow duration-150 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-2';
+
+const btnPrimary =
+  btnBase +
+  ' bg-black text-white ' +
+  'hover:bg-rose-600 focus-visible:bg-rose-600 ' +
+  'shadow-[0_10px_25px_rgba(0,0,0,0.18)] hover:shadow-[0_10px_25px_rgba(225,29,72,0.22)]';
+
+const btnSecondary =
+  btnBase +
+  ' bg-white text-black border border-black/15 ' +
+  'hover:bg-rose-600/5 hover:text-rose-700 hover:border-rose-600/30';
+
+const btnSoft =
+  btnBase +
+  ' bg-black/5 text-black border border-black/10 ' +
+  'hover:bg-rose-600/10 hover:text-rose-700 hover:border-rose-600/20';
+
+const btnIcon =
+  btnBase +
+  ' bg-white border border-black/10 ' +
+  'hover:bg-rose-600/5 hover:border-rose-600/30';
+
 function SlotCard({
   title,
   subtitle,
@@ -56,17 +82,19 @@ function SlotCard({
 }) {
   return (
     <div className="flex gap-3 items-center border-b py-4">
-      <div className="w-16 h-16 rounded-xl border bg-white flex items-center justify-center">
+      <div className="w-16 h-16 rounded-2xl border border-black/10 bg-white flex items-center justify-center shadow-[0_6px_18px_rgba(0,0,0,0.06)]">
         {icon}
       </div>
-      <div className="flex-1">
-        <p className="text-sm font-semibold">{title}</p>
-        <p className="text-xs text-gray-600 mt-1">{subtitle}</p>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-black leading-snug">{title}</p>
+        <p className="text-xs text-black/60 mt-1 leading-snug">{subtitle}</p>
       </div>
+
       <button
         type="button"
         onClick={onAction}
-        className="px-4 py-2 rounded-full bg-[#3c3c3c] text-white text-xs font-bold uppercase hover:bg-black transition"
+        className={`${btnSecondary} px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide`}
       >
         {actionLabel}
       </button>
@@ -92,7 +120,7 @@ function SelectedRow({
 
   return (
     <div className="flex gap-3 items-center py-4 border-b">
-      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100">
+      <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-black/5 border border-black/10">
         <Image
           src={item.image || '/placeholder.jpg'}
           alt={item.title}
@@ -104,13 +132,19 @@ function SelectedRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold line-clamp-2">{item.title}</p>
+        <p className="text-sm font-semibold line-clamp-2 text-black">{item.title}</p>
 
         <div className="mt-1 flex items-center gap-2">
-          <span className="text-base font-bold">{money(finalPrice)} ₽</span>
+          <span className="text-base font-bold text-black">{money(finalPrice)} ₽</span>
 
           {discounted && comboDiscountPercent > 0 && (
-            <span className="text-sm text-gray-500 line-through">{money(item.price)} ₽</span>
+            <span className="text-sm text-black/50 line-through">{money(item.price)} ₽</span>
+          )}
+
+          {discounted && comboDiscountPercent > 0 && (
+            <span className="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-600/10 text-rose-700 border border-rose-600/15">
+              -{comboDiscountPercent}%
+            </span>
           )}
         </div>
 
@@ -118,7 +152,7 @@ function SelectedRow({
           <button
             type="button"
             onClick={onReplace}
-            className="mt-1 text-xs underline text-gray-700 hover:text-black"
+            className="mt-1 text-xs text-black/60 hover:text-rose-700 underline underline-offset-2"
           >
             Заменить
           </button>
@@ -129,7 +163,7 @@ function SelectedRow({
         <button
           type="button"
           onClick={onRemove}
-          className="w-10 h-10 rounded-full border flex items-center justify-center hover:bg-gray-50 transition"
+          className={`${btnIcon} w-10 h-10 rounded-full`}
           aria-label="Удалить"
         >
           <span className="text-lg">🗑️</span>
@@ -147,8 +181,8 @@ function PickCard({
   onSelect: (it: SelectableProduct) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white hover:shadow-md transition">
-      <div className="relative w-full aspect-[4/3] bg-gray-100">
+    <div className="rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_14px_40px_rgba(0,0,0,0.10)] transition-shadow">
+      <div className="relative w-full aspect-[4/3] bg-black/5">
         <Image
           src={item.image || '/placeholder.jpg'}
           alt={item.title}
@@ -161,16 +195,16 @@ function PickCard({
       </div>
 
       <div className="p-3">
-        <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{item.title}</p>
+        <p className="text-sm font-semibold line-clamp-2 min-h-[40px] text-black">{item.title}</p>
 
         <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="font-bold">{money(item.price)} ₽</span>
+          <span className="font-bold text-black">{money(item.price)} ₽</span>
         </div>
 
         <button
           type="button"
           onClick={() => onSelect(item)}
-          className="mt-3 w-full py-2 rounded-xl bg-[#3c3c3c] text-white text-xs font-bold uppercase hover:bg-black transition"
+          className={`${btnSecondary} mt-3 w-full py-2 rounded-xl text-xs font-bold uppercase tracking-wide`}
         >
           Добавить
         </button>
@@ -281,7 +315,7 @@ export default function ComboBuilderModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[90] bg-black/50 flex items-start justify-center p-3 sm:p-6 overflow-auto"
+          className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-[2px] flex items-start justify-center p-3 sm:p-6 overflow-auto"
           variants={overlay}
           initial="hidden"
           animate="visible"
@@ -291,19 +325,19 @@ export default function ComboBuilderModal({
           }}
         >
           <motion.div
-            className="w-full max-w-[1100px] bg-white rounded-2xl shadow-xl overflow-hidden"
+            className="w-full max-w-[1100px] bg-white rounded-[26px] shadow-[0_30px_90px_rgba(0,0,0,0.25)] overflow-hidden border border-black/10"
             variants={modal}
             initial="hidden"
             animate="visible"
             exit="exit"
           >
-            {/* HEADER общий - как у тебя */}
-            <div className="px-4 sm:px-6 py-4 border-b flex items-start justify-between gap-4">
+            {/* HEADER */}
+            <div className="px-4 sm:px-6 py-4 border-b border-black/10 flex items-start justify-between gap-4 bg-white">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wide text-gray-500">
-                  Собери комбо и получи скидку до 10%
+                <p className="text-xs uppercase tracking-wide text-black/50">
+                  
                 </p>
-                <p className="text-lg sm:text-xl font-bold leading-tight truncate">
+                <p className="text-lg sm:text-xl font-bold leading-tight truncate text-black">
                   {heroTitle}
                 </p>
               </div>
@@ -311,7 +345,7 @@ export default function ComboBuilderModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-10 h-10 rounded-full border flex items-center justify-center hover:bg-gray-50 transition"
+                className={`${btnIcon} w-10 h-10 rounded-full`}
                 aria-label="Закрыть"
               >
                 <X className="w-5 h-5" />
@@ -320,10 +354,10 @@ export default function ComboBuilderModal({
 
             {/* BODY */}
             <div className="max-h-[78vh] overflow-auto">
-              {/* DESKTOP: 2 колонки 1:1 как на твоем скрине */}
+              {/* DESKTOP */}
               <div className="hidden lg:grid grid-cols-[1fr_420px]">
-                {/* LEFT: Выберите замену + табы + список */}
-                <div className="border-r">
+                {/* LEFT: picker */}
+                <div className="border-r border-black/10">
                   <div className="px-6 pt-6">
                     <p className="text-xl font-semibold text-black">Выберите замену</p>
 
@@ -336,7 +370,7 @@ export default function ComboBuilderModal({
                           className={`pb-2 border-b-2 transition whitespace-nowrap ${
                             activePick === tab.t
                               ? 'border-black text-black font-semibold'
-                              : 'border-transparent text-gray-500 hover:text-black'
+                              : 'border-transparent text-black/50 hover:text-rose-700'
                           }`}
                         >
                           {tabLabel(tab.t, tab.label)}
@@ -351,13 +385,13 @@ export default function ComboBuilderModal({
                     </p>
 
                     {loadingPick ? (
-                      <p className="text-gray-500">Загрузка…</p>
+                      <p className="text-black/50">Загрузка…</p>
                     ) : pickError ? (
-                      <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                         {pickError}
                       </div>
                     ) : pickList.length === 0 ? (
-                      <p className="text-gray-500">Пока нет товаров</p>
+                      <p className="text-black/50">Пока нет товаров</p>
                     ) : (
                       <div className="grid grid-cols-2 gap-4">
                         {pickList.map((it) => (
@@ -366,7 +400,6 @@ export default function ComboBuilderModal({
                             item={it}
                             onSelect={(x) => {
                               onSelectPick(x);
-                              // на desktop не уходим в отдельный view, просто добавляем
                             }}
                           />
                         ))}
@@ -375,7 +408,7 @@ export default function ComboBuilderModal({
                   </div>
                 </div>
 
-                {/* RIGHT: конструктор */}
+                {/* RIGHT: builder */}
                 <div className="px-6 py-2">
                   <div className="pt-2">
                     <SelectedRow
@@ -387,7 +420,7 @@ export default function ComboBuilderModal({
                     {!selSecondBase ? (
                       <SlotCard
                         title={isBerryBase ? 'Добавьте букет' : 'Добавьте клубнику'}
-                        subtitle={`и получите скидку ${comboDiscountPercent ? '2,5%' : '5%'}`}
+                        subtitle="скидка растет, когда добавляете второй товар"
                         actionLabel={isBerryBase ? 'Добавить букет' : 'Добавить клубнику'}
                         onAction={onPickSecondBase}
                         icon={<span className="text-2xl">{isBerryBase ? '💐' : '🍓'}</span>}
@@ -405,7 +438,7 @@ export default function ComboBuilderModal({
                     {!selBalloons ? (
                       <SlotCard
                         title="Добавьте шары"
-                        subtitle={`и получите скидку ${comboDiscountPercent ? '2,5%' : '5%'}`}
+                        subtitle="с шарами скидка увеличивается"
                         actionLabel="Добавить шары"
                         onAction={onPickBalloons}
                         icon={<span className="text-2xl">🎈</span>}
@@ -439,33 +472,37 @@ export default function ComboBuilderModal({
                     )}
 
                     <div className="py-5">
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>Скидка {comboDiscountPercent}%</span>
-                        <span>-{money(totalDiscountRub)} ₽</span>
-                      </div>
+                      <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                        <div className="flex items-center justify-between text-sm text-black/60">
+                          <span>Скидка {comboDiscountPercent}%</span>
+                          <span>-{money(totalDiscountRub)} ₽</span>
+                        </div>
 
-                      <div className="mt-3 flex items-end justify-between">
-                        <div className="text-sm font-semibold text-gray-700">Всего</div>
-                        <div className="text-2xl font-bold">{money(totalFinal)} ₽</div>
-                      </div>
+                        <div className="mt-3 flex items-end justify-between">
+                          <div className="text-sm font-semibold text-black/70">Всего</div>
+                          <div className="text-2xl font-bold text-black">{money(totalFinal)} ₽</div>
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={onAddComboToCart}
-                        className="mt-4 w-full py-4 rounded-2xl bg-[#3c3c3c] text-white text-sm font-bold uppercase hover:bg-black transition"
-                      >
-                        Добавить в корзину
-                      </button>
+                        <button
+                          type="button"
+                          onClick={onAddComboToCart}
+                          className={`${btnPrimary} mt-4 w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wide`}
+                        >
+                          Добавить в корзину
+                        </button>
+
+                        
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* MOBILE: оставляем твою текущую логику main/pick */}
+              {/* MOBILE */}
               <div className="lg:hidden">
                 {view === 'main' && (
                   <div className="px-4 sm:px-6">
-                    <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100 mt-3">
+                    <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black/5 mt-3 border border-black/10">
                       <Image
                         src={heroImage || '/placeholder.jpg'}
                         alt={heroTitle}
@@ -486,7 +523,7 @@ export default function ComboBuilderModal({
                       {!selSecondBase ? (
                         <SlotCard
                           title={isBerryBase ? 'Добавьте букет' : 'Добавьте клубнику'}
-                          subtitle={`и получите скидку ${comboDiscountPercent ? '2,5%' : '5%'}`}
+                          subtitle="скидка растет, когда добавляете второй товар"
                           actionLabel={isBerryBase ? 'Добавить букет' : 'Добавить клубнику'}
                           onAction={onPickSecondBase}
                           icon={<span className="text-2xl">{isBerryBase ? '💐' : '🍓'}</span>}
@@ -504,7 +541,7 @@ export default function ComboBuilderModal({
                       {!selBalloons ? (
                         <SlotCard
                           title="Добавьте шары"
-                          subtitle={`и получите скидку ${comboDiscountPercent ? '2,5%' : '5%'}`}
+                          subtitle="с шарами скидка увеличивается"
                           actionLabel="Добавить шары"
                           onAction={onPickBalloons}
                           icon={<span className="text-2xl">🎈</span>}
@@ -538,23 +575,25 @@ export default function ComboBuilderModal({
                       )}
 
                       <div className="py-5">
-                        <div className="flex items-center justify-between text-sm text-gray-600">
-                          <span>Скидка {comboDiscountPercent}%</span>
-                          <span>-{money(totalDiscountRub)} ₽</span>
-                        </div>
+                        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                          <div className="flex items-center justify-between text-sm text-black/60">
+                            <span>Скидка {comboDiscountPercent}%</span>
+                            <span>-{money(totalDiscountRub)} ₽</span>
+                          </div>
 
-                        <div className="mt-3 flex items-end justify-between">
-                          <div className="text-sm font-semibold text-gray-700">Всего</div>
-                          <div className="text-2xl font-bold">{money(totalFinal)} ₽</div>
-                        </div>
+                          <div className="mt-3 flex items-end justify-between">
+                            <div className="text-sm font-semibold text-black/70">Всего</div>
+                            <div className="text-2xl font-bold text-black">{money(totalFinal)} ₽</div>
+                          </div>
 
-                        <button
-                          type="button"
-                          onClick={onAddComboToCart}
-                          className="mt-4 w-full py-4 rounded-2xl bg-[#3c3c3c] text-white text-sm font-bold uppercase hover:bg-black transition"
-                        >
-                          Добавить в корзину
-                        </button>
+                          <button
+                            type="button"
+                            onClick={onAddComboToCart}
+                            className={`${btnPrimary} mt-4 w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wide`}
+                          >
+                            Добавить в корзину
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -566,13 +605,13 @@ export default function ComboBuilderModal({
                       <button
                         type="button"
                         onClick={onBackToMain}
-                        className="text-sm underline text-gray-700 hover:text-black flex items-center gap-1"
+                        className="text-sm underline underline-offset-2 text-black/60 hover:text-rose-700 flex items-center gap-1"
                       >
                         <ChevronLeft className="w-4 h-4" />
                         Назад
                       </button>
 
-                      <p className="text-base sm:text-lg font-bold text-center flex-1">
+                      <p className="text-base sm:text-lg font-bold text-center flex-1 text-black">
                         {pickTitle}
                       </p>
 
@@ -588,7 +627,7 @@ export default function ComboBuilderModal({
                           className={`pb-2 border-b-2 transition whitespace-nowrap ${
                             activePick === tab.t
                               ? 'border-black text-black font-semibold'
-                              : 'border-transparent text-gray-500 hover:text-black'
+                              : 'border-transparent text-black/50 hover:text-rose-700'
                           }`}
                         >
                           {tabLabel(tab.t, tab.label)}
@@ -598,13 +637,13 @@ export default function ComboBuilderModal({
 
                     <div className="mt-4">
                       {loadingPick ? (
-                        <p className="text-gray-500">Загрузка…</p>
+                        <p className="text-black/50">Загрузка…</p>
                       ) : pickError ? (
-                        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                           {pickError}
                         </div>
                       ) : pickList.length === 0 ? (
-                        <p className="text-gray-500">Пока нет товаров</p>
+                        <p className="text-black/50">Пока нет товаров</p>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {pickList.map((it) => (
@@ -619,11 +658,11 @@ export default function ComboBuilderModal({
             </div>
 
             {/* FOOTER */}
-            <div className="px-4 sm:px-6 py-4 border-t bg-white flex items-center justify-between gap-3">
+            <div className="px-4 sm:px-6 py-4 border-t border-black/10 bg-white flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-3 rounded-xl border text-sm font-semibold hover:bg-gray-50 transition"
+                className={`${btnSecondary} px-5 py-3 rounded-xl text-sm font-semibold`}
               >
                 Закрыть
               </button>
@@ -631,7 +670,7 @@ export default function ComboBuilderModal({
               <button
                 type="button"
                 onClick={onAddComboToCart}
-                className="flex-1 px-5 py-3 rounded-xl bg-[#3c3c3c] text-white text-sm font-bold hover:bg-black transition"
+                className={`${btnPrimary} flex-1 px-5 py-3 rounded-xl text-sm font-bold`}
               >
                 Добавить в корзину
               </button>

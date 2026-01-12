@@ -1,10 +1,10 @@
-// components/OrderStep.tsx
+// ✅ Путь: components/OrderStep.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface OrderStepProps {
@@ -48,14 +48,22 @@ export default function OrderStep({
   const [open, setOpen] = useState(isActive);
 
   useEffect(() => {
-    if (isActive && !open) setOpen(true);
-    if (!isActive && open) setOpen(false);
-  }, [isActive, open]);
+    // держим активный шаг раскрытым, остальные закрываем
+    if (isActive) setOpen(true);
+    else setOpen(false);
+  }, [isActive]);
 
-  const primaryBtn =
-    'w-full rounded-[18px] bg-[#4b4b4b] text-white font-bold uppercase tracking-tight text-xs py-4 shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed';
-  const secondaryBtn =
-    'w-full rounded-[18px] bg-white text-[#4b4b4b] font-bold uppercase tracking-tight text-xs py-4 border border-[#bdbdbd] shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed';
+  const primaryBtn = useMemo(
+    () =>
+      'w-full rounded-[18px] bg-[#4b4b4b] text-white font-bold uppercase tracking-tight text-xs py-4 shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed',
+    [],
+  );
+
+  const secondaryBtn = useMemo(
+    () =>
+      'w-full rounded-[18px] bg-white text-[#4b4b4b] font-bold uppercase tracking-tight text-xs py-4 border border-[#bdbdbd] shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed',
+    [],
+  );
 
   return (
     <div
@@ -153,7 +161,7 @@ export default function OrderStep({
                       if (isNextDisabled || isSubmitting) return;
 
                       const ok = await onNext();
-                      if (!ok) return; // <-- IMPORTANT: no success, no goal
+                      if (!ok) return;
 
                       window.gtag?.('event', 'order_step_next', {
                         event_category: 'order',

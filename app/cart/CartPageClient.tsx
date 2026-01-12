@@ -1,4 +1,4 @@
-// app/cart/CartPageClient.tsx
+// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -384,8 +384,6 @@ export default function CartPageClient({
     const hasAnyItems = items.length > 0 || selectedUpsells.length > 0;
     if (!hasAnyItems) return;
 
-    // На странице чекаута шаги 1..5 всегда есть, поэтому считаем фактом старта
-    // наличие товаров + открытый процесс (step >= 1)
     if (step >= 1) {
       hasTrackedCheckoutStartRef.current = true;
 
@@ -429,9 +427,11 @@ export default function CartPageClient({
   // ---------------------------
   // Totals
   // ---------------------------
-  const deliveryCost = useMemo(() => (form.deliveryMethod === 'delivery' ? 300 : 0), [
-    form.deliveryMethod,
-  ]);
+  // ✅ FIX: тут у тебя был сломанный синтаксис
+  const deliveryCost = useMemo(() => {
+    if (form.deliveryMethod === 'pickup') return 0;
+    return 0;
+  }, [form.deliveryMethod]);
 
   const subtotal = useMemo(() => {
     return items.reduce((sum: number, i: CartItemType) => sum + i.price * i.quantity, 0);
@@ -444,7 +444,7 @@ export default function CartPageClient({
     );
   }, [selectedUpsells]);
 
-  const baseTotal = subtotal + upsellTotal;
+  const baseTotal = subtotal + upsellTotal + deliveryCost;
 
   const discountAmount = useMemo(() => {
     if (!promoDiscount || !promoType) return 0;
@@ -470,7 +470,7 @@ export default function CartPageClient({
     lastTrackedCheckoutStepRef.current = step;
 
     trackCheckoutStep(step, { total: finalTotal, itemsCount: items.length });
-  }, [step]);
+  }, [step, finalTotal, items.length]);
 
   // ---------------------------
   // Promo apply
@@ -904,7 +904,10 @@ export default function CartPageClient({
             className="px-2 sm:px-4 pt-3 pb-4"
             style={{ transform: `translateY(${upsellShift}px)` }}
           >
-            <UpsellButtonsMobile onPostcard={() => setShowPostcard(true)} onBalloons={() => setShowBalloons(true)} />
+            <UpsellButtonsMobile
+              onPostcard={() => setShowPostcard(true)}
+              onBalloons={() => setShowBalloons(true)}
+            />
           </div>
         </div>
         <div className="h-3" />
@@ -918,7 +921,11 @@ export default function CartPageClient({
               const stepNum = s as Step;
 
               const onNext =
-                stepNum === 5 ? submitOrder : stepNum === step ? (async () => handleNextStep()) : undefined;
+                stepNum === 5
+                  ? submitOrder
+                  : stepNum === step
+                    ? async () => handleNextStep()
+                    : undefined;
 
               const onBack = stepNum === step && stepNum !== 1 ? prevStep : undefined;
 
@@ -1056,7 +1063,13 @@ export default function CartPageClient({
       />
 
       {errorModal && (
-        <ErrorModal message={errorModal} onRetry={async () => { await submitOrder(); }} onClose={() => setErrorModal(null)} />
+        <ErrorModal
+          message={errorModal}
+          onRetry={async () => {
+            await submitOrder();
+          }}
+          onClose={() => setErrorModal(null)}
+        />
       )}
     </div>
   );

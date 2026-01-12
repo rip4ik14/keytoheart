@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/UpsellButtonsMobile.tsx
 'use client';
 
 import Image from 'next/image';
@@ -9,7 +10,7 @@ type Props = {
 
 export default function UpsellButtonsMobile({ onPostcard, onBalloons }: Props) {
   const base =
-    'w-full flex flex-col items-center justify-center gap-2 border border-[#bdbdbd] rounded-xl px-3 py-4 font-bold text-[11px] uppercase tracking-tight bg-white text-[#535353] transition shadow-sm active:scale-[.98]';
+    'w-full flex flex-col items-center justify-center gap-2 rounded-2xl px-3 py-4 text-[11px] uppercase tracking-tight font-semibold transition active:scale-[.98] border border-black/10 bg-white hover:bg-black/[0.02] shadow-[0_10px_30px_rgba(0,0,0,0.05)] text-black/80';
 
   return (
     <div className="grid grid-cols-2 gap-3 w-full">

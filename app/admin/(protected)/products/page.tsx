@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/products/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,7 +9,6 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import SitePagesDropdown from '../components/SitePagesDropdown';
 import ProductTable from './ProductTable';
-import type { Database } from '@/lib/supabase/types_new';
 
 // Интерфейс Product
 interface Product {
@@ -95,7 +95,13 @@ function ProductsContent() {
   }, [router]);
 
   // Загрузка продуктов и категорий
-  const { data: fetchedProducts = [], isLoading, error, isError, refetch } = useQuery<Product[], Error>({
+  const {
+    data: fetchedProducts = [],
+    isLoading,
+    error,
+    isError,
+    refetch,
+  } = useQuery<Product[], Error>({
     queryKey: ['products', selectedPage],
     queryFn: async () => {
       // Загрузка связей product_categories
@@ -109,7 +115,7 @@ function ProductsContent() {
 
       // Группировка category_ids по product_id
       const productCategoriesMap = new Map<number, number[]>();
-      productCategoryData.forEach(item => {
+      productCategoryData.forEach((item) => {
         const existing = productCategoriesMap.get(item.product_id) || [];
         productCategoriesMap.set(item.product_id, [...existing, item.category_id]);
       });
@@ -119,7 +125,8 @@ function ProductsContent() {
       // Загрузка продуктов
       let query = supabase
         .from('products')
-        .select(`
+        .select(
+          `
           id,
           title,
           price,
@@ -138,7 +145,8 @@ function ProductsContent() {
           short_desc,
           slug,
           production_time
-        `)
+        `,
+        )
         .in('id', productIds.length > 0 ? productIds : [0])
         .order('order_index', { ascending: true })
         .order('id', { ascending: false });
@@ -146,11 +154,11 @@ function ProductsContent() {
       if (selectedPage) {
         const parts = selectedPage.split('/').filter(Boolean);
         if (parts[0] === 'category' && parts.length === 2) {
-          const categoryName = parts[1];
+          const categorySlug = parts[1];
           const { data: categoryData, error: categoryError } = await supabase
             .from('categories')
             .select('id')
-            .eq('slug', categoryName)
+            .eq('slug', categorySlug)
             .single();
 
           if (categoryError || !categoryData) {
@@ -159,8 +167,8 @@ function ProductsContent() {
 
           const categoryId = categoryData.id;
           const filteredProductIds = productCategoryData
-            .filter(item => item.category_id === categoryId)
-            .map(item => item.product_id);
+            .filter((item) => item.category_id === categoryId)
+            .map((item) => item.product_id);
 
           if (filteredProductIds.length === 0) return [];
 
@@ -181,7 +189,7 @@ function ProductsContent() {
       setCategories(categoriesData || []);
 
       // Формирование данных продуктов
-      return data.map((product) => ({
+      return (data || []).map((product) => ({
         ...product,
         category_ids: productCategoriesMap.get(product.id) || [],
         in_stock: product.in_stock ?? false,
@@ -214,24 +222,26 @@ function ProductsContent() {
     let filtered = fetchedProducts;
 
     if (categoryFilter) {
-      filtered = filtered.filter(product => product.category_ids.includes(Number(categoryFilter)));
+      filtered = filtered.filter((product) => product.category_ids.includes(Number(categoryFilter)));
     }
 
     if (stockFilter !== 'all') {
-      filtered = filtered.filter(product => product.in_stock === (stockFilter === 'in_stock'));
+      filtered = filtered.filter((product) => product.in_stock === (stockFilter === 'in_stock'));
     }
 
     if (visibilityFilter !== 'all') {
-      filtered = filtered.filter(product => product.is_visible === (visibilityFilter === 'visible'));
+      filtered = filtered.filter(
+        (product) => product.is_visible === (visibilityFilter === 'visible'),
+      );
     }
 
     if (popularityFilter !== 'all') {
-      filtered = filtered.filter(product => product.is_popular === (popularityFilter === 'popular'));
+      filtered = filtered.filter((product) => product.is_popular === (popularityFilter === 'popular'));
     }
 
     if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.title.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter((product) =>
+        product.title.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
@@ -245,47 +255,60 @@ function ProductsContent() {
     }
   }, [isError, error]);
 
-  // Мутация для переключения наличия
+  // ✅ Мутация для переключения наличия через server api
   const toggleInStockMutation = useMutation({
     mutationFn: async ({ id, in_stock }: { id: number; in_stock: boolean | null }) => {
-      const { error } = await supabase
-        .from('products')
-        .update({ in_stock: !in_stock })
-        .eq('id', id);
-      if (error) throw new Error(error.message);
+      const res = await fetch('/api/admin/products/toggle-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id, in_stock: !!in_stock }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || 'Не удалось обновить наличие');
+      }
+
       return id;
     },
     onSuccess: (id) => {
       setProducts((old) =>
         old.map((product) =>
-          product.id === id ? { ...product, in_stock: !product.in_stock } : product
-        )
+          product.id === id ? { ...product, in_stock: !product.in_stock } : product,
+        ),
       );
     },
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
   });
 
-  // Мутация для удаления
+  // ✅ Мутация для удаления через server api
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const product = fetchedProducts.find((p) => p.id === id);
-      if (product?.images?.length) {
-        const filePaths = product.images.map((url: string) =>
-          decodeURIComponent(url.split('/').pop()!)
-        );
-        const { error: storageError } = await supabase.storage
-          .from('product-image')
-          .remove(filePaths);
-        if (storageError) throw new Error(storageError.message);
+
+      const res = await fetch('/api/admin/products/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id, images: product?.images || [] }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || 'Не удалось удалить товар');
       }
 
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw new Error(error.message);
+      return id;
     },
-    onSuccess: () => {
-      setProducts((old) => old.filter((p) => p.id !== productToDelete));
+    onSuccess: (id) => {
+      setProducts((old) => old.filter((p) => p.id !== id));
       toast.success('Товар удалён');
       closeModal();
+      // чтобы точно синхронизировать
+      refetch();
     },
     onError: (error: Error) => toast.error('Ошибка: ' + error.message),
   });
@@ -347,6 +370,7 @@ function ProductsContent() {
               Карточки
             </motion.button>
           </div>
+
           <motion.a
             href="/admin/new"
             className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
@@ -355,7 +379,7 @@ function ProductsContent() {
           >
             Добавить товар
           </motion.a>
-          {/* КНОПКА ДЛЯ СКАЧИВАНИЯ YML */}
+
           <motion.a
             href="/api/yandex-yml"
             download="keytoheart_yandex.yml"
@@ -367,35 +391,32 @@ function ProductsContent() {
           >
             Скачать YML для Яндекса
           </motion.a>
-          {/* КНОПКА ДЛЯ VK (XML, +10%) */}
-<motion.a
-  href="/vk.xml"
-  download="keytoheart_vk.xml"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="px-4 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition"
-  whileHover={{ scale: 1.04 }}
-  aria-label="Скачать XML для VK (цены +10%)"
->
-  Скачать XML для VK (+10%)
-</motion.a>
 
+          <motion.a
+            href="/vk.xml"
+            download="keytoheart_vk.xml"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition"
+            whileHover={{ scale: 1.04 }}
+            aria-label="Скачать XML для VK (цены +10%)"
+          >
+            Скачать XML для VK (+10%)
+          </motion.a>
         </div>
       </div>
 
-      {/* КНОПКА ДЛЯ ЭКСПОРТА CSV */}
-<motion.a
-  href="/api/products-export.csv"
-  download="products_export.csv"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="px-4 py-2 bg-green-500 text-white font-semibold rounded hover:bg-green-600 transition"
-  whileHover={{ scale: 1.04 }}
-  aria-label="Экспортировать товары в CSV"
->
-  Экспорт CSV
-</motion.a>
-
+      <motion.a
+        href="/api/products-export.csv"
+        download="products_export.csv"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="px-4 py-2 bg-green-500 text-white font-semibold rounded hover:bg-green-600 transition"
+        whileHover={{ scale: 1.04 }}
+        aria-label="Экспортировать товары в CSV"
+      >
+        Экспорт CSV
+      </motion.a>
 
       {/* Фильтры */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-gray-100 p-4 rounded-lg">
@@ -410,13 +431,14 @@ function ProductsContent() {
             className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Все категории</option>
-            {categories.map(category => (
+            {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
             ))}
           </select>
         </div>
+
         <div>
           <label htmlFor="stockFilter" className="block mb-1 font-medium text-gray-600">
             Наличие:
@@ -432,6 +454,7 @@ function ProductsContent() {
             <option value="out_of_stock">Нет в наличии</option>
           </select>
         </div>
+
         <div>
           <label htmlFor="visibilityFilter" className="block mb-1 font-medium text-gray-600">
             Видимость:
@@ -447,6 +470,7 @@ function ProductsContent() {
             <option value="hidden">Скрытые</option>
           </select>
         </div>
+
         <div>
           <label htmlFor="popularityFilter" className="block mb-1 font-medium text-gray-600">
             Популярность:
@@ -462,6 +486,7 @@ function ProductsContent() {
             <option value="not_popular">Обычные</option>
           </select>
         </div>
+
         <div>
           <label htmlFor="searchQuery" className="block mb-1 font-medium text-gray-600">
             Поиск:

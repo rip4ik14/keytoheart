@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/CartSummary.tsx
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -21,11 +22,14 @@ interface CartSummaryProps {
   bonusesUsed: number;
   deliveryMethod?: 'delivery' | 'pickup';
 
-  // PROMO
   promoCode: string;
   setPromoCode: Dispatch<SetStateAction<string>>;
   promoError?: string | null;
   onApplyPromo: () => Promise<void>;
+}
+
+function rub(n: number) {
+  return new Intl.NumberFormat('ru-RU').format(Math.round(n));
 }
 
 export default function CartSummary({
@@ -56,69 +60,85 @@ export default function CartSummary({
   );
 
   const isPickup = deliveryMethod === 'pickup';
-
-  // сумма для расчёта лимита списания бонусов
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
+
+  const card =
+    'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
+  const muted = 'text-black/60';
+  const ink = 'text-[#121212]';
+  const btnPrimary =
+    'bg-[#121212] text-white hover:bg-black shadow-[0_10px_25px_rgba(0,0,0,0.18)]';
+  const btnGhost =
+    'bg-white text-[#121212] border border-black/15 hover:border-black/25 hover:bg-black/[0.02]';
 
   return (
     <motion.aside
       aria-label="Сумма заказа"
-      className="
-        w-full
-        p-4 xs:p-6 bg-white border border-gray-300 rounded-lg shadow-sm
-        flex flex-col gap-3
-      "
-      initial={{ opacity: 0, x: 30 }}
+      className={`w-full p-4 xs:p-6 ${card}`}
+      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.35 }}
     >
-      <h2 className="mb-1 xs:mb-2 text-base xs:text-lg font-bold text-gray-900">Итого</h2>
+      <div className="flex items-end justify-between gap-3">
+        <h2 className={`text-base xs:text-lg font-semibold tracking-tight ${ink}`}>Итого</h2>
+
+        {items.length + selectedUpsells.length > 0 ? (
+          <span className={`text-[11px] xs:text-xs ${muted}`}>
+            {items.length} {items.length === 1 ? 'товар' : 'товара'}
+            {selectedUpsells.length ? ` + ${selectedUpsells.length} доп.` : ''}
+          </span>
+        ) : null}
+      </div>
 
       {items.length + selectedUpsells.length === 0 ? (
-        <p className="text-center text-gray-500">Корзина пуста</p>
+        <p className={`mt-4 text-center ${muted}`}>Корзина пуста</p>
       ) : (
-        <div className="flex flex-col space-y-2 xs:space-y-4 text-xs xs:text-sm text-gray-700">
-          {/* Товары + допродажи */}
-          <div className="flex justify-between">
-            <span>Товары</span>
-            <span className="font-medium">{subtotal + upsellTotal} ₽</span>
+        <div className="mt-4 flex flex-col gap-4 text-xs xs:text-sm">
+          {/* суммы */}
+          <div className="rounded-2xl border border-black/10 bg-black/[0.015] p-3 xs:p-4">
+            <div className="flex justify-between">
+              <span className={muted}>Товары</span>
+              <span className={`font-semibold ${ink}`}>{rub(subtotal + upsellTotal)} ₽</span>
+            </div>
+
+            <div className="mt-2 flex justify-between gap-3">
+              <span className={muted}>
+                {isPickup
+                  ? 'Самовывоз из студии'
+                  : 'Доставка - менеджер рассчитает после оформления'}
+              </span>
+              <span className={`font-semibold ${ink}`}>{isPickup ? '0 ₽' : 'по расчету'}</span>
+            </div>
+
+            {discountAmount > 0 ? (
+              <div className="mt-2 flex justify-between text-emerald-700">
+                <span>Скидка</span>
+                <span className="font-semibold">-{rub(discountAmount)} ₽</span>
+              </div>
+            ) : null}
           </div>
 
-          {/* Стоимость доставки / самовывоз */}
-          <div className="flex justify-between">
-            <span>
-              {isPickup
-                ? 'Самовывоз из студии'
-                : 'Стоимость доставки рассчитает менеджер после оформления заказа'}
-            </span>
-            <span className="font-medium">{isPickup ? '0 ₽' : `${deliveryCost} ₽`}</span>
-          </div>
+          {/* промокод */}
+          <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
+            <p className={`text-[11px] xs:text-xs font-semibold ${ink}`}>Промокод</p>
 
-          {/* PROMO */}
-          <div className="pt-2 xs:pt-3 border-t">
-            <div className="flex items-center gap-2">
+            <div className="mt-2 flex items-center gap-2">
               <input
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
-                placeholder="Промокод"
+                placeholder="Введите код"
                 className="
                   w-full
-                  border border-gray-300 rounded-md
+                  rounded-2xl border border-black/10 bg-white
                   px-3 py-2 text-xs xs:text-sm
-                  focus:outline-none focus:ring-2 focus:ring-black/20
+                  focus:outline-none focus:ring-2 focus:ring-black/10
                 "
               />
+
               <motion.button
                 type="button"
                 onClick={onApplyPromo}
-                className="
-                  shrink-0
-                  border border-black rounded-md
-                  px-3 py-2 text-xs xs:text-sm font-semibold
-                  bg-white text-black
-                  hover:bg-black hover:text-white
-                  transition
-                "
+                className={`shrink-0 rounded-2xl px-3 py-2 text-xs xs:text-sm font-semibold transition ${btnPrimary}`}
                 whileTap={{ scale: 0.98 }}
               >
                 Применить
@@ -130,86 +150,66 @@ export default function CartSummary({
             ) : null}
           </div>
 
-          {/* Скидка */}
-          {discountAmount > 0 && (
-            <motion.div
-              className="flex justify-between text-green-600"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <span>Скидка</span>
-              <span>-{discountAmount} ₽</span>
-            </motion.div>
-          )}
-
-          {/* Бонусы - списание */}
+          {/* бонусы */}
           {isAuthenticated && (
-            <motion.div
-              className="pt-2 xs:pt-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex items-center justify-between bg-gray-50 p-2 xs:p-3 rounded-md">
-                <label className="flex items-center gap-2 text-xs xs:text-sm font-medium text-gray-900">
-                  <motion.input
+            <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <label className={`flex items-center gap-2 text-xs xs:text-sm font-semibold ${ink}`}>
+                  <input
                     type="checkbox"
                     checked={useBonuses}
                     onChange={(e) => setUseBonuses(e.target.checked)}
-                    className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
-                    aria-label="Списать бонусы"
+                    className="h-4 w-4 rounded border-black/20"
                     disabled={bonusBalance <= 0 || totalBeforeDiscounts <= 0}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    aria-label="Списать бонусы"
                   />
                   Списать бонусы
                 </label>
 
-                {useBonuses && bonusesUsed > 0 && (
-                  <motion.span
-                    className="text-xs xs:text-sm font-semibold text-green-600"
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    -{bonusesUsed} ₽
-                  </motion.span>
-                )}
+                {useBonuses && bonusesUsed > 0 ? (
+                  <span className="text-xs xs:text-sm font-semibold text-emerald-700">
+                    -{rub(bonusesUsed)} ₽
+                  </span>
+                ) : null}
               </div>
 
-              <motion.p
-                className="mt-1 xs:mt-2 text-[11px] xs:text-xs text-gray-500"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
+              <p className={`mt-2 text-[11px] xs:text-xs ${muted}`}>
                 {bonusBalance <= 0
                   ? 'Нет доступных бонусов'
-                  : `Доступно для списания: ${Math.min(
-                      bonusBalance,
-                      Math.floor(totalBeforeDiscounts * 0.15),
-                    )} ₽`}
-              </motion.p>
-            </motion.div>
+                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
+              </p>
+            </div>
           )}
 
-          {/* Бонусы - начисление */}
-          <div className="flex justify-between items-center pt-2 xs:pt-4 text-[11px] xs:text-xs text-gray-500 border-t">
-            <span>+ начислим {bonusAccrual} бонусов</span>
-            <Image
-              src="/icons/info-circle.svg"
-              alt="Информация"
-              width={16}
-              height={16}
-              loading="lazy"
-            />
+          {/* начисление */}
+          <div className="flex items-center justify-between rounded-2xl border border-black/10 p-3 xs:p-4">
+            <span className={`text-[11px] xs:text-xs ${muted}`}>+ начислим {bonusAccrual} бонусов</span>
+            <Image src="/icons/info-circle.svg" alt="Информация" width={16} height={16} loading="lazy" />
           </div>
 
-          {/* Итого */}
-          <div className="mt-3 xs:mt-6 flex justify-between items-center text-lg xs:text-xl font-bold text-gray-900 border-t pt-3 xs:pt-4">
-            <span>Итого</span>
-            <span>{finalTotal} ₽</span>
+          {/* итог */}
+          <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
+            <div className="flex items-center justify-between">
+              <span className={`text-sm xs:text-base font-semibold ${ink}`}>Итого</span>
+              <span className={`text-lg xs:text-xl font-semibold tracking-tight ${ink}`}>
+                {rub(finalTotal)} ₽
+              </span>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <a
+                href="/"
+                className={`flex-1 text-center rounded-2xl px-3 py-3 text-xs font-semibold transition ${btnGhost}`}
+              >
+                Продолжить покупки
+              </a>
+              <button
+                type="button"
+                className={`flex-1 rounded-2xl px-3 py-3 text-xs font-semibold transition ${btnPrimary}`}
+              >
+                Оформить заказ
+              </button>
+            </div>
           </div>
         </div>
       )}
