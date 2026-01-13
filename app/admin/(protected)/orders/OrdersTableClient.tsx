@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -79,6 +80,11 @@ function safeLower(v: string | null | undefined) {
   return (v || '').toLowerCase();
 }
 
+type StatusMenuState = {
+  orderId: string;
+  anchorRect: DOMRect;
+};
+
 export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [error] = useState<string | null>(loadError);
@@ -88,13 +94,13 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
-  const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null);
+  // 👇 вместо inline absolute-меню внутри таблицы используем портал
+  const [statusMenu, setStatusMenu] = useState<StatusMenuState | null>(null);
+
   const [deleteModal, setDeleteModal] = useState<{ id: string; label: string } | null>(null);
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
 
   const router = useRouter();
-
- 
 
   const updateStatus = async (id: string, newStatus: (typeof statusOptions)[number]['value']) => {
     try {
@@ -113,7 +119,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       toast.error(e.message);
       if (/Unauthorized/i.test(e.message)) router.push('/admin/login');
     } finally {
-      setStatusMenuOpen(null);
+      setStatusMenu(null);
     }
   };
 
@@ -207,9 +213,133 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     };
   }, []);
 
+  // refs на кнопки статуса (чтобы корректно снять DOMRect)
+  const statusBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const openStatusMenu = (orderId: string) => {
+    const btn = statusBtnRefs.current[orderId];
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+
+    // toggle
+    setStatusMenu((prev) => (prev?.orderId === orderId ? null : { orderId, anchorRect: rect }));
+  };
+
+  // закрытие по клику вне и ESC
+  useEffect(() => {
+    if (!statusMenu) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setStatusMenu(null);
+    };
+
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // если клик по кнопке статуса - не закрываем тут (toggle уже обработан)
+      const btn = statusBtnRefs.current[statusMenu.orderId];
+      if (btn && (btn === target || btn.contains(target))) return;
+
+      // если клик внутри меню - не закрываем
+      const menuEl = document.getElementById('orders-status-menu-portal');
+      if (menuEl && menuEl.contains(target)) return;
+
+      setStatusMenu(null);
+    };
+
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onClick);
+    };
+  }, [statusMenu]);
+
+  // перепозиционирование при скролле/ресайзе (иначе меню “отлипает”)
+  useEffect(() => {
+    if (!statusMenu) return;
+
+    const updateRect = () => {
+      const btn = statusBtnRefs.current[statusMenu.orderId];
+      if (!btn) return setStatusMenu(null);
+      const rect = btn.getBoundingClientRect();
+      setStatusMenu((prev) => (prev ? { ...prev, anchorRect: rect } : prev));
+    };
+
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [statusMenu]);
+
   if (error) {
     return <div className="p-4 bg-red-50 text-red-700 rounded-xl m-4">{error}</div>;
   }
+
+  // Рендер портального меню статуса (не режется overflow'ами)
+  const statusMenuPortal =
+    statusMenu && typeof document !== 'undefined'
+      ? createPortal(() => {
+          const w = 192; // w-48
+          const gap = 8;
+          const pad = 8;
+
+          const viewportW = window.innerWidth;
+          const viewportH = window.innerHeight;
+
+          // базовая позиция "под кнопкой"
+          let left = statusMenu.anchorRect.left;
+          let top = statusMenu.anchorRect.bottom + gap;
+
+          // clamp по ширине
+          if (left + w + pad > viewportW) left = Math.max(pad, viewportW - w - pad);
+          if (left < pad) left = pad;
+
+          // если вниз не помещается - открываем вверх
+          const menuH = 6 * 40 + 10; // грубая оценка (5 статусов + отмена)
+          if (top + menuH + pad > viewportH) {
+            top = Math.max(pad, statusMenu.anchorRect.top - gap - menuH);
+          }
+
+          return (
+            <AnimatePresence>
+              <motion.div
+                id="orders-status-menu-portal"
+                initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                transition={{ duration: 0.14 }}
+                style={{ position: 'fixed', left, top, width: w, zIndex: 90 }}
+                className="bg-white border rounded-xl shadow-lg py-2"
+              >
+                {statusOptions.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => updateStatus(statusMenu.orderId, s.value)}
+                    className={`block w-full text-left px-3 py-2 text-sm ${
+                      orders.find((x) => x.id === statusMenu.orderId)?.status === s.value
+                        ? 'bg-gray-100 font-semibold'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setStatusMenu(null)}
+                  className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-black"
+                >
+                  Отмена
+                </button>
+              </motion.div>
+            </AnimatePresence>
+          );
+        }, document.body)
+      : null;
 
   return (
     <div className="min-h-screen w-full">
@@ -279,7 +409,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         <div className="p-4 bg-white text-gray-600 rounded-xl m-4 border">Заказы не найдены</div>
       ) : (
         <>
-          {/* Десктоп-таблица (короткая, без перегруза) */}
+          {/* Десктоп-таблица */}
           <div ref={scrollRef} className="hidden lg:block overflow-x-auto cursor-grab px-4 sm:px-6 py-6">
             <div className="bg-white rounded-2xl shadow border overflow-hidden">
               <table className="min-w-[1100px] w-full text-sm border-collapse">
@@ -301,11 +431,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   {visibleOrders.map((o, i) => {
                     const labelClient = o.contact_name || o.name || '-';
                     const when = o.created_at ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-';
-                    const deliveryText =
-                      o.delivery_method === 'pickup'
-                        ? 'Самовывоз'
-                        : 'Доставка';
-
+                    const deliveryText = o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка';
                     const dateTime = o.delivery_date && o.delivery_time ? `${o.delivery_date} ${o.delivery_time}` : '-';
 
                     return (
@@ -376,42 +502,16 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         <td className="p-3 border-b">
                           <div className="relative inline-block">
                             <button
-                              onClick={() => setStatusMenuOpen(o.id)}
+                              ref={(el) => {
+                                statusBtnRefs.current[o.id] = el;
+                              }}
+                              onClick={() => openStatusMenu(o.id)}
                               className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                                 statusColors[o.status ?? 'pending'] || statusColors.pending
                               }`}
                             >
                               {statusOptions.find((s) => s.value === o.status)?.label || 'Ожидает подтверждения'}
                             </button>
-
-                            <AnimatePresence>
-                              {statusMenuOpen === o.id && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 6 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: 10 }}
-                                  className="absolute left-0 z-20 mt-2 w-48 bg-white border rounded-xl shadow py-2"
-                                >
-                                  {statusOptions.map((s) => (
-                                    <button
-                                      key={s.value}
-                                      onClick={() => updateStatus(o.id, s.value)}
-                                      className={`block w-full text-left px-3 py-2 text-sm ${
-                                        o.status === s.value ? 'bg-gray-100 font-semibold' : 'hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {s.label}
-                                    </button>
-                                  ))}
-                                  <button
-                                    onClick={() => setStatusMenuOpen(null)}
-                                    className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-black"
-                                  >
-                                    Отмена
-                                  </button>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
                           </div>
                         </td>
 
@@ -440,7 +540,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             </div>
           </div>
 
-          {/* Мобильная версия (карточки + подробнее) */}
+          {/* Мобильная версия */}
           <div className="lg:hidden px-4 py-4 space-y-3">
             {visibleOrders.map((o, i) => {
               const labelClient = o.contact_name || o.name || '-';
@@ -474,11 +574,22 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   </div>
 
                   <div className="mt-3 space-y-1 text-sm">
-                    <div><span className="text-gray-500">Клиент:</span> <span className="font-semibold">{labelClient}</span></div>
-                    <div><span className="text-gray-500">Телефон:</span> <span className="font-semibold">{o.phone || '-'}</span></div>
-                    <div><span className="text-gray-500">Доставка:</span> <span className="font-semibold">{deliveryText}</span> <span className="text-gray-500">({dateTime})</span></div>
-                    <div className="break-words"><span className="text-gray-500">Адрес:</span> <span className="font-semibold">{o.address || '-'}</span></div>
-                    <div><span className="text-gray-500">Сумма:</span> <span className="font-semibold">{money(o.total)} ₽</span></div>
+                    <div>
+                      <span className="text-gray-500">Клиент:</span> <span className="font-semibold">{labelClient}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Телефон:</span> <span className="font-semibold">{o.phone || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Доставка:</span>{' '}
+                      <span className="font-semibold">{deliveryText}</span> <span className="text-gray-500">({dateTime})</span>
+                    </div>
+                    <div className="break-words">
+                      <span className="text-gray-500">Адрес:</span> <span className="font-semibold">{o.address || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Сумма:</span> <span className="font-semibold">{money(o.total)} ₽</span>
+                    </div>
                   </div>
 
                   {o.phone && (
@@ -547,6 +658,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         </>
       )}
 
+      {/* 👇 ПОРТАЛЬНОЕ МЕНЮ СТАТУСА - НЕ ОБРЕЗАЕТСЯ */}
+      {statusMenuPortal}
+
       {/* Полноэкранная модалка "Подробнее" */}
       <AnimatePresence>
         {detailsOrder && (
@@ -593,16 +707,25 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <div className="rounded-2xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Клиент</div>
                     <div className="text-sm">
-                      <div><span className="text-gray-500">Имя:</span> <span className="font-semibold">{detailsOrder.contact_name || detailsOrder.name || '-'}</span></div>
+                      <div>
+                        <span className="text-gray-500">Имя:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.contact_name || detailsOrder.name || '-'}</span>
+                      </div>
                       <div className="mt-1 flex items-center gap-2">
                         <span className="text-gray-500">Телефон:</span>
                         <span className="font-semibold">{detailsOrder.phone || '-'}</span>
                         {detailsOrder.phone && (
                           <>
-                            <button onClick={() => window.open(`tel:${detailsOrder.phone}`)} className="text-blue-600 hover:text-blue-800">
+                            <button
+                              onClick={() => window.open(`tel:${detailsOrder.phone}`)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
                               <Phone size={16} />
                             </button>
-                            <button onClick={() => copyToClipboard(detailsOrder.phone!)} className="text-gray-400 hover:text-gray-600">
+                            <button
+                              onClick={() => copyToClipboard(detailsOrder.phone!)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
                               <Info size={16} />
                             </button>
                           </>
@@ -629,9 +752,18 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <div className="rounded-2xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Получатель</div>
                     <div className="text-sm">
-                      <div><span className="text-gray-500">Имя:</span> <span className="font-semibold">{detailsOrder.recipient || '-'}</span></div>
-                      <div className="mt-1"><span className="text-gray-500">Телефон:</span> <span className="font-semibold">{detailsOrder.recipient_phone || '-'}</span></div>
-                      <div className="mt-2"><span className="text-gray-500">Анонимный заказ:</span> <span className="font-semibold">{detailsOrder.anonymous ? 'Да' : 'Нет'}</span></div>
+                      <div>
+                        <span className="text-gray-500">Имя:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.recipient || '-'}</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Телефон:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.recipient_phone || '-'}</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-gray-500">Анонимный заказ:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.anonymous ? 'Да' : 'Нет'}</span>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -640,17 +772,45 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <div className="text-xs font-semibold text-gray-500 mb-2">Доставка и оплата</div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <div><span className="text-gray-500">Способ:</span> <span className="font-semibold">{detailsOrder.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</span></div>
-                      <div className="mt-1"><span className="text-gray-500">Дата/время:</span> <span className="font-semibold">{detailsOrder.delivery_date && detailsOrder.delivery_time ? `${detailsOrder.delivery_date} ${detailsOrder.delivery_time}` : '-'}</span></div>
-                      <div className="mt-1 break-words"><span className="text-gray-500">Адрес:</span> <span className="font-semibold">{detailsOrder.address || '-'}</span></div>
+                      <div>
+                        <span className="text-gray-500">Способ:</span>{' '}
+                        <span className="font-semibold">
+                          {detailsOrder.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Дата/время:</span>{' '}
+                        <span className="font-semibold">
+                          {detailsOrder.delivery_date && detailsOrder.delivery_time
+                            ? `${detailsOrder.delivery_date} ${detailsOrder.delivery_time}`
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="mt-1 break-words">
+                        <span className="text-gray-500">Адрес:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.address || '-'}</span>
+                      </div>
                     </div>
 
                     <div>
-                      <div><span className="text-gray-500">Оплата:</span> <span className="font-semibold">{detailsOrder.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</span></div>
-                      <div className="mt-1"><span className="text-gray-500">Сумма:</span> <span className="font-semibold">{money(detailsOrder.total)} ₽</span></div>
-                      <div className="mt-1"><span className="text-gray-500">Бонусы списано:</span> <span className="font-semibold">{money(detailsOrder.bonuses_used)} </span></div>
-                      <div className="mt-1"><span className="text-gray-500">Бонусы начислено:</span> <span className="font-semibold">{money(detailsOrder.bonus)} </span></div>
-                      <div className="mt-1"><span className="text-gray-500">Промо:</span>{' '}
+                      <div>
+                        <span className="text-gray-500">Оплата:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Сумма:</span>{' '}
+                        <span className="font-semibold">{money(detailsOrder.total)} ₽</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Бонусы списано:</span>{' '}
+                        <span className="font-semibold">{money(detailsOrder.bonuses_used)} </span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Бонусы начислено:</span>{' '}
+                        <span className="font-semibold">{money(detailsOrder.bonus)} </span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-gray-500">Промо:</span>{' '}
                         <span className="font-semibold">
                           {detailsOrder.promo_discount && detailsOrder.promo_discount > 0
                             ? `скидка ${money(detailsOrder.promo_discount)} ₽`
@@ -665,16 +825,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="rounded-2xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Пожелания (delivery_instructions)</div>
-                    <div className="text-sm whitespace-pre-wrap break-words">
-                      {detailsOrder.delivery_instructions || '—'}
-                    </div>
+                    <div className="text-sm whitespace-pre-wrap break-words">{detailsOrder.delivery_instructions || '-'}</div>
                   </div>
 
                   <div className="rounded-2xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Текст открытки (postcard_text)</div>
-                    <div className="text-sm whitespace-pre-wrap break-words">
-                      {detailsOrder.postcard_text || '—'}
-                    </div>
+                    <div className="text-sm whitespace-pre-wrap break-words">{detailsOrder.postcard_text || '-'}</div>
                   </div>
                 </section>
 
@@ -688,13 +844,15 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         <ul className="mt-2 space-y-1 text-sm">
                           {detailsOrder.items.map((it, idx) => (
                             <li key={idx} className="flex items-start justify-between gap-3">
-                              <div className="break-words">{it.title} <span className="text-gray-500">x{it.quantity}</span></div>
+                              <div className="break-words">
+                                {it.title} <span className="text-gray-500">x{it.quantity}</span>
+                              </div>
                               <div className="font-semibold whitespace-nowrap">{money(it.price * it.quantity)} ₽</div>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="mt-2 text-sm text-gray-500">—</div>
+                        <div className="mt-2 text-sm text-gray-500">-</div>
                       )}
                     </div>
 
@@ -714,7 +872,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                           ))}
                         </ul>
                       ) : (
-                        <div className="mt-2 text-sm text-gray-500">—</div>
+                        <div className="mt-2 text-sm text-gray-500">-</div>
                       )}
                     </div>
                   </div>
@@ -724,7 +882,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   <div className="text-xs font-semibold text-gray-500 mb-2">Быстрые действия</div>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => setDeleteModal({ id: detailsOrder.id, label: detailsOrder.order_number ? `#${detailsOrder.order_number}` : detailsOrder.id })}
+                      onClick={() =>
+                        setDeleteModal({
+                          id: detailsOrder.id,
+                          label: detailsOrder.order_number ? `#${detailsOrder.order_number}` : detailsOrder.id,
+                        })
+                      }
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-red-200 text-red-700 font-semibold text-sm hover:bg-red-50"
                     >
                       <Trash2 size={16} /> Удалить заказ
