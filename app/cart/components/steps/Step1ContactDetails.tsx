@@ -127,6 +127,11 @@ export default function Step1ContactDetails({
   const [phoneUi, setPhoneUi] = useState<string>('');
   const isFocusedRef = useRef(false);
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
+  const resetScrollOnBlur = () => {
+    window.setTimeout(() => {
+      window.scrollTo({ top: window.scrollY, behavior: 'auto' });
+    }, 50);
+  };
 
   const local10FromForm = useMemo(() => toLocal10FromStoredPhone(form.phone), [form.phone]);
 
@@ -156,6 +161,7 @@ export default function Step1ContactDetails({
           name="name"
           value={form.name}
           onChange={onFormChange}
+          onBlur={resetScrollOnBlur}
           placeholder="Ваше имя"
           className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
             nameError ? 'border-red-500' : 'border-[#bdbdbd]'
@@ -192,6 +198,7 @@ export default function Step1ContactDetails({
             }}
             onBlur={() => {
               isFocusedRef.current = false;
+              resetScrollOnBlur();
             }}
             onChange={(e) => {
               const rawUi = e.target.value;

@@ -115,6 +115,11 @@ export default function Step2RecipientDetails({
   const [recipientPhoneUi, setRecipientPhoneUi] = useState<string>('');
   const isFocusedRef = useRef(false);
   const recipientPhoneInputRef = useRef<HTMLInputElement | null>(null);
+  const resetScrollOnBlur = () => {
+    window.setTimeout(() => {
+      window.scrollTo({ top: window.scrollY, behavior: 'auto' });
+    }, 50);
+  };
 
   const emit = (field: string, value: string) => {
     onFormChange({ target: { name: field, value } } as any);
@@ -192,6 +197,7 @@ export default function Step2RecipientDetails({
           name="recipient"
           value={form.recipient}
           onChange={onFormChange}
+          onBlur={resetScrollOnBlur}
           placeholder="Имя:"
           className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
             recipientError ? 'border-red-500' : 'border-[#bdbdbd]'
@@ -230,6 +236,7 @@ export default function Step2RecipientDetails({
             }}
             onBlur={() => {
               isFocusedRef.current = false;
+              resetScrollOnBlur();
             }}
             onChange={(e) => {
               const rawUi = e.target.value;
@@ -289,6 +296,7 @@ export default function Step2RecipientDetails({
           id="postcardText"
           value={postcardText}
           onChange={(e) => setPostcardText(e.target.value)}
+          onBlur={resetScrollOnBlur}
           placeholder="Текст открытки:"
           className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[14px] outline-none focus:border-black min-h-[120px] resize-none"
           aria-label="Текст открытки"

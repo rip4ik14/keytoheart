@@ -22,6 +22,13 @@
     textarea:-webkit-autofill:focus {
       box-shadow: 0 0 0px 1000px white inset !important;
     }
+    @media (max-width: 768px) {
+      input,
+      textarea,
+      select {
+        font-size: 16px;
+      }
+    }
     :root {
       --background: 0 0% 100%;
       --foreground: 222.2 84% 4.9%;
