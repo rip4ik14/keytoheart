@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import UiButton from '@/components/ui/UiButton';
 
 type Subcategory = { id: number; name: string; slug: string; is_visible?: boolean };
 type Category = { id: number; name: string; slug: string; subcategories?: Subcategory[] };
@@ -28,6 +29,18 @@ function parseNum(v: string | null) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
+
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+const panelVariants = {
+  hidden: { x: 48, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.22 } },
+  exit: { x: 48, opacity: 0, transition: { duration: 0.18 } },
+};
 
 export default function CatalogFilterModal({
   open,
@@ -142,82 +155,98 @@ export default function CatalogFilterModal({
     setMaxPrice(fixed);
   }
 
+  const inputCls =
+    'w-full rounded-2xl border border-black/10 bg-white px-3 py-2.5 text-sm ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd] ' +
+    'placeholder:text-black/35';
+
+  const sectionTitleCls = 'text-sm font-semibold tracking-tight text-black';
+  const sectionCardCls =
+    'mt-3 rounded-3xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           className="fixed inset-0 z-[999] bg-black/40"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          variants={overlayVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
           onClick={onClose}
         >
           <motion.div
-            className="absolute right-0 top-0 h-full w-[92%] max-w-[420px] bg-white shadow-2xl flex flex-col"
-            initial={{ x: 40, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 40, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            className="
+              absolute right-0 top-0 h-full w-[92%] max-w-[420px]
+              bg-white shadow-2xl flex flex-col
+            "
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label="Фильтр"
           >
             {/* header */}
-            <div className="px-5 pt-5 pb-4 border-b">
+            <div className="px-5 pt-5 pb-4 border-b border-black/10">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-3xl font-extrabold tracking-[0.18em] uppercase text-black">
+                  <div className="text-[22px] font-semibold tracking-tight leading-tight">
                     Фильтр
                   </div>
                   {selectedCount > 0 && (
-                    <div className="mt-2 text-sm text-gray-500">Выбрано: {selectedCount}</div>
+                    <div className="mt-1 text-xs text-black/50">Выбрано: {selectedCount}</div>
                   )}
                 </div>
+
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-full hover:bg-gray-100"
+                  className="p-2 rounded-full border border-black/10 bg-white hover:bg-black/[0.02] transition"
                   aria-label="Закрыть"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
             {/* body */}
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-7">
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
               {/* PRICE */}
               <section>
                 <button
                   className="w-full flex items-center justify-between text-left"
                   onClick={() => setSectionsOpen((s) => ({ ...s, price: !s.price }))}
                 >
-                  <div className="text-lg text-black">Цена</div>
-                  <div className="text-gray-400">{sectionsOpen.price ? '−' : '+'}</div>
+                  <div className={sectionTitleCls}>Цена</div>
+                  <div className="text-black/40 text-sm">{sectionsOpen.price ? '−' : '+'}</div>
                 </button>
 
                 {sectionsOpen.price && (
-                  <div className="mt-4">
+                  <div className={sectionCardCls}>
                     <div className="grid grid-cols-2 gap-3">
                       <input
                         inputMode="numeric"
                         value={minPrice ?? ''}
                         onChange={(e) => {
                           const v = e.target.value.trim();
-                          setMinPrice(v === '' ? null : clamp(Number(v), minLimit, maxLimit));
+                          const num = v === '' ? null : Number(v);
+                          setMinPrice(num === null ? null : clamp(num, minLimit, maxLimit));
                         }}
                         placeholder="От"
-                        className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        className={inputCls}
                       />
                       <input
                         inputMode="numeric"
                         value={maxPrice ?? ''}
                         onChange={(e) => {
                           const v = e.target.value.trim();
-                          setMaxPrice(v === '' ? null : clamp(Number(v), minLimit, maxLimit));
+                          const num = v === '' ? null : Number(v);
+                          setMaxPrice(num === null ? null : clamp(num, minLimit, maxLimit));
                         }}
                         placeholder="До"
-                        className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        className={inputCls}
                       />
                     </div>
 
@@ -243,10 +272,16 @@ export default function CatalogFilterModal({
                         />
                       </div>
 
-                      <div className="mt-2 flex justify-between text-xs text-gray-500">
+                      <div className="mt-2 flex justify-between text-[11px] text-black/45">
                         <span>{minLimit}</span>
                         <span>{maxLimit}</span>
                       </div>
+
+                      {(minPrice !== null || maxPrice !== null) && (
+                        <div className="mt-3 text-[11px] text-black/50">
+                          Выбрано: {minValue} - {maxValue}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -258,27 +293,37 @@ export default function CatalogFilterModal({
                   className="w-full flex items-center justify-between text-left"
                   onClick={() => setSectionsOpen((s) => ({ ...s, categories: !s.categories }))}
                 >
-                  <div className="text-lg text-black">Разделы</div>
-                  <div className="text-gray-400">{sectionsOpen.categories ? '−' : '+'}</div>
+                  <div className={sectionTitleCls}>Разделы</div>
+                  <div className="text-black/40 text-sm">{sectionsOpen.categories ? '−' : '+'}</div>
                 </button>
 
                 {sectionsOpen.categories && (
-                  <div className="mt-4 space-y-3">
-                    {categories.map((c) => {
-                      const id = String(c.id);
-                      const checked = catIds.includes(id);
-                      return (
-                        <label key={c.id} className="flex items-center gap-3 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => setCatIds((old) => toggle(old, id))}
-                            className="w-4 h-4"
-                          />
-                          <span>{c.name}</span>
-                        </label>
-                      );
-                    })}
+                  <div className={sectionCardCls}>
+                    <div className="space-y-3">
+                      {categories.map((c) => {
+                        const id = String(c.id);
+                        const checked = catIds.includes(id);
+
+                        return (
+                          <label
+                            key={c.id}
+                            className="flex items-center gap-3 text-sm text-black/75"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setCatIds((old) => toggle(old, id))}
+                              className="w-4 h-4 accent-rose-600"
+                            />
+                            <span className="leading-tight">{c.name}</span>
+                          </label>
+                        );
+                      })}
+
+                      {categories.length === 0 && (
+                        <div className="text-sm text-black/50">Категории не найдены</div>
+                      )}
+                    </div>
                   </div>
                 )}
               </section>
@@ -291,83 +336,105 @@ export default function CatalogFilterModal({
                     setSectionsOpen((s) => ({ ...s, subcategories: !s.subcategories }))
                   }
                 >
-                  <div className="text-lg text-black">Подкатегории</div>
-                  <div className="text-gray-400">{sectionsOpen.subcategories ? '−' : '+'}</div>
+                  <div className={sectionTitleCls}>Подкатегории</div>
+                  <div className="text-black/40 text-sm">
+                    {sectionsOpen.subcategories ? '−' : '+'}
+                  </div>
                 </button>
 
                 {sectionsOpen.subcategories && (
-                  <div className="mt-4 space-y-6">
-                    {currentCategory ? (
-                      <div>
-                        <div className="text-sm text-black mb-3">{currentCategory.name}</div>
-                        <div className="space-y-3">
-                          {(currentCategory.subcategories || []).map((s) => {
-                            const id = String(s.id);
-                            const checked = subIds.includes(id);
-                            return (
-                              <label key={s.id} className="flex items-center gap-3 text-sm text-gray-700">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => setSubIds((old) => toggle(old, id))}
-                                  className="w-4 h-4"
-                                />
-                                <span>{s.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      categories.map((c) => {
-                        const subs = c.subcategories || [];
-                        if (!subs.length) return null;
-                        return (
-                          <div key={c.id}>
-                            <div className="text-sm text-black mb-3">{c.name}</div>
-                            <div className="space-y-3">
-                              {subs.map((s) => {
-                                const id = String(s.id);
-                                const checked = subIds.includes(id);
-                                return (
-                                  <label key={s.id} className="flex items-center gap-3 text-sm text-gray-700">
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => setSubIds((old) => toggle(old, id))}
-                                      className="w-4 h-4"
-                                    />
-                                    <span>{s.name}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
+                  <div className={sectionCardCls}>
+                    <div className="space-y-6">
+                      {currentCategory ? (
+                        <div>
+                          <div className="text-sm font-semibold text-black mb-3">
+                            {currentCategory.name}
                           </div>
-                        );
-                      })
-                    )}
+                          <div className="space-y-3">
+                            {(currentCategory.subcategories || []).map((s) => {
+                              const id = String(s.id);
+                              const checked = subIds.includes(id);
+                              return (
+                                <label
+                                  key={s.id}
+                                  className="flex items-center gap-3 text-sm text-black/75"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => setSubIds((old) => toggle(old, id))}
+                                    className="w-4 h-4 accent-rose-600"
+                                  />
+                                  <span className="leading-tight">{s.name}</span>
+                                </label>
+                              );
+                            })}
+                            {(currentCategory.subcategories || []).length === 0 && (
+                              <div className="text-sm text-black/50">
+                                Подкатегории не найдены
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        categories.map((c) => {
+                          const subs = c.subcategories || [];
+                          if (!subs.length) return null;
+
+                          return (
+                            <div key={c.id}>
+                              <div className="text-sm font-semibold text-black mb-3">{c.name}</div>
+                              <div className="space-y-3">
+                                {subs.map((s) => {
+                                  const id = String(s.id);
+                                  const checked = subIds.includes(id);
+
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className="flex items-center gap-3 text-sm text-black/75"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => setSubIds((old) => toggle(old, id))}
+                                        className="w-4 h-4 accent-rose-600"
+                                      />
+                                      <span className="leading-tight">{s.name}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
               </section>
             </div>
 
             {/* footer buttons */}
-            <div className="border-t px-5 py-4 bg-white">
+            <div className="border-t border-black/10 px-5 py-4 bg-white">
               <div className="grid grid-cols-2 gap-3">
-                <button
+                <UiButton
                   onClick={reset}
-                  className="w-full rounded-full border border-gray-300 px-4 py-3 text-sm text-black hover:bg-gray-50 transition"
+                  variant="brandOutline"
+                  className="w-full rounded-2xl py-3"
                   aria-label="Сбросить фильтры"
                 >
                   Сбросить
-                </button>
-                <button
-  onClick={apply}
-  className="w-full rounded-full bg-black text-white px-4 py-3 text-sm hover:bg-gray-900 transition shadow-sm"
->
-  Применить
-</button>
+                </UiButton>
 
+                <UiButton
+                  onClick={apply}
+                  variant="cartRed"
+                  className="w-full rounded-2xl py-3"
+                  aria-label="Применить фильтры"
+                >
+                  Применить
+                </UiButton>
               </div>
             </div>
           </motion.div>
