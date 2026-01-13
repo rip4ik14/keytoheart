@@ -11,14 +11,11 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
 // Базовый URL сайта, чтобы дать ссылку на админку без передачи ПДн в Telegram
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  process.env.BASE_URL ||
-  'https://keytoheart.ru';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
 
 interface OrderRequest {
   phone: string;
-  name: string;
+  name?: string; // ✅ стало необязательным
   recipient: string;
   recipientPhone: string;
   address: string;
@@ -72,8 +69,6 @@ function normalizePhoneRuHard(raw: string): string | null {
 }
 
 // ⚠️ Telegram: не отправляем ПДн (телефоны, имена, адрес, комментарии).
-// Оставляем только служебные данные: номер заказа, сумма, дата/время, доставка/оплата, состав (без ПДн),
-// и ссылку на админку, где уже есть защищённый доступ.
 function buildTelegramMessageSafe(params: {
   orderNumber: number | null;
   total: number;
@@ -109,7 +104,7 @@ function buildTelegramMessageSafe(params: {
           const title = safeLine(i.title);
           const q = Number.isFinite(i.quantity) ? i.quantity : 1;
           const price = Number.isFinite(i.price) ? i.price : 0;
-          return `• ${title} ×${q} — ${price * q}₽`;
+          return `• ${title} ×${q} - ${price * q}₽`;
         })
         .join('\n')
     : 'Нет основных товаров';
@@ -121,7 +116,7 @@ function buildTelegramMessageSafe(params: {
           const cat = safeLine(i.category || 'доп.');
           const q = Number.isFinite(i.quantity) ? i.quantity : 1;
           const price = Number.isFinite(i.price) ? i.price : 0;
-          return `• ${title} (${cat}) ×${q} — ${price * q}₽`;
+          return `• ${title} (${cat}) ×${q} - ${price * q}₽`;
         })
         .join('\n')
     : 'Нет дополнений';
@@ -159,16 +154,19 @@ async function sendTelegramMessageSafe(text: string) {
   if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return { ok: false, error: 'Missing TELEGRAM env' };
 
   try {
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      }),
-    });
+    const telegramResponse = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
+      },
+    );
 
     if (!telegramResponse.ok) {
       const t = await telegramResponse.text();
@@ -188,7 +186,7 @@ export async function POST(req: Request) {
 
     const {
       phone: rawPhone,
-      name,
+      name = '', // ✅ default
       recipient,
       recipientPhone: rawRecipientPhone,
       address,
@@ -209,7 +207,6 @@ export async function POST(req: Request) {
 
     if (
       !rawPhone ||
-      !name ||
       !recipient ||
       !rawRecipientPhone ||
       !address ||
@@ -240,7 +237,8 @@ export async function POST(req: Request) {
       allowedTags: [],
       allowedAttributes: {},
     });
-    const sanitizedRecipientPhone = normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
+    const sanitizedRecipientPhone =
+      normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
 
     if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
@@ -250,7 +248,7 @@ export async function POST(req: Request) {
     }
 
     // Санитизация строк для БД
-    const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedName = sanitizeHtml(name || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
     const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
@@ -263,15 +261,19 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // user_profiles
-    const profile = await prisma.user_profiles.findUnique({
+    // ✅ user_profiles - НЕ блокируем заказ. создаём профиль, если нет
+    const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
+      create: {
+        phone: sanitizedPhone,
+        name: sanitizedName || null,
+      } as any,
+      update: {
+        // если имя пустое - не трогаем
+        ...(sanitizedName ? { name: sanitizedName } : {}),
+      } as any,
       select: { id: true },
     });
-
-    if (!profile) {
-      return NextResponse.json({ error: 'Профиль с таким телефоном не найден' }, { status: 404 });
-    }
 
     const user_id = profile.id;
 
@@ -287,7 +289,10 @@ export async function POST(req: Request) {
       .filter((id): id is number => id !== null);
 
     if (regularItems.length > 0 && productIds.length !== regularItems.length) {
-      return NextResponse.json({ error: 'Некоторые ID товаров некорректны (не числа)' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Некоторые ID товаров некорректны (не числа)' },
+        { status: 400 },
+      );
     }
 
     if (productIds.length > 0) {
@@ -297,8 +302,12 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productError) {
-        process.env.NODE_ENV !== 'production' && console.error('Supabase error fetching products:', productError);
-        return NextResponse.json({ error: 'Ошибка получения товаров: ' + productError.message }, { status: 500 });
+        process.env.NODE_ENV !== 'production' &&
+          console.error('Supabase error fetching products:', productError);
+        return NextResponse.json(
+          { error: 'Ошибка получения товаров: ' + productError.message },
+          { status: 500 },
+        );
       }
 
       const invalidItems = regularItems.filter((item) => {
@@ -339,8 +348,10 @@ export async function POST(req: Request) {
         phone: sanitizedPhone,
         recipient_phone: sanitizedRecipientPhone,
 
-        name: sanitizedName,
-        contact_name: sanitizedName,
+        // ✅ имя может быть пустым
+        name: sanitizedName || null,
+        contact_name: sanitizedName || null,
+
         recipient: sanitizedRecipient,
         address: sanitizedAddress,
 
@@ -382,7 +393,8 @@ export async function POST(req: Request) {
       try {
         await prisma.order_items.createMany({ data: orderItems });
       } catch (itemError: any) {
-        process.env.NODE_ENV !== 'production' && console.error('[order_items error]', itemError.message);
+        process.env.NODE_ENV !== 'production' &&
+          console.error('[order_items error]', itemError.message);
       }
     }
 
@@ -429,7 +441,8 @@ export async function POST(req: Request) {
       if (!tg.ok) telegramError = tg.error || 'Telegram error';
     } catch (e: any) {
       telegramError = e?.message || 'Telegram error';
-      process.env.NODE_ENV !== 'production' && console.error('[Telegram build/send error]', telegramError);
+      process.env.NODE_ENV !== 'production' &&
+        console.error('[Telegram build/send error]', telegramError);
     }
 
     return NextResponse.json({
@@ -444,7 +457,8 @@ export async function POST(req: Request) {
       promoError,
     });
   } catch (error: any) {
-    process.env.NODE_ENV !== 'production' && console.error('[ORDER API ERROR]', error, error?.stack);
+    process.env.NODE_ENV !== 'production' &&
+      console.error('[ORDER API ERROR]', error, error?.stack);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }

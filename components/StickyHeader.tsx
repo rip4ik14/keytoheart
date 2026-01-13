@@ -25,6 +25,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const router = useRouter();
 
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
+
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } =
     useCartAnimation();
 
@@ -69,14 +70,16 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   useEffect(() => {
     const updatePos = () => {
       const el = cartIconRef.current;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-      }
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
     };
+
     updatePos();
     window.addEventListener('resize', updatePos);
     window.addEventListener('scroll', updatePos, { passive: true });
+
     return () => {
       window.removeEventListener('resize', updatePos);
       window.removeEventListener('scroll', updatePos);
@@ -93,6 +96,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         setOpenProfile(false);
       }
     };
+
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
@@ -116,6 +120,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     } catch (error) {
       process.env.NODE_ENV !== 'production' &&
         console.error(`${new Date().toISOString()} StickyHeader: Error signing out`, error);
+
       toast.error('Не удалось выйти из аккаунта');
     }
   };
@@ -155,17 +160,16 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
 
-            {/* ✅ ЛОГО: делаем "как H1" визуально жирнее */}
+            {/* ✅ ЛОГО: жирное как H1, без drop-shadow */}
             <Link
               href="/"
               className={[
                 'uppercase',
                 'text-[18px] sm:text-[20px] md:text-[30px]',
                 'leading-none',
-                'font-black',
+                'font-extrabold',
                 'tracking-[0.08em]',
-                'text-black',
-                'drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]',
+                'text-zinc-900',
                 'md:absolute md:left-1/2 md:-translate-x-1/2',
                 'truncate',
               ].join(' ')}
@@ -176,6 +180,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>
+
               <div className="flex flex-col leading-tight">
                 <a
                   href="tel:+79886033821"
@@ -186,6 +191,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 </a>
                 <span className="text-xs text-gray-600">с 09:00 до 22:00</span>
               </div>
+
               <div className="flex items-center gap-2">
                 <a
                   href="https://wa.me/79886033821"
@@ -196,6 +202,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 >
                   <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
                 </a>
+
                 <a
                   href="https://t.me/keytomyheart"
                   className="border rounded-full p-2 hover:bg-gray-100"
@@ -249,6 +256,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     <span>Профиль</span>
                   </div>
                 </button>
+
                 <AnimatePresence>
                   {openProfile && (
                     <motion.div
@@ -264,12 +272,14 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                             Бонусов: {bonus}
                           </div>
                         )}
+
                         <Link
                           href="/account"
                           className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
                         >
                           Личный кабинет
                         </Link>
+
                         <button
                           onClick={handleSignOut}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
@@ -316,13 +326,17 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   }`}
                   loading="eager"
                 />
+
                 {totalItems > 0 && (
                   <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center shadow-sm border border-white md:-top-2 md:-right-2">
                     {totalItems}
                   </span>
                 )}
               </motion.div>
-              {cartSum > 0 && <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>}
+
+              {cartSum > 0 && (
+                <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>
+              )}
             </Link>
           </div>
         </div>
@@ -332,7 +346,9 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         <div className="border-t">
           <CategoryNav
             initialCategories={initialCategories}
-            showMobileFilter={pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')}
+            showMobileFilter={
+              pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')
+            }
           />
         </div>
       </header>
@@ -352,6 +368,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               onClick={() => setIsSearchOpen(false)}
               aria-hidden="true"
             />
+
             <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
                 className="bg-white rounded-2xl z-10"
@@ -362,6 +379,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               >
                 <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
               </motion.div>
+
               <motion.button
                 onClick={() => setIsSearchOpen(false)}
                 className="absolute top-4 right-4 text-gray-600 hover:text-black focus:ring-2 focus:ring-black"

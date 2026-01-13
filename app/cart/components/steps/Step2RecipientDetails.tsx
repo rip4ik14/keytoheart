@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 interface Props {
   form: {
     recipient: string;
-    recipientPhone: string; // храним НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
+    recipientPhone: string; // хранится НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
     anonymous: boolean;
   };
   name: string;
@@ -38,12 +38,6 @@ function digitsOnly(v: string) {
   return (v || '').replace(/\D/g, '');
 }
 
-/**
- * Достаём "локальные 10" из любого ввода/вставки:
- * - "7912..." / "+7912..." / "8(912)..." -> "912..."
- * - если цифр > 10 -> последние 10
- * - иначе -> первые 10
- */
 function extractLocal10FromAnyInput(raw: string) {
   const d = digitsOnly(raw);
   if (!d) return '';
@@ -82,6 +76,26 @@ function formatLocalRu(local10: string) {
   return `(${a}) ${b}-${c}-${e}`;
 }
 
+function countDigitsBeforePos(s: string, pos: number) {
+  let c = 0;
+  for (let i = 0; i < Math.min(pos, s.length); i++) {
+    if (/\d/.test(s[i])) c++;
+  }
+  return c;
+}
+
+function posForDigitIndex(formatted: string, digitIndex: number) {
+  if (digitIndex <= 0) return 0;
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) {
+      seen++;
+      if (seen >= digitIndex) return i + 1;
+    }
+  }
+  return formatted.length;
+}
+
 export default function Step2RecipientDetails({
   form,
   name,
@@ -100,6 +114,11 @@ export default function Step2RecipientDetails({
 
   const [recipientPhoneUi, setRecipientPhoneUi] = useState<string>('');
   const isFocusedRef = useRef(false);
+  const recipientPhoneInputRef = useRef<HTMLInputElement | null>(null);
+
+  const emit = (field: string, value: string) => {
+    onFormChange({ target: { name: field, value } } as any);
+  };
 
   const local10FromForm = useMemo(
     () => toLocal10FromStoredPhone(form.recipientPhone),
@@ -147,12 +166,11 @@ export default function Step2RecipientDetails({
           }
           onChange={(e) => {
             if (e.target.checked) {
-              onFormChange({ target: { name: 'recipient', value: name } } as any);
-              onFormChange({ target: { name: 'recipientPhone', value: userPhone } } as any);
+              emit('recipient', name);
+              emit('recipientPhone', userPhone);
             } else {
-              onFormChange({ target: { name: 'recipient', value: '' } } as any);
-onFormChange({ target: { name: 'recipientPhone', value: '' } } as any);
-
+              emit('recipient', '');
+              emit('recipientPhone', '');
             }
           }}
           className="h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
@@ -203,6 +221,7 @@ onFormChange({ target: { name: 'recipientPhone', value: '' } } as any);
           </div>
 
           <input
+            ref={recipientPhoneInputRef}
             id="recipientPhone"
             name="recipientPhone_ui"
             value={recipientPhoneUi}
@@ -213,12 +232,25 @@ onFormChange({ target: { name: 'recipientPhone', value: '' } } as any);
               isFocusedRef.current = false;
             }}
             onChange={(e) => {
-              const d10 = extractLocal10FromAnyInput(e.target.value);
+              const rawUi = e.target.value;
 
-              setRecipientPhoneUi(formatLocalRu(d10));
+              const caret = e.target.selectionStart ?? rawUi.length;
+              const digitIndex = countDigitsBeforePos(rawUi, caret);
+
+              const d10 = extractLocal10FromAnyInput(rawUi);
+              const formatted = formatLocalRu(d10);
+
+              setRecipientPhoneUi(formatted);
 
               const next = d10.length ? `+7${d10}` : '';
-              onFormChange({ target: { name: 'recipientPhone', value: next } } as any);
+              emit('recipientPhone', next);
+
+              requestAnimationFrame(() => {
+                const el = recipientPhoneInputRef.current;
+                if (!el) return;
+                const nextPos = posForDigitIndex(formatted, digitIndex);
+                el.setSelectionRange(nextPos, nextPos);
+              });
             }}
             placeholder="(___) ___-__-__"
             className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${

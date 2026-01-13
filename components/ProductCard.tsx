@@ -11,11 +11,6 @@ import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
 
-/**
- * Если заголовок состоит из двух одинаковых частей подряд,
- * например: "Текст Текст" целиком,
- * то оставляем только одну часть.
- */
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
   if (t.length < 20) return t;
@@ -49,17 +44,17 @@ function formatProductionTime(minutes: number | null): string | null {
 export default function ProductCard({
   product,
   priority = false,
+  shadowMode = 'default',
 }: {
   product: Product;
   priority?: boolean;
+  shadowMode?: 'default' | 'none';
 }) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  const [hovered, setHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // локальный тост
   const [showToast, setShowToast] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,9 +76,7 @@ export default function ProductCard({
 
   const discountPercent = product.discount_percent ?? 0;
   const originalPrice = product.original_price || product.price;
-  const discountedPrice = discountPercent
-    ? Math.round(product.price * (1 - discountPercent / 100))
-    : product.price;
+  const discountedPrice = discountPercent ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
 
   const baseForDiscount = originalPrice > product.price ? originalPrice : product.price;
   const discountAmount = discountPercent ? Math.max(0, baseForDiscount - discountedPrice) : 0;
@@ -138,9 +131,6 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  /* ------------------------------------------------------------------ */
-  /*  MOBILE: визуал оставляем как в старом варианте (только стикеры)    */
-  /* ------------------------------------------------------------------ */
   if (isMobile) {
     const cardBorderClass = 'border-gray-200 shadow-sm';
 
@@ -163,7 +153,6 @@ export default function ProductCard({
           tabIndex={0}
           aria-live="polite"
         >
-          {/* SEO JSON-LD */}
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
@@ -191,11 +180,8 @@ export default function ProductCard({
             }}
           />
 
-          {/* --- СТИКЕРЫ (ТОЛЬКО ПЕРЕРАСПОЛОЖЕНИЕ) --- */}
-          {/* Блок справа сверху: популярно сверху, баллы ниже-слева диагональю */}
           <div className="absolute top-2 right-2 z-20 pointer-events-none">
             <div className="flex flex-col items-end gap-2">
-              {/* Популярно (как было по размеру) */}
               {isPopular && (
                 <motion.div
                   className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full flex items-center font-bold shadow-sm"
@@ -208,32 +194,21 @@ export default function ProductCard({
                 </motion.div>
               )}
 
-              {/* Баллы - ниже и смещены влево (адаптивно, без пиксельных top/right) */}
               {bonus > 0 && (
                 <motion.div
                   className="flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
-                  style={{
-                    transform: 'translateX(-10px)', // диагональ влево (стабильно при любых размерах)
-                  }}
+                  style={{ transform: 'translateX(-10px)' }}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.2 }}
                 >
                   +{bonus}
-                  <Image
-                    src="/icons/gift.svg"
-                    alt=""
-                    width={13}
-                    height={13}
-                    className="ml-1"
-                    draggable={false}
-                  />
+                  <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
                 </motion.div>
               )}
             </div>
           </div>
 
-          {/* Картинка */}
           <Link
             href={`/product/${product.id}`}
             className="block relative w-full aspect-[3/4] transition-all duration-200 rounded-[18px] overflow-hidden"
@@ -252,7 +227,6 @@ export default function ProductCard({
             />
           </Link>
 
-          {/* Контент: без обрезки текста, кнопка всегда прижата вниз */}
           <div className="flex flex-col p-2 flex-1">
             <h3
               id={`product-${product.id}-title`}
@@ -265,17 +239,11 @@ export default function ProductCard({
             <div className="mt-2 flex flex-col items-center">
               <div className="flex items-center justify-center gap-2">
                 {(discountAmount > 0 || originalPrice > product.price) && (
-                  <span className="text-xs text-gray-400 line-through">
-                    {formatRuble(baseForDiscount)}₽
-                  </span>
+                  <span className="text-xs text-gray-400 line-through">{formatRuble(baseForDiscount)}₽</span>
                 )}
-
                 {discountAmount > 0 && (
-                  <span className="text-[11px] font-bold text-red-500">
-                    -{formatRuble(discountAmount)}₽
-                  </span>
+                  <span className="text-[11px] font-bold text-red-500">-{formatRuble(discountAmount)}₽</span>
                 )}
-
                 <span className="text-lg font-bold text-black">
                   {discountAmount > 0 ? formatRuble(discountedPrice) : formatRuble(product.price)}₽
                 </span>
@@ -288,7 +256,6 @@ export default function ProductCard({
               )}
             </div>
 
-            {/* Кнопка всегда снизу, не “летает” */}
             <button
               ref={buttonRef}
               onClick={handleAddToCart}
@@ -309,7 +276,6 @@ export default function ProductCard({
           </div>
         </motion.div>
 
-        {/* 🔔 Локальный тост */}
         <AnimatePresence>
           {showToast && (
             <motion.div
@@ -327,13 +293,7 @@ export default function ProductCard({
               transition={{ duration: 0.18, ease: 'easeOut' }}
             >
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                <Image
-                  src={imageUrl}
-                  alt={title}
-                  width={48}
-                  height={48}
-                  className="object-cover w-full h-full"
-                />
+                <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
               </div>
 
               <div className="flex flex-col flex-1 min-w-0">
@@ -360,64 +320,33 @@ export default function ProductCard({
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  DESKTOP: премиальный вариант                                      */
-  /* ------------------------------------------------------------------ */
+  const useInternalShadow = shadowMode !== 'none';
+
   return (
     <>
       <motion.div
-        ref={cardRef}
         className={[
           'group relative w-full',
           'max-w-[220px] sm:max-w-[280px] mx-auto',
           'rounded-[24px] bg-white',
           'border border-[#ececec]',
           'overflow-hidden',
-          'transition-all duration-300',
-          'shadow-[0_1px_0_rgba(0,0,0,0.04)]',
-          'hover:shadow-[0_18px_44px_rgba(0,0,0,0.12)] hover:-translate-y-[2px]',
+          'transition-transform duration-300',
+          'hover:scale-[1.01]', // эффект, без "реального" увеличения высоты в потоке
+          useInternalShadow
+            ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_18px_44px_rgba(0,0,0,0.12)]'
+            : 'shadow-none',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20',
         ].join(' ')}
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28 }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         onKeyDown={handleKeyDown}
         role="article"
         aria-labelledby={`product-${product.id}-title`}
         tabIndex={0}
         aria-live="polite"
       >
-        {/* SEO JSON-LD */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org/',
-              '@type': 'Product',
-              name: title,
-              image: imageUrl,
-              description: product.description || 'Описание товара отсутствует',
-              sku: product.id.toString(),
-              mpn: product.id.toString(),
-              brand: { '@type': 'Brand', name: 'Labberry' },
-              offers: {
-                '@type': 'Offer',
-                url: `/product/${product.id}`,
-                priceCurrency: 'RUB',
-                price: discountedPrice.toString(),
-                priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                  .toISOString()
-                  .split('T')[0],
-                availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                itemCondition: 'https://schema.org/NewCondition',
-              },
-            }),
-          }}
-        />
-
-        {/* Media */}
         <div className="relative p-3 sm:p-4">
           <Link
             href={`/product/${product.id}`}
@@ -438,23 +367,17 @@ export default function ProductCard({
               priority={stablePriority}
             />
 
-            {/* Desktop badges */}
             <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
               {bonus > 0 && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
                   <Gift size={14} className="text-[#4b4b4b]" />
-                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">
-                    +{bonus}
-                  </span>
+                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">+{bonus}</span>
                 </div>
               )}
 
-              {/* На desktop можно оставлять изготовление на картинке */}
               {productionText && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
-                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">
-                    {productionText}
-                  </span>
+                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">{productionText}</span>
                 </div>
               )}
             </div>
@@ -463,9 +386,7 @@ export default function ProductCard({
               {isPopular && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-black/90 text-white px-3 py-1.5 shadow-sm">
                   <Star size={14} className="text-yellow-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight">
-                    Популярно
-                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-tight">Популярно</span>
                 </div>
               )}
 
@@ -480,7 +401,6 @@ export default function ProductCard({
           </Link>
         </div>
 
-        {/* Content */}
         <div className="px-4 sm:px-5 pb-4 sm:pb-5">
           <h3
             id={`product-${product.id}-title`}
@@ -493,14 +413,9 @@ export default function ProductCard({
           <div className="mt-3 flex items-end justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
-                <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">
-                  {priceText}
-                </span>
-
+                <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
                 {(discountAmount > 0 || originalPrice > product.price) && (
-                  <span className="text-[12px] text-[#9a9a9a] line-through">
-                    {formatRuble(baseForDiscount)} ₽
-                  </span>
+                  <span className="text-[12px] text-[#9a9a9a] line-through">{formatRuble(baseForDiscount)} ₽</span>
                 )}
               </div>
 
@@ -511,42 +426,35 @@ export default function ProductCard({
               )}
             </div>
 
-            <AnimatePresence initial={false}>
-              {hovered && (
-                <motion.button
-                  ref={buttonRef}
-                  type="button"
-                  onClick={handleAddToCart}
-                  className={[
-                    'shrink-0 inline-flex items-center justify-center gap-2',
-                    'h-[44px] px-4 rounded-full',
-                    'border border-[#bdbdbd]',
-                    'bg-white text-black',
-                    'text-[12px] font-bold uppercase tracking-tight',
-                    'shadow-[0_1px_0_rgba(0,0,0,0.05)]',
-                    'transition-all duration-200',
-                    'hover:bg-black hover:text-white hover:border-black',
-                    'active:scale-[0.98]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30',
-                  ].join(' ')}
-                  aria-label={`Добавить ${title} в корзину`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                >
-                  <ShoppingCart size={18} />
-                  В корзину
-                </motion.button>
-              )}
-            </AnimatePresence>
+            <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
+              <button
+                ref={buttonRef}
+                type="button"
+                onClick={handleAddToCart}
+                className={[
+                  'inline-flex items-center justify-center gap-2',
+                  'h-[44px] px-4 rounded-full',
+                  'border border-[#bdbdbd]',
+                  'bg-white text-black',
+                  'text-[12px] font-bold uppercase tracking-tight',
+                  'shadow-[0_1px_0_rgba(0,0,0,0.05)]',
+                  'transition-all duration-200',
+                  'hover:bg-black hover:text-white hover:border-black',
+                  'active:scale-[0.98]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30',
+                  'opacity-0 translate-y-2 pointer-events-none',
+                  'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
+                ].join(' ')}
+                aria-label={`Добавить ${title} в корзину`}
+              >
+                <ShoppingCart size={18} />
+                В корзину
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-black/[0.03]" />
       </motion.div>
 
-      {/* 🔔 Локальный тост */}
       <AnimatePresence>
         {showToast && (
           <motion.div
@@ -564,13 +472,7 @@ export default function ProductCard({
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-              <Image
-                src={imageUrl}
-                alt={title}
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-              />
+              <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
             </div>
 
             <div className="flex flex-col flex-1 min-w-0">

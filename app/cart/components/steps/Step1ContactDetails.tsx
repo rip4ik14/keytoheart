@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface Props {
   form: {
-    phone: string; // храним НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
+    phone: string; // хранится НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
     whatsapp: boolean;
     name: string;
     agreedToTerms?: boolean;
@@ -39,7 +39,7 @@ function digitsOnly(v: string) {
 }
 
 /**
- * Достаём "локальные 10" из любого ввода/вставки:
+ * Достаём локальные 10 из любого ввода/вставки:
  * - "7912..." / "+7912..." / "8(912)..." -> "912..."
  * - если цифр > 10 -> последние 10
  * - иначе -> первые 10
@@ -57,7 +57,7 @@ function extractLocal10FromAnyInput(raw: string) {
 }
 
 /**
- * ВАЖНО: корректно вынимаем "локальные 10 цифр" даже из НЕПОЛНОГО значения.
+ * Вытаскиваем локальные 10 из form.phone (+7/8/что угодно).
  */
 function toLocal10FromStoredPhone(stored: string) {
   const d = digitsOnly(stored);
@@ -84,6 +84,29 @@ function formatLocal10ForInput(local10: string) {
   return `(${a}) ${b}-${c}-${e}`;
 }
 
+/**
+ * Каретка - считаем сколько цифр было слева, потом ставим в похожую позицию после форматирования.
+ */
+function countDigitsBeforePos(s: string, pos: number) {
+  let c = 0;
+  for (let i = 0; i < Math.min(pos, s.length); i++) {
+    if (/\d/.test(s[i])) c++;
+  }
+  return c;
+}
+
+function posForDigitIndex(formatted: string, digitIndex: number) {
+  if (digitIndex <= 0) return 0;
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) {
+      seen++;
+      if (seen >= digitIndex) return i + 1;
+    }
+  }
+  return formatted.length;
+}
+
 export default function Step1ContactDetails({
   form,
   phoneError,
@@ -103,6 +126,7 @@ export default function Step1ContactDetails({
 
   const [phoneUi, setPhoneUi] = useState<string>('');
   const isFocusedRef = useRef(false);
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const local10FromForm = useMemo(() => toLocal10FromStoredPhone(form.phone), [form.phone]);
 
@@ -159,6 +183,7 @@ export default function Step1ContactDetails({
           </div>
 
           <input
+            ref={phoneInputRef}
             id="phone"
             name="phone_ui"
             value={phoneUi}
@@ -169,14 +194,25 @@ export default function Step1ContactDetails({
               isFocusedRef.current = false;
             }}
             onChange={(e) => {
-              const d10 = extractLocal10FromAnyInput(e.target.value);
+              const rawUi = e.target.value;
 
-              setPhoneUi(formatLocal10ForInput(d10));
+              const caret = e.target.selectionStart ?? rawUi.length;
+              const digitIndex = countDigitsBeforePos(rawUi, caret);
+
+              const d10 = extractLocal10FromAnyInput(rawUi);
+              const formatted = formatLocal10ForInput(d10);
+
+              setPhoneUi(formatted);
 
               const normalized = d10.length ? `+7${d10}` : '';
-              onFormChange({
-                target: { name: 'phone', value: normalized },
-              } as any);
+              onFormChange({ target: { name: 'phone', value: normalized } } as any);
+
+              requestAnimationFrame(() => {
+                const el = phoneInputRef.current;
+                if (!el) return;
+                const nextPos = posForDigitIndex(formatted, digitIndex);
+                el.setSelectionRange(nextPos, nextPos);
+              });
             }}
             placeholder="(___) ___-__-__"
             className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
@@ -243,10 +279,10 @@ export default function Step1ContactDetails({
             )}
           </div>
 
-          {!isAuthenticated && authChecked && typeof setShowAuthPanel === 'function' && (
+          {!isAuthenticated && authChecked && canToggleAuth && (
             <button
               type="button"
-              onClick={() => setShowAuthPanel?.(!showAuthPanel)}
+              onClick={() => setShowAuthPanel(!showAuthPanel)}
               className="shrink-0 rounded-[14px] border border-[#bdbdbd] px-3 py-2 text-[10px] font-bold uppercase tracking-tight bg-white text-[#4b4b4b] active:scale-[0.99]"
             >
               {showAuthPanel ? 'Скрыть' : 'Войти для бонусов'}
@@ -254,7 +290,7 @@ export default function Step1ContactDetails({
           )}
         </div>
 
-        {!isAuthenticated && authChecked && showAuthPanel && (
+        {!isAuthenticated && authChecked && canToggleAuth && showAuthPanel && (
           <div className="pt-2">
             <AuthWithCall
               onSuccess={(p: string) => {
