@@ -1,7 +1,8 @@
 // ✅ Путь: app/product/[id]/ComboBuilderModal.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import Image from 'next/image';
 import { X, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -52,52 +53,6 @@ function pickTitleForDesktop(activePick: ComboPickerType) {
   if (activePick === 'berries') return 'Выберите клубнику';
   if (activePick === 'balloons') return 'Выберите шары';
   return 'Выберите открытку';
-}
-
-/* ------------------------------------------------------------------ */
-/*  Универсальный <img> (без next/image)                              */
-/* ------------------------------------------------------------------ */
-function SafeImgFill({
-  src,
-  alt,
-  className,
-  loading = 'lazy',
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-  loading?: 'lazy' | 'eager';
-}) {
-  const [currentSrc, setCurrentSrc] = useState(src || '/placeholder.jpg');
-
-  useEffect(() => {
-    setCurrentSrc(src || '/placeholder.jpg');
-  }, [src]);
-
-  return (
-    <>
-      {/* оставил твой blur как лёгкий фон */}
-      <img
-        src={BLUR_PLACEHOLDER}
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover scale-[1.1] blur-[10px] opacity-60"
-        aria-hidden="true"
-        draggable={false}
-      />
-      <img
-        src={currentSrc}
-        alt={alt}
-        className={className}
-        loading={loading}
-        decoding="async"
-        draggable={false}
-        referrerPolicy="no-referrer"
-        onError={() => {
-          if (currentSrc !== '/placeholder.jpg') setCurrentSrc('/placeholder.jpg');
-        }}
-      />
-    </>
-  );
 }
 
 function SlotCard({
@@ -155,11 +110,13 @@ function SelectedRow({
   return (
     <div className="flex gap-3 items-center py-4 border-b border-black/10">
       <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-black/5 border border-black/10">
-        <SafeImgFill
+        <Image
           src={item.image || '/placeholder.jpg'}
           alt={item.title}
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
+          className="object-cover"
         />
       </div>
 
@@ -215,12 +172,15 @@ function PickCard({
 }) {
   return (
     <div className="rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_14px_40px_rgba(0,0,0,0.10)] transition-shadow">
-      <div className="relative w-full aspect-[4/3] bg-black/5 overflow-hidden">
-        <SafeImgFill
+      <div className="relative w-full aspect-[4/3] bg-black/5">
+        <Image
           src={item.image || '/placeholder.jpg'}
           alt={item.title}
+          fill
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
+          className="object-cover"
           loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover"
         />
       </div>
 
@@ -389,6 +349,7 @@ export default function ComboBuilderModal({
               {/* DESKTOP */}
               <div className="hidden lg:block h-full">
                 {view === 'pick' ? (
+                  // ✅ PICK VIEW: слева выбор, справа сборка (итог закреплен)
                   <div className="h-full grid grid-cols-[1fr_420px]">
                     {/* LEFT: picker */}
                     <div className="border-r border-black/10 h-full flex flex-col min-h-0">
@@ -453,8 +414,13 @@ export default function ComboBuilderModal({
 
                     {/* RIGHT: builder */}
                     <div className="h-full flex flex-col min-h-0">
+                      {/* ✅ верхняя часть скроллится */}
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
-                        <SelectedRow item={baseItem} discounted={discounted} comboDiscountPercent={comboDiscountPercent} />
+                        <SelectedRow
+                          item={baseItem}
+                          discounted={discounted}
+                          comboDiscountPercent={comboDiscountPercent}
+                        />
 
                         {!selSecondBase ? (
                           <SlotCard
@@ -513,6 +479,7 @@ export default function ComboBuilderModal({
                         <div className="h-4" />
                       </div>
 
+                      {/* ✅ итог всегда видим (закреплен снизу) */}
                       <div className="shrink-0 px-6 pb-6 pt-4 bg-white border-t border-black/10">
                         <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
                           <div className="flex items-center justify-between text-sm text-black/60">
@@ -538,10 +505,15 @@ export default function ComboBuilderModal({
                     </div>
                   </div>
                 ) : (
+                  // ✅ MAIN VIEW: только сборка (никаких левых товаров до выбора)
                   <div className="h-full flex">
                     <div className="w-full max-w-[520px] ml-auto h-full flex flex-col min-h-0 border-l border-black/10">
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
-                        <SelectedRow item={baseItem} discounted={discounted} comboDiscountPercent={comboDiscountPercent} />
+                        <SelectedRow
+                          item={baseItem}
+                          discounted={discounted}
+                          comboDiscountPercent={comboDiscountPercent}
+                        />
 
                         {!selSecondBase ? (
                           <SlotCard
@@ -632,16 +604,22 @@ export default function ComboBuilderModal({
                 {view === 'main' && (
                   <div className="px-4 sm:px-6 pb-6">
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black/5 mt-3 border border-black/10">
-                      <SafeImgFill
+                      <Image
                         src={heroImage || '/placeholder.jpg'}
                         alt={heroTitle}
-                        loading="eager"
-                        className="absolute inset-0 w-full h-full object-cover"
+                        fill
+                        placeholder="blur"
+                        blurDataURL={BLUR_PLACEHOLDER}
+                        className="object-cover"
                       />
                     </div>
 
                     <div className="pt-2">
-                      <SelectedRow item={baseItem} discounted={discounted} comboDiscountPercent={comboDiscountPercent} />
+                      <SelectedRow
+                        item={baseItem}
+                        discounted={discounted}
+                        comboDiscountPercent={comboDiscountPercent}
+                      />
 
                       {!selSecondBase ? (
                         <SlotCard
@@ -781,7 +759,7 @@ export default function ComboBuilderModal({
               </div>
             </div>
 
-            {/* ✅ НИЖНЕГО FOOTER НЕТ */}
+            {/* ✅ НИЖНЕГО FOOTER НЕТ (как ты просил) */}
           </motion.div>
         </motion.div>
       )}

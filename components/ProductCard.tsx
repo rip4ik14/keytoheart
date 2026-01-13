@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ShoppingCart, Gift } from 'lucide-react';
 import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
+import Image from 'next/image';
 import Link from 'next/link';
 
 /**
@@ -43,45 +44,6 @@ function formatProductionTime(minutes: number | null): string | null {
   if (hours > 0) result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
   if (mins > 0) result += (result ? ' ' : '') + `${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
   return result || 'Мгновенно';
-}
-
-/* ------------------------------------------------------------------ */
-/*  Универсальный <img> с фолбэком, чтобы не было /next/image и 400     */
-/* ------------------------------------------------------------------ */
-function SafeImg({
-  src,
-  alt,
-  className,
-  loading = 'lazy',
-  sizes,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-  loading?: 'lazy' | 'eager';
-  sizes?: string;
-}) {
-  const [currentSrc, setCurrentSrc] = useState(src || '/placeholder.jpg');
-
-  useEffect(() => {
-    setCurrentSrc(src || '/placeholder.jpg');
-  }, [src]);
-
-  return (
-    <img
-      src={currentSrc}
-      alt={alt}
-      className={className}
-      loading={loading}
-      decoding="async"
-      sizes={sizes}
-      draggable={false}
-      referrerPolicy="no-referrer"
-      onError={() => {
-        if (currentSrc !== '/placeholder.jpg') setCurrentSrc('/placeholder.jpg');
-      }}
-    />
-  );
 }
 
 export default function ProductCard({
@@ -177,7 +139,7 @@ export default function ProductCard({
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
   /* ------------------------------------------------------------------ */
-  /*  MOBILE                                                            */
+  /*  MOBILE: визуал оставляем как в старом варианте (только стикеры)    */
   /* ------------------------------------------------------------------ */
   if (isMobile) {
     const cardBorderClass = 'border-gray-200 shadow-sm';
@@ -229,9 +191,11 @@ export default function ProductCard({
             }}
           />
 
-          {/* --- СТИКЕРЫ --- */}
+          {/* --- СТИКЕРЫ (ТОЛЬКО ПЕРЕРАСПОЛОЖЕНИЕ) --- */}
+          {/* Блок справа сверху: популярно сверху, баллы ниже-слева диагональю */}
           <div className="absolute top-2 right-2 z-20 pointer-events-none">
             <div className="flex flex-col items-end gap-2">
+              {/* Популярно (как было по размеру) */}
               {isPopular && (
                 <motion.div
                   className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full flex items-center font-bold shadow-sm"
@@ -244,16 +208,19 @@ export default function ProductCard({
                 </motion.div>
               )}
 
+              {/* Баллы - ниже и смещены влево (адаптивно, без пиксельных top/right) */}
               {bonus > 0 && (
                 <motion.div
                   className="flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
-                  style={{ transform: 'translateX(-10px)' }}
+                  style={{
+                    transform: 'translateX(-10px)', // диагональ влево (стабильно при любых размерах)
+                  }}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.2 }}
                 >
                   +{bonus}
-                  <img
+                  <Image
                     src="/icons/gift.svg"
                     alt=""
                     width={13}
@@ -273,16 +240,19 @@ export default function ProductCard({
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
           >
-            <SafeImg
+            <Image
               src={imageUrl}
               alt={title}
-              loading={stablePriority ? 'eager' : 'lazy'}
+              fill
+              fetchPriority={stablePriority ? 'high' : 'auto'}
               sizes="(max-width: 640px) 100vw, 220px"
-              className="absolute inset-0 object-cover w-full h-full transition-transform duration-200 hover:scale-105"
+              className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
+              loading={stablePriority ? 'eager' : 'lazy'}
+              priority={stablePriority}
             />
           </Link>
 
-          {/* Контент */}
+          {/* Контент: без обрезки текста, кнопка всегда прижата вниз */}
           <div className="flex flex-col p-2 flex-1">
             <h3
               id={`product-${product.id}-title`}
@@ -318,6 +288,7 @@ export default function ProductCard({
               )}
             </div>
 
+            {/* Кнопка всегда снизу, не “летает” */}
             <button
               ref={buttonRef}
               onClick={handleAddToCart}
@@ -355,12 +326,13 @@ export default function ProductCard({
               exit={{ opacity: 0, y: 18 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
             >
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-                <SafeImg
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                <Image
                   src={imageUrl}
                   alt={title}
-                  loading="lazy"
-                  className="absolute inset-0 object-cover w-full h-full"
+                  width={48}
+                  height={48}
+                  className="object-cover w-full h-full"
                 />
               </div>
 
@@ -389,7 +361,7 @@ export default function ProductCard({
   }
 
   /* ------------------------------------------------------------------ */
-  /*  DESKTOP                                                           */
+  /*  DESKTOP: премиальный вариант                                      */
   /* ------------------------------------------------------------------ */
   return (
     <>
@@ -455,12 +427,15 @@ export default function ProductCard({
           >
             <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/35 via-transparent to-black/10 opacity-80" />
 
-            <SafeImg
+            <Image
               src={imageUrl}
               alt={title}
-              loading={stablePriority ? 'eager' : 'lazy'}
+              fill
+              fetchPriority={stablePriority ? 'high' : 'auto'}
               sizes="(max-width: 640px) 50vw, 280px"
-              className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
+              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
+              loading={stablePriority ? 'eager' : 'lazy'}
+              priority={stablePriority}
             />
 
             {/* Desktop badges */}
@@ -474,6 +449,7 @@ export default function ProductCard({
                 </div>
               )}
 
+              {/* На desktop можно оставлять изготовление на картинке */}
               {productionText && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
                   <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">
@@ -587,12 +563,13 @@ export default function ProductCard({
             exit={{ opacity: 0, y: 18 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-              <SafeImg
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+              <Image
                 src={imageUrl}
                 alt={title}
-                loading="lazy"
-                className="absolute inset-0 object-cover w-full h-full"
+                width={48}
+                height={48}
+                className="object-cover w-full h-full"
               />
             </div>
 
