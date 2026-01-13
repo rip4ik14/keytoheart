@@ -282,8 +282,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
   // Рендер портального меню статуса (не режется overflow'ами)
   const statusMenuPortal =
-    statusMenu && typeof document !== 'undefined'
-      ? createPortal(() => {
+  statusMenu && typeof document !== 'undefined'
+    ? createPortal(
+        (() => {
           const w = 192; // w-48
           const gap = 8;
           const pad = 8;
@@ -291,16 +292,13 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           const viewportW = window.innerWidth;
           const viewportH = window.innerHeight;
 
-          // базовая позиция "под кнопкой"
           let left = statusMenu.anchorRect.left;
           let top = statusMenu.anchorRect.bottom + gap;
 
-          // clamp по ширине
           if (left + w + pad > viewportW) left = Math.max(pad, viewportW - w - pad);
           if (left < pad) left = pad;
 
-          // если вниз не помещается - открываем вверх
-          const menuH = 6 * 40 + 10; // грубая оценка (5 статусов + отмена)
+          const menuH = 6 * 40 + 10;
           if (top + menuH + pad > viewportH) {
             top = Math.max(pad, statusMenu.anchorRect.top - gap - menuH);
           }
@@ -338,8 +336,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
               </motion.div>
             </AnimatePresence>
           );
-        }, document.body)
-      : null;
+        })(),
+        document.body
+      )
+    : null;
+
 
   return (
     <div className="min-h-screen w-full">
