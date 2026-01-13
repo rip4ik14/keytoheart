@@ -103,7 +103,7 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <yml_catalog date="${now}">
   <shop>
-    <name>KEY TO HEART</name>
+    <name>КЛЮЧ К СЕРДЦУ</name>
     <url>https://keytoheart.ru</url>
     <currencies>
       <currency id="RUB" rate="1"/>

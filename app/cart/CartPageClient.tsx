@@ -777,7 +777,6 @@ export default function CartPageClient({
         <Step1ContactDetails
           form={form}
           phoneError={phoneError}
-          emailError={emailError}
           nameError={nameError}
           agreedToTermsError={agreedToTermsError}
           onFormChange={onFormChange as any}

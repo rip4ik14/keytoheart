@@ -204,7 +204,7 @@ export default async function ProductPage({
     itemCondition: 'https://schema.org/NewCondition',
     seller: {
       '@type': 'Organization',
-      name: 'KEY TO HEART',
+      name: 'КЛЮЧ К СЕРДЦУ',
       url: 'https://keytoheart.ru',
     },
     shippingDetails: {
@@ -255,7 +255,7 @@ export default async function ProductPage({
             : undefined,
           material: product.composition || undefined,
           category: categoryName || undefined,
-          brand: { '@type': 'Brand', name: 'KEY TO HEART' },
+          brand: { '@type': 'Brand', name: 'КЛЮЧ К СЕРДЦУ' },
           offers: offer,
         }}
       />

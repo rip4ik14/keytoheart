@@ -1,3 +1,4 @@
+// ✅ Путь: components/LayoutClient.tsx
 'use client';
 
 import { Suspense, useMemo } from 'react';
@@ -34,10 +35,7 @@ export default function LayoutClient({
   const isGiftPage = useMemo(() => {
     if (!pathname) return false;
 
-    const GIFT_ROUTES = new Set<string>([
-      '/regina2026',
-      '/anya2026',
-    ]);
+    const GIFT_ROUTES = new Set<string>(['/regina2026', '/anya2026']);
 
     if (GIFT_ROUTES.has(pathname)) return true;
 
@@ -64,11 +62,8 @@ export default function LayoutClient({
               </Suspense>
             )}
 
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className={isGiftPage ? 'font-sans' : 'pt-12 sm:pt-14 font-sans'}
-            >
+            {/* ✅ Убрали font-sans отсюда. Шрифт теперь задаётся на body в app/layout.tsx */}
+            <main id="main-content" tabIndex={-1} className={isGiftPage ? '' : 'pt-12 sm:pt-14'}>
               {children}
             </main>
 

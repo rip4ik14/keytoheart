@@ -5,10 +5,10 @@ import ContactsPageClient from '@components/ContactsPageClient';
 
 export const metadata: Metadata = {
   title: 'Контакты',
-  description: 'Свяжитесь с KEY TO HEART для заказа клубничных букетов и цветов в Краснодаре. Телефон, email, адрес и часы работы.',
+  description: 'Свяжитесь с КЛЮЧ К СЕРДЦУ для заказа клубничных букетов и цветов в Краснодаре. Телефон, email, адрес и часы работы.',
   keywords: [
     'контакты',
-    'KEY TO HEART',
+    'КЛЮЧ К СЕРДЦУ',
     'доставка букетов Краснодар',
     'клубничные букеты',
     'цветы',
@@ -17,16 +17,16 @@ export const metadata: Metadata = {
     'Клубника в шоколаде Краснодар'
   ],
   openGraph: {
-    title: 'Контакты | KEY TO HEART',
+    title: 'Контакты | КЛЮЧ К СЕРДЦУ',
     description: 'Свяжитесь с нами для заказа букетов в Краснодаре.',
     url: 'https://keytoheart.ru/contacts',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url: 'https://keytoheart.ru/og-image-contacts.jpg',
         width: 1200,
         height: 630,
-        alt: 'Контакты KEY TO HEART',
+        alt: 'Контакты КЛЮЧ К СЕРДЦУ',
         type: 'image/jpeg',
       },
     ],
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Контакты | KEY TO HEART',
+    title: 'Контакты | КЛЮЧ К СЕРДЦУ',
     description: 'Свяжитесь с нами для заказа букетов в Краснодаре.',
     images: ['https://keytoheart.ru/og-image-contacts.jpg'],
   },
@@ -45,12 +45,12 @@ export const revalidate = 86400;
 
 const contactSchema: ContactPage = {
   '@type': 'ContactPage',
-  name: 'Контакты KEY TO HEART',
+  name: 'Контакты КЛЮЧ К СЕРДЦУ',
   url: 'https://keytoheart.ru/contacts',
-  description: 'Свяжитесь с KEY TO HEART для заказа букетов.',
+  description: 'Свяжитесь с КЛЮЧ К СЕРДЦУ для заказа букетов.',
   mainEntity: {
     '@type': 'LocalBusiness',
-    name: 'KEY TO HEART',
+    name: 'КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru',
     contactPoint: [
       {
@@ -88,7 +88,7 @@ const faqSchema: FAQPage = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Как связаться с KEY TO HEART?',
+      name: 'Как связаться с КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Вы можете позвонить по телефону +7 (988) 603-38-21, написать на email info@keytoheart.ru или связаться через WhatsApp/Telegram. Мы работаем с 09:00 до 22:00 ежедневно.',
@@ -96,7 +96,7 @@ const faqSchema: FAQPage = {
     },
     {
       '@type': 'Question',
-      name: 'Где находится мастерская KEY TO HEART?',
+      name: 'Где находится мастерская КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Наша мастерская находится по адресу: г. Краснодар, ул. Героев-Разведчиков, 17/1.',
@@ -116,13 +116,13 @@ export default function ContactsPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Контакты | KEY TO HEART',
+          name: 'Контакты | КЛЮЧ К СЕРДЦУ',
           url: 'https://keytoheart.ru/contacts',
-          description: 'Свяжитесь с KEY TO HEART для заказа клубничных букетов и цветов в Краснодаре.',
+          description: 'Свяжитесь с КЛЮЧ К СЕРДЦУ для заказа клубничных букетов и цветов в Краснодаре.',
           datePublished: '2025-05-20',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KEY TO HEART',
+            name: 'КЛЮЧ К СЕРДЦУ',
             url: 'https://keytoheart.ru',
           },
         }}

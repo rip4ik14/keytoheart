@@ -7,17 +7,17 @@ import ArticlesList from '@/components/ArticlesList';
 export const metadata: Metadata = {
   title: 'Полезные статьи',
   description:
-    'Читайте советы и идеи по клубничным букетам, декору и подаркам от KEY TO HEART.',
+    'Читайте советы и идеи по клубничным букетам, декору и подаркам от КЛЮЧ К СЕРДЦУ.',
   alternates: { canonical: 'https://keytoheart.ru/articles' },
 };
 
 export default function ArticlesPage() {
   const pageSchema: WebPage = {
     '@type': 'WebPage',
-    name: 'Полезные статьи | KEY TO HEART',
+    name: 'Полезные статьи | КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru/articles',
     description:
-      'Блог KEY TO HEART: идеи и лайфхаки по клубничным букетам и подаркам.',
+      'Блог КЛЮЧ К СЕРДЦУ: идеи и лайфхаки по клубничным букетам и подаркам.',
   };
 
   return (

@@ -326,7 +326,7 @@ export default function ProductPageClient({
       navigator
         .share({
           title: product.title,
-          text: `Посмотрите «${product.title}» на KEY TO HEART!`,
+          text: `Посмотрите «${product.title}» на КЛЮЧ К СЕРДЦУ!`,
           url,
         })
         .catch(() => {});

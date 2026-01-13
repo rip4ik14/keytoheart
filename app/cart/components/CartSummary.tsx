@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 
 import type { CartItemType, UpsellItem } from '@/app/cart/types';
+import UiButton from '@/components/ui/UiButton';
 
 interface CartSummaryProps {
   items: CartItemType[];
@@ -66,10 +67,6 @@ export default function CartSummary({
     'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
   const muted = 'text-black/60';
   const ink = 'text-[#121212]';
-  const btnPrimary =
-    'bg-[#121212] text-white hover:bg-black shadow-[0_10px_25px_rgba(0,0,0,0.18)]';
-  const btnGhost =
-    'bg-white text-[#121212] border border-black/15 hover:border-black/25 hover:bg-black/[0.02]';
 
   return (
     <motion.aside
@@ -103,9 +100,7 @@ export default function CartSummary({
 
             <div className="mt-2 flex justify-between gap-3">
               <span className={muted}>
-                {isPickup
-                  ? 'Самовывоз из студии'
-                  : 'Доставка - менеджер рассчитает после оформления'}
+                {isPickup ? 'Самовывоз из студии' : 'Доставка - менеджер рассчитает после оформления'}
               </span>
               <span className={`font-semibold ${ink}`}>{isPickup ? '0 ₽' : 'по расчету'}</span>
             </div>
@@ -135,14 +130,21 @@ export default function CartSummary({
                 "
               />
 
-              <motion.button
+              <UiButton
                 type="button"
                 onClick={onApplyPromo}
-                className={`shrink-0 rounded-2xl px-3 py-2 text-xs xs:text-sm font-semibold transition ${btnPrimary}`}
-                whileTap={{ scale: 0.98 }}
+                variant="brand"
+                className="
+                  shrink-0
+                  rounded-2xl
+                  px-3 py-2
+                  text-xs xs:text-sm
+                  normal-case
+                  shadow-[0_10px_25px_rgba(0,0,0,0.18)]
+                "
               >
-                Применить
-              </motion.button>
+                ПРИМЕНИТЬ
+              </UiButton>
             </div>
 
             {promoError ? (
@@ -176,7 +178,10 @@ export default function CartSummary({
               <p className={`mt-2 text-[11px] xs:text-xs ${muted}`}>
                 {bonusBalance <= 0
                   ? 'Нет доступных бонусов'
-                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
+                  : `Доступно: ${Math.min(
+                      bonusBalance,
+                      Math.floor(totalBeforeDiscounts * 0.15),
+                    )} ₽`}
               </p>
             </div>
           )}
@@ -196,20 +201,7 @@ export default function CartSummary({
               </span>
             </div>
 
-            <div className="mt-3 flex gap-2">
-              <a
-                href="/"
-                className={`flex-1 text-center rounded-2xl px-3 py-3 text-xs font-semibold transition ${btnGhost}`}
-              >
-                Продолжить покупки
-              </a>
-              <button
-                type="button"
-                className={`flex-1 rounded-2xl px-3 py-3 text-xs font-semibold transition ${btnPrimary}`}
-              >
-                Оформить заказ
-              </button>
-            </div>
+            
           </div>
         </div>
       )}

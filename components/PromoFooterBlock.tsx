@@ -81,7 +81,7 @@ export default function PromoFooterBlock() {
           <div className="w-full max-w-[300px] sm:max-w-[340px] aspect-square rounded-[20px] sm:rounded-[30px] overflow-hidden shadow-sm border border-[#ececec] bg-white">
             <WebpImage
               src="/images/promo-loyalty.jpg"
-              alt="Программа лояльности KEY TO HEART"
+              alt="Программа лояльности КЛЮЧ К СЕРДЦУ"
               width={340}
               height={340}
               className="object-cover w-full h-full"
@@ -147,7 +147,7 @@ export default function PromoFooterBlock() {
                 >
                   <WebpImage
                     src={`/images/${file}`}
-                    alt={`Instagram-пост KEY TO HEART №${i + 1}`}
+                    alt={`Instagram-пост КЛЮЧ К СЕРДЦУ №${i + 1}`}
                     width={155}
                     height={155}
                     className="object-cover w-full h-full"

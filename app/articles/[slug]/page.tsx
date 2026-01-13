@@ -33,12 +33,12 @@ export default function ArticlePage({ params }: Params) {
     description: article.description,
     author: {
       '@type': 'Organization',
-      name: 'KEY TO HEART',
+      name: 'КЛЮЧ К СЕРДЦУ',
       url: 'https://keytoheart.ru',
     },
     publisher: {
       '@type': 'Organization',
-      name: 'KEY TO HEART',
+      name: 'КЛЮЧ К СЕРДЦУ',
       logo: {
         '@type': 'ImageObject',
         url: 'https://keytoheart.ru/logo.png',

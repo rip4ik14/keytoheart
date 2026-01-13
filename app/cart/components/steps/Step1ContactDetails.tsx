@@ -9,12 +9,10 @@ interface Props {
   form: {
     phone: string; // храним НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
     whatsapp: boolean;
-    email: string;
     name: string;
     agreedToTerms?: boolean;
   };
   phoneError: string;
-  emailError: string;
   nameError: string;
   agreedToTermsError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -41,11 +39,25 @@ function digitsOnly(v: string) {
 }
 
 /**
+ * Достаём "локальные 10" из любого ввода/вставки:
+ * - "7912..." / "+7912..." / "8(912)..." -> "912..."
+ * - если цифр > 10 -> последние 10
+ * - иначе -> первые 10
+ */
+function extractLocal10FromAnyInput(raw: string) {
+  const d = digitsOnly(raw);
+  if (!d) return '';
+
+  if (d.length >= 11 && (d.startsWith('7') || d.startsWith('8'))) {
+    return d.slice(1, 11);
+  }
+
+  if (d.length > 10) return d.slice(-10);
+  return d.slice(0, 10);
+}
+
+/**
  * ВАЖНО: корректно вынимаем "локальные 10 цифр" даже из НЕПОЛНОГО значения.
- * - "+79" -> "9"
- * - "+7"  -> ""
- * - "79"  -> "9"
- * - "+791234..." -> "91234..."
  */
 function toLocal10FromStoredPhone(stored: string) {
   const d = digitsOnly(stored);
@@ -54,7 +66,6 @@ function toLocal10FromStoredPhone(stored: string) {
   if (d.startsWith('7')) return d.slice(1, 11);
   if (d.startsWith('8')) return d.slice(1, 11);
 
-  // если вдруг прилетело без префикса
   if (d.length > 10) return d.slice(-10);
   return d.slice(0, 10);
 }
@@ -76,7 +87,6 @@ function formatLocal10ForInput(local10: string) {
 export default function Step1ContactDetails({
   form,
   phoneError,
-  emailError,
   nameError,
   agreedToTermsError,
   onFormChange,
@@ -91,29 +101,17 @@ export default function Step1ContactDetails({
   const canToggleAuth =
     typeof setShowAuthPanel === 'function' && typeof showAuthPanel === 'boolean';
 
-  // UI-значение телефона (без +7)
   const [phoneUi, setPhoneUi] = useState<string>('');
-
-  // чтобы не перетирать ввод синком во время печати
   const isFocusedRef = useRef(false);
 
-  const local10FromForm = useMemo(
-    () => toLocal10FromStoredPhone(form.phone),
-    [form.phone],
-  );
+  const local10FromForm = useMemo(() => toLocal10FromStoredPhone(form.phone), [form.phone]);
 
-  // синхронизация UI с form.phone только когда:
-  // - инпут не в фокусе, или
-  // - значение реально пришло "снаружи" и отличается от того, что сейчас в UI
   useEffect(() => {
     const uiDigits = digitsOnly(phoneUi);
     const nextDigits = digitsOnly(local10FromForm);
 
     if (isFocusedRef.current && uiDigits === nextDigits) return;
-    if (isFocusedRef.current && uiDigits.length > 0 && nextDigits.startsWith(uiDigits)) {
-      // во время ввода не мешаем каретке
-      return;
-    }
+    if (isFocusedRef.current && uiDigits.length > 0 && nextDigits.startsWith(uiDigits)) return;
 
     setPhoneUi(formatLocal10ForInput(local10FromForm));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,8 +169,7 @@ export default function Step1ContactDetails({
               isFocusedRef.current = false;
             }}
             onChange={(e) => {
-              const rawUi = e.target.value;
-              const d10 = digitsOnly(rawUi).slice(0, 10);
+              const d10 = extractLocal10FromAnyInput(e.target.value);
 
               setPhoneUi(formatLocal10ForInput(d10));
 
@@ -192,6 +189,8 @@ export default function Step1ContactDetails({
         </div>
 
         {phoneError && <p className="text-red-500 text-xs">{phoneError}</p>}
+
+        <p className="text-[12px] text-[#6f6f6f]">Текст открытки можно написать далее</p>
       </motion.div>
 
       {/* WhatsApp */}
@@ -213,37 +212,12 @@ export default function Step1ContactDetails({
         <span className="text-[13px] text-[#2f2f2f]">Не звонить, а написать в WhatsApp</span>
       </motion.label>
 
-      {/* Email */}
-      <motion.div
-        className="space-y-2"
-        initial="hidden"
-        animate="visible"
-        custom={3}
-        variants={containerVariants}
-      >
-        <input
-          id="email"
-          name="email"
-          value={form.email}
-          onChange={onFormChange}
-          placeholder="E-mail"
-          className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
-            emailError ? 'border-red-500' : 'border-[#bdbdbd]'
-          } focus:border-black`}
-          autoComplete="email"
-          aria-invalid={!!emailError}
-        />
-        {emailError && <p className="text-red-500 text-xs">{emailError}</p>}
-
-        <p className="text-[12px] text-[#6f6f6f]">Текст открытки можно написать далее</p>
-      </motion.div>
-
       {/* Бонусы и вход */}
       <motion.div
         className="mt-2 rounded-[22px] border border-[#bdbdbd] p-4 bg-white space-y-2"
         initial="hidden"
         animate="visible"
-        custom={4}
+        custom={3}
         variants={containerVariants}
       >
         <div className="flex items-start justify-between gap-3">
@@ -269,10 +243,10 @@ export default function Step1ContactDetails({
             )}
           </div>
 
-          {!isAuthenticated && authChecked && canToggleAuth && (
+          {!isAuthenticated && authChecked && typeof setShowAuthPanel === 'function' && (
             <button
               type="button"
-              onClick={() => setShowAuthPanel(!showAuthPanel)}
+              onClick={() => setShowAuthPanel?.(!showAuthPanel)}
               className="shrink-0 rounded-[14px] border border-[#bdbdbd] px-3 py-2 text-[10px] font-bold uppercase tracking-tight bg-white text-[#4b4b4b] active:scale-[0.99]"
             >
               {showAuthPanel ? 'Скрыть' : 'Войти для бонусов'}
@@ -280,7 +254,7 @@ export default function Step1ContactDetails({
           )}
         </div>
 
-        {!isAuthenticated && authChecked && canToggleAuth && showAuthPanel && (
+        {!isAuthenticated && authChecked && showAuthPanel && (
           <div className="pt-2">
             <AuthWithCall
               onSuccess={(p: string) => {
@@ -298,7 +272,7 @@ export default function Step1ContactDetails({
         }`}
         initial="hidden"
         animate="visible"
-        custom={5}
+        custom={4}
         variants={containerVariants}
       >
         <input

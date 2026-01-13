@@ -45,7 +45,7 @@ export default function CorporateGallery() {
             key={i}
             className="aspect-square overflow-hidden rounded-xl shadow hover:shadow-md transition-shadow duration-300"
             role="figure"
-            aria-label={`Пример корпоративного букета KEY TO HEART ${i + 1}`}
+            aria-label={`Пример корпоративного букета КЛЮЧ К СЕРДЦУ ${i + 1}`}
             variants={cardVariants}
             initial="hidden"
             whileInView="visible"
@@ -54,7 +54,7 @@ export default function CorporateGallery() {
           >
             <Image
               src={src}
-              alt={`Пример корпоративного букета KEY TO HEART ${i + 1}`}
+              alt={`Пример корпоративного букета КЛЮЧ К СЕРДЦУ ${i + 1}`}
               fill
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               loading="lazy"

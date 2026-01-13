@@ -64,7 +64,13 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
       <div className="flex items-start gap-3">
         {/* image */}
         <div className="relative flex-shrink-0 w-20 h-20 xs:w-24 xs:h-24 rounded-2xl overflow-hidden border border-black/10 bg-black/[0.02]">
-          <Image src={imageSrc} alt={item.title || 'Фото товара'} fill sizes="96px" className="object-cover" />
+          <Image
+            src={imageSrc}
+            alt={item.title || 'Фото товара'}
+            fill
+            sizes="96px"
+            className="object-cover"
+          />
         </div>
 
         {/* content */}
@@ -105,7 +111,9 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
                   <Minus size={18} />
                 </motion.button>
 
-                <span className={`px-3 text-sm xs:text-base font-semibold ${ink}`}>{item.quantity}</span>
+                <span className={`px-3 text-sm xs:text-base font-semibold ${ink}`}>
+                  {item.quantity}
+                </span>
 
                 <motion.button
                   type="button"

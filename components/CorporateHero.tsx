@@ -32,7 +32,7 @@ export default function CorporateHero() {
       >
         <Image
           src="/images/corporate-hero-banner.webp"
-          alt="Корпоративные подарки KEY TO HEART"
+          alt="Корпоративные подарки КЛЮЧ К СЕРДЦУ"
           fill
           priority
           className="object-cover object-center pointer-events-none select-none"
@@ -56,7 +56,7 @@ export default function CorporateHero() {
             "
             style={{ wordBreak: 'break-word', hyphens: 'auto' }}
           >
-            Корпоративные подарки от KEY TO HEART
+            Корпоративные подарки от КЛЮЧ К СЕРДЦУ
           </h1>
           <p
             className="

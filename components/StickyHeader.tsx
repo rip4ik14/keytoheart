@@ -1,3 +1,4 @@
+// ✅ Путь: components/StickyHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -24,7 +25,8 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const router = useRouter();
 
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
-  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
+  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } =
+    useCartAnimation();
 
   const { isAuthenticated, bonus, clearAuth, refreshAuth } = useAuth();
 
@@ -143,22 +145,35 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   return (
     <>
       <header
-  data-sticky-header="true"
-  className="sticky top-0 z-50 bg-white border-b shadow-sm"
-  aria-label="Основная навигация"
-  itemScope
-  itemType="https://schema.org/SiteNavigationElement"
->
+        data-sticky-header="true"
+        className="sticky top-0 z-50 bg-white border-b shadow-sm"
+        aria-label="Основная навигация"
+        itemScope
+        itemType="https://schema.org/SiteNavigationElement"
+      >
         <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
+
+            {/* ✅ ЛОГО: делаем "как H1" визуально жирнее */}
             <Link
               href="/"
-              className="text-lg md:text-2xl font-bold md:absolute md:left-1/2 md:transform md:-translate-x-1/2 truncate"
+              className={[
+                'uppercase',
+                'text-[18px] sm:text-[20px] md:text-[30px]',
+                'leading-none',
+                'font-black',
+                'tracking-[0.08em]',
+                'text-black',
+                'drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]',
+                'md:absolute md:left-1/2 md:-translate-x-1/2',
+                'truncate',
+              ].join(' ')}
               aria-label="Перейти на главную страницу"
             >
-              KEY TO HEART
+              КЛЮЧ К СЕРДЦУ
             </Link>
+
             <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
               <span>Краснодар</span>
               <div className="flex flex-col leading-tight">
@@ -307,9 +322,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   </span>
                 )}
               </motion.div>
-              {cartSum > 0 && (
-                <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>
-              )}
+              {cartSum > 0 && <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>}
             </Link>
           </div>
         </div>
@@ -317,13 +330,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         {flyBall}
 
         <div className="border-t">
-  <CategoryNav
-    initialCategories={initialCategories}
-    showMobileFilter={pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')}
-
-  />
-</div>
-
+          <CategoryNav
+            initialCategories={initialCategories}
+            showMobileFilter={pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')}
+          />
+        </div>
       </header>
 
       <AnimatePresence>

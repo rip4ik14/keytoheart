@@ -5,27 +5,27 @@ import OfferPageClient from '@components/OfferPageClient';
 
 export const metadata: Metadata = {
   title: 'Публичная оферта',
-  description: 'Публичная оферта на получение рекламной рассылки от KEY TO HEART. Условия обработки персональных данных и отказа от рассылки в соответствии с 152-ФЗ.',
-  keywords: ['оферта', 'KEY TO HEART', 'рассылка', 'персональные данные', 'Краснодар', '152-ФЗ', 'реклама'],
+  description: 'Публичная оферта на получение рекламной рассылки от КЛЮЧ К СЕРДЦУ. Условия обработки персональных данных и отказа от рассылки в соответствии с 152-ФЗ.',
+  keywords: ['оферта', 'КЛЮЧ К СЕРДЦУ', 'рассылка', 'персональные данные', 'Краснодар', '152-ФЗ', 'реклама'],
   openGraph: {
-    title: 'Публичная оферта | KEY TO HEART',
-    description: 'Публичная оферта на получение рекламной рассылки от KEY TO HEART.',
+    title: 'Публичная оферта | КЛЮЧ К СЕРДЦУ',
+    description: 'Публичная оферта на получение рекламной рассылки от КЛЮЧ К СЕРДЦУ.',
     url: 'https://keytoheart.ru/offer',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url: 'https://keytoheart.ru/og-image-offer.jpg',
         width: 1200,
         height: 630,
-        alt: 'Публичная оферта KEY TO HEART',
+        alt: 'Публичная оферта КЛЮЧ К СЕРДЦУ',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Публичная оферта | KEY TO HEART',
-    description: 'Публичная оферта на получение рекламной рассылки от KEY TO HEART.',
+    title: 'Публичная оферта | КЛЮЧ К СЕРДЦУ',
+    description: 'Публичная оферта на получение рекламной рассылки от КЛЮЧ К СЕРДЦУ.',
     images: ['https://keytoheart.ru/og-image-offer.jpg'],
   },
   alternates: { canonical: 'https://keytoheart.ru/offer' },
@@ -42,12 +42,12 @@ export default function OfferPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Публичная оферта | KEY TO HEART',
+          name: 'Публичная оферта | КЛЮЧ К СЕРДЦУ',
           url: 'https://keytoheart.ru/offer',
-          description: 'Публичная оферта на получение рекламной рассылки от KEY TO HEART в соответствии с 152-ФЗ.',
+          description: 'Публичная оферта на получение рекламной рассылки от КЛЮЧ К СЕРДЦУ в соответствии с 152-ФЗ.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KEY TO HEART',
+            name: 'КЛЮЧ К СЕРДЦУ',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

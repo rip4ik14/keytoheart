@@ -32,7 +32,7 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-main.jpg"
-                alt="KEY TO HEART — клубника в шоколаде и цветы"
+                alt="КЛЮЧ К СЕРДЦУ — клубника в шоколаде и цветы"
                 fill
                 className="object-cover"
                 priority
@@ -113,7 +113,7 @@ export default function AboutContent() {
             >
               <WebpImage
                 src="/images/about-founder.jpg"
-                alt="Основательница KEY TO HEART за работой"
+                alt="Основательница КЛЮЧ К СЕРДЦУ за работой"
                 fill
                 className="object-cover"
                 loading="lazy"

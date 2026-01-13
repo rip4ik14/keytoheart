@@ -42,7 +42,7 @@ export default function FlowwowReviewsWidget({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm sm:text-base font-semibold text-black">
-              Отзывы о KEY TO HEART на Flowwow
+              Отзывы о КЛЮЧ К СЕРДЦУ на Flowwow
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">

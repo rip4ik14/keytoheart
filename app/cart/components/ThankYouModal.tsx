@@ -1,9 +1,12 @@
+// ✅ Путь: app/cart/components/ThankYouModal.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+
+import UiButton from '@/components/ui/UiButton';
 
 interface ThankYouModalProps {
   isOpen: boolean;
@@ -150,9 +153,7 @@ export default function ThankYouModal({
                 </p>
 
                 <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50 space-y-2">
-                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">
-                    Что будет дальше
-                  </p>
+                  <p className="font-semibold text-gray-900 text-xs sm:text-sm">Что будет дальше</p>
                   <ul className="list-disc pl-4 space-y-1 text-[11px] sm:text-xs text-gray-700">
                     <li>Проверим наличие всех позиций из заказа.</li>
                     <li>Согласуем с вами детали по времени и способу доставки.</li>
@@ -194,38 +195,25 @@ export default function ThankYouModal({
               {/* Кнопки */}
               <div className="mt-5 sm:mt-6 flex flex-col gap-2">
                 {canGoToAccount && trackingUrl && (
-                  <Link
-                    href={trackingUrl}
-                    onClick={onClose}
-                    className="
-                      inline-flex items-center justify-center w-full
-                      px-6 py-3
-                      rounded-[12px] bg-black text-white text-xs sm:text-sm font-semibold
-                      uppercase tracking-tight shadow-sm
-                      hover:bg-gray-900
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black
-                      transition-all duration-200
-                    "
+                  <UiButton
+                    asChild
+                    variant="brand"
+                    className="w-full rounded-[12px] py-3 text-xs sm:text-sm normal-case"
                   >
-                    Отследить заказ
-                  </Link>
+                    <Link href={trackingUrl} onClick={onClose}>
+                      Отследить заказ
+                    </Link>
+                  </UiButton>
                 )}
 
-                <button
+                <UiButton
                   type="button"
                   onClick={onClose}
-                  className="
-                    inline-flex items-center justify-center w-full
-                    px-6 py-3
-                    rounded-[12px] border border-[#bdbdbd] bg-white text-xs sm:text-sm font-semibold
-                    uppercase tracking-tight text-[#535353] shadow-sm
-                    hover:bg-[#535353] hover:text-white
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bdbdbd]
-                    transition-all duration-200
-                  "
+                  variant="brandOutline"
+                  className="w-full rounded-[12px] py-3 text-xs sm:text-sm normal-case"
                 >
                   Вернуться к покупкам
-                </button>
+                </UiButton>
               </div>
             </div>
           </motion.div>

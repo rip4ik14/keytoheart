@@ -14,29 +14,29 @@ export const metadata: Metadata = {
     'клубничные букеты',
     'оплата заказа',
     'доставка Краснодар',
-    'KEY TO HEART',
+    'КЛЮЧ К СЕРДЦУ',
     'СБП',
     'онлайн-оплата',
   ],
   openGraph: {
-    title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+    title:       'Оплата заказа — клубника в шоколаде и букеты | КЛЮЧ К СЕРДЦУ',
     description:
       'Узнайте, как оплатить клубнику в шоколаде, букеты и подарки KEY TO HEART: СБП, онлайн по карте и безнал для юрлиц.',
     url:         'https://keytoheart.ru/payment',
-    siteName:    'KEY TO HEART',
+    siteName:    'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url:    'https://keytoheart.ru/og-image-payment.jpg',
         width:  1200,
         height: 630,
-        alt:    'Оплата заказов KEY TO HEART',
+        alt:    'Оплата заказов КЛЮЧ К СЕРДЦУ',
       },
     ],
     type: 'website',
   },
   twitter: {
     card:        'summary_large_image',
-    title:       'Оплата заказа — клубника в шоколаде и букеты | KEY TO HEART',
+    title:       'Оплата заказа — клубника в шоколаде и букеты | КЛЮЧ К СЕРДЦУ',
     description:
       'Все варианты оплаты: СБП, онлайн‑картой, иностранная карта, счёт для юрлиц.',
     images: ['https://keytoheart.ru/og-image-payment.jpg'],
@@ -51,7 +51,7 @@ const schemaPayment = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Какие способы оплаты доступны в KEY TO HEART?',
+      name: 'Какие способы оплаты доступны в КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Мы принимаем оплату через СБП (QR‑код), онлайн по ссылке (CloudPayments), наличными в мастерской, иностранными картами и по реквизитам для юрлиц.',

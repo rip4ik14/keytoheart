@@ -12,9 +12,9 @@ import CorporateFooterCTA from '@components/CorporateFooterCTA';
 export const metadata: Metadata = {
   title: 'Корпоративные подарки и букеты',
   description: 'Фруктово-цветочные подарки, брендированные боксы и букеты для сотрудников и партнёров. Документы для юрлиц, бесплатная доставка по Краснодару.',
-  keywords: ['корпоративные подарки', 'KEY TO HEART', 'доставка', 'корпоративные букеты Краснодар'],
+  keywords: ['корпоративные подарки', 'КЛЮЧ К СЕРДЦУ', 'доставка', 'корпоративные букеты Краснодар'],
   openGraph: {
-    title: 'Корпоративные подарки от KEY TO HEART',
+    title: 'Корпоративные подарки от КЛЮЧ К СЕРДЦУ',
     description: 'Уникальные подарки для коллег и партнёров с доставкой по Краснодару.',
     images: [{ url: '/og-cover.webp', width: 1200, height: 630 }],
     url: 'https://keytoheart.ru/corporate',

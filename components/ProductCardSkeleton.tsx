@@ -1,34 +1,40 @@
+// ✅ Путь: components/ProductCardSkeleton.tsx
 export default function ProductCardSkeleton() {
   return (
     <div
       role="status"
       aria-label="Загрузка карточки"
       className="
-        relative w-full max-w-[220px] sm:max-w-[280px] mx-auto bg-white rounded-[18px]
-        border border-gray-200 flex flex-col min-h-[370px] sm:min-h-[420px] transition-all duration-200
+        relative w-full mx-auto
+        max-w-[230px] sm:max-w-[300px] md:max-w-[340px] lg:max-w-[360px]
+        bg-white rounded-[24px]
+        border border-gray-200
         overflow-hidden
+        shadow-[0_1px_0_rgba(0,0,0,0.04)]
       "
     >
-      {/* Стикеры (имитация бонуса и популярности, всегда видны заглушки) */}
-      <div className="absolute top-2 left-2 z-20 w-16 h-6 rounded-full bg-gray-100" />
-      <div className="absolute top-2 right-2 z-20 w-16 h-6 rounded-full bg-gray-100" />
+      <div className="relative p-3 sm:p-4">
+        {/* бейджи */}
+        <div className="absolute left-6 top-6 z-20 h-7 w-24 rounded-full bg-gray-100" />
+        <div className="absolute left-6 top-14 z-20 h-7 w-20 rounded-full bg-gray-100" />
+        <div className="absolute right-6 top-6 z-20 h-7 w-24 rounded-full bg-gray-100" />
 
-      {/* Картинка */}
-      <div className="block relative w-full aspect-[3/4] rounded-[18px] bg-gray-200 overflow-hidden" />
-
-      {/* Контент */}
-      <div className="flex flex-col p-2 sm:p-4 flex-1 pb-12 sm:pb-14 relative">
-        <div className="h-4 bg-gray-200 rounded mb-2 w-3/4 mx-auto" />
-        <div className="flex items-center justify-center gap-2 min-h-[30px]">
-          <div className="h-4 w-10 bg-gray-200 rounded" />
-          <div className="h-4 w-12 bg-gray-200 rounded" />
-        </div>
-        <div className="h-3 bg-gray-100 rounded mt-2 w-2/3 mx-auto" />
+        {/* картинка */}
+        <div className="block relative w-full aspect-[3/4] rounded-[18px] bg-gray-200 overflow-hidden" />
       </div>
 
-      {/* Кнопка */}
-      <div className="absolute left-0 bottom-0 w-full px-2 sm:px-3 z-10">
-        <div className="w-full h-10 bg-gray-200 rounded-b-[18px]" />
+      {/* контент */}
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+        <div className="h-4 bg-gray-200 rounded w-[92%] mb-2" />
+        <div className="h-4 bg-gray-200 rounded w-[78%] mb-2" />
+        <div className="h-4 bg-gray-200 rounded w-[60%]" />
+
+        <div className="mt-4 flex items-end justify-between gap-3">
+          <div className="h-5 bg-gray-200 rounded w-24" />
+          <div className="h-11 bg-gray-200 rounded-full w-28 hidden sm:block" />
+        </div>
+
+        <div className="mt-4 h-11 bg-gray-200 rounded-full w-full sm:hidden" />
       </div>
     </div>
   );

@@ -6,13 +6,13 @@ import SubscriptionPageClient from '@components/SubscriptionPageClient';
 export const metadata: Metadata = {
   title: 'Premium Подписка – 20% скидка на клубнику в шоколаде и цветы',
   description:
-    'Станьте членом Premium Клуба KEY TO HEART и получите 20% скидку на все товары, удвоенные бонусы и приоритетную доставку в Краснодаре. Ежемесячно или ежегодно – выбирайте план!',
-  keywords: ['подписка KEY TO HEART', 'скидка 20%', 'премиум клуб', 'доставка клубники Краснодар'],
+    'Станьте членом Premium Клуба КЛЮЧ К СЕРДЦУ и получите 20% скидку на все товары, удвоенные бонусы и приоритетную доставку в Краснодаре. Ежемесячно или ежегодно – выбирайте план!',
+  keywords: ['подписка КЛЮЧ К СЕРДЦУ', 'скидка 20%', 'премиум клуб', 'доставка клубники Краснодар'],
   openGraph: {
     title: 'Premium Подписка – Экономьте 20% на сладкие подарки',
     description: 'Получите постоянную скидку, эксклюзивы и бонусы. Подписка от 499₽/мес с доставкой в Краснодаре.',
     url: 'https://keytoheart.ru/subscription',
-    images: [{ url: '/og-subscription.webp', width: 1200, height: 630, alt: 'Premium Подписка KEY TO HEART' }],
+    images: [{ url: '/og-subscription.webp', width: 1200, height: 630, alt: 'Premium Подписка КЛЮЧ К СЕРДЦУ' }],
     type: 'website',
   },
   alternates: { canonical: 'https://keytoheart.ru/subscription' },
@@ -22,10 +22,10 @@ export const revalidate = 86400;
 
 const webPageSchema: WebPage = {
   '@type': 'WebPage',
-  name: 'Premium Подписка | KEY TO HEART',
+  name: 'Premium Подписка | КЛЮЧ К СЕРДЦУ',
   url: 'https://keytoheart.ru/subscription',
   description:
-    'Подписка KEY TO HEART: 20% скидка на все товары, удвоенные бонусы, приоритетная доставка и эксклюзивы.',
+    'Подписка КЛЮЧ К СЕРДЦУ: 20% скидка на все товары, удвоенные бонусы, приоритетная доставка и эксклюзивы.',
 };
 
 const oneMonth: QuantitativeValue = {
@@ -37,7 +37,7 @@ const oneMonth: QuantitativeValue = {
 
 const serviceSchema: Service & { offers: Offer } = {
   '@type': 'Service',
-  name: 'KEY TO HEART Premium Membership',
+  name: 'КЛЮЧ К СЕРДЦУ Premium Membership',
   description: 'Премиум-подписка с постоянной скидкой и привилегиями.',
   areaServed: { '@type': 'City', name: 'Краснодар' },
   offers: {

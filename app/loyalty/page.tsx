@@ -5,26 +5,26 @@ import LoyaltyPageClient from './LoyaltyPageClient';
 
 export const metadata: Metadata = {
   title: 'Программа лояльности • до 15% бонусами',
-  description: 'Получайте кешбэк до 15% за каждый заказ на KEY TO HEART и тратьте бонусы на скидки в Краснодаре.',
-  keywords: ['программа лояльности', 'KEY TO HEART', 'бонусы', 'кешбэк', 'Краснодар'],
+  description: 'Получайте кешбэк до 15% за каждый заказ на КЛЮЧ К СЕРДЦУ и тратьте бонусы на скидки в Краснодаре.',
+  keywords: ['программа лояльности', 'КЛЮЧ К СЕРДЦУ', 'бонусы', 'кешбэк', 'Краснодар'],
   openGraph: {
-    title: 'Программа лояльности | KEY TO HEART',
+    title: 'Программа лояльности | КЛЮЧ К СЕРДЦУ',
     description: 'Собирайте бонусы до 15% за заказы в Краснодаре.',
     url: 'https://keytoheart.ru/loyalty',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Программа лояльности KEY TO HEART',
+        alt: 'Программа лояльности КЛЮЧ К СЕРДЦУ',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Программа лояльности | KEY TO HEART',
+    title: 'Программа лояльности | КЛЮЧ К СЕРДЦУ',
     description: 'Кешбэк до 15% за заказы в Краснодаре!',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
@@ -38,7 +38,7 @@ const faqSchema: FAQPage = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Что такое кешбэк в программе лояльности KEY TO HEART?',
+      name: 'Что такое кешбэк в программе лояльности КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Кешбэк – это возврат бонусных баллов на ваш счёт. 1 балл = 1 ₽. Вы получаете до 15% от суммы заказа в зависимости от уровня.',
@@ -61,12 +61,12 @@ export default function LoyaltyPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Программа лояльности | KEY TO HEART',
+          name: 'Программа лояльности | КЛЮЧ К СЕРДЦУ',
           url: 'https://keytoheart.ru/loyalty',
           description: 'Получайте кешбэк до 15% за заказы.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KEY TO HEART',
+            name: 'КЛЮЧ К СЕРДЦУ',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

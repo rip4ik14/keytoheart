@@ -1,4 +1,4 @@
-// app/admin/(protected)/AdminProtectedLayoutClient.tsx
+// ✅ Путь: app/admin/(protected)/AdminProtectedLayoutClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function AdminProtectedLayoutClient({
   children,
@@ -13,6 +14,10 @@ export default function AdminProtectedLayoutClient({
   children: ReactNode;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const pathname = usePathname();
+  const isOrdersPage = pathname?.startsWith('/admin/orders');
+
   const navItems = [
     { href: '/admin', label: '🏠 Главная' },
     { href: '/admin/products', label: '📦 Товары' },
@@ -43,6 +48,7 @@ export default function AdminProtectedLayoutClient({
       >
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-bold">Админ-панель</h2>
+
           <form method="POST" action="/api/admin-logout">
             <button
               type="submit"
@@ -52,6 +58,7 @@ export default function AdminProtectedLayoutClient({
             </button>
           </form>
         </div>
+
         <nav className="space-y-4 text-sm">
           {navItems.map(({ href, label }) => (
             <motion.div
@@ -70,6 +77,7 @@ export default function AdminProtectedLayoutClient({
             </motion.div>
           ))}
         </nav>
+
         <motion.div
           variants={{
             hidden: { opacity: 0, x: -5 },
@@ -91,6 +99,7 @@ export default function AdminProtectedLayoutClient({
         <button
           onClick={() => setIsMobileMenuOpen((o) => !o)}
           className="p-4 focus:outline-none focus:ring-4 focus:ring-black"
+          aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
           <Image
             src={isMobileMenuOpen ? '/icons/times.svg' : '/icons/bars.svg'}
@@ -99,6 +108,7 @@ export default function AdminProtectedLayoutClient({
             height={24}
           />
         </button>
+
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.aside
@@ -110,13 +120,16 @@ export default function AdminProtectedLayoutClient({
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-bold">Админ-панель</h2>
+
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="focus:outline-none focus:ring-2 focus:ring-black"
+                  aria-label="Закрыть меню"
                 >
                   <Image src="/icons/times.svg" alt="Закрыть" width={20} height={20} />
                 </button>
               </div>
+
               <nav className="space-y-4 text-sm">
                 {navItems.map(({ href, label }) => (
                   <Link
@@ -129,6 +142,7 @@ export default function AdminProtectedLayoutClient({
                   </Link>
                 ))}
               </nav>
+
               <form method="POST" action="/api/admin-logout" className="mt-6">
                 <button
                   type="submit"
@@ -137,6 +151,7 @@ export default function AdminProtectedLayoutClient({
                   Выйти
                 </button>
               </form>
+
               <Link
                 href="/"
                 className="block text-gray-400 mt-6 text-xs hover:text-black focus:outline-none focus:ring-2 focus:ring-black"
@@ -149,7 +164,9 @@ export default function AdminProtectedLayoutClient({
       </div>
 
       {/* Main content */}
-      <main className="flex-1 p-6 bg-white overflow-auto">{children}</main>
+      <main className={`flex-1 overflow-auto ${isOrdersPage ? 'p-0 bg-gray-50' : 'p-6 bg-white'}`}>
+        {children}
+      </main>
     </div>
   );
 }

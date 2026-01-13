@@ -5,10 +5,10 @@ import type { FAQPage } from 'schema-dts';
 
 export const metadata: Metadata = {
   title: 'FAQ — Часто задаваемые вопросы',
-  description: 'Ответы на вопросы о заказе, оплате, доставке и составе клубничных букетов в Краснодаре. Узнайте больше на KEY TO HEART!',
+  description: 'Ответы на вопросы о заказе, оплате, доставке и составе клубничных букетов в Краснодаре. Узнайте больше на КЛЮЧ К СЕРДЦУ!',
   keywords: [
     'FAQ',
-    'KEY TO HEART',
+    'КЛЮЧ К СЕРДЦУ',
     'клубника в шоколаде Краснодар',
     'букет из клубники',
     'съедобные букеты',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     'доставка',
   ],
   openGraph: {
-    title: 'FAQ | KEY TO HEART',
+    title: 'FAQ | КЛЮЧ К СЕРДЦУ',
     description: 'Все ответы о доставке клубники и цветов по Краснодару и пригородам.',
     url: 'https://keytoheart.ru/faq',
     images: [
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-image-faq.jpg',
         width: 1200,
         height: 630,
-        alt: 'FAQ KEY TO HEART',
+        alt: 'FAQ КЛЮЧ К СЕРДЦУ',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FAQ | KEY TO HEART',
+    title: 'FAQ | КЛЮЧ К СЕРДЦУ',
     description: 'Как заказать и получить букет в Краснодаре? Ответы здесь!',
     images: ['https://keytoheart.ru/og-image-faq.jpg'],
   },
@@ -48,10 +48,10 @@ export default function FAQPage() {
           mainEntity: [
             {
               '@type': 'Question',
-              name: 'Что такое KEY TO HEART?',
+              name: 'Что такое КЛЮЧ К СЕРДЦУ?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: 'KEY TO HEART — это сервис по созданию и доставке стильных букетов и подарочных наборов из клубники в бельгийском шоколаде и свежих цветов с доставкой по Краснодару и пригородам.',
+                text: 'КЛЮЧ К СЕРДЦУ — это сервис по созданию и доставке стильных букетов и подарочных наборов из клубники в бельгийском шоколаде и свежих цветов с доставкой по Краснодару и пригородам.',
               },
             },
             {

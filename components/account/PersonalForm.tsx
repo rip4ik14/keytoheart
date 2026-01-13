@@ -1,10 +1,12 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import UiButton from '@components/ui/UiButton';
 
 interface PersonalFormProps {
   onUpdate: () => Promise<void>;
@@ -25,6 +27,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [email, setEmail] = useState<string>('');
   const [birthday, setBirthday] = useState<string>('');
   const [receiveOffers, setReceiveOffers] = useState<boolean>(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [isBirthdaySet, setIsBirthdaySet] = useState<boolean>(false);
@@ -32,7 +35,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   useEffect(() => {
     const fetchUserData = async () => {
       if (!phone) {
-        setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
+        setError('Номер телефона не найден. пожалуйста, авторизуйтесь заново.');
         toast.error('Номер телефона не найден');
         return;
       }
@@ -41,6 +44,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
       try {
         const res = await fetch(`/api/account/profile?phone=${encodeURIComponent(phone)}`);
         const data = await res.json();
+
         if (data.success && data.data) {
           const profileData: ProfileData = data.data;
           setName(profileData.name || '');
@@ -69,7 +73,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
     setError('');
 
     if (!phone) {
-      setError('Номер телефона не найден. Пожалуйста, авторизуйтесь заново.');
+      setError('Номер телефона не найден. пожалуйста, авторизуйтесь заново.');
       toast.error('Номер телефона не найден');
       return;
     }
@@ -114,22 +118,17 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           receive_offers: receiveOffers,
         }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Ошибка обновления профиля');
-      }
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Ошибка обновления профиля');
 
       toast.success('Данные успешно обновлены');
-      if (birthday) {
-        setIsBirthdaySet(true);
-      }
+      if (birthday) setIsBirthdaySet(true);
+
       await onUpdate();
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
-      if (YM_ID !== undefined) {
-        callYm(YM_ID, 'reachGoal', 'update_profile', { name: trimmedName });
-      }
+      if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'update_profile', { name: trimmedName });
     } catch (error: any) {
       process.env.NODE_ENV !== 'production' && console.error('Ошибка обновления профиля:', error);
       setError(error.message || 'Ошибка обновления данных');
@@ -141,81 +140,116 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
   return (
     <motion.section
-      className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6"
-      initial={{ opacity: 0, y: 20 }}
+      className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.35 }}
       aria-labelledby="personal-form-title"
     >
-      <h2 id="personal-form-title" className="text-lg font-semibold mb-4 sm:text-xl">
-        Личные данные
-      </h2>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="personal-form-title" className="text-lg font-semibold tracking-tight">
+            Личные данные
+          </h2>
+          <p className="text-sm text-black/55 mt-1">
+            Укажите данные, чтобы быстрее оформлять заказы
+          </p>
+        </div>
+
+        <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+          Профиль
+        </span>
+      </div>
+
       {error ? (
-        <p className="text-red-500 text-sm mb-4">{error}</p>
+        <p className="mt-4 text-sm text-rose-700">{error}</p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Имя
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="border border-gray-300 px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-              placeholder="Введите ваше имя"
-              aria-label="Введите ваше имя"
-              maxLength={50}
-              disabled={isLoading}
-            />
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="name" className="block text-sm font-semibold text-black/75 mb-1">
+                Имя
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="
+                  w-full rounded-2xl border border-black/10 bg-white
+                  px-4 py-3 text-sm
+                  placeholder-black/35
+                  focus:outline-none focus:ring-2 focus:ring-black/20
+                "
+                placeholder="Например, Денис"
+                maxLength={50}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-semibold text-black/75 mb-1">
+                Фамилия
+              </label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="
+                  w-full rounded-2xl border border-black/10 bg-white
+                  px-4 py-3 text-sm
+                  placeholder-black/35
+                  focus:outline-none focus:ring-2 focus:ring-black/20
+                "
+                placeholder="Фамилия"
+                maxLength={50}
+                disabled={isLoading}
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-              Фамилия
-            </label>
-            <input
-              id="lastName"
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="border border-gray-300 px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-              placeholder="Фамилия"
-              aria-label="Введите вашу фамилию"
-              maxLength={50}
-              disabled={isLoading}
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="phone" className="block text-sm font-semibold text-black/75 mb-1">
+                Телефон
+              </label>
+              <input
+                id="phone"
+                type="text"
+                value={phone}
+                disabled
+                className="
+                  w-full rounded-2xl border border-black/10 bg-black/[0.02]
+                  px-4 py-3 text-sm text-black/50
+                  cursor-not-allowed
+                "
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold text-black/75 mb-1">
+                E-mail
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="
+                  w-full rounded-2xl border border-black/10 bg-white
+                  px-4 py-3 text-sm
+                  placeholder-black/35
+                  focus:outline-none focus:ring-2 focus:ring-black/20
+                "
+                placeholder="E-mail (опционально)"
+                disabled={isLoading}
+              />
+            </div>
           </div>
+
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-              Телефон
-            </label>
-            <input
-              id="phone"
-              type="text"
-              value={phone}
-              disabled
-              className="border border-gray-300 px-4 py-2 rounded w-full bg-gray-100 text-gray-500 sm:p-3 cursor-not-allowed"
-              aria-label="Ваш номер телефона (нельзя изменить)"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              E-mail
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-gray-300 px-4 py-2 rounded w-full text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-              placeholder="E-mail"
-              aria-label="Введите ваш email"
-              disabled={isLoading}
-            />
-          </div>
-          <div>
-            <label htmlFor="birthday" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="birthday" className="block text-sm font-semibold text-black/75 mb-1">
               Дата рождения
             </label>
             <input
@@ -223,39 +257,47 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               type="date"
               value={birthday}
               onChange={(e) => setBirthday(e.target.value)}
-              className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-              aria-label="Введите вашу дату рождения"
+              className="
+                w-full rounded-2xl border border-black/10 bg-white
+                px-4 py-3 text-sm
+                focus:outline-none focus:ring-2 focus:ring-black/20
+              "
               disabled={isLoading || isBirthdaySet}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-black/45 mt-1">
               Дата рождения указывается один раз и не может быть изменена.
             </p>
           </div>
-          <div className="flex items-center">
+
+          <div className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3">
             <input
               id="receiveOffers"
               type="checkbox"
               checked={receiveOffers}
               onChange={(e) => setReceiveOffers(e.target.checked)}
-              className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+              className="mt-0.5 h-4 w-4 text-black focus:ring-black border-black/20 rounded"
               disabled={isLoading}
             />
-            <label htmlFor="receiveOffers" className="ml-2 block text-sm text-gray-700">
-              Я согласен получать рекламные предложения
+            <label htmlFor="receiveOffers" className="text-sm text-black/70 leading-relaxed">
+              Я согласен получать предложения и новости
             </label>
           </div>
-          <motion.button
-            type="submit"
-            disabled={isLoading}
-            className={`w-full bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition-all sm:w-auto sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            aria-label="Сохранить изменения профиля"
-          >
-            {isLoading ? 'Сохранение...' : 'Сохранить'}
-          </motion.button>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">
+            <p className="text-xs text-black/45">
+              Сохраните - и данные будут подставляться при оформлении заказа
+            </p>
+
+            <UiButton
+              variant="brand"
+              type="submit"
+              disabled={isLoading}
+              className="rounded-2xl px-6 py-3"
+              aria-label="Сохранить изменения профиля"
+            >
+              {isLoading ? 'Сохранение...' : 'Сохранить'}
+            </UiButton>
+          </div>
         </form>
       )}
     </motion.section>

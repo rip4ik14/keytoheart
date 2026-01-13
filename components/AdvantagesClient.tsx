@@ -35,7 +35,7 @@ export default function AdvantagesClient() {
   return (
     <section
       className="py-8 md:py-10 bg-white min-h-[200px]"
-      aria-label="Преимущества KEY TO HEART"
+      aria-label="Преимущества КЛЮЧ К СЕРДЦУ"
     >
       <div className="max-w-4xl mx-auto px-2 sm:px-4 grid xs:grid-cols-2 md:grid-cols-3 gap-6">
         {advantages.map((adv, i) => (

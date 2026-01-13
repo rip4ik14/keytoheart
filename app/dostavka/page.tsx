@@ -5,11 +5,11 @@ import DostavkaPageClient from '@components/DostavkaPageClient';
 
 export const metadata: Metadata = {
   title: 'Доставка клубничных букетов в Краснодаре',
-  description: 'Условия доставки клубничных букетов и цветов по Краснодару от KEY TO HEART. Бесплатно от 2000 ₽, доставка в день заказа, свежесть гарантирована.',
+  description: 'Условия доставки клубничных букетов и цветов по Краснодару от КЛЮЧ К СЕРДЦУ. Бесплатно от 2000 ₽, доставка в день заказа, свежесть гарантирована.',
   keywords: [
     'доставка букетов Краснодар',
     'клубничные букеты',
-    'KEY TO HEART',
+    'КЛЮЧ К СЕРДЦУ',
     'бесплатная доставка',
     'доставка цветов',
     'доставка в день заказа',
@@ -17,16 +17,16 @@ export const metadata: Metadata = {
     'клубника в шоколаде Краснодар',
   ],
   openGraph: {
-    title: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
-    description: 'Быстрая доставка клубничных букетов и цветов по Краснодару с KEY TO HEART.',
+    title: 'Доставка клубничных букетов в Краснодаре | КЛЮЧ К СЕРДЦУ',
+    description: 'Быстрая доставка клубничных букетов и цветов по Краснодару с КЛЮЧ К СЕРДЦУ.',
     url: 'https://keytoheart.ru/dostavka',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url: 'https://keytoheart.ru/og-image-dostavka.jpg',
         width: 1200,
         height: 630,
-        alt: 'Доставка клубничных букетов KEY TO HEART',
+        alt: 'Доставка клубничных букетов КЛЮЧ К СЕРДЦУ',
         type: 'image/jpeg',
       },
     ],
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
+    title: 'Доставка клубничных букетов в Краснодаре | КЛЮЧ К СЕРДЦУ',
     description: 'Быстрая доставка букетов и цветов по Краснодару. Заказывайте 24/7!',
     images: ['https://keytoheart.ru/og-image-dostavka.jpg'],
   },
@@ -45,13 +45,13 @@ export const revalidate = 86400;
 
 const webPageSchema: WebPage = {
   '@type': 'WebPage',
-  name: 'Доставка клубничных букетов в Краснодаре | KEY TO HEART',
+  name: 'Доставка клубничных букетов в Краснодаре | КЛЮЧ К СЕРДЦУ',
   url: 'https://keytoheart.ru/dostavka',
-  description: 'Условия доставки клубничных букетов и цветов по Краснодару от KEY TO HEART.',
+  description: 'Условия доставки клубничных букетов и цветов по Краснодару от КЛЮЧ К СЕРДЦУ.',
   datePublished: '2025-05-20',
   mainEntity: {
     '@type': 'Organization',
-    name: 'KEY TO HEART',
+    name: 'КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru',
     contactPoint: {
       '@type': 'ContactPoint',
@@ -65,7 +65,7 @@ const webPageSchema: WebPage = {
 const deliverySchema: Service = {
   '@type': 'Service',
   serviceType: 'DeliveryService',
-  name: 'Доставка KEY TO HEART',
+  name: 'Доставка КЛЮЧ К СЕРДЦУ',
   description: 'Доставка клубничных букетов и цветов по Краснодару и пригороду с 08:00 до 22:00 ежедневно, включая самовывоз и курьерскую доставку.',
   areaServed: {
     '@type': 'City',
@@ -113,7 +113,7 @@ const faqSchema: FAQPage = {
     },
     {
       '@type': 'Question',
-      name: 'Как быстро доставляют букеты KEY TO HEART?',
+      name: 'Как быстро доставляют букеты КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Мы доставляем заказы в течение 1–2 часов с момента подтверждения. Также возможна доставка в день заказа при оформлении до 18:00.',

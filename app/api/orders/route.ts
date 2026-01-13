@@ -1,4 +1,4 @@
-// app/api/orders/route.ts
+// ✅ Путь: app/api/orders/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -9,6 +9,12 @@ import { Prisma } from '@prisma/client';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+
+// Базовый URL сайта, чтобы дать ссылку на админку без передачи ПДн в Telegram
+const BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.BASE_URL ||
+  'https://keytoheart.ru';
 
 interface OrderRequest {
   phone: string;
@@ -39,6 +45,140 @@ interface OrderRequest {
   postcard_text?: string;
   anonymous?: boolean;
   whatsapp?: boolean;
+}
+
+const digitsOnly = (v: string) => (v || '').replace(/\D/g, '');
+
+function normalizePhoneRuHard(raw: string): string | null {
+  const d = digitsOnly(raw);
+  if (!d) return null;
+
+  // 11+ цифр и начинается с 7/8 -> берём 10 после префикса
+  if (d.length >= 11 && (d.startsWith('7') || d.startsWith('8'))) {
+    const local10 = d.slice(1, 11);
+    return local10.length === 10 ? `+7${local10}` : null;
+  }
+
+  // если цифр больше 10 - берём последние 10
+  if (d.length > 10) {
+    const local10 = d.slice(-10);
+    return local10.length === 10 ? `+7${local10}` : null;
+  }
+
+  // ровно 10 -> ок
+  if (d.length === 10) return `+7${d}`;
+
+  return null;
+}
+
+// ⚠️ Telegram: не отправляем ПДн (телефоны, имена, адрес, комментарии).
+// Оставляем только служебные данные: номер заказа, сумма, дата/время, доставка/оплата, состав (без ПДн),
+// и ссылку на админку, где уже есть защищённый доступ.
+function buildTelegramMessageSafe(params: {
+  orderNumber: number | null;
+  total: number;
+  date: string;
+  time: string;
+  deliveryMethod: 'pickup' | 'delivery';
+  payment: string;
+  bonusesUsed: number;
+  promoApplied: boolean;
+  promoDiscount: number;
+  regularItems: OrderRequest['items'];
+  upsellItems: OrderRequest['items'];
+}) {
+  const {
+    orderNumber,
+    total,
+    date,
+    time,
+    deliveryMethod,
+    payment,
+    bonusesUsed,
+    promoApplied,
+    promoDiscount,
+    regularItems,
+    upsellItems,
+  } = params;
+
+  const safeLine = (s: string) => sanitizeHtml(s || '', { allowedTags: [], allowedAttributes: {} });
+
+  const regularList = regularItems.length
+    ? regularItems
+        .map((i) => {
+          const title = safeLine(i.title);
+          const q = Number.isFinite(i.quantity) ? i.quantity : 1;
+          const price = Number.isFinite(i.price) ? i.price : 0;
+          return `• ${title} ×${q} — ${price * q}₽`;
+        })
+        .join('\n')
+    : 'Нет основных товаров';
+
+  const upsellList = upsellItems.length
+    ? upsellItems
+        .map((i) => {
+          const title = safeLine(i.title);
+          const cat = safeLine(i.category || 'доп.');
+          const q = Number.isFinite(i.quantity) ? i.quantity : 1;
+          const price = Number.isFinite(i.price) ? i.price : 0;
+          return `• ${title} (${cat}) ×${q} — ${price * q}₽`;
+        })
+        .join('\n')
+    : 'Нет дополнений';
+
+  const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
+  const paymentText = payment === 'cash' ? 'Наличные' : 'Онлайн';
+
+  const promoText = promoApplied
+    ? `<b>Промо:</b> применён (скидка: ${promoDiscount}₽)`
+    : `<b>Промо:</b> не применён`;
+
+  const num = orderNumber ? `#${orderNumber}` : 'без номера';
+  const adminLink = orderNumber
+    ? `${BASE_URL}/admin/orders?search=${encodeURIComponent(String(orderNumber))}`
+    : `${BASE_URL}/admin/orders`;
+
+  return `<b>🆕 Новый заказ ${num}</b>
+<b>Сумма:</b> ${total} ₽
+<b>Бонусы списано:</b> ${bonusesUsed}
+<b>Дата/время:</b> ${safeLine(date)} ${safeLine(time)}
+<b>Доставка:</b> ${deliveryMethodText}
+<b>Оплата:</b> ${paymentText}
+${promoText}
+
+<b>Основные товары:</b>
+${regularList}
+
+<b>Дополнения:</b>
+${upsellList}
+
+<b>Открыть в админке:</b> ${adminLink}`;
+}
+
+async function sendTelegramMessageSafe(text: string) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return { ok: false, error: 'Missing TELEGRAM env' };
+
+  try {
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
+
+    if (!telegramResponse.ok) {
+      const t = await telegramResponse.text();
+      return { ok: false, error: t || 'Telegram error' };
+    }
+
+    return { ok: true, error: null };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Telegram send failed' };
+  }
 }
 
 export async function POST(req: Request) {
@@ -84,9 +224,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
-    // Телефон клиента
+    // Телефон клиента (для базы - нужен, но НЕ для Telegram)
     const sanitizedPhoneInput = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedPhone = normalizePhone(sanitizedPhoneInput);
+    const sanitizedPhone = normalizePhoneRuHard(normalizePhone(sanitizedPhoneInput)) || '';
 
     if (!/^\+7\d{10}$/.test(sanitizedPhone)) {
       return NextResponse.json(
@@ -95,12 +235,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Телефон получателя
+    // Телефон получателя (для базы - нужен, но НЕ для Telegram)
     const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, {
       allowedTags: [],
       allowedAttributes: {},
     });
-    const sanitizedRecipientPhone = normalizePhone(sanitizedRecipientPhoneInput);
+    const sanitizedRecipientPhone = normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
 
     if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
@@ -109,6 +249,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Санитизация строк для БД
     const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
     const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
     const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
@@ -122,7 +263,7 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // user_profiles (в твоей схеме)
+    // user_profiles
     const profile = await prisma.user_profiles.findUnique({
       where: { phone: sanitizedPhone },
       select: { id: true },
@@ -156,13 +297,8 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productError) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('Supabase error fetching products:', productError);
-
-        return NextResponse.json(
-          { error: 'Ошибка получения товаров: ' + productError.message },
-          { status: 500 },
-        );
+        process.env.NODE_ENV !== 'production' && console.error('Supabase error fetching products:', productError);
+        return NextResponse.json({ error: 'Ошибка получения товаров: ' + productError.message }, { status: 500 });
       }
 
       const invalidItems = regularItems.filter((item) => {
@@ -188,11 +324,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // delivery_method в prisma String? default("delivery")
+    // delivery_method
     const finalDeliveryMethod: 'pickup' | 'delivery' =
       deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
 
-    // total/promo_discount в prisma - Decimal
+    // total/promo_discount - Decimal
     const totalDecimal = new Prisma.Decimal(String(total));
     const promoDiscountDecimal = new Prisma.Decimal(String(promo_discount));
 
@@ -203,7 +339,6 @@ export async function POST(req: Request) {
         phone: sanitizedPhone,
         recipient_phone: sanitizedRecipientPhone,
 
-        // В твоей схеме: есть name (String?), contact_name (String?), recipient (String), address (String)
         name: sanitizedName,
         contact_name: sanitizedName,
         recipient: sanitizedRecipient,
@@ -247,12 +382,11 @@ export async function POST(req: Request) {
       try {
         await prisma.order_items.createMany({ data: orderItems });
       } catch (itemError: any) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[order_items error]', itemError.message);
+        process.env.NODE_ENV !== 'production' && console.error('[order_items error]', itemError.message);
       }
     }
 
-    // PROMO used_count (если применен)
+    // PROMO used_count
     let promoError: string | null = null;
     if (promo_id) {
       try {
@@ -270,72 +404,32 @@ export async function POST(req: Request) {
           promoError = 'Промокод не найден';
         }
       } catch (e: any) {
-        promoError = e.message;
+        promoError = e?.message || 'Promo update error';
       }
     }
 
-    // Telegram (одно место отправки)
+    // Telegram (без ПДн)
     let telegramError: string | null = null;
-
-    const regularList = regularItems.length
-      ? regularItems
-          .map(
-            (i) =>
-              `• ${sanitizeHtml(i.title, { allowedTags: [] })} ×${i.quantity} — ${i.price * i.quantity}₽`,
-          )
-          .join('\n')
-      : 'Нет основных товаров';
-
-    const upsellList = upsellItems.length
-      ? upsellItems
-          .map(
-            (i) =>
-              `• ${sanitizeHtml(i.title, { allowedTags: [] })} (${i.category || 'доп.'}) ×${i.quantity} — ${
-                i.price * i.quantity
-              }₽`,
-          )
-          .join('\n')
-      : 'Нет дополнений';
-
-    const deliveryMethodText = finalDeliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
-    const promoText = promo_id
-      ? `<b>Промокод:</b> Применён (скидка: ${promo_discount}₽)`
-      : `<b>Промокод:</b> Не применён`;
-
-    const message = `<b>🆕 Новый заказ #${order.order_number}</b>
-<b>Сумма:</b> ${total} ₽
-<b>Бонусы списано:</b> ${bonuses_used}
-<b>Дата/время:</b> ${date} ${time}
-<b>Способ доставки:</b> ${deliveryMethodText}
-<b>Анонимный заказ:</b> ${anonymous ? 'Да' : 'Нет'}
-<b>Связь по WhatsApp:</b> ${whatsapp ? 'Да (можно писать клиенту в WhatsApp)' : 'Не указано'}
-<b>Оплата:</b> ${payment === 'cash' ? 'Наличные' : 'Онлайн'}
-${promoText}
-
-<b>Основные товары:</b>
-${regularList}
-
-<b>Дополнения:</b>
-${upsellList}`;
-
     try {
-      const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'HTML',
-        }),
+      const tgText = buildTelegramMessageSafe({
+        orderNumber: order.order_number ?? null,
+        total,
+        date,
+        time,
+        deliveryMethod: finalDeliveryMethod,
+        payment,
+        bonusesUsed: Number.isFinite(bonuses_used) ? bonuses_used : 0,
+        promoApplied: !!promo_id,
+        promoDiscount: Number.isFinite(promo_discount) ? promo_discount : 0,
+        regularItems,
+        upsellItems,
       });
 
-      if (!telegramResponse.ok) {
-        telegramError = await telegramResponse.text();
-        process.env.NODE_ENV !== 'production' && console.error('[Telegram error]', telegramError);
-      }
+      const tg = await sendTelegramMessageSafe(tgText);
+      if (!tg.ok) telegramError = tg.error || 'Telegram error';
     } catch (e: any) {
-      telegramError = e.message;
-      process.env.NODE_ENV !== 'production' && console.error('[Telegram send error]', telegramError);
+      telegramError = e?.message || 'Telegram error';
+      process.env.NODE_ENV !== 'production' && console.error('[Telegram build/send error]', telegramError);
     }
 
     return NextResponse.json({

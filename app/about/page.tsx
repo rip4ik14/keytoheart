@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: 'https://keytoheart.ru/about',
-    siteName: 'KEY TO HEART',
-    title: 'О нас | KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
+    title: 'О нас | КЛЮЧ К СЕРДЦУ',
     description:
       'Узнайте, как в KEY TO HEART превращают клубнику в шоколаде и цветы в незабываемые подарки. Доставка по Краснодару 60 минут, фото перед отправкой.',
     images: [
@@ -26,13 +26,13 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/images/og-about.webp',
         width: 1200,
         height: 630,
-        alt: 'KEY TO HEART — клубника в шоколаде и цветочные букеты',
+        alt: 'КЛЮЧ К СЕРДЦУ — клубника в шоколаде и цветочные букеты',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'О нас | KEY TO HEART',
+    title: 'О нас | КЛЮЧ К СЕРДЦУ',
     description:
       'История KEY TO HEART — студии сладких эмоций в Краснодаре: клубника в шоколаде, букеты и цветы с доставкой 60 мин.',
     images: ['https://keytoheart.ru/images/og-about.webp'],
@@ -47,7 +47,7 @@ export default function AboutPage() {
         item={{
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: 'KEY TO HEART',
+          name: 'КЛЮЧ К СЕРДЦУ',
           url: 'https://keytoheart.ru',
           logo: 'https://keytoheart.ru/favicon.ico',
           sameAs: [
@@ -55,7 +55,7 @@ export default function AboutPage() {
             'https://t.me/keytoheart',
           ],
           description:
-            'KEY TO HEART — студия сладких эмоций. Клубника в шоколаде, букеты и комбо‑наборы с доставкой по Краснодару за 60 минут.',
+            'КЛЮЧ К СЕРДЦУ — студия сладких эмоций. Клубника в шоколаде, букеты и комбо‑наборы с доставкой по Краснодару за 60 минут.',
           contactPoint: {
             '@type': 'ContactPoint',
             telephone: '+7-988-603-38-21',

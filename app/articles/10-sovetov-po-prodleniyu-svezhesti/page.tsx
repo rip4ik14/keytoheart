@@ -8,7 +8,7 @@ import ClientAnimatedSection from '@components/ClientAnimatedSection';
 export const metadata: Metadata = {
   title: '10 советов по продлению свежести клубничных букетов',
   description:
-    'Сохраните свежесть клубничных букетов до 24 часов: подборка проверенных лайфхаков от мастеров KEY TO HEART.',
+    'Сохраните свежесть клубничных букетов до 24 часов: подборка проверенных лайфхаков от мастеров КЛЮЧ К СЕРДЦУ.',
   alternates: { canonical: 'https://keytoheart.ru/articles/freshness-tips' },
 };
 
@@ -16,11 +16,11 @@ const articleSchema: Article = {
   '@type': 'Article',
   headline: '10 советов по продлению свежести клубничных букетов',
   description:
-    'Узнайте, как хранить клубничные букеты от KEY TO HEART, чтобы они радовали свежестью до 24 часов после доставки.',
-  author: { '@type': 'Organization', name: 'KEY TO HEART', url: 'https://keytoheart.ru' },
+    'Узнайте, как хранить клубничные букеты от КЛЮЧ К СЕРДЦУ, чтобы они радовали свежестью до 24 часов после доставки.',
+  author: { '@type': 'Organization', name: 'КЛЮЧ К СЕРДЦУ', url: 'https://keytoheart.ru' },
   publisher: {
     '@type': 'Organization',
-    name: 'KEY TO HEART',
+    name: 'КЛЮЧ К СЕРДЦУ',
     logo: { '@type': 'ImageObject', url: 'https://keytoheart.ru/logo.png' },
   },
   datePublished: '2025-06-28',
@@ -35,7 +35,7 @@ const pageSchema: WebPage = {
   name: '10 советов по продлению свежести клубничных букетов',
   url: 'https://keytoheart.ru/articles/freshness-tips',
   description:
-    'Практические советы от KEY TO HEART: как ухаживать за клубничными букетами сразу после доставки и в течение 24 часов.',
+    'Практические советы от КЛЮЧ К СЕРДЦУ: как ухаживать за клубничными букетами сразу после доставки и в течение 24 часов.',
 };
 
 export default function FreshnessTipsPage() {
@@ -96,7 +96,7 @@ export default function FreshnessTipsPage() {
           </ol>
 
           <p className="text-gray-700">
-            Следуя этим советам, вы подарите незабываемые эмоции и сохраните красоту букетов KEY TO HEART на весь день! Чтобы
+            Следуя этим советам, вы подарите незабываемые эмоции и сохраните красоту букетов КЛЮЧ К СЕРДЦУ на весь день! Чтобы
             вернуться в каталог, кликните{' '}
             <Link href="/catalog" className="text-pink-600 underline">
               здесь

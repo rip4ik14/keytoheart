@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import UiButton from '@components/ui/UiButton';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface ImportantDatesProps {
   phone: string;
@@ -13,7 +15,7 @@ interface Event {
   type: string;
   date: string;
   description: string;
-  customType?: string; // New field for custom event type
+  customType?: string;
 }
 
 export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps) {
@@ -28,6 +30,7 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
       try {
         const res = await fetch(`/api/account/important-dates?phone=${encodeURIComponent(phone)}`);
         const data = await res.json();
+
         if (data.success && data.data) {
           setEvents(
             data.data.length > 0
@@ -35,18 +38,19 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
                   type: item.type,
                   date: item.date || '',
                   description: item.description || '',
-                  customType: item.type !== 'День рождения' && item.type !== 'Годовщина' ? item.type : '',
+                  customType:
+                    item.type !== 'День рождения' && item.type !== 'Годовщина' ? item.type : '',
                 }))
               : [
                   { type: 'День рождения', date: '', description: '' },
                   { type: 'Годовщина', date: '', description: '' },
-                ]
+                ],
           );
         } else {
           throw new Error(data.error || 'Ошибка загрузки дат');
         }
       } catch (error) {
-        process.env.NODE_ENV !== "production" && console.error('Error fetching important dates:', error);
+        process.env.NODE_ENV !== 'production' && console.error('Error fetching important dates:', error);
         toast.error('Не удалось загрузить важные даты');
       }
     };
@@ -59,17 +63,17 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
   };
 
   const handleEventChange = (index: number, field: keyof Event, value: string) => {
-    const updatedEvents = [...events];
+    const updated = [...events];
+
     if (field === 'type' && value !== 'Другое') {
-      // If a predefined type is selected, clear customType
-      updatedEvents[index] = { ...updatedEvents[index], type: value, customType: '' };
+      updated[index] = { ...updated[index], type: value, customType: '' };
     } else if (field === 'customType') {
-      // If custom type is entered, update the type field with the custom value
-      updatedEvents[index] = { ...updatedEvents[index], type: value || 'Другое', customType: value };
+      updated[index] = { ...updated[index], type: value || 'Другое', customType: value };
     } else {
-      updatedEvents[index] = { ...updatedEvents[index], [field]: value };
+      updated[index] = { ...updated[index], [field]: value };
     }
-    setEvents(updatedEvents);
+
+    setEvents(updated);
   };
 
   const handleRemoveEvent = (index: number) => {
@@ -93,16 +97,14 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
           })),
         }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Ошибка обновления дат');
-      }
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Ошибка обновления дат');
 
       toast.success('Даты успешно обновлены!');
       onUpdate();
     } catch (error: any) {
-      process.env.NODE_ENV !== "production" && console.error('Error saving important dates:', error);
+      process.env.NODE_ENV !== 'production' && console.error('Error saving important dates:', error);
       toast.error(`Ошибка: ${error.message || 'Не удалось сохранить даты'}`);
     } finally {
       setIsLoading(false);
@@ -111,122 +113,161 @@ export default function ImportantDates({ phone, onUpdate }: ImportantDatesProps)
 
   return (
     <motion.section
-      className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6"
-      initial={{ opacity: 0, y: 20 }}
+      className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.35 }}
       aria-labelledby="important-dates-title"
     >
-      <h2 id="important-dates-title" className="text-lg font-semibold mb-4 sm:text-xl">
-        Важные даты
-      </h2>
-      <p className="text-sm text-gray-500 mb-4">
-        Укажите важные даты, такие как день рождения или годовщина, и мы напомним вам о них, а также подарим скидку!
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {events.map((event, index) => (
-          <motion.div
-            key={index}
-            className="space-y-4 border-b pb-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <div>
-              <label htmlFor={`event-type-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                Тип события
-              </label>
-              <select
-                id={`event-type-${index}`}
-                value={event.type === 'День рождения' || event.type === 'Годовщина' ? event.type : 'Другое'}
-                onChange={(e) => handleEventChange(index, 'type', e.target.value)}
-                className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-                disabled={isLoading}
-              >
-                <option value="День рождения">День рождения</option>
-                <option value="Годовщина">Годовщина</option>
-                <option value="Другое">Другое</option>
-              </select>
-            </div>
-            {event.type !== 'День рождения' && event.type !== 'Годовщина' && (
-              <div>
-                <label htmlFor={`event-custom-type-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                  Укажите событие
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="important-dates-title" className="text-lg font-semibold tracking-tight sm:text-xl">
+            Важные даты
+          </h2>
+          <p className="text-sm text-black/55 mt-1">
+            Укажите даты - и мы напомним вам, а также подарим приятный бонус
+          </p>
+        </div>
+
+        <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+          Напоминания
+        </span>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        {events.map((event, index) => {
+          const isCustom = event.type !== 'День рождения' && event.type !== 'Годовщина';
+
+          return (
+            <div
+              key={index}
+              className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-sm font-semibold text-black/80">
+                  Событие {index + 1}
+                </div>
+
+                {events.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEvent(index)}
+                    className="inline-flex items-center gap-2 text-sm text-rose-700 hover:underline"
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Удалить
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-black/75 mb-1">
+                    Тип
+                  </label>
+                  <select
+                    value={event.type === 'День рождения' || event.type === 'Годовщина' ? event.type : 'Другое'}
+                    onChange={(e) => handleEventChange(index, 'type', e.target.value)}
+                    className="
+                      w-full rounded-2xl border border-black/10 bg-white
+                      px-4 py-3 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-black/20
+                    "
+                    disabled={isLoading}
+                  >
+                    <option value="День рождения">День рождения</option>
+                    <option value="Годовщина">Годовщина</option>
+                    <option value="Другое">Другое</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-black/75 mb-1">
+                    Дата
+                  </label>
+                  <input
+                    type="date"
+                    value={event.date}
+                    onChange={(e) => handleEventChange(index, 'date', e.target.value)}
+                    className="
+                      w-full rounded-2xl border border-black/10 bg-white
+                      px-4 py-3 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-black/20
+                    "
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {isCustom && (
+                <div className="mt-3">
+                  <label className="block text-sm font-semibold text-black/75 mb-1">
+                    Укажите событие
+                  </label>
+                  <input
+                    type="text"
+                    value={event.customType || ''}
+                    onChange={(e) => handleEventChange(index, 'customType', e.target.value)}
+                    className="
+                      w-full rounded-2xl border border-black/10 bg-white
+                      px-4 py-3 text-sm
+                      placeholder-black/35
+                      focus:outline-none focus:ring-2 focus:ring-black/20
+                    "
+                    placeholder="Например, день свадьбы"
+                    disabled={isLoading}
+                    maxLength={50}
+                  />
+                </div>
+              )}
+
+              <div className="mt-3">
+                <label className="block text-sm font-semibold text-black/75 mb-1">
+                  Описание (опционально)
                 </label>
-                <input
-                  id={`event-custom-type-${index}`}
-                  type="text"
-                  value={event.customType || ''}
-                  onChange={(e) => handleEventChange(index, 'customType', e.target.value)}
-                  className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-                  placeholder="Например, День свадьбы"
+                <textarea
+                  value={event.description}
+                  onChange={(e) => handleEventChange(index, 'description', e.target.value)}
+                  className="
+                    w-full rounded-2xl border border-black/10 bg-white
+                    px-4 py-3 text-sm
+                    placeholder-black/35
+                    focus:outline-none focus:ring-2 focus:ring-black/20
+                  "
+                  placeholder="Например, день рождения жены"
                   disabled={isLoading}
-                  maxLength={50}
+                  maxLength={200}
+                  rows={3}
                 />
               </div>
-            )}
-            <div>
-              <label htmlFor={`event-date-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                Дата
-              </label>
-              <input
-                id={`event-date-${index}`}
-                type="date"
-                value={event.date}
-                onChange={(e) => handleEventChange(index, 'date', e.target.value)}
-                className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-                disabled={isLoading}
-              />
             </div>
-            <div>
-              <label htmlFor={`event-description-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                Описание (опционально)
-              </label>
-              <textarea
-                id={`event-description-${index}`}
-                value={event.description}
-                onChange={(e) => handleEventChange(index, 'description', e.target.value)}
-                className="border border-gray-300 px-4 py-2 rounded w-full text-black focus:outline-none focus:ring-2 focus:ring-black sm:p-3"
-                placeholder="Например, день рождения жены"
-                disabled={isLoading}
-                maxLength={200}
-              />
-            </div>
-            {events.length > 2 && (
-              <button
-                type="button"
-                onClick={() => handleRemoveEvent(index)}
-                className="text-sm text-red-600 hover:underline"
-                disabled={isLoading}
-              >
-                Удалить событие
-              </button>
-            )}
-          </motion.div>
-        ))}
-        <div className="flex justify-between items-center">
-          <motion.button
+          );
+        })}
+
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">
+          <UiButton
             type="button"
+            variant="brandOutline"
             onClick={handleAddEvent}
             disabled={isLoading}
-            className="text-sm text-black hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className="rounded-2xl px-6 py-3"
           >
-            Добавить событие
-          </motion.button>
-          <motion.button
+            <span className="inline-flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Добавить событие
+            </span>
+          </UiButton>
+
+          <UiButton
             type="submit"
+            variant="brand"
             disabled={isLoading}
-            className={`bg-black text-white py-3 rounded font-medium hover:bg-gray-800 transition-all sm:w-auto sm:px-6 sm:py-3 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className="rounded-2xl px-6 py-3"
             aria-label="Сохранить важные даты"
           >
             {isLoading ? 'Сохранение...' : 'Сохранить'}
-          </motion.button>
+          </UiButton>
         </div>
       </form>
     </motion.section>

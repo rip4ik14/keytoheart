@@ -16,13 +16,11 @@ export default function PromoGridClient({
   cards: PromoBlock[];
 }) {
   const [active, setActive] = useState(0);
-  const [direction, setDirection] = useState(0); // -1 влево, 1 вправо
   const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(false);
 
   /* ---------------------- swipe для мобилки ---------------------- */
   const touchStartX = useRef<number | null>(null);
-  const handleTouchStart = (e: React.TouchEvent) =>
-    (touchStartX.current = e.touches[0].clientX);
+  const handleTouchStart = (e: React.TouchEvent) => (touchStartX.current = e.touches[0].clientX);
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current == null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
@@ -33,54 +31,43 @@ export default function PromoGridClient({
 
   /* ---------------------- навигация слайдов ---------------------- */
   const goTo = (idx: number, userInitiated = false) => {
+    if (!banners.length) return;
     if (idx === active) return;
-    if (userInitiated) setIsAutoplayEnabled(false); // стопим автоплей при действиях пользователя
-    setDirection(idx > active ? 1 : -1);
+    if (userInitiated) setIsAutoplayEnabled(false);
     setActive(idx);
   };
 
-  const prev = () =>
+  const prev = () => {
+    if (banners.length <= 1) return;
     goTo(active === 0 ? banners.length - 1 : active - 1, true);
+  };
 
-  const next = () =>
+  const next = () => {
+    if (banners.length <= 1) return;
     goTo(active === banners.length - 1 ? 0 : active + 1, true);
-
-  /* ----------------------- сброс анимации ------------------------ */
-  useEffect(() => {
-    const t = setTimeout(() => setDirection(0), 350);
-    return () => clearTimeout(t);
-  }, [active]);
+  };
 
   /* ----------------------- автоплей (desktop) -------------------- */
-  // 1) через 4 секунды после гидратации включаем автоплей
   useEffect(() => {
     if (banners.length <= 1) return;
-    const timer = setTimeout(() => {
-      setIsAutoplayEnabled(true);
-    }, 4000);
+    const timer = setTimeout(() => setIsAutoplayEnabled(true), 4000);
     return () => clearTimeout(timer);
   }, [banners.length]);
 
-  // 2) сам автоплей – крутится только если включён, LCP уже отрисован
   useEffect(() => {
     if (!isAutoplayEnabled || banners.length <= 1) return;
 
     const intervalId = setInterval(() => {
-      // Автоплей всегда листает вперёд
-      setDirection(1);
-      setActive((prevIndex) =>
-        prevIndex === banners.length - 1 ? 0 : prevIndex + 1,
-      );
+      setActive((prevIndex) => (prevIndex === banners.length - 1 ? 0 : prevIndex + 1));
     }, 4500);
 
     return () => clearInterval(intervalId);
   }, [isAutoplayEnabled, banners.length]);
 
+  if (!banners.length && !cards.length) return null;
+
   return (
-    <section
-      className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
-      aria-labelledby="promo-grid-title"
-    >
+    <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
       <h2 id="promo-grid-title" className="sr-only">
         Промо-блоки
       </h2>
@@ -95,30 +82,23 @@ export default function PromoGridClient({
         >
           <div className="relative h-full w-full">
             {banners.map((b, i) => {
-              /* slide position */
               let translate = 'translate-x-full opacity-0 z-0';
               if (i === active) translate = 'translate-x-0 opacity-100 z-10';
               else if (
                 (i < active && !(active === banners.length - 1 && i === 0)) ||
                 (active === 0 && i === banners.length - 1)
-              )
+              ) {
                 translate = '-translate-x-full opacity-0 z-0';
+              }
 
               return (
                 <div
                   key={b.id}
-                  className={`
-                    absolute top-0 left-0 w-full h-full
-                    transition-all duration-400 ${translate}
-                  `}
-                  style={{ transitionProperty: 'transform, opacity' }}
+                  className={`absolute top-0 left-0 w-full h-full transition-all ${translate}`}
+                  style={{ transitionProperty: 'transform, opacity', transitionDuration: '400ms' }}
                   aria-hidden={i !== active}
                 >
-                  <Link
-                    href={b.href || '#'}
-                    className="block h-full w-full"
-                    title={b.title}
-                  >
+                  <Link href={b.href || '#'} className="block h-full w-full" title={b.title}>
                     <div className="relative w-full h-full overflow-hidden rounded-[32px]">
                       <Image
                         src={b.image_url}
@@ -133,9 +113,7 @@ export default function PromoGridClient({
                       />
                       <div className="absolute inset-0 bg-black/30" />
 
-                      {/* ---------- Текст + кнопка ----------- */}
                       <div className="absolute inset-0 flex flex-col justify-center items-start px-6 sm:px-9 py-7 sm:py-9 text-white">
-                        {/* заменили h1 → h2 (сохранили стили) */}
                         {i === active && (
                           <h2
                             className="mb-4 text-xl sm:text-2xl md:text-3xl lg:text-[40px]
@@ -164,7 +142,6 @@ export default function PromoGridClient({
               );
             })}
 
-            {/* стрелки и пагинация */}
             {banners.length > 1 && (
               <>
                 <button
@@ -184,6 +161,7 @@ export default function PromoGridClient({
                     />
                   </svg>
                 </button>
+
                 <button
                   className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-white/80 p-2 shadow hover:bg-white transition hidden sm:flex"
                   aria-label="Вперёд"
@@ -201,6 +179,7 @@ export default function PromoGridClient({
                     />
                   </svg>
                 </button>
+
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                   {banners.map((_, i) => (
                     <button
@@ -208,9 +187,7 @@ export default function PromoGridClient({
                       onClick={() => goTo(i, true)}
                       aria-label={`Показать баннер ${i + 1}`}
                       className={`w-2.5 h-2.5 rounded-full border transition ${
-                        i === active
-                          ? 'bg-white/90 border-white'
-                          : 'bg-white/40 border-white/40'
+                        i === active ? 'bg-white/90 border-white' : 'bg-white/40 border-white/40'
                       }`}
                       type="button"
                     />
@@ -224,15 +201,8 @@ export default function PromoGridClient({
         {/* ================== КАРТОЧКИ (desktop) ================== */}
         <div className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-[20px] auto-rows-fr min-h-[320px]">
           {cards.slice(0, 4).map((c, i) => (
-            <div
-              key={c.id}
-              className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300"
-            >
-              <Link
-                href={c.href}
-                className="group block h-full w-full"
-                title={c.title}
-              >
+            <div key={c.id} className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300">
+              <Link href={c.href} className="group block h-full w-full" title={c.title}>
                 <div className="relative w-full h-full rounded-[24px] overflow-hidden">
                   <Image
                     src={c.image_url}
@@ -258,14 +228,11 @@ export default function PromoGridClient({
             </div>
           ))}
         </div>
-        {/* мобильные карточки скрыты */}
       </div>
 
-      {/* Подзаголовок под промо-блоком */}
       <div className="mt-4 sm:mt-6 mb-2 sm:mb-4 text-center">
         <p className="text-sm sm:text-base md:text-lg text-black/70 font-medium leading-snug">
-          Клубника в бельгийском шоколаде и цветы с доставкой 30 минут по
-          Краснодару
+          Клубника в бельгийском шоколаде и цветы с доставкой 30 минут по Краснодару
         </p>
       </div>
     </section>

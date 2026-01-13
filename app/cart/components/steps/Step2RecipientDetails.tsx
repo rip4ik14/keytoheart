@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/components/steps/Step2RecipientDetails.tsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,6 +36,24 @@ const containerVariants = {
 
 function digitsOnly(v: string) {
   return (v || '').replace(/\D/g, '');
+}
+
+/**
+ * Достаём "локальные 10" из любого ввода/вставки:
+ * - "7912..." / "+7912..." / "8(912)..." -> "912..."
+ * - если цифр > 10 -> последние 10
+ * - иначе -> первые 10
+ */
+function extractLocal10FromAnyInput(raw: string) {
+  const d = digitsOnly(raw);
+  if (!d) return '';
+
+  if (d.length >= 11 && (d.startsWith('7') || d.startsWith('8'))) {
+    return d.slice(1, 11);
+  }
+
+  if (d.length > 10) return d.slice(-10);
+  return d.slice(0, 10);
 }
 
 function toLocal10FromStoredPhone(stored: string) {
@@ -134,7 +151,8 @@ export default function Step2RecipientDetails({
               onFormChange({ target: { name: 'recipientPhone', value: userPhone } } as any);
             } else {
               onFormChange({ target: { name: 'recipient', value: '' } } as any);
-              onFormChange({ target: { name: 'recipientPhone', value: '' } } as any);
+onFormChange({ target: { name: 'recipientPhone', value: '' } } as any);
+
             }
           }}
           className="h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
@@ -195,7 +213,7 @@ export default function Step2RecipientDetails({
               isFocusedRef.current = false;
             }}
             onChange={(e) => {
-              const d10 = digitsOnly(e.target.value).slice(0, 10);
+              const d10 = extractLocal10FromAnyInput(e.target.value);
 
               setRecipientPhoneUi(formatLocalRu(d10));
 

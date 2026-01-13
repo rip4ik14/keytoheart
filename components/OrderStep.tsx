@@ -4,8 +4,10 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+import UiButton from '@/components/ui/UiButton';
 
 interface OrderStepProps {
   step: number;
@@ -48,22 +50,9 @@ export default function OrderStep({
   const [open, setOpen] = useState(isActive);
 
   useEffect(() => {
-    // держим активный шаг раскрытым, остальные закрываем
     if (isActive) setOpen(true);
     else setOpen(false);
   }, [isActive]);
-
-  const primaryBtn = useMemo(
-    () =>
-      'w-full rounded-[18px] bg-[#4b4b4b] text-white font-bold uppercase tracking-tight text-xs py-4 shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed',
-    [],
-  );
-
-  const secondaryBtn = useMemo(
-    () =>
-      'w-full rounded-[18px] bg-white text-[#4b4b4b] font-bold uppercase tracking-tight text-xs py-4 border border-[#bdbdbd] shadow-sm active:scale-[0.99] transition disabled:opacity-60 disabled:cursor-not-allowed',
-    [],
-  );
 
   return (
     <div
@@ -132,7 +121,7 @@ export default function OrderStep({
             {(onBack || onNext) && (
               <div className="mt-5 flex gap-3">
                 {onBack && (
-                  <button
+                  <UiButton
                     type="button"
                     onClick={async () => {
                       if (isSubmitting) return;
@@ -146,16 +135,17 @@ export default function OrderStep({
                         callYm(YM_ID, 'reachGoal', 'order_step_back', { step });
                       }
                     }}
-                    className={secondaryBtn}
+                    variant="brandOutline"
                     disabled={isSubmitting}
+                    className="w-full rounded-[18px] py-4 text-xs normal-case active:scale-[0.99]"
                     aria-label="Вернуться к предыдущему шагу"
                   >
-                    Назад
-                  </button>
+                    НАЗАД
+                  </UiButton>
                 )}
 
                 {onNext && (
-                  <button
+                  <UiButton
                     type="button"
                     onClick={async () => {
                       if (isNextDisabled || isSubmitting) return;
@@ -171,12 +161,13 @@ export default function OrderStep({
                         callYm(YM_ID, 'reachGoal', 'order_step_next', { step });
                       }
                     }}
-                    className={primaryBtn}
+                    variant="brand"
+                    className="w-full rounded-[18px] py-4 text-xs normal-case active:scale-[0.99]"
                     aria-label="Перейти к следующему шагу"
                     disabled={isNextDisabled || isSubmitting}
                   >
-                    {isSubmitting ? 'Отправляем...' : 'Продолжить'}
-                  </button>
+                    {isSubmitting ? 'Отправляем...' : 'ПРОДОЛЖИТЬ'}
+                  </UiButton>
                 )}
               </div>
             )}

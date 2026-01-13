@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     description: desc,
     alternates: { canonical: `https://keytoheart.ru/occasions/${occasion.slug}` },
     openGraph: {
-      title: `${occasion.title} | KEY TO HEART`,
+      title: `${occasion.title} | КЛЮЧ К СЕРДЦУ`,
       description: desc,
       url: `https://keytoheart.ru/occasions/${occasion.slug}`,
       images: [{ url: occasion.image, width: 1200, height: 630, alt: occasion.title }],
@@ -120,7 +120,7 @@ export default async function OccasionPage({ params }: { params: { slug: string 
   // JSON‑LD
   const ld: ItemList = {
     '@type': 'ItemList',
-    name: `${occasion.title} | KEY TO HEART`,
+    name: `${occasion.title} | КЛЮЧ К СЕРДЦУ`,
     url: `https://keytoheart.ru/occasions/${occasion.slug}`,
     itemListElement: products.map((p, i) => ({
       '@type': 'ListItem',

@@ -134,7 +134,7 @@ function buildYml(products: ProductRow[], categories: CategoryRow[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <yml_catalog date="${now}">
   <shop>
-    <name>KEY TO HEART</name>
+    <name>КЛЮЧ К СЕРДЦУ</name>
     <company>Ключ к Сердцу</company>
     <url>${BASE_URL}</url>
     <currencies>

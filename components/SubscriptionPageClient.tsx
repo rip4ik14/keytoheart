@@ -31,7 +31,7 @@ export default function SubscriptionPageClient() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
       >
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight uppercase">Станьте частью Клуба KEY TO HEART</h1>
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight uppercase">Станьте частью Клуба КЛЮЧ К СЕРДЦУ</h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
           Получите <span className="font-bold text-black">20% скидку навсегда</span>, удвоенные бонусы, приоритетную доставку и эксклюзивные товары.
           Экономьте на любимых букетах и подарках в Краснодаре!

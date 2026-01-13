@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     'комбо-набор с цветами',
   ],
   openGraph: {
-    title:       'Подарки по поводам — клубника в шоколаде и букеты | KEY TO HEART',
+    title:       'Подарки по поводам — клубника в шоколаде и букеты | КЛЮЧ К СЕРДЦУ',
     description: 'Идеальные сладкие и цветочные подарки с доставкой по Краснодару.',
     url:         'https://keytoheart.ru/occasions',
     images: [
@@ -51,14 +51,14 @@ export const metadata: Metadata = {
         url:   'https://keytoheart.ru/og-image-occasions.jpg',
         width: 1200,
         height: 630,
-        alt:  'Подарки по поводам KEY TO HEART',
+        alt:  'Подарки по поводам КЛЮЧ К СЕРДЦУ',
       },
     ],
     type: 'website',
   },
   twitter: {
     card:        'summary_large_image',
-    title:       'Подарки по поводам | KEY TO HEART',
+    title:       'Подарки по поводам | КЛЮЧ К СЕРДЦУ',
     description: 'Клубника в шоколаде, букеты и цветы для любого повода с доставкой 60 мин.',
     images:      ['https://keytoheart.ru/og-image-occasions.jpg'],
   },
@@ -73,7 +73,7 @@ export default function OccasionListPage() {
       <JsonLd<CollectionPage>
         item={{
           '@type':       'CollectionPage',
-          name:          'Подарки по поводам | KEY TO HEART',
+          name:          'Подарки по поводам | КЛЮЧ К СЕРДЦУ',
           description:   'Клубника в шоколаде, букеты и цветы для любого повода.',
           url:           'https://keytoheart.ru/occasions',
           hasPart: occasions.map((o) => ({

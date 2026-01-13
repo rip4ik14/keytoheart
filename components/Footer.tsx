@@ -53,7 +53,7 @@ export default function Footer({ categories }: FooterProps) {
       <div className="hidden sm:block bg-white text-sm text-gray-700 mt-12 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
           <div>
-            <h3 className="text-xl font-bold mb-3">KEY TO HEART</h3>
+            <h3 className="text-xl font-bold mb-3">КЛЮЧ К СЕРДЦУ</h3>
 
             <div className="flex gap-3 mb-4">
               <a
@@ -121,7 +121,7 @@ export default function Footer({ categories }: FooterProps) {
               <FlowwowFooterBadge />
             </div>
 
-            <p className="text-xs text-gray-600 mt-4">© 2025 KEY TO HEART. Все права защищены.</p>
+            <p className="text-xs text-gray-600 mt-4">© 2025 КЛЮЧ К СЕРДЦУ. Все права защищены.</p>
 
             <div className="mt-2 space-y-1">
               <Link
@@ -416,7 +416,7 @@ export default function Footer({ categories }: FooterProps) {
             <Link href="/contacts" className="text-gray-500 underline">Контакты</Link>
           </div>
 
-          <div className="text-gray-400">© 2025 KEY TO HEART</div>
+          <div className="text-gray-400">© 2025 КЛЮЧ К СЕРДЦУ</div>
         </div>
       </div>
     </footer>

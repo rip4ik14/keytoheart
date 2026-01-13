@@ -1,33 +1,67 @@
 'use client';
 
+import { motion } from 'framer-motion';
+
 interface BonusCardProps {
   balance: number;
   level: string;
 }
 
+function levelMeta(level: string) {
+  const map: Record<string, { name: string; cashback: number }> = {
+    bronze: { name: 'Бронзовый', cashback: 2.5 },
+    silver: { name: 'Серебряный', cashback: 5 },
+    gold: { name: 'Золотой', cashback: 7.5 },
+    platinum: { name: 'Платиновый', cashback: 10 },
+    premium: { name: 'Премиум', cashback: 15 },
+  };
+  return map[level] || map.bronze;
+}
+
 export default function BonusCard({ balance, level }: BonusCardProps) {
-  
-
-  // Определяем процент кешбэка на основе уровня
-  const cashbackPercentage = level === 'bronze' ? 2.5 : level === 'silver' ? 5 : level === 'gold' ? 7.5 : level === 'platinum' ? 10 : 15;
-
-  // Форматируем название уровня
-  const levelName = level === 'bronze' ? 'Бронзовый' : level === 'silver' ? 'Серебряный' : level === 'gold' ? 'Золотой' : level === 'platinum' ? 'Платиновый' : 'Премиум';
+  const meta = levelMeta(level);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-      <h3 className="text-lg font-semibold mb-4">Ваши бонусы</h3>
-      <p className="text-2xl font-bold">{balance} баллов</p>
-      <p className="text-sm text-gray-500 mt-2">Ваш уровень: {levelName}</p>
-      <p className="text-sm text-gray-500 mt-1">
-        Бонусы начисляются в размере {cashbackPercentage}% от каждой покупки
-      </p>
-      <p className="text-sm text-gray-500 mt-1">
-        Использовать бонусы можно при оформлении заказа, до 15% от суммы. 1 бонус = 1 ₽
-      </p>
-      <p className="text-sm text-gray-500 mt-1">
-        Срок действия бонусов: 6 месяцев с момента последней покупки
-      </p>
-    </div>
+    <motion.aside
+      className="
+        rounded-3xl border border-black/10 bg-white
+        p-4 sm:p-5 lg:p-6
+        shadow-[0_14px_40px_rgba(0,0,0,0.08)]
+      "
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      aria-label="Бонусы и уровень"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold tracking-tight">Ваши бонусы</h3>
+          <p className="text-sm text-black/55 mt-1">1 бонус = 1 ₽</p>
+        </div>
+
+        <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+          {meta.name}
+        </span>
+      </div>
+
+      <div className="mt-5">
+        <div className="text-3xl sm:text-4xl font-semibold tracking-tight">
+          {Math.max(0, Math.round(balance || 0))} баллов
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="px-3 py-2 rounded-2xl border border-black/10 bg-white text-xs sm:text-sm font-semibold text-black/75">
+            Кешбэк {meta.cashback}%
+          </div>
+          <div className="px-3 py-2 rounded-2xl border border-black/10 bg-white text-xs sm:text-sm font-semibold text-black/75">
+            Списание до 15%
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm text-black/60 leading-relaxed">
+          Бонусы начисляются с каждой покупки. срок действия - 6 месяцев с момента последней покупки.
+        </p>
+      </div>
+    </motion.aside>
   );
 }

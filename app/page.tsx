@@ -102,7 +102,7 @@ export const metadata: Metadata = {
   description:
     'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
   openGraph: {
-    title: 'KEY TO HEART - клубника в шоколаде, цветы и комбо-наборы',
+    title: 'КЛЮЧ К СЕРДЦУ - клубника в шоколаде, цветы и комбо-наборы',
     description:
       'Закажите клубнику в шоколаде, цветы и комбо-наборы с доставкой 60 мин по Краснодару и до 20 км. Фото перед отправкой, бесплатная открытка, оплата онлайн.',
     url: 'https://keytoheart.ru',
@@ -111,19 +111,19 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубника в шоколаде - KEY TO HEART',
+        alt: 'Клубника в шоколаде - КЛЮЧ К СЕРДЦУ',
       },
       {
         url: 'https://keytoheart.ru/og-bouquet.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубничный букет - KEY TO HEART',
+        alt: 'Клубничный букет - КЛЮЧ К СЕРДЦУ',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KEY TO HEART - клубника в шоколаде и цветы в Краснодаре',
+    title: 'КЛЮЧ К СЕРДЦУ - клубника в шоколаде и цветы в Краснодаре',
     description:
       'Свежая клубника в шоколаде, букеты и цветы с доставкой за 60 мин по Краснодару. Бесплатная открытка в подарок, оплата онлайн.',
     images: ['https://keytoheart.ru/og-cover.webp'],
@@ -165,7 +165,7 @@ function buildLdGraph(
   const webPage: WebPage = {
     '@id': 'https://keytoheart.ru/#home',
     '@type': 'WebPage',
-    name: 'KEY TO HEART - клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+    name: 'КЛЮЧ К СЕРДЦУ - клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
     url: 'https://keytoheart.ru',
     description:
       'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
@@ -193,7 +193,7 @@ function buildLdGraph(
   // Это честно и не выглядит как "отзывы на нашем сайте".
   const org: Organization = {
     '@type': 'Organization',
-    name: 'KEY TO HEART',
+    name: 'КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru',
     sameAs: ['https://flowwow.com/shop/key-to-heart/'],
     aggregateRating: {

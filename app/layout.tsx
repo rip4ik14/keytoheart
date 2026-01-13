@@ -1,3 +1,4 @@
+// ✅ Путь: app/layout.tsx
 /* -------------------------------------------------------------------------- */
 /*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
 /* -------------------------------------------------------------------------- */
@@ -7,33 +8,24 @@ import './styles/globals.css';
 import localFont from 'next/font/local';
 import { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type {
-  BreadcrumbList,
-  LocalBusiness,
-  Organization,
-  WebSite,
-} from 'schema-dts';
+import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
+import DisableConsoleInProd from '@components/DisableConsoleInProd';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
 
 /* --------------------------- шрифты через localFont ----------------------- */
-/**
- * Golos подключаем как CSS-переменную через next/font/local.
- * preload:true – пусть Next сам создаёт корректные <link rel="preload">
- * с хэшированными путями. Ручные <link> больше не нужны.
- */
 const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
   preload: true,
   src: [
-    { path: '../public/fonts/golos-text_regular.woff2',  weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2',   weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
     { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2',     weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2',    weight: '900', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
   ],
 });
 
@@ -59,10 +51,8 @@ export const fetchCache = 'force-no-store';
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
-    // важно: оставляем чистый бренд как default,
-    // а приклейка бренда делается через template один раз.
-    default: 'KEY TO HEART',
-    template: '%s | KEY TO HEART',
+    default: 'КЛЮЧ К СЕРДЦУ',
+    template: '%s | КЛЮЧ К СЕРДЦУ',
   },
   description:
     'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
@@ -73,9 +63,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru',
-    title: 'KEY TO HEART – клубника в шоколаде, букеты и цветы в Краснодаре',
+    title: 'КЛЮЧ К СЕРДЦУ – клубника в шоколаде, букеты и цветы в Краснодаре',
     description:
       'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
@@ -83,35 +73,29 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубника в шоколаде – KEY TO HEART',
+        alt: 'Клубника в шоколаде – КЛЮЧ К СЕРДЦУ',
         type: 'image/webp',
       },
       {
         url: 'https://keytoheart.ru/og-square.webp',
         width: 800,
         height: 800,
-        alt: 'Клубничный букет – KEY TO HEART',
+        alt: 'Клубничный букет – КЛЮЧ К СЕРДЦУ',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KEY TO HEART – клубника в шоколаде и цветы в Краснодаре',
+    title: 'КЛЮЧ К СЕРДЦУ – клубника в шоколаде и цветы в Краснодаре',
     description:
       'Клубника в шоколаде, букеты и цветы с доставкой за 60 мин по Краснодару. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
-
-  /* ✅ SVG favicon + fallback, БЕЗ apple-touch-icon */
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico' },
-    ],
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }, { url: '/favicon.ico' }],
     shortcut: ['/favicon.ico'],
   },
-
   robots: { index: true, follow: true },
 };
 
@@ -125,12 +109,7 @@ export const viewport: Viewport = {
 /* -------------------------------------------------------------------------- */
 /*                                ROOT LAYOUT                                */
 /* -------------------------------------------------------------------------- */
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  /* --- SSR-загрузка категорий из Supabase для меню — ошибки не валят страницу --- */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -167,76 +146,59 @@ export default async function RootLayout({
       }));
     }
   } catch (e) {
-    process.env.NODE_ENV !== 'production' &&
-      console.warn('[layout] categories fetch error →', e);
+    process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error →', e);
     categories = [];
   } finally {
     clearTimeout(timeoutId);
   }
 
   return (
-    <html
-      lang="ru"
-      className={`${golosText.variable} ${marqueeFont.variable}`}
-    >
+    <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
       <head>
-        {/* базовые метатеги */}
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta httpEquiv="Content-Language" content="ru" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
 
-        {/* геотеги */}
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
 
-        {/* preconnect / dns-prefetch */}
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
           crossOrigin="anonymous"
         />
-        <link
-          rel="dns-prefetch"
-          href="https://gwbeabfkknhewwoesqax.supabase.co"
-        />
-        <link
-          rel="preconnect"
-          href="https://mc.yandex.ru"
-          crossOrigin="anonymous"
-        />
+        <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
+        <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
-        {/* PWA */}
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
-        {/* ---------- JSON-LD: WebSite + Org + LocalBusiness + Breadcrumbs ----- */}
         <JsonLd
           item={{
             '@context': 'https://schema.org',
             '@graph': [
               {
                 '@type': 'WebSite',
-                name: 'KEY TO HEART',
+                name: 'КЛЮЧ К СЕРДЦУ',
                 url: 'https://keytoheart.ru',
                 description:
-                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре — от 30 минут, с 9:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре - от 30 минут, с 9:00 до 22:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
                     '@type': 'EntryPoint',
-                    urlTemplate:
-                      'https://keytoheart.ru/search?q={search_term_string}',
+                    urlTemplate: 'https://keytoheart.ru/search?q={search_term_string}',
                   },
                   'query-input': 'required name=search_term_string',
                 },
               } as WebSite,
               {
                 '@type': 'Organization',
-                name: 'KEY TO HEART',
+                name: 'КЛЮЧ К СЕРДЦУ',
                 url: 'https://keytoheart.ru',
                 logo: 'https://keytoheart.ru/logo.svg',
                 sameAs: [
@@ -248,7 +210,7 @@ export default async function RootLayout({
               {
                 '@type': 'LocalBusiness',
                 '@id': 'https://keytoheart.ru/#local',
-                name: 'KEY TO HEART',
+                name: 'КЛЮЧ К СЕРДЦУ',
                 url: 'https://keytoheart.ru',
                 image: 'https://keytoheart.ru/og-square.webp',
                 telephone: '+7-988-603-38-21',
@@ -283,8 +245,7 @@ export default async function RootLayout({
                   },
                 ],
                 areaServed: { '@type': 'City', name: 'Краснодар' },
-                hasMap:
-                  'https://yandex.ru/maps/?ll=39.037611%2C45.058090&z=16',
+                hasMap: 'https://yandex.ru/maps/?ll=39.037611%2C45.058090&z=16',
                 sameAs: [
                   'https://www.instagram.com/keytoheart.ru/',
                   'https://t.me/keytoheart',
@@ -306,7 +267,6 @@ export default async function RootLayout({
           }}
         />
 
-        {/* -------- Яндекс.Метрика -------- */}
         {YM_ID && (
           <script
             dangerouslySetInnerHTML={{
@@ -328,8 +288,10 @@ export default async function RootLayout({
         )}
       </head>
 
-      <body>
-        {/* noscript-пиксель Метрики */}
+      <body className={`${golosText.className} antialiased`}>
+        {/* ✅ глушим console.* в проде (в браузере), но dev не трогаем */}
+        <DisableConsoleInProd />
+
         {YM_ID && (
           <noscript>
             <div>

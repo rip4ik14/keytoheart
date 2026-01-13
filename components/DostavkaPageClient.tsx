@@ -95,7 +95,7 @@ export default function DostavkaPageClient() {
                 frameBorder={0}
                 style={{ width: '100%', height: '100%' }}
                 allowFullScreen
-                title="Карта самовывоза Key To Heart"
+                title="Карта самовывоза КЛЮЧ К СЕРДЦУ"
               ></iframe>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default function DostavkaPageClient() {
                 answer: 'Стоимость доставки рассчитывается по тарифам Яндекс.Доставки. Окончательную стоимость уточнит наш менеджер.',
               },
               {
-                question: 'Как быстро доставляют букеты KEY TO HEART?',
+                question: 'Как быстро доставляют букеты КЛЮЧ К СЕРДЦУ?',
                 answer: 'Мы доставляем заказы от 30 минут с момента подтверждения.',
               },
               {

@@ -6,27 +6,27 @@ import PolicyPageClient from '@components/PolicyPageClient';
 export const metadata: Metadata = {
   title: 'Политика конфиденциальности',
   description:
-    'Политика конфиденциальности KEY TO HEART. Узнайте, как мы защищаем ваши персональные данные в соответствии с законодательством РФ (152-ФЗ).',
-  keywords: ['политика конфиденциальности', 'KEY TO HEART', 'персональные данные', '152-ФЗ', 'Краснодар', 'доставка цветов'],
+    'Политика конфиденциальности КЛЮЧ К СЕРДЦУ. Узнайте, как мы защищаем ваши персональные данные в соответствии с законодательством РФ (152-ФЗ).',
+  keywords: ['политика конфиденциальности', 'КЛЮЧ К СЕРДЦУ', 'персональные данные', '152-ФЗ', 'Краснодар', 'доставка цветов'],
   openGraph: {
-    title: 'Политика конфиденциальности | KEY TO HEART',
-    description: 'Как KEY TO HEART защищает ваши персональные данные в соответствии с законодательством РФ.',
+    title: 'Политика конфиденциальности | КЛЮЧ К СЕРДЦУ',
+    description: 'Как КЛЮЧ К СЕРДЦУ защищает ваши персональные данные в соответствии с законодательством РФ.',
     url: 'https://keytoheart.ru/policy',
-    siteName: 'KEY TO HEART',
+    siteName: 'КЛЮЧ К СЕРДЦУ',
     images: [
       {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'KEY TO HEART — политика конфиденциальности',
+        alt: 'КЛЮЧ К СЕРДЦУ — политика конфиденциальности',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Политика конфиденциальности | KEY TO HEART',
-    description: 'Как KEY TO HEART защищает ваши персональные данные.',
+    title: 'Политика конфиденциальности | КЛЮЧ К СЕРДЦУ',
+    description: 'Как КЛЮЧ К СЕРДЦУ защищает ваши персональные данные.',
     images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/policy' },
@@ -39,7 +39,7 @@ const faqSchema: FAQPage = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Какие персональные данные собирает KEY TO HEART?',
+      name: 'Какие персональные данные собирает КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Мы собираем фамилию, имя, отчество, контактный телефон, адрес электронной почты, адрес доставки, комментарии к заказу, IP-адрес, данные cookies и другие данные, добровольно предоставленные пользователем.',
@@ -47,7 +47,7 @@ const faqSchema: FAQPage = {
     },
     {
       '@type': 'Question',
-      name: 'Как KEY TO HEART защищает мои данные?',
+      name: 'Как КЛЮЧ К СЕРДЦУ защищает мои данные?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Мы используем шифрование, ограничение доступа, резервное копирование и безопасные протоколы передачи (HTTPS). Все данные хранятся на серверах в Российской Федерации, соответствующих требованиям законодательства РФ.',
@@ -62,12 +62,12 @@ export default function PolicyPage() {
       <JsonLd<WebPage>
         item={{
           '@type': 'WebPage',
-          name: 'Политика конфиденциальности | KEY TO HEART',
+          name: 'Политика конфиденциальности | КЛЮЧ К СЕРДЦУ',
           url: 'https://keytoheart.ru/policy',
-          description: 'Политика конфиденциальности интернет-магазина KEY TO HEART в соответствии с 152-ФЗ.',
+          description: 'Политика конфиденциальности интернет-магазина КЛЮЧ К СЕРДЦУ в соответствии с 152-ФЗ.',
           mainEntity: {
             '@type': 'Organization',
-            name: 'KEY TO HEART',
+            name: 'КЛЮЧ К СЕРДЦУ',
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',

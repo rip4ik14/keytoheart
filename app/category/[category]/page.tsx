@@ -77,7 +77,7 @@ export async function generateMetadata({
       title,
       description,
       url: canonical,
-      images: [{ url: ogImage, width: 1200, height: 630, alt: `${name} - KEY TO HEART` }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `${name} - КЛЮЧ К СЕРДЦУ` }],
     },
     twitter: { card: 'summary_large_image' },
   };
