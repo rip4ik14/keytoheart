@@ -96,6 +96,20 @@ function posForDigitIndex(formatted: string, digitIndex: number) {
   return formatted.length;
 }
 
+function iosBlurFix() {
+  if (typeof window === 'undefined') return;
+  setTimeout(() => {
+    try {
+      const y = window.scrollY;
+      window.scrollTo(0, y);
+      window.scrollTo(0, y + 1);
+      window.scrollTo(0, y);
+    } catch {
+      // noop
+    }
+  }, 60);
+}
+
 export default function Step2RecipientDetails({
   form,
   name,
@@ -113,11 +127,16 @@ export default function Step2RecipientDetails({
   const [showAnonTip, setShowAnonTip] = useState(false);
 
   const [recipientPhoneUi, setRecipientPhoneUi] = useState<string>('');
+  const recipientPhoneUiRef = useRef<string>('');
   const isFocusedRef = useRef(false);
   const recipientPhoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const emit = (field: string, value: string) => {
-    onFormChange({ target: { name: field, value } } as any);
+    onFormChange(
+      ({
+        target: { name: field, value },
+      } as unknown) as React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    );
   };
 
   const local10FromForm = useMemo(
@@ -132,7 +151,9 @@ export default function Step2RecipientDetails({
     if (isFocusedRef.current && uiDigits === nextDigits) return;
     if (isFocusedRef.current && uiDigits.length > 0 && nextDigits.startsWith(uiDigits)) return;
 
-    setRecipientPhoneUi(formatLocalRu(local10FromForm));
+    const nextUi = formatLocalRu(local10FromForm);
+    recipientPhoneUiRef.current = nextUi;
+    setRecipientPhoneUi(nextUi);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local10FromForm]);
 
@@ -161,9 +182,7 @@ export default function Step2RecipientDetails({
       >
         <input
           type="checkbox"
-          checked={
-            form.recipient === name && digitsOnly(form.recipientPhone) === digitsOnly(userPhone)
-          }
+          checked={form.recipient === name && digitsOnly(form.recipientPhone) === digitsOnly(userPhone)}
           onChange={(e) => {
             if (e.target.checked) {
               emit('recipient', name);
@@ -192,8 +211,9 @@ export default function Step2RecipientDetails({
           name="recipient"
           value={form.recipient}
           onChange={onFormChange}
+          onBlur={iosBlurFix}
           placeholder="Имя:"
-          className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+          className={`w-full rounded-[18px] border px-4 py-4 text-[16px] sm:text-[15px] outline-none transition ${
             recipientError ? 'border-red-500' : 'border-[#bdbdbd]'
           } focus:border-black`}
           aria-invalid={!!recipientError}
@@ -214,7 +234,7 @@ export default function Step2RecipientDetails({
       >
         <div className="grid grid-cols-[92px_1fr] gap-3">
           <div className="rounded-[18px] border border-[#bdbdbd] px-3 py-4 flex items-center justify-between">
-            <span className="text-[15px] font-medium">+7</span>
+            <span className="text-[16px] sm:text-[15px] font-medium">+7</span>
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
@@ -230,16 +250,18 @@ export default function Step2RecipientDetails({
             }}
             onBlur={() => {
               isFocusedRef.current = false;
+              iosBlurFix();
             }}
             onChange={(e) => {
               const rawUi = e.target.value;
 
               const caret = e.target.selectionStart ?? rawUi.length;
-              const digitIndex = countDigitsBeforePos(rawUi, caret);
+              const digitIndexRaw = countDigitsBeforePos(rawUi, caret);
 
               const d10 = extractLocal10FromAnyInput(rawUi);
               const formatted = formatLocalRu(d10);
 
+              recipientPhoneUiRef.current = formatted;
               setRecipientPhoneUi(formatted);
 
               const next = d10.length ? `+7${d10}` : '';
@@ -248,12 +270,20 @@ export default function Step2RecipientDetails({
               requestAnimationFrame(() => {
                 const el = recipientPhoneInputRef.current;
                 if (!el) return;
+
+                const digitsCount = digitsOnly(formatted).length;
+                const digitIndex = Math.max(0, Math.min(digitIndexRaw, digitsCount));
+
                 const nextPos = posForDigitIndex(formatted, digitIndex);
-                el.setSelectionRange(nextPos, nextPos);
+                try {
+                  el.setSelectionRange(nextPos, nextPos);
+                } catch {
+                  // noop
+                }
               });
             }}
             placeholder="(___) ___-__-__"
-            className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+            className={`w-full rounded-[18px] border px-4 py-4 text-[16px] sm:text-[15px] outline-none transition ${
               recipientPhoneError ? 'border-red-500' : 'border-[#bdbdbd]'
             } focus:border-black`}
             aria-invalid={!!recipientPhoneError}
@@ -289,8 +319,9 @@ export default function Step2RecipientDetails({
           id="postcardText"
           value={postcardText}
           onChange={(e) => setPostcardText(e.target.value)}
+          onBlur={iosBlurFix}
           placeholder="Текст открытки:"
-          className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[14px] outline-none focus:border-black min-h-[120px] resize-none"
+          className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[16px] sm:text-[14px] outline-none focus:border-black min-h-[120px] resize-none"
           aria-label="Текст открытки"
         />
 
@@ -315,7 +346,8 @@ export default function Step2RecipientDetails({
           <select
             value={occasion}
             onChange={(e) => setOccasion(e.target.value)}
-            className="w-full appearance-none rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[15px] bg-white outline-none focus:border-black"
+            onBlur={iosBlurFix}
+            className="w-full appearance-none rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[16px] sm:text-[15px] bg-white outline-none focus:border-black"
             aria-label="Повод покупки"
           >
             <option value="">Не указан</option>

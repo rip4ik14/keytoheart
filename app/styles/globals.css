@@ -709,3 +709,12 @@
 .animate-leave {
   animation: leave 0.25s ease-in forwards;
 }
+
+/* iOS Safari: предотвращаем автозум при фокусе (если font-size < 16px) */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

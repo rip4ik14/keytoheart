@@ -28,6 +28,20 @@ const containerVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
 };
 
+function iosBlurFix() {
+  if (typeof window === 'undefined') return;
+  setTimeout(() => {
+    try {
+      const y = window.scrollY;
+      window.scrollTo(0, y);
+      window.scrollTo(0, y + 1);
+      window.scrollTo(0, y);
+    } catch {
+      // noop
+    }
+  }, 60);
+}
+
 export default function Step3Address({
   form,
   addressError,
@@ -40,14 +54,18 @@ export default function Step3Address({
 }: Props) {
   const handleInstr = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const clean = sanitizeHtml(e.target.value, { allowedTags: [], allowedAttributes: {} });
-    onFormChange({ target: { name: 'deliveryInstructions', value: clean } } as any);
+    onFormChange(
+      ({
+        target: { name: 'deliveryInstructions', value: clean },
+      } as unknown) as React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    );
   };
 
   const isDelivery = form.deliveryMethod === 'delivery';
   const askFromRecipient = form.askAddressFromRecipient;
 
   const inputCls =
-    'w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[15px] outline-none focus:border-black transition';
+    'w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[16px] sm:text-[15px] outline-none focus:border-black transition';
 
   return (
     <div className="space-y-4">
@@ -128,6 +146,7 @@ export default function Step3Address({
                   name="street"
                   value={form.street}
                   onChange={handleAddressChange}
+                  onBlur={iosBlurFix}
                   placeholder="Улица:"
                   className={`${inputCls} ${addressError ? 'border-red-500' : ''}`}
                   aria-invalid={!!addressError}
@@ -174,6 +193,7 @@ export default function Step3Address({
                   name="house"
                   value={form.house}
                   onChange={onFormChange}
+                  onBlur={iosBlurFix}
                   placeholder="Дом:"
                   className={inputCls}
                   inputMode="numeric"
@@ -183,6 +203,7 @@ export default function Step3Address({
                   name="apartment"
                   value={form.apartment}
                   onChange={onFormChange}
+                  onBlur={iosBlurFix}
                   placeholder="Кв.:"
                   className={inputCls}
                   inputMode="numeric"
@@ -192,6 +213,7 @@ export default function Step3Address({
                   name="entrance"
                   value={form.entrance}
                   onChange={onFormChange}
+                  onBlur={iosBlurFix}
                   placeholder="Подъезд:"
                   className={inputCls}
                   inputMode="text"
@@ -216,6 +238,7 @@ export default function Step3Address({
           name="deliveryInstructions"
           value={form.deliveryInstructions}
           onChange={handleInstr}
+          onBlur={iosBlurFix}
           placeholder={
             isDelivery
               ? askFromRecipient
@@ -223,7 +246,7 @@ export default function Step3Address({
                 : 'Например: не звонить получателю заранее, это сюрприз; позвонить сначала вам; позвонить за 10-15 минут до приезда.'
               : 'Например: подготовьте, пожалуйста, букет к 18:00; можно подписать открытку.'
           }
-          className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[14px] outline-none focus:border-black min-h-[110px] resize-none"
+          className="w-full rounded-[18px] border border-[#bdbdbd] px-4 py-4 text-[16px] sm:text-[14px] outline-none focus:border-black min-h-[110px] resize-none"
         />
       </motion.div>
     </div>

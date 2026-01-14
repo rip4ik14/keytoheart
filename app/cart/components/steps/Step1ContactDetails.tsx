@@ -107,6 +107,21 @@ function posForDigitIndex(formatted: string, digitIndex: number) {
   return formatted.length;
 }
 
+function iosBlurFix() {
+  if (typeof window === 'undefined') return;
+  // micro "scroll nudge" помогает Safari вернуть в норму viewport после клавы
+  setTimeout(() => {
+    try {
+      const y = window.scrollY;
+      window.scrollTo(0, y);
+      window.scrollTo(0, y + 1);
+      window.scrollTo(0, y);
+    } catch {
+      // noop
+    }
+  }, 60);
+}
+
 export default function Step1ContactDetails({
   form,
   phoneError,
@@ -125,10 +140,19 @@ export default function Step1ContactDetails({
     typeof setShowAuthPanel === 'function' && typeof showAuthPanel === 'boolean';
 
   const [phoneUi, setPhoneUi] = useState<string>('');
+  const phoneUiRef = useRef<string>('');
   const isFocusedRef = useRef(false);
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const local10FromForm = useMemo(() => toLocal10FromStoredPhone(form.phone), [form.phone]);
+
+  const emit = (name: string, value: string) => {
+    onFormChange(
+      ({
+        target: { name, value },
+      } as unknown) as React.ChangeEvent<HTMLInputElement>,
+    );
+  };
 
   useEffect(() => {
     const uiDigits = digitsOnly(phoneUi);
@@ -137,7 +161,9 @@ export default function Step1ContactDetails({
     if (isFocusedRef.current && uiDigits === nextDigits) return;
     if (isFocusedRef.current && uiDigits.length > 0 && nextDigits.startsWith(uiDigits)) return;
 
-    setPhoneUi(formatLocal10ForInput(local10FromForm));
+    const nextUi = formatLocal10ForInput(local10FromForm);
+    phoneUiRef.current = nextUi;
+    setPhoneUi(nextUi);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local10FromForm]);
 
@@ -156,8 +182,9 @@ export default function Step1ContactDetails({
           name="name"
           value={form.name}
           onChange={onFormChange}
+          onBlur={iosBlurFix}
           placeholder="Ваше имя"
-          className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+          className={`w-full rounded-[18px] border px-4 py-4 text-[16px] sm:text-[15px] outline-none transition ${
             nameError ? 'border-red-500' : 'border-[#bdbdbd]'
           } focus:border-black`}
           autoComplete="name"
@@ -176,7 +203,7 @@ export default function Step1ContactDetails({
       >
         <div className="grid grid-cols-[92px_1fr] gap-3">
           <div className="rounded-[18px] border border-[#bdbdbd] px-3 py-4 flex items-center justify-between">
-            <span className="text-[15px] font-medium">+7</span>
+            <span className="text-[16px] sm:text-[15px] font-medium">+7</span>
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
@@ -192,30 +219,40 @@ export default function Step1ContactDetails({
             }}
             onBlur={() => {
               isFocusedRef.current = false;
+              iosBlurFix();
             }}
             onChange={(e) => {
               const rawUi = e.target.value;
 
               const caret = e.target.selectionStart ?? rawUi.length;
-              const digitIndex = countDigitsBeforePos(rawUi, caret);
+              const digitIndexRaw = countDigitsBeforePos(rawUi, caret);
 
               const d10 = extractLocal10FromAnyInput(rawUi);
               const formatted = formatLocal10ForInput(d10);
 
+              phoneUiRef.current = formatted;
               setPhoneUi(formatted);
 
               const normalized = d10.length ? `+7${d10}` : '';
-              onFormChange({ target: { name: 'phone', value: normalized } } as any);
+              emit('phone', normalized);
 
               requestAnimationFrame(() => {
                 const el = phoneInputRef.current;
                 if (!el) return;
+
+                const digitsCount = digitsOnly(formatted).length;
+                const digitIndex = Math.max(0, Math.min(digitIndexRaw, digitsCount));
+
                 const nextPos = posForDigitIndex(formatted, digitIndex);
-                el.setSelectionRange(nextPos, nextPos);
+                try {
+                  el.setSelectionRange(nextPos, nextPos);
+                } catch {
+                  // iOS может ругаться в некоторые моменты - игнор
+                }
               });
             }}
             placeholder="(___) ___-__-__"
-            className={`w-full rounded-[18px] border px-4 py-4 text-[15px] outline-none transition ${
+            className={`w-full rounded-[18px] border px-4 py-4 text-[16px] sm:text-[15px] outline-none transition ${
               phoneError ? 'border-red-500' : 'border-[#bdbdbd]'
             } focus:border-black`}
             inputMode="tel"
@@ -262,9 +299,7 @@ export default function Step1ContactDetails({
 
             {isAuthenticated ? (
               <>
-                <p className="text-[12px] text-[#6f6f6f]">
-                  Вы вошли, бонусы начисляются автоматически
-                </p>
+                <p className="text-[12px] text-[#6f6f6f]">Вы вошли, бонусы начисляются автоматически</p>
                 <p className="text-[12px] text-[#6f6f6f]">
                   Баланс: <span className="font-semibold text-black">{bonusBalance}</span>
                 </p>
