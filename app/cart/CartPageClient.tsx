@@ -165,6 +165,71 @@ export default function CartPageClient({
   });
 
   // ---------------------------
+  // Repeat order: apply draft from Account (repeatDraft/cartDraft)
+  // ---------------------------
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const raw = localStorage.getItem('repeatDraft') || localStorage.getItem('cartDraft');
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const draftItems: any[] = Array.isArray(parsed?.items) ? parsed.items : [];
+
+      if (draftItems.length === 0) {
+        localStorage.removeItem('repeatDraft');
+        localStorage.removeItem('cartDraft');
+        return;
+      }
+
+      // 1) split items: base vs upsell
+      const baseItems = draftItems
+        .filter((x) => !x?.isUpsell)
+        .map((x) => ({
+          id: String(x.id ?? ''),
+          title: String(x.title ?? ''),
+          price: Number(x.price ?? 0) || 0,
+          quantity: Number(x.quantity ?? 1) || 1,
+          imageUrl: x.imageUrl ? String(x.imageUrl) : undefined,
+          isUpsell: false,
+        }))
+        .filter((x) => x.id && x.title);
+
+      const upsellItems = draftItems
+        .filter((x) => !!x?.isUpsell)
+        .map((x) => ({
+          id: String(x.id ?? ''),
+          title: String(x.title ?? ''),
+          price: Number(x.price ?? 0) || 0,
+          quantity: Number(x.quantity ?? 1) || 1,
+          category: x.category ? String(x.category) : 'unknown',
+          isUpsell: true,
+        }))
+        .filter((x) => x.id && x.title);
+
+      // 2) replace current cart
+      clearCart();
+      if (baseItems.length > 0) addMultipleItems(baseItems as any);
+
+      // 3) replace upsells
+      setSelectedUpsells(upsellItems as any);
+
+      // 4) reset form step
+      setStep(1);
+
+      toast.success('Заказ перенесён в корзину');
+    } catch (e) {
+      process.env.NODE_ENV !== 'production' &&
+        console.error('[CartPageClient] repeatDraft parse/apply error', e);
+      toast.error('Не удалось повторить заказ');
+    } finally {
+      localStorage.removeItem('repeatDraft');
+      localStorage.removeItem('cartDraft');
+    }
+  }, [addMultipleItems, clearCart, setSelectedUpsells, setStep]);
+
+  // ---------------------------
   // Mobile sticky upsell + smart scroll
   // ---------------------------
   const { upsellOuterRef, upsellInnerRef, upsellShift, MOBILE_HEADER_OFFSET } =
@@ -427,7 +492,6 @@ export default function CartPageClient({
   // ---------------------------
   // Totals
   // ---------------------------
-  // ✅ FIX: тут у тебя был сломанный синтаксис
   const deliveryCost = useMemo(() => {
     if (form.deliveryMethod === 'pickup') return 0;
     return 0;
@@ -897,7 +961,11 @@ export default function CartPageClient({
 
       {/* Mobile upsell sticky */}
       <div className="md:hidden">
-        <div ref={upsellOuterRef} className="sticky z-40 bg-white" style={{ top: MOBILE_HEADER_OFFSET }}>
+        <div
+          ref={upsellOuterRef}
+          className="sticky z-40 bg-white"
+          style={{ top: MOBILE_HEADER_OFFSET }}
+        >
           <div
             ref={upsellInnerRef}
             className="px-2 sm:px-4 pt-3 pb-4"

@@ -1,4 +1,4 @@
-// app/cart/hooks/useCartValidateAndSync.ts
+// ✅ Путь: app/cart/hooks/useCartValidateAndSync.ts
 'use client';
 
 import { useEffect } from 'react';
@@ -16,6 +16,14 @@ export function useCartValidateAndSync({ items, clearCart, addMultipleItems }: A
     let aborted = false;
 
     const run = async () => {
+      // ✅ ВАЖНО: если сейчас идет повтор заказа из аккаунта - не трогаем корзину,
+      // чтобы не перетереть repeatDraft до того, как CartPageClient его применит
+      if (typeof window !== 'undefined') {
+        const hasDraft =
+          !!localStorage.getItem('repeatDraft') || !!localStorage.getItem('cartDraft');
+        if (hasDraft) return;
+      }
+
       if (!items || items.length === 0) return;
 
       const payloadItems = items
@@ -91,7 +99,8 @@ export function useCartValidateAndSync({ items, clearCart, addMultipleItems }: A
         }
 
         // применяем только если реально поменялось
-        const changed = updated.length !== items.length ||
+        const changed =
+          updated.length !== items.length ||
           updated.some((u, idx) => u.id !== items[idx]?.id || u.price !== items[idx]?.price);
 
         if (changed) {

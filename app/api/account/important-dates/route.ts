@@ -1,26 +1,39 @@
+// ✅ Путь: app/api/account/important-dates/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import sanitizeHtml from 'sanitize-html';
 import { safeBody } from '@/lib/api/safeBody';
 
+function toDateOrNull(v: unknown): Date | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+
+  // input[type=date] приходит как "YYYY-MM-DD"
+  // делаем DateTime ISO-safe, без сдвигов по таймзоне
+  const d = new Date(`${s}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
 
 export async function POST(request: Request) {
   try {
     const body = await safeBody<{
       phone?: string;
-      events?: Array<{ type: string; date: string; description: string }>;
+      events?: Array<{ type: string; date: string | null; description: string | null }>;
     }>(request, 'ACCOUNT IMPORTANT DATES API');
-    if (body instanceof NextResponse) {
-      return body;
-    }
+
+    if (body instanceof NextResponse) return body;
+
     const { phone, events } = body;
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== 'production' &&
+        console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -31,22 +44,15 @@ export async function POST(request: Request) {
     });
 
     if (!profile) {
-      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== 'production' &&
         console.error(`[${new Date().toISOString()}] Profile not found for phone: ${sanitizedPhone}`);
-      return NextResponse.json(
-        { success: false, error: 'Профиль с таким телефоном не найден' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Профиль с таким телефоном не найден' }, { status: 404 });
     }
 
-    // Проверяем, что events — массив
     if (!Array.isArray(events)) {
-      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== 'production' &&
         console.error(`[${new Date().toISOString()}] Invalid events format: ${JSON.stringify(events)}`);
-      return NextResponse.json(
-        { success: false, error: 'События должны быть переданы в виде массива' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'События должны быть переданы в виде массива' }, { status: 400 });
     }
 
     // Удаляем существующие события для этого телефона
@@ -54,33 +60,40 @@ export async function POST(request: Request) {
       where: { phone: sanitizedPhone },
     });
 
-    // Готовим новые события для вставки
-    const sanitizedEvents = events.map(
-      (event: { type: string; date: string; description: string }) => ({
-        phone: sanitizedPhone,
-        type: sanitizeHtml(event.type || '', { allowedTags: [], allowedAttributes: {} }),
-        date: event.date ? new Date(event.date).toISOString().split('T')[0] : null,
-        description: sanitizeHtml(event.description || '', { allowedTags: [], allowedAttributes: {} }) || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-    );
+    const now = new Date();
 
-    // Вставляем новые события (если есть)
+    // Готовим новые события для вставки
+    const sanitizedEvents = events.map((event) => {
+      const type = sanitizeHtml(event?.type || '', { allowedTags: [], allowedAttributes: {} }) || 'Другое';
+      const description =
+        sanitizeHtml(event?.description || '', { allowedTags: [], allowedAttributes: {} }) || null;
+
+      // ВАЖНО: в Prisma кладём Date или null
+      const date = toDateOrNull(event?.date);
+
+      return {
+        phone: sanitizedPhone,
+        type,
+        date,
+        description,
+        // можно оставить - но Date, не string
+        created_at: now,
+        updated_at: now,
+      };
+    });
+
     if (sanitizedEvents.length > 0) {
       await prisma.important_dates.createMany({ data: sanitizedEvents });
     }
 
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV !== 'production' &&
       console.log(`[${new Date().toISOString()}] Updated important dates for phone ${sanitizedPhone}`);
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV !== 'production' &&
       console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }
 
@@ -91,28 +104,30 @@ export async function GET(request: Request) {
 
     const sanitizedPhone = sanitizeHtml(phone || '', { allowedTags: [], allowedAttributes: {} });
     if (!sanitizedPhone || !/^\+7\d{10}$/.test(sanitizedPhone)) {
-      process.env.NODE_ENV !== "production" && console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
+      process.env.NODE_ENV !== 'production' &&
+        console.error(`[${new Date().toISOString()}] Invalid phone format: ${sanitizedPhone}`);
       return NextResponse.json(
         { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
+        { status: 400 },
       );
     }
+
     const data = await prisma.important_dates.findMany({
       where: { phone: sanitizedPhone },
       select: { type: true, date: true, description: true },
       orderBy: { date: 'asc' },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: data || [],
-    });
+    // Чтобы input[type=date] нормально заполнялся, лучше отдавать YYYY-MM-DD
+    const normalized = (data || []).map((x) => ({
+      ...x,
+      date: x.date ? x.date.toISOString().slice(0, 10) : null,
+    }));
+
+    return NextResponse.json({ success: true, data: normalized });
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV !== 'production' &&
       console.error(`[${new Date().toISOString()}] Server error in important-dates:`, error);
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Ошибка сервера: ' + error.message }, { status: 500 });
   }
 }

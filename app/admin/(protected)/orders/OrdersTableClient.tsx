@@ -8,6 +8,8 @@ import { ru } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink } from 'lucide-react';
 
 export interface Order {
@@ -21,6 +23,7 @@ export interface Order {
   contact_name: string | null;
 
   recipient: string | null;
+  occasion: string | null;
   recipient_phone: string | null;
 
   address: string | null;
@@ -46,8 +49,30 @@ export interface Order {
 
   status: string | null;
 
-  items: Array<{ id: string; title: string; price: number; quantity: number; isUpsell?: boolean; category?: string }>;
-  upsell_details: Array<{ id: string; title: string; price: number; quantity: number; category?: string }>;
+  items: Array<{
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    isUpsell?: boolean;
+    category?: string;
+
+    // ✅ новые поля для админки
+    product_url?: string;
+    image_url?: string | null;
+  }>;
+
+  upsell_details: Array<{
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    category?: string;
+
+    // ✅ на будущее
+    product_url?: string;
+    image_url?: string | null;
+  }>;
 }
 
 interface Props {
@@ -154,6 +179,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           o.name,
           o.contact_name,
           o.recipient,
+          o.occasion,
           o.recipient_phone,
           o.address,
           o.order_number ? String(o.order_number) : '',
@@ -282,65 +308,64 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
   // Рендер портального меню статуса (не режется overflow'ами)
   const statusMenuPortal =
-  statusMenu && typeof document !== 'undefined'
-    ? createPortal(
-        (() => {
-          const w = 192; // w-48
-          const gap = 8;
-          const pad = 8;
+    statusMenu && typeof document !== 'undefined'
+      ? createPortal(
+          (() => {
+            const w = 192; // w-48
+            const gap = 8;
+            const pad = 8;
 
-          const viewportW = window.innerWidth;
-          const viewportH = window.innerHeight;
+            const viewportW = window.innerWidth;
+            const viewportH = window.innerHeight;
 
-          let left = statusMenu.anchorRect.left;
-          let top = statusMenu.anchorRect.bottom + gap;
+            let left = statusMenu.anchorRect.left;
+            let top = statusMenu.anchorRect.bottom + gap;
 
-          if (left + w + pad > viewportW) left = Math.max(pad, viewportW - w - pad);
-          if (left < pad) left = pad;
+            if (left + w + pad > viewportW) left = Math.max(pad, viewportW - w - pad);
+            if (left < pad) left = pad;
 
-          const menuH = 6 * 40 + 10;
-          if (top + menuH + pad > viewportH) {
-            top = Math.max(pad, statusMenu.anchorRect.top - gap - menuH);
-          }
+            const menuH = 6 * 40 + 10;
+            if (top + menuH + pad > viewportH) {
+              top = Math.max(pad, statusMenu.anchorRect.top - gap - menuH);
+            }
 
-          return (
-            <AnimatePresence>
-              <motion.div
-                id="orders-status-menu-portal"
-                initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                transition={{ duration: 0.14 }}
-                style={{ position: 'fixed', left, top, width: w, zIndex: 90 }}
-                className="bg-white border rounded-xl shadow-lg py-2"
-              >
-                {statusOptions.map((s) => (
-                  <button
-                    key={s.value}
-                    onClick={() => updateStatus(statusMenu.orderId, s.value)}
-                    className={`block w-full text-left px-3 py-2 text-sm ${
-                      orders.find((x) => x.id === statusMenu.orderId)?.status === s.value
-                        ? 'bg-gray-100 font-semibold'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setStatusMenu(null)}
-                  className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-black"
+            return (
+              <AnimatePresence>
+                <motion.div
+                  id="orders-status-menu-portal"
+                  initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  style={{ position: 'fixed', left, top, width: w, zIndex: 90 }}
+                  className="bg-white border rounded-xl shadow-lg py-2"
                 >
-                  Отмена
-                </button>
-              </motion.div>
-            </AnimatePresence>
-          );
-        })(),
-        document.body
-      )
-    : null;
-
+                  {statusOptions.map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => updateStatus(statusMenu.orderId, s.value)}
+                      className={`block w-full text-left px-3 py-2 text-sm ${
+                        orders.find((x) => x.id === statusMenu.orderId)?.status === s.value
+                          ? 'bg-gray-100 font-semibold'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setStatusMenu(null)}
+                    className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-black"
+                  >
+                    Отмена
+                  </button>
+                </motion.div>
+              </AnimatePresence>
+            );
+          })(),
+          document.body,
+        )
+      : null;
 
   return (
     <div className="min-h-screen w-full">
@@ -372,12 +397,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             </div>
 
             <div>
-              <label className="block mb-1 text-xs font-semibold text-gray-700">Поиск (№, имя, телефон, адрес)</label>
+              <label className="block mb-1 text-xs font-semibold text-gray-700">Поиск (№, имя, телефон, адрес, повод)</label>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Например: 124, +7..., Краснодар, Анна"
+                placeholder="Например: 124, +7..., Краснодар, Анна, день рождения"
                 className="w-full p-2 border rounded-lg bg-white"
               />
             </div>
@@ -757,6 +782,12 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         <span className="text-gray-500">Имя:</span>{' '}
                         <span className="font-semibold">{detailsOrder.recipient || '-'}</span>
                       </div>
+
+                      <div className="mt-1">
+                        <span className="text-gray-500">Повод:</span>{' '}
+                        <span className="font-semibold">{detailsOrder.occasion || '-'}</span>
+                      </div>
+
                       <div className="mt-1">
                         <span className="text-gray-500">Телефон:</span>{' '}
                         <span className="font-semibold">{detailsOrder.recipient_phone || '-'}</span>
@@ -842,12 +873,44 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     <div>
                       <div className="text-sm font-semibold text-gray-900">Основные товары</div>
                       {detailsOrder.items?.length ? (
-                        <ul className="mt-2 space-y-1 text-sm">
+                        <ul className="mt-2 space-y-2 text-sm">
                           {detailsOrder.items.map((it, idx) => (
                             <li key={idx} className="flex items-start justify-between gap-3">
-                              <div className="break-words">
-                                {it.title} <span className="text-gray-500">x{it.quantity}</span>
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="h-12 w-12 rounded-xl border bg-gray-50 overflow-hidden flex-shrink-0">
+                                  {it.image_url ? (
+                                    <Image
+                                      src={it.image_url}
+                                      alt=""
+                                      width={48}
+                                      height={48}
+                                      className="h-12 w-12 object-cover"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="h-12 w-12 flex items-center justify-center text-[10px] text-gray-400">
+                                      нет фото
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="break-words">
+                                    {it.title} <span className="text-gray-500">x{it.quantity}</span>
+                                  </div>
+
+                                  {it.product_url ? (
+                                    <Link
+                                      href={it.product_url}
+                                      target="_blank"
+                                      className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                    >
+                                      <ExternalLink size={12} /> Открыть товар
+                                    </Link>
+                                  ) : null}
+                                </div>
                               </div>
+
                               <div className="font-semibold whitespace-nowrap">{money(it.price * it.quantity)} ₽</div>
                             </li>
                           ))}

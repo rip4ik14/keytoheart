@@ -17,6 +17,10 @@ interface OrderRequest {
   phone: string;
   name?: string; // ✅ стало необязательным
   recipient: string;
+
+  // ✅ НОВОЕ (у тебя уже было в интерфейсе, оставляем)
+  occasion?: string | null;
+
   recipientPhone: string;
   address: string;
   deliveryMethod?: 'pickup' | 'delivery';
@@ -188,6 +192,10 @@ export async function POST(req: Request) {
       phone: rawPhone,
       name = '', // ✅ default
       recipient,
+
+      // ✅ НОВОЕ: достаём occasion из body
+      occasion = null,
+
       recipientPhone: rawRecipientPhone,
       address,
       deliveryMethod,
@@ -252,6 +260,12 @@ export async function POST(req: Request) {
     const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
     const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
+
+    // ✅ НОВОЕ: санитизируем occasion для БД (и приводим к null если пусто)
+    const sanitizedOccasionRaw = occasion
+      ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} })
+      : '';
+    const sanitizedOccasion = sanitizedOccasionRaw.trim() ? sanitizedOccasionRaw.trim() : null;
 
     const sanitizedDeliveryInstructions = delivery_instructions
       ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
@@ -372,6 +386,9 @@ export async function POST(req: Request) {
         postcard_text: sanitizedPostcardText,
         anonymous,
         whatsapp,
+
+        // ✅ НОВОЕ: сохраняем повод
+        occasion: sanitizedOccasion,
 
         items: regularItems as any,
         upsell_details: upsellItems as any,

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import AccountClient from './_components/AccountClient';
 import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import type { Order, OrderItem } from '@/types/order';
 
 // Определение типа Metadata вручную, если импорт не работает
@@ -32,8 +33,9 @@ interface BonusesData {
 }
 
 export const metadata: Metadata = {
-  title: 'Личный кабинет — управление заказами',
-  description: 'Управляйте заказами, проверяйте бонусы и обновляйте данные в личном кабинете КЛЮЧ К СЕРДЦУ в Краснодаре. Вход 24/7!',
+  title: 'Личный кабинет - управление заказами',
+  description:
+    'Управляйте заказами, проверяйте бонусы и обновляйте данные в личном кабинете КЛЮЧ К СЕРДЦУ в Краснодаре. Вход 24/7!',
   keywords: ['личный кабинет', 'КЛЮЧ К СЕРДЦУ', 'заказы Краснодар', 'бонусы'],
   openGraph: {
     title: 'Личный кабинет | КЛЮЧ К СЕРДЦУ',
@@ -45,13 +47,16 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://keytoheart.ru/account' },
 };
 
+function toNum(v: any): number {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default async function AccountPage() {
   const cookieStore = await cookies();
   const phone = cookieStore.get('user_phone')?.value ?? '';
 
-  const initialSession = phone
-    ? { phone, isAuthenticated: true }
-    : null;
+  const initialSession = phone ? { phone, isAuthenticated: true } : null;
 
   let initialBonusData: BonusesData | null = null;
   let initialOrders: Order[] = [];
@@ -106,7 +111,6 @@ export default async function AccountPage() {
             products: {
               select: {
                 title: true,
-                image_url: true,
               },
             },
           },
@@ -115,21 +119,51 @@ export default async function AccountPage() {
       },
     });
 
+    // ✅ достаём картинки из Supabase products.images[0]
+    const productIds = Array.from(
+      new Set(
+        (ordersRaw ?? [])
+          .flatMap((o: any) => (o.order_items ?? []).map((it: any) => Number(it.product_id)))
+          .filter((id: any) => Number.isFinite(id) && id > 0),
+      ),
+    );
+
+    const imageMap = new Map<number, string | null>();
+
+    if (productIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('products')
+        .select('id, images')
+        .in('id', productIds);
+
+      if (!error && Array.isArray(data)) {
+        for (const p of data as any[]) {
+          const id = Number(p?.id);
+          const images = Array.isArray(p?.images) ? p.images : [];
+          const first = typeof images?.[0] === 'string' ? images[0] : null;
+          if (Number.isFinite(id)) imageMap.set(id, first);
+        }
+      }
+    }
+
     initialOrders = (ordersRaw ?? []).map((orderRaw: any): Order => ({
       id: orderRaw.id,
       created_at: orderRaw.created_at?.toISOString() ?? '',
-      total: Number(orderRaw.total ?? 0),
+      total: toNum(orderRaw.total),
       bonuses_used: orderRaw.bonuses_used ?? 0,
       payment_method: orderRaw.payment_method ?? 'cash',
       status: orderRaw.status ?? '',
       recipient: orderRaw.recipient ?? '',
-      items: (orderRaw.order_items ?? []).map((item: any): OrderItem => ({
-        product_id: item.product_id ?? 0,
-        quantity: item.quantity,
-        price: item.price,
-        title: item.products?.title || 'Неизвестный товар',
-        cover_url: item.products?.image_url || null,
-      })),
+      items: (orderRaw.order_items ?? []).map((item: any): OrderItem => {
+        const pid = Number(item.product_id ?? 0);
+        return {
+          product_id: pid,
+          quantity: item.quantity,
+          price: item.price,
+          title: item.products?.title || 'Неизвестный товар',
+          cover_url: imageMap.get(pid) ?? null,
+        };
+      }),
       upsell_details: Array.isArray(orderRaw.upsell_details) ? orderRaw.upsell_details : [],
     }));
   }

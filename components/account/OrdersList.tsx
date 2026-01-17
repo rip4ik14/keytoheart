@@ -84,24 +84,25 @@ export default function OrdersList({ orders }: OrdersListProps) {
       {sorted.map((o, idx) => {
         const isExpanded = expandedOrder === o.id;
 
+        // ✅ повтор заказа - приводим к формату корзины: { id: string, title, price, quantity, isUpsell?, category? }
         const draftItems = [
           ...(o.items || []).map((it) => ({
-            id: it.product_id,
+            id: String(it.product_id ?? ''),
             title: it.title,
             price: it.price,
             quantity: it.quantity,
-            imageUrl: it.cover_url || '/no-image.jpg',
+            imageUrl: it.cover_url || null,
           })),
-          ...(o.upsell_details || []).map((upsell) => ({
-            id: upsell.title,
+          ...(o.upsell_details || []).map((upsell, uidx) => ({
+            id: `upsell-${o.id}-${uidx}`,
             title: upsell.title,
             price: upsell.price,
             quantity: upsell.quantity,
-            imageUrl: '/no-image.jpg',
             isUpsell: true,
             category: upsell.category,
+            imageUrl: null,
           })),
-        ];
+        ].filter((x) => x.id && x.title);
 
         const statusText = displayStatusMap[o.status] || 'Статус не указан';
 
@@ -157,13 +158,24 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     variant="cartRed"
                     className="rounded-2xl px-4 py-3"
                     onClick={() => {
-                      const draft = { items: draftItems };
-                      localStorage.setItem('repeatDraft', JSON.stringify(draft));
-                      toast.success('Заказ скопирован в корзину');
-                      router.push('/cart');
+                      try {
+                        const draft = { items: draftItems };
 
-                      window.gtag?.('event', 'repeat_order', { event_category: 'account', order_id: o.id });
-                      if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'repeat_order', { order_id: o.id });
+                        // ✅ пишем в два ключа: если корзина слушает другой - все равно сработает
+                        localStorage.setItem('repeatDraft', JSON.stringify(draft));
+                        localStorage.setItem('cartDraft', JSON.stringify(draft));
+
+                        // ✅ и триггерим событие, если корзина на него подписана
+                        window.dispatchEvent(new Event('repeatDraft'));
+
+                        toast.success('Заказ подготовлен, открываю корзину');
+                        router.push('/cart?repeat=1');
+
+                        window.gtag?.('event', 'repeat_order', { event_category: 'account', order_id: o.id });
+                        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'repeat_order', { order_id: o.id });
+                      } catch {
+                        toast.error('Не удалось подготовить повтор заказа');
+                      }
                     }}
                     aria-label="Повторить заказ"
                   >
@@ -201,6 +213,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                               fill
                               className="object-cover"
                               sizes="48px"
+                              unoptimized
                             />
                           </div>
 
@@ -221,7 +234,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                           className="rounded-2xl border border-black/10 bg-white px-3 py-3 flex items-center gap-3"
                         >
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                            <Image src="/no-image.jpg" alt={upsell.title} fill className="object-cover" sizes="48px" />
+                            <Image src="/no-image.jpg" alt={upsell.title} fill className="object-cover" sizes="48px" unoptimized />
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -244,17 +257,11 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     <div className="mt-4 rounded-2xl border border-black/10 bg-white px-4 py-3">
                       <div className="text-sm font-semibold text-black/80">Нужна помощь?</div>
                       <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
-                        <a
-                          href="tel:+79886033821"
-                          className="inline-flex items-center gap-2 text-black hover:underline"
-                        >
+                        <a href="tel:+79886033821" className="inline-flex items-center gap-2 text-black hover:underline">
                           <Phone className="w-4 h-4" />
                           +7 (988) 603-38-21
                         </a>
-                        <a
-                          href="https://wa.me/79886033821"
-                          className="inline-flex items-center gap-2 text-black hover:underline"
-                        >
+                        <a href="https://wa.me/79886033821" className="inline-flex items-center gap-2 text-black hover:underline">
                           <MessageCircle className="w-4 h-4" />
                           WhatsApp
                         </a>

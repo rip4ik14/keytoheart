@@ -2,6 +2,7 @@
 import React from 'react';
 import OrdersTableClient from './OrdersTableClient';
 import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyAdminJwt } from '@/lib/auth';
@@ -17,6 +18,7 @@ interface Order {
   contact_name: string | null;
 
   recipient: string | null;
+  occasion: string | null;
   recipient_phone: string | null;
 
   address: string | null;
@@ -42,8 +44,30 @@ interface Order {
 
   status: string | null;
 
-  items: Array<{ id: string; title: string; price: number; quantity: number; isUpsell?: boolean; category?: string }>;
-  upsell_details: Array<{ id: string; title: string; price: number; quantity: number; category?: string }>;
+  items: Array<{
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    isUpsell?: boolean;
+    category?: string;
+
+    // ✅ новые поля для админки
+    product_url?: string;
+    image_url?: string | null;
+  }>;
+
+  upsell_details: Array<{
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    category?: string;
+
+    // ✅ если захочешь позже - можно тоже прокинуть
+    product_url?: string;
+    image_url?: string | null;
+  }>;
 }
 
 function toNumber(v: any): number | null {
@@ -64,6 +88,11 @@ function safeJsonArray(v: any): any[] {
     }
   }
   return [];
+}
+
+function toIntOrNull(v: any): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
 export default async function AdminOrdersPage() {
@@ -88,6 +117,7 @@ export default async function AdminOrdersPage() {
         contact_name: true,
 
         recipient: true,
+        occasion: true, // ✅ ДОБАВИЛИ
         recipient_phone: true,
 
         address: true,
@@ -119,15 +149,56 @@ export default async function AdminOrdersPage() {
       take: 500,
     });
 
-    orders = rows.map((o: any): Order => {
-      const itemsArr = safeJsonArray(o.items).map((it: any) => ({
-        id: String(it.id ?? ''),
-        title: String(it.title ?? it.name ?? 'Товар'),
-        price: toNumber(it.price) ?? 0,
-        quantity: Number(it.quantity ?? 1) || 1,
-        isUpsell: Boolean(it.isUpsell),
-        category: it.category ? String(it.category) : undefined,
-      }));
+    // ✅ Соберем все productId (только из основных товаров, которые без isUpsell)
+    const allProductIds: number[] = [];
+    for (const r of rows as any[]) {
+      const itemsArr = safeJsonArray(r.items);
+      for (const it of itemsArr) {
+        if (it?.isUpsell) continue;
+        const pid = toIntOrNull(it?.id);
+        if (pid && pid > 0) allProductIds.push(pid);
+      }
+    }
+
+    const uniqProductIds = Array.from(new Set(allProductIds));
+    const productMap = new Map<number, { imageUrl: string | null }>();
+
+    // ✅ Тянем картинки товаров из Supabase products (images[])
+    if (uniqProductIds.length > 0) {
+      const { data: products, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('id, images')
+        .in('id', uniqProductIds);
+
+      if (!productError && Array.isArray(products)) {
+        for (const p of products as any[]) {
+          const id = Number(p?.id);
+          const images = Array.isArray(p?.images) ? p.images : [];
+          const first = typeof images?.[0] === 'string' ? images[0] : null;
+          if (Number.isFinite(id)) productMap.set(id, { imageUrl: first });
+        }
+      }
+    }
+
+    orders = (rows as any[]).map((o: any): Order => {
+      const itemsArr = safeJsonArray(o.items).map((it: any) => {
+        const rawId = String(it.id ?? '');
+        const pid = toIntOrNull(it.id);
+        const imageUrl = pid ? productMap.get(pid)?.imageUrl ?? null : null;
+
+        return {
+          id: rawId,
+          title: String(it.title ?? it.name ?? 'Товар'),
+          price: toNumber(it.price) ?? 0,
+          quantity: Number(it.quantity ?? 1) || 1,
+          isUpsell: Boolean(it.isUpsell),
+          category: it.category ? String(it.category) : undefined,
+
+          // ✅ ссылка на страницу товара (для основного товара)
+          product_url: pid ? `/product/${pid}` : undefined,
+          image_url: imageUrl,
+        };
+      });
 
       const upsellArr = safeJsonArray(o.upsell_details).map((it: any) => ({
         id: String(it.id ?? ''),
@@ -135,6 +206,10 @@ export default async function AdminOrdersPage() {
         price: toNumber(it.price) ?? 0,
         quantity: Number(it.quantity ?? 1) || 1,
         category: it.category ? String(it.category) : undefined,
+
+        // upsell обычно не является товаром с /product/[id]
+        product_url: undefined,
+        image_url: null,
       }));
 
       return {
@@ -147,6 +222,7 @@ export default async function AdminOrdersPage() {
         contact_name: o.contact_name ?? null,
 
         recipient: o.recipient ?? null,
+        occasion: o.occasion ?? null, // ✅ ДОБАВИЛИ
         recipient_phone: o.recipient_phone ?? null,
 
         address: o.address ?? null,

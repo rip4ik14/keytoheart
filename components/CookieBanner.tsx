@@ -1,3 +1,4 @@
+// ✅ Путь: components/CookieBanner.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,7 +17,7 @@ const A_KEY = 'analyticsCookies';
 const F_KEY = 'functionalCookies';
 
 export default function CookieBanner() {
-  const [allowMount, setAllowMount] = useState(true);     // singleton guard
+  const [allowMount, setAllowMount] = useState(true); // singleton guard
   const [isVisible, setIsVisible] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [analyticsCookies, setAnalyticsCookies] = useState(false);
@@ -37,7 +38,9 @@ export default function CookieBanner() {
     mountedOnce.current = true;
 
     let hasAccepted: string | null = null;
-    try { hasAccepted = localStorage.getItem(CONSENT_KEY); } catch {}
+    try {
+      hasAccepted = localStorage.getItem(CONSENT_KEY);
+    } catch {}
     if (!hasAccepted) {
       setIsVisible(true);
       try {
@@ -92,7 +95,9 @@ export default function CookieBanner() {
         label: `Analytics:${analyticsCookies} Functional:${functionalCookies}`,
       });
       if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('consent', 'update', { analytics_storage: analyticsCookies ? 'granted' : 'denied' });
+        (window as any).gtag('consent', 'update', {
+          analytics_storage: analyticsCookies ? 'granted' : 'denied',
+        });
       }
     } catch {}
   };
@@ -121,16 +126,17 @@ export default function CookieBanner() {
       transition={{ duration: 0.35 }}
       className="
         fixed z-[1000] left-0 right-0 bottom-0 w-full mx-auto
-        bg-white text-black p-4 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.10)]
-        border-t border-gray-200 flex flex-col items-center gap-3
-        sm:max-w-md sm:left-auto sm:right-4 sm:bottom-4 sm:rounded-xl
+        bg-white text-black p-3 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.10)]
+        border-t border-gray-200 flex flex-col items-center gap-2
+        max-h-[40vh] overflow-y-auto
+        sm:max-h-none sm:max-w-md sm:left-auto sm:right-4 sm:bottom-4 sm:rounded-xl
       "
       role="dialog"
       aria-modal="true"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-desc"
     >
-      <p id="cookie-banner-desc" className="text-sm text-center px-1">
+      <p id="cookie-banner-desc" className="text-[13px] leading-snug text-center">
         Мы используем cookies для улучшения работы сайта и аналитики. Подробнее в{' '}
         <Link
           href="/cookie-policy"
@@ -144,60 +150,62 @@ export default function CookieBanner() {
       </p>
 
       {!showSettings ? (
-        <div className="flex w-full gap-3 mt-1">
+        <div className="flex w-full gap-2 mt-1">
           <button
             type="button"
             onClick={() => setShowSettings(true)}
-            className="flex-1 py-3 rounded-xl bg-gray-100 border border-gray-300 text-black text-base font-bold hover:bg-gray-200 transition-colors"
+            className="flex-1 py-2 rounded-xl bg-gray-100 border border-gray-300 text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
           >
             Подробнее
           </button>
           <button
             type="button"
             onClick={acceptAll}
-            className="flex-1 py-3 rounded-xl bg-black text-white text-base font-bold shadow hover:bg-gray-900 transition-colors"
+            className="flex-1 py-2 rounded-xl bg-black text-white text-sm font-semibold shadow hover:bg-gray-900 transition-colors"
           >
             Принять все
           </button>
         </div>
       ) : (
         <div className="w-full mt-2">
-          <div className="flex items-center mb-2">
+          <div className="flex items-start mb-2">
             <input
               type="checkbox"
               id="analytics-cookies"
               checked={analyticsCookies}
               onChange={(e) => setAnalyticsCookies(e.target.checked)}
-              className="mr-2"
+              className="mr-2 mt-1"
             />
-            <label htmlFor="analytics-cookies" className="text-sm">
+            <label htmlFor="analytics-cookies" className="text-[13px] leading-snug">
               Аналитические cookies (Яндекс.Метрика)
             </label>
           </div>
-          <div className="flex items-center mb-4">
+
+          <div className="flex items-start mb-4">
             <input
               type="checkbox"
               id="functional-cookies"
               checked={functionalCookies}
               onChange={(e) => setFunctionalCookies(e.target.checked)}
-              className="mr-2"
+              className="mr-2 mt-1"
             />
-            <label htmlFor="functional-cookies" className="text-sm">
+            <label htmlFor="functional-cookies" className="text-[13px] leading-snug">
               Функциональные cookies (предпочтения, регион доставки)
             </label>
           </div>
-          <div className="flex w-full gap-3">
+
+          <div className="flex w-full gap-2">
             <button
               type="button"
               onClick={saveSettings}
-              className="flex-1 py-3 rounded-xl bg-black text-white text-base font-bold hover:bg-gray-900 transition-colors"
+              className="flex-1 py-2 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-900 transition-colors"
             >
               Сохранить
             </button>
             <button
               type="button"
               onClick={decline}
-              className="flex-1 py-3 rounded-xl bg-gray-100 border border-gray-300 text-black text-base font-bold hover:bg-gray-200 transition-colors"
+              className="flex-1 py-2 rounded-xl bg-gray-100 border border-gray-300 text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
             >
               Отклонить
             </button>
