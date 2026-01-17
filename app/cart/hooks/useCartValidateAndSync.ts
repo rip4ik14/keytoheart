@@ -9,21 +9,29 @@ type Args = {
   items: CartItemType[];
   clearCart: () => void;
   addMultipleItems: (items: CartItemType[]) => void;
+  // ✅ NEW: чтобы не перетирало repeatDraft
+  enabled?: boolean;
 };
 
-export function useCartValidateAndSync({ items, clearCart, addMultipleItems }: Args) {
+export function useCartValidateAndSync({
+  items,
+  clearCart,
+  addMultipleItems,
+  enabled = true,
+}: Args) {
   useEffect(() => {
+    if (!enabled) return;
+
+    // ✅ NEW: если на клиенте есть repeatDraft/cartDraft - даём CartPageClient применить его первым
+    if (typeof window !== 'undefined') {
+      const hasDraft =
+        !!localStorage.getItem('repeatDraft') || !!localStorage.getItem('cartDraft');
+      if (hasDraft) return;
+    }
+
     let aborted = false;
 
     const run = async () => {
-      // ✅ ВАЖНО: если сейчас идет повтор заказа из аккаунта - не трогаем корзину,
-      // чтобы не перетереть repeatDraft до того, как CartPageClient его применит
-      if (typeof window !== 'undefined') {
-        const hasDraft =
-          !!localStorage.getItem('repeatDraft') || !!localStorage.getItem('cartDraft');
-        if (hasDraft) return;
-      }
-
       if (!items || items.length === 0) return;
 
       const payloadItems = items
@@ -85,7 +93,9 @@ export function useCartValidateAndSync({ items, clearCart, addMultipleItems }: A
             .join(', ');
 
           updated = updated.filter((it) => !removeIds.includes(it.id));
-          toast.error(`Следующие товары больше не доступны и были удалены из корзины: ${removedTitles}`);
+          toast.error(
+            `Следующие товары больше не доступны и были удалены из корзины: ${removedTitles}`,
+          );
         }
 
         if (priceUpdates.length) {
@@ -118,5 +128,5 @@ export function useCartValidateAndSync({ items, clearCart, addMultipleItems }: A
     return () => {
       aborted = true;
     };
-  }, [items, clearCart, addMultipleItems]);
+  }, [items, clearCart, addMultipleItems, enabled]);
 }

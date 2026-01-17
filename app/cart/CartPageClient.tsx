@@ -166,6 +166,7 @@ export default function CartPageClient({
 
   // ---------------------------
   // Repeat order: apply draft from Account (repeatDraft/cartDraft)
+  // IMPORTANT: must be AFTER useCheckoutForm + useUpsells (setStep/setSelectedUpsells exist)
   // ---------------------------
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -173,60 +174,123 @@ export default function CartPageClient({
     const raw = localStorage.getItem('repeatDraft') || localStorage.getItem('cartDraft');
     if (!raw) return;
 
-    try {
-      const parsed = JSON.parse(raw);
-      const draftItems: any[] = Array.isArray(parsed?.items) ? parsed.items : [];
-
-      if (draftItems.length === 0) {
-        localStorage.removeItem('repeatDraft');
-        localStorage.removeItem('cartDraft');
-        return;
-      }
-
-      // 1) split items: base vs upsell
-      const baseItems = draftItems
-        .filter((x) => !x?.isUpsell)
-        .map((x) => ({
-          id: String(x.id ?? ''),
-          title: String(x.title ?? ''),
-          price: Number(x.price ?? 0) || 0,
-          quantity: Number(x.quantity ?? 1) || 1,
-          imageUrl: x.imageUrl ? String(x.imageUrl) : undefined,
-          isUpsell: false,
-        }))
-        .filter((x) => x.id && x.title);
-
-      const upsellItems = draftItems
-        .filter((x) => !!x?.isUpsell)
-        .map((x) => ({
-          id: String(x.id ?? ''),
-          title: String(x.title ?? ''),
-          price: Number(x.price ?? 0) || 0,
-          quantity: Number(x.quantity ?? 1) || 1,
-          category: x.category ? String(x.category) : 'unknown',
-          isUpsell: true,
-        }))
-        .filter((x) => x.id && x.title);
-
-      // 2) replace current cart
-      clearCart();
-      if (baseItems.length > 0) addMultipleItems(baseItems as any);
-
-      // 3) replace upsells
-      setSelectedUpsells(upsellItems as any);
-
-      // 4) reset form step
-      setStep(1);
-
-      toast.success('Заказ перенесён в корзину');
-    } catch (e) {
-      process.env.NODE_ENV !== 'production' &&
-        console.error('[CartPageClient] repeatDraft parse/apply error', e);
-      toast.error('Не удалось повторить заказ');
-    } finally {
+    const cleanup = () => {
       localStorage.removeItem('repeatDraft');
       localStorage.removeItem('cartDraft');
-    }
+    };
+
+    const run = async () => {
+      try {
+        const parsed = JSON.parse(raw);
+        const draftItems: any[] = Array.isArray(parsed?.items) ? parsed.items : [];
+        if (draftItems.length === 0) {
+          cleanup();
+          return;
+        }
+
+        // base vs upsell
+        const draftBase = draftItems.filter((x) => !x?.isUpsell);
+        const draftUpsell = draftItems.filter((x) => !!x?.isUpsell);
+
+        // подтягиваем товары по id, чтобы гарантированно были title/image/price
+        const idsToFetch = Array.from(
+          new Set(
+            draftBase
+              .map((x) => Number(x?.id))
+              .filter((n) => Number.isFinite(n) && n > 0),
+          ),
+        );
+
+        const productsById = new Map<number, { title?: string; image_url?: string | null; price?: number | null }>();
+
+        if (idsToFetch.length > 0) {
+          try {
+            const { data, error } = await supabase
+              .from('products')
+              .select('id,title,image_url,price')
+              .in('id', idsToFetch);
+
+            if (!error && Array.isArray(data)) {
+              data.forEach((p: any) => {
+                const pid = Number(p?.id);
+                if (!Number.isFinite(pid)) return;
+                productsById.set(pid, {
+                  title: p?.title ?? undefined,
+                  image_url: p?.image_url ?? null,
+                  price: typeof p?.price === 'number' ? p.price : p?.price ? Number(p.price) : null,
+                });
+              });
+            }
+          } catch (e) {
+            process.env.NODE_ENV !== 'production' &&
+              console.error('[CartPageClient] repeatDraft products fetch failed', e);
+          }
+        }
+
+        const baseItems = draftBase
+          .map((x) => {
+            const pid = Number(x?.id);
+            const fromDb = Number.isFinite(pid) ? productsById.get(pid) : undefined;
+
+            const title = String(x?.title || fromDb?.title || '').trim();
+            const price = Number(x?.price ?? fromDb?.price ?? 0) || 0;
+            const quantity = Number(x?.quantity ?? 1) || 1;
+
+            const img =
+              (x?.imageUrl && String(x.imageUrl)) ||
+              (x?.cover_url && String(x.cover_url)) ||
+              (x?.image_url && String(x.image_url)) ||
+              (fromDb?.image_url ? String(fromDb.image_url) : '') ||
+              '';
+
+            // важно: не отдаём пустую строку в next/image
+            const safeImg = img && img.trim().length > 0 ? img : undefined;
+
+            return {
+              id: String(x?.id ?? ''),
+              title,
+              price,
+              quantity,
+              // на всякий: разные ключи под разные реализации CartItem
+              imageUrl: safeImg,
+              image_url: safeImg,
+              isUpsell: false,
+            };
+          })
+          .filter((x) => x.id && x.title);
+
+        const upsellItems = draftUpsell
+          .map((x) => ({
+            id: String(x?.id ?? ''),
+            title: String(x?.title ?? '').trim(),
+            price: Number(x?.price ?? 0) || 0,
+            quantity: Number(x?.quantity ?? 1) || 1,
+            category: x?.category ? String(x.category) : 'unknown',
+            isUpsell: true,
+          }))
+          .filter((x) => x.id && x.title);
+
+        // replace current cart
+        clearCart();
+        if (baseItems.length > 0) addMultipleItems(baseItems as any);
+
+        // replace upsells
+        setSelectedUpsells(upsellItems as any);
+
+        // reset to step 1
+        setStep(1);
+
+        toast.success('Заказ перенесён в корзину');
+      } catch (e) {
+        process.env.NODE_ENV !== 'production' &&
+          console.error('[CartPageClient] repeatDraft parse/apply error', e);
+        toast.error('Не удалось повторить заказ');
+      } finally {
+        cleanup();
+      }
+    };
+
+    run();
   }, [addMultipleItems, clearCart, setSelectedUpsells, setStep]);
 
   // ---------------------------
@@ -451,7 +515,6 @@ export default function CartPageClient({
 
     if (step >= 1) {
       hasTrackedCheckoutStartRef.current = true;
-
       trackCheckoutStart();
       (window as any).gtag?.('event', 'start_checkout', { event_category: 'cart' });
     }
@@ -502,10 +565,7 @@ export default function CartPageClient({
   }, [items]);
 
   const upsellTotal = useMemo(() => {
-    return selectedUpsells.reduce(
-      (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
-      0,
-    );
+    return selectedUpsells.reduce((sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity, 0);
   }, [selectedUpsells]);
 
   const baseTotal = subtotal + upsellTotal + deliveryCost;
@@ -516,8 +576,7 @@ export default function CartPageClient({
   }, [promoDiscount, promoType, baseTotal]);
 
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
-  const bonusesToUse =
-    useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+  const bonusesToUse = useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
 
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
@@ -532,7 +591,6 @@ export default function CartPageClient({
   useEffect(() => {
     if (lastTrackedCheckoutStepRef.current === step) return;
     lastTrackedCheckoutStepRef.current = step;
-
     trackCheckoutStep(step, { total: finalTotal, itemsCount: items.length });
   }, [step, finalTotal, items.length]);
 
@@ -622,11 +680,7 @@ export default function CartPageClient({
     }
 
     const isFormValid =
-      validateStep1() &&
-      validateStep2() &&
-      validateStep3() &&
-      validateStep4() &&
-      validateStep5(true);
+      validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(true);
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
@@ -730,8 +784,7 @@ export default function CartPageClient({
 
       if (!res.ok || !json.success) {
         setErrorModal(
-          json.error ||
-            'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
+          json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
         );
         return false;
       }
@@ -885,14 +938,7 @@ export default function CartPageClient({
       );
 
     if (s === 4)
-      return (
-        <Step4DateTime
-          form={form}
-          dateError={dateError}
-          timeError={timeError}
-          onFormChange={onFormChange as any}
-        />
-      );
+      return <Step4DateTime form={form} dateError={dateError} timeError={timeError} onFormChange={onFormChange as any} />;
 
     return <Step5Payment />;
   };
@@ -961,20 +1007,9 @@ export default function CartPageClient({
 
       {/* Mobile upsell sticky */}
       <div className="md:hidden">
-        <div
-          ref={upsellOuterRef}
-          className="sticky z-40 bg-white"
-          style={{ top: MOBILE_HEADER_OFFSET }}
-        >
-          <div
-            ref={upsellInnerRef}
-            className="px-2 sm:px-4 pt-3 pb-4"
-            style={{ transform: `translateY(${upsellShift}px)` }}
-          >
-            <UpsellButtonsMobile
-              onPostcard={() => setShowPostcard(true)}
-              onBalloons={() => setShowBalloons(true)}
-            />
+        <div ref={upsellOuterRef} className="sticky z-40 bg-white" style={{ top: MOBILE_HEADER_OFFSET }}>
+          <div ref={upsellInnerRef} className="px-2 sm:px-4 pt-3 pb-4" style={{ transform: `translateY(${upsellShift}px)` }}>
+            <UpsellButtonsMobile onPostcard={() => setShowPostcard(true)} onBalloons={() => setShowBalloons(true)} />
           </div>
         </div>
         <div className="h-3" />
@@ -988,14 +1023,9 @@ export default function CartPageClient({
               const stepNum = s as Step;
 
               const onNext =
-                stepNum === 5
-                  ? submitOrder
-                  : stepNum === step
-                    ? async () => handleNextStep()
-                    : undefined;
+                stepNum === 5 ? submitOrder : stepNum === step ? async () => handleNextStep() : undefined;
 
               const onBack = stepNum === step && stepNum !== 1 ? prevStep : undefined;
-
               const isNextDisabled = stepNum === 5 ? isSubmittingOrder : false;
 
               const showEdit = stepNum < step;
