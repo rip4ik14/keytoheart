@@ -518,6 +518,7 @@ model orders {
   delivery_method       String?        @default("delivery")
   delivery_instructions String?
   postcard_text         String?
+  occasion              String?
   promo_code            String?
   order_number          Int            @unique(map: "unique_order_number") @default(autoincrement())
   upsell_details        Json?          @default("[]")

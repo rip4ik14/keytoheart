@@ -308,7 +308,7 @@ export const articles: ArticleData[] = [
             процессе сборки.
           </li>
           <li>
-            <strong>Доставка 60 мин</strong> — можно заказать утром 1 сентября.
+            <strong>Доставка 30 мин</strong> — можно заказать утром 1 сентября.
           </li>
         </ol>
 

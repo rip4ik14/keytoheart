@@ -70,7 +70,7 @@ export async function generateMetadata({
   const cleanDesc = (data.description ?? '').replace(/<[^>]*>/g, '').trim();
   const desc =
     cleanDesc ||
-    'Клубника в шоколаде и цветочные букеты с доставкой 60 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
+    'Клубника в шоколаде и цветочные букеты с доставкой 30 мин по Краснодару. Фото перед отправкой, бесплатная открытка, удобная оплата онлайн.';
 
   const firstImg =
     Array.isArray(data.images) && data.images[0]
