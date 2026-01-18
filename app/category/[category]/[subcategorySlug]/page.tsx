@@ -140,7 +140,7 @@ export default async function SubcategoryPage({
   return (
     <main className="container mx-auto px-4 py-6" id="main-content">
       {/* ✅ Breadcrumbs сам строит путь по URL */}
-      <Breadcrumbs />
+      
 
       <h1 className="text-2xl md:text-3xl font-semibold text-black mt-4">{h1}</h1>
 
