@@ -92,6 +92,43 @@ export default function CatalogFilterModal({
     setSubIds(applied.subs);
   }, [open, applied]);
 
+  // ✅ ПАТЧ: пока фильтр открыт, поднимаем FAB "Чат" выше фиксированного футера с кнопками
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const root = document.documentElement;
+
+    // запоминаем текущее значение, чтобы корректно вернуть обратно
+    const prev = root.style.getPropertyValue('--kth-bottom-ui-h');
+
+    const apply = () => {
+      if (!open) return;
+
+      // только для мобилки, чтобы на десктопе не прыгало
+      const isMobile = !window.matchMedia('(min-width: 1024px)').matches; // lg
+      if (!isMobile) return;
+
+      // футер с кнопками примерно 80-90px + запас под safe-area
+      root.style.setProperty('--kth-bottom-ui-h', '80px');
+    };
+
+    if (open) {
+      apply();
+      window.addEventListener('resize', apply);
+    }
+
+    return () => {
+      window.removeEventListener('resize', apply);
+
+      // возвращаем как было (если было пусто - очищаем)
+      if (prev && prev.trim().length > 0) {
+        root.style.setProperty('--kth-bottom-ui-h', prev);
+      } else {
+        root.style.removeProperty('--kth-bottom-ui-h');
+      }
+    };
+  }, [open]);
+
   const currentCategory = useMemo(() => {
     if (!currentCategorySlug) return null;
     return categories.find((c) => c.slug === currentCategorySlug) || null;
@@ -168,7 +205,7 @@ export default function CatalogFilterModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[999] bg-black/40"
+          className="fixed inset-0 z-[10000] bg-black/40"
           variants={overlayVariants}
           initial="hidden"
           animate="visible"

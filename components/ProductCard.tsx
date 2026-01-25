@@ -5,7 +5,7 @@ import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Gift } from 'lucide-react';
+import { Star, ShoppingCart, Gift, Clock } from 'lucide-react';
 import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
 import Image from 'next/image';
@@ -41,6 +41,9 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
+// CSS var from StickyHeader.tsx
+const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
 export default function ProductCard({
   product,
   priority = false,
@@ -54,7 +57,6 @@ export default function ProductCard({
   const { triggerCartAnimation } = useCartAnimation();
 
   const [isMobile, setIsMobile] = useState(false);
-
   const [showToast, setShowToast] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,7 +121,7 @@ export default function ProductCard({
 
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setShowToast(true);
-    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2800);
+    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -131,22 +133,30 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  if (isMobile) {
-    const cardBorderClass = 'border-gray-200 shadow-sm';
+  // ✅ фиксируем зоны на мобилке: заголовок и низ карточки
+  const MOBILE_TITLE_H = 'h-[96px]'; // 3-4 строки спокойно
+  const MOBILE_BOTTOM_H = 'h-[112px]'; // цена/время/кнопка всегда на месте
 
+  if (isMobile) {
     return (
       <>
         <motion.div
           ref={cardRef}
           className={[
-            'relative w-full max-w-[220px] mx-auto bg-white rounded-[18px]',
-            'flex flex-col h-full',
-            'transition-all duration-200 focus:outline-none overflow-hidden border',
-            cardBorderClass,
+            'relative w-full max-w-[220px] mx-auto',
+            'rounded-[22px]',
+            'border border-black/10',
+            'bg-white/70 backdrop-blur-xl',
+            'shadow-[0_12px_40px_rgba(0,0,0,0.08)]',
+            'overflow-hidden',
+            'transition',
+            'active:scale-[0.99]',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+            'flex flex-col',
           ].join(' ')}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.28 }}
           onKeyDown={handleKeyDown}
           role="article"
           aria-labelledby={`product-${product.id}-title`}
@@ -164,7 +174,7 @@ export default function ProductCard({
                 description: product.description || 'Описание товара отсутствует',
                 sku: product.id.toString(),
                 mpn: product.id.toString(),
-                brand: { '@type': 'Brand', name: 'Labberry' },
+                brand: { '@type': 'Brand', name: 'KeyToHeart' },
                 offers: {
                   '@type': 'Offer',
                   url: `/product/${product.id}`,
@@ -180,138 +190,158 @@ export default function ProductCard({
             }}
           />
 
-          <div className="absolute top-2 right-2 z-20 pointer-events-none">
+          {/* badges */}
+          <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
             <div className="flex flex-col items-end gap-2">
               {isPopular && (
                 <motion.div
-                  className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full flex items-center font-bold shadow-sm"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-2.5 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur"
+                  initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  <Star size={16} className="text-yellow-400 mr-1" />
-                  Популярно
+                  <Star size={14} className="text-yellow-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-tight">популярно</span>
                 </motion.div>
               )}
 
               {bonus > 0 && (
                 <motion.div
-                  className="flex items-center px-2 py-1 bg-white rounded-full shadow text-[11px] font-semibold text-black border border-gray-100"
-                  style={{ transform: 'translateX(-10px)' }}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-2.5 py-1 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]"
+                  initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  +{bonus}
-                  <Image src="/icons/gift.svg" alt="" width={13} height={13} className="ml-1" draggable={false} />
+                  <Gift size={14} className="text-black/70" />
+                  <span className="text-[11px] font-semibold text-black/80">+{bonus}</span>
                 </motion.div>
               )}
             </div>
           </div>
 
+          {/* image */}
           <Link
             href={`/product/${product.id}`}
-            className="block relative w-full aspect-[3/4] transition-all duration-200 rounded-[18px] overflow-hidden"
+            className="block relative w-full aspect-[3/4] overflow-hidden"
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
           >
+            <div className="absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
             <Image
               src={imageUrl}
               alt={title}
               fill
               fetchPriority={stablePriority ? 'high' : 'auto'}
               sizes="(max-width: 640px) 100vw, 220px"
-              className="object-cover w-full h-full transition-transform duration-200 hover:scale-105"
+              className="object-cover w-full h-full transition-transform duration-300 active:scale-[1.02]"
               loading={stablePriority ? 'eager' : 'lazy'}
               priority={stablePriority}
             />
           </Link>
 
-          <div className="flex flex-col p-2 flex-1">
-            <h3
-              id={`product-${product.id}-title`}
-              className="text-sm font-medium text-black text-center leading-tight break-words"
-              title={title}
-            >
-              {title}
-            </h3>
-
-            <div className="mt-2 flex flex-col items-center">
-              <div className="flex items-center justify-center gap-2">
-                {(discountAmount > 0 || originalPrice > product.price) && (
-                  <span className="text-xs text-gray-400 line-through">{formatRuble(baseForDiscount)}₽</span>
-                )}
-                {discountAmount > 0 && (
-                  <span className="text-[11px] font-bold text-red-500">-{formatRuble(discountAmount)}₽</span>
-                )}
-                <span className="text-lg font-bold text-black">
-                  {discountAmount > 0 ? formatRuble(discountedPrice) : formatRuble(product.price)}₽
-                </span>
-              </div>
-
-              {product.production_time != null && (
-                <p className="mt-1 text-center text-xs text-gray-500 leading-snug whitespace-normal break-words">
-                  Изготовление: {productionText || 'Не указано'}
-                </p>
-              )}
+          {/* content */}
+          <div className="flex flex-col px-3 pt-2 pb-3">
+            {/* ✅ фиксированная зона под заголовок */}
+            <div className={[MOBILE_TITLE_H, 'flex items-center justify-center'].join(' ')}>
+              <h3
+                id={`product-${product.id}-title`}
+                className="text-sm font-medium text-black text-center leading-tight break-words"
+                title={title}
+              >
+                {title}
+              </h3>
             </div>
 
-            <button
-              ref={buttonRef}
-              onClick={handleAddToCart}
-              className={[
-                'mt-auto w-full',
-                'inline-flex items-center justify-center gap-2',
-                'h-[44px] px-4 rounded-full',
-                'bg-black text-white',
-                'text-[12px] font-bold uppercase tracking-tight',
-                'shadow-[0_10px_24px_rgba(0,0,0,0.18)]',
-                'active:scale-[0.98] transition',
-              ].join(' ')}
-              aria-label={`Добавить ${title} в корзину`}
-            >
-              <ShoppingCart size={18} />
-              В корзину
-            </button>
+            {/* ✅ фиксированный низ: цена/время/кнопка всегда на одной линии во всех карточках */}
+            <div className={[MOBILE_BOTTOM_H, 'flex flex-col justify-end'].join(' ')}>
+              <div className="flex flex-col items-center">
+                <div className="flex items-center justify-center gap-2">
+                  {(discountAmount > 0 || originalPrice > product.price) && (
+                    <span className="text-xs text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
+                  )}
+                  {discountAmount > 0 && (
+                    <span className="text-xs font-bold text-red-500">-{formatRuble(discountAmount)} ₽</span>
+                  )}
+                  <span className="text-lg font-bold tracking-normal text-black">{priceText}</span>
+                </div>
+
+                <div className="mt-1 h-[18px] flex items-center justify-center">
+                  {productionText ? (
+                    <div className="inline-flex items-center gap-1.5 text-xs text-black/55 leading-snug">
+                      <Clock className="h-3.5 w-3.5 text-black/45" />
+                      <span>Изготовление: {productionText}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-transparent select-none">.</span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                ref={buttonRef}
+                onClick={handleAddToCart}
+                className={[
+                  'mt-3 w-full',
+                  'inline-flex items-center justify-center gap-2',
+                  'h-[44px] px-4 rounded-full',
+                  'bg-white/70 backdrop-blur-xl',
+                  'border border-black/15',
+                  'text-black',
+                  'text-[12px] font-bold tracking-tight',
+                  'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
+                  'active:scale-[0.98]',
+                  'transition',
+                ].join(' ')}
+                aria-label={`Добавить ${title} в корзину`}
+              >
+                <ShoppingCart size={18} className="text-black/75" />
+                В корзину
+              </button>
+            </div>
           </div>
         </motion.div>
 
+        {/* ✅ toast сверху, учитывает высоту StickyHeader */}
         <AnimatePresence>
           {showToast && (
             <motion.div
               className={[
-                'fixed bottom-4 right-4 z-[9999]',
-                'max-w-[380px] w-[92%]',
-                'bg-white text-black rounded-2xl',
-                'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
-                'border border-[#ededed]',
+                'fixed left-1/2 -translate-x-1/2 z-[9999]',
+                'w-[92%] max-w-[420px]',
+                'bg-white/78 backdrop-blur-xl',
+                'text-black rounded-2xl',
+                'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+                'border border-black/10',
                 'px-3 py-3 flex items-center gap-3',
               ].join(' ')}
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 18 }}
+              style={{
+                top: `calc(var(${STICKY_HEADER_VAR}, 0px) + 12px + env(safe-area-inset-top))`,
+              }}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
             >
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
                 <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
               </div>
 
               <div className="flex flex-col flex-1 min-w-0">
-                <p className="text-sm font-semibold">Добавлено в корзину</p>
-                <p className="text-xs text-gray-600 break-words">{title}</p>
+                <p className="text-sm font-semibold">добавлено в корзину</p>
+                <p className="text-xs text-black/60 break-words">{title}</p>
               </div>
 
               <a
                 href="/cart"
                 className={[
-                  'px-3 py-1.5 rounded-xl',
+                  'px-3 py-2 rounded-xl',
                   'bg-black text-white text-xs font-semibold',
                   'uppercase tracking-tight',
-                  'hover:bg-gray-800 transition',
+                  'active:scale-[0.98] transition',
                   'flex-shrink-0',
                 ].join(' ')}
               >
-                В корзину
+                в корзину
               </a>
             </motion.div>
           )}
@@ -322,21 +352,28 @@ export default function ProductCard({
 
   const useInternalShadow = shadowMode !== 'none';
 
+  // ✅ подстрой при необходимости под свои самые длинные названия
+  const DESKTOP_TITLE_H = 'h-[50px]'; // 3-4 строки
+  const DESKTOP_META_H = 'h-[36px]'; // изготовление 1-2 строки в фиксированной зоне
+  const DESKTOP_BOTTOM_H = 'h-[104px]'; // цена + изготовление + зона кнопки
+
   return (
     <>
       <motion.div
         className={[
           'group relative w-full',
           'max-w-[220px] sm:max-w-[280px] mx-auto',
-          'rounded-[24px] bg-white',
-          'border border-[#ececec]',
+          'rounded-[26px]',
+          'bg-white/70 backdrop-blur-xl',
+          'border border-black/10',
           'overflow-hidden',
           'transition-transform duration-300',
-          'hover:scale-[1.01]', // эффект, без "реального" увеличения высоты в потоке
+          'hover:scale-[1.01]',
           useInternalShadow
-            ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_18px_44px_rgba(0,0,0,0.12)]'
+            ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.14)]'
             : 'shadow-none',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+          'flex flex-col',
         ].join(' ')}
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
@@ -350,11 +387,11 @@ export default function ProductCard({
         <div className="relative p-3 sm:p-4">
           <Link
             href={`/product/${product.id}`}
-            className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-[#f6f6f6]"
+            className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
           >
-            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/35 via-transparent to-black/10 opacity-80" />
+            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
 
             <Image
               src={imageUrl}
@@ -369,101 +406,114 @@ export default function ProductCard({
 
             <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
               {bonus > 0 && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
-                  <Gift size={14} className="text-[#4b4b4b]" />
-                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">+{bonus}</span>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                  <Gift size={14} className="text-black/70" />
+                  <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
                 </div>
               )}
 
               {productionText && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
-                  <span className="text-[11px] font-semibold tracking-tight text-[#4b4b4b]">{productionText}</span>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                  <Clock size={14} className="text-black/55" />
+                  <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
                 </div>
               )}
             </div>
 
             <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
               {isPopular && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/90 text-white px-3 py-1.5 shadow-sm">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
                   <Star size={14} className="text-yellow-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight">Популярно</span>
+                  <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
                 </div>
               )}
 
               {discountAmount > 0 && (
-                <div className="inline-flex items-center rounded-full bg-white/90 backdrop-blur px-3 py-1.5 border border-[#ededed] shadow-sm">
-                  <span className="text-[11px] font-bold tracking-tight text-black">
-                    -{formatRuble(discountAmount)} ₽
-                  </span>
+                <div className="inline-flex items-center rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                  <span className="text-[11px] font-bold tracking-tight text-black">-{formatRuble(discountAmount)} ₽</span>
                 </div>
               )}
             </div>
           </Link>
         </div>
 
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-          <h3
-            id={`product-${product.id}-title`}
-            className="text-[13px] sm:text-[14px] font-semibold leading-[1.25] text-black break-words"
-            title={title}
-          >
-            {title}
-          </h3>
+        {/* ✅ контент карточки: фиксируем зоны, чтобы низ всегда был параллелен */}
+        <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
+          {/* ✅ фикс зона названия */}
+          <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
+            <h3
+              id={`product-${product.id}-title`}
+              className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
+              title={title}
+            >
+              {title}
+            </h3>
+          </div>
 
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
-                {(discountAmount > 0 || originalPrice > product.price) && (
-                  <span className="text-[12px] text-[#9a9a9a] line-through">{formatRuble(baseForDiscount)} ₽</span>
-                )}
+          {/* ✅ фикс низ */}
+          <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
+
+                  {(discountAmount > 0 || originalPrice > product.price) && (
+                    <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
+                  )}
+                </div>
+
+                {/* ✅ зона изготовление фикс по высоте, чтобы переносы не двигали кнопку/цену */}
+                <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
+                  {productionText ? (
+                    <div className="text-[11px] text-black/55 leading-snug break-words">Изготовление: {productionText}</div>
+                  ) : (
+                    <span className="text-[11px] text-transparent select-none">.</span>
+                  )}
+                </div>
               </div>
 
-              {productionText && (
-                <div className="mt-1 text-[11px] text-[#8b8b8b] leading-snug break-words">
-                  Изготовление: {productionText}
-                </div>
-              )}
-            </div>
-
-            <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
-              <button
-                ref={buttonRef}
-                type="button"
-                onClick={handleAddToCart}
-                className={[
-                  'inline-flex items-center justify-center gap-2',
-                  'h-[44px] px-4 rounded-full',
-                  'border border-[#bdbdbd]',
-                  'bg-white text-black',
-                  'text-[12px] font-bold uppercase tracking-tight',
-                  'shadow-[0_1px_0_rgba(0,0,0,0.05)]',
-                  'transition-all duration-200',
-                  'hover:bg-black hover:text-white hover:border-black',
-                  'active:scale-[0.98]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30',
-                  'opacity-0 translate-y-2 pointer-events-none',
-                  'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
-                ].join(' ')}
-                aria-label={`Добавить ${title} в корзину`}
-              >
-                <ShoppingCart size={18} />
-                В корзину
-              </button>
+              {/* ✅ место под кнопку всегда есть, даже когда она скрыта */}
+              <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
+                <button
+                  ref={buttonRef}
+                  type="button"
+                  onClick={handleAddToCart}
+                  className={[
+                    'inline-flex items-center justify-center gap-2',
+                    'h-[44px] px-4 rounded-full',
+                    'bg-white/70 backdrop-blur-xl',
+                    'border border-black/15',
+                    'text-black',
+                    'text-[12px] font-bold uppercase tracking-tight',
+                    'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
+                    'transition-all duration-200',
+                    'hover:bg-black hover:text-white hover:border-black',
+                    'active:scale-[0.98]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+                    'opacity-0 translate-y-2 pointer-events-none',
+                    'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
+                  ].join(' ')}
+                  aria-label={`Добавить ${title} в корзину`}
+                >
+                  <ShoppingCart size={18} />
+                  в корзину
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </motion.div>
 
+      {/* toast desktop оставляем как было */}
       <AnimatePresence>
         {showToast && (
           <motion.div
             className={[
               'fixed bottom-4 right-4 z-[9999]',
               'max-w-[380px] w-[92%] sm:w-[340px]',
-              'bg-white text-black rounded-2xl',
+              'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
               'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
-              'border border-[#ededed]',
+              'border border-black/10',
               'px-3 py-3 flex items-center gap-3',
             ].join(' ')}
             initial={{ opacity: 0, y: 18 }}
@@ -471,26 +521,24 @@ export default function ProductCard({
             exit={{ opacity: 0, y: 18 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
               <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
             </div>
 
             <div className="flex flex-col flex-1 min-w-0">
-              <p className="text-sm font-semibold">Добавлено в корзину</p>
-              <p className="text-xs text-gray-600 break-words">{title}</p>
+              <p className="text-sm font-semibold">добавлено в корзину</p>
+              <p className="text-xs text-black/60 break-words">{title}</p>
             </div>
 
             <a
               href="/cart"
               className={[
-                'px-3 py-1.5 rounded-xl',
-                'bg-black text-white text-xs font-semibold',
-                'uppercase tracking-tight',
-                'hover:bg-gray-800 transition',
-                'flex-shrink-0',
+                'px-3 py-2 rounded-xl',
+                'bg-black text-white text-xs font-semibold uppercase tracking-tight',
+                'hover:bg-black/90 transition flex-shrink-0',
               ].join(' ')}
             >
-              В корзину
+              в корзину
             </a>
           </motion.div>
         )}

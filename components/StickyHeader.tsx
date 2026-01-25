@@ -1,4 +1,3 @@
-// ✅ Путь: components/StickyHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -26,9 +25,14 @@ type StickyHeaderProps = {
 const MAX_LINK =
   'https://max.ru/u/f9LHodD0cOI-9oT8wIMLqNgL9blgVvmWzHwla0t-q1TLriNRDUJsOEIedDk';
 
+// CSS var for other UI (toasts, fabs etc.)
+const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
 export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
   const router = useRouter();
+
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
 
@@ -61,6 +65,36 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     refreshAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  // expose sticky header height as CSS var (for top-toasts etc.)
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      document.documentElement.style.setProperty(STICKY_HEADER_VAR, `${h}px`);
+    };
+
+    apply();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => apply());
+      ro.observe(el);
+    }
+
+    window.addEventListener('resize', apply);
+
+    // small extra tick for font/layout stabilization
+    const t = window.setTimeout(apply, 200);
+
+    return () => {
+      window.removeEventListener('resize', apply);
+      if (ro) ro.disconnect();
+      window.clearTimeout(t);
+    };
+  }, []);
 
   useEffect(() => {
     if (totalItems > 0 && previousTotalItems === 0) {
@@ -171,6 +205,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   return (
     <>
       <header
+        ref={headerRef}
         data-sticky-header="true"
         className="sticky top-0 z-50 bg-white border-b shadow-sm"
         aria-label="Основная навигация"
@@ -212,7 +247,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 <span className="text-xs text-gray-600">с 09:00 до 22:00</span>
               </div>
 
-              {/* ✅ ИКОНКИ МЕССЕНДЖЕРОВ (desktop) */}
               <div className="flex items-center gap-2">
                 <a
                   href="https://wa.me/79886033821"
@@ -238,7 +272,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
                 </a>
 
-                {/* ✅ MAX */}
                 <a
                   href={MAX_LINK}
                   className="border rounded-full p-2 hover:bg-gray-100"
@@ -372,9 +405,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 )}
               </motion.div>
 
-              {cartSum > 0 && (
-                <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>
-              )}
+              {cartSum > 0 && <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>}
             </Link>
           </div>
         </div>
@@ -384,9 +415,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         <div className="border-t">
           <CategoryNav
             initialCategories={initialCategories}
-            showMobileFilter={
-              pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')
-            }
+            showMobileFilter={pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/')}
           />
         </div>
       </header>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 
@@ -17,9 +17,11 @@ import type { Category } from '@/types/category';
 const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), { ssr: false });
 const CookieBanner = dynamic(() => import('@components/CookieBanner'), { ssr: false });
 const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), { ssr: false });
+
+// ✅ FAB (и мобилка, и десктоп)
 const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
+
 const Footer = dynamic(() => import('@components/Footer'), { ssr: false });
-const JivoWidget = dynamic(() => import('@components/JivoWidget'), { ssr: false });
 
 export default function LayoutClient({
   children,
@@ -41,6 +43,30 @@ export default function LayoutClient({
     }
 
     return false;
+  }, [pathname]);
+
+  // ✅ Поднимаем FAB над нижней фиксированной панелью товара (чтобы не перекрывал "Комбо -10%")
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const root = document.documentElement;
+
+    const apply = () => {
+      const isProductPage = !!pathname && pathname.startsWith('/product/');
+      const isMobile = !window.matchMedia('(min-width: 1024px)').matches; // lg
+
+      // Важно: нижняя панель товара перекрывалась FAB по правому краю
+      // Поэтому даём запас побольше, чтобы FAB гарантированно жил выше кнопок
+      root.style.setProperty('--kth-bottom-ui-h', isProductPage && isMobile ? '60px' : '0px');
+    };
+
+    apply();
+    window.addEventListener('resize', apply);
+
+    return () => {
+      window.removeEventListener('resize', apply);
+      root.style.setProperty('--kth-bottom-ui-h', '0px');
+    };
   }, [pathname]);
 
   return (
@@ -72,10 +98,8 @@ export default function LayoutClient({
             {!isGiftPage && <Footer categories={categories} />}
 
             {!isGiftPage && <CookieBanner />}
-            {!isGiftPage && <MobileContactFab />}
 
-            {/* ✅ Jivo на всех страницах, кроме gift */}
-            {!isGiftPage && <JivoWidget />}
+            {!isGiftPage && <MobileContactFab />}
           </CartProvider>
         </CartAnimationProvider>
       </AuthProvider>

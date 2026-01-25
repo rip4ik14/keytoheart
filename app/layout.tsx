@@ -1,20 +1,20 @@
 // ✅ Путь: app/layout.tsx
 /* -------------------------------------------------------------------------- */
-/*  Root Layout – глобальные стили, SEO-метаданные, JSON-LD граф              */
+/*  Root Layout - глобальные стили, SEO-метаданные, JSON-LD граф              */
 /* -------------------------------------------------------------------------- */
 
 import './styles/globals.css';
 
 import localFont from 'next/font/local';
-import { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
-import JivoWidget from '@components/JivoWidget';
-import { Category } from '@/types/category';
-import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
+
+import type { Category } from '../types/category';
+import { YM_ID } from '@utils/ym'; // Яндекс.Метрика
 
 /* --------------------------- шрифты через localFont ----------------------- */
 const golosText = localFont({
@@ -34,13 +34,7 @@ const marqueeFont = localFont({
   variable: '--font-marquee',
   display: 'swap',
   preload: false,
-  src: [
-    {
-      path: '../public/fonts/MontserratMarquee.woff2',
-      weight: '900',
-      style: 'normal',
-    },
-  ],
+  src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
 /* ------------------------------ ISR -------------------------------------- */
@@ -111,18 +105,51 @@ export const viewport: Viewport = {
 /*                                ROOT LAYOUT                                */
 /* -------------------------------------------------------------------------- */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // если env не заданы - просто рендерим сайт без категорий, чтобы не падать
+  if (!supabaseUrl || !supabaseKey) {
+    return (
+      <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
+        <head>
+          <meta charSet="utf-8" />
+          <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+          <meta httpEquiv="Content-Language" content="ru" />
+          <meta name="theme-color" content="#ffffff" />
+          <meta name="yandex-verification" content="2d95e0ee66415497" />
+
+          <meta name="geo.region" content="RU-KDA" />
+          <meta name="geo.placename" content="Краснодар" />
+          <meta name="geo.position" content="45.058090;39.037611" />
+
+          <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
+          <link rel="dns-prefetch" href="https://mc.yandex.ru" />
+
+          <link rel="manifest" href="/site.webmanifest" />
+          <meta name="msapplication-TileColor" content="#ffffff" />
+        </head>
+
+        <body className={`${golosText.className} antialiased`}>
+          <DisableConsoleInProd />
+          <LayoutClient categories={[]}>{children}</LayoutClient>
+        </body>
+      </html>
+    );
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   let categories: Category[] = [];
+
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
       {
         headers: { apikey: supabaseKey },
+        // в layout у тебя стоит force-no-store, так что кеш реально не будет работать
+        // но оставляю revalidate как "на будущее", если отключишь force-no-store
         next: { revalidate: 3600 },
         signal: controller.signal,
       },
@@ -172,6 +199,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
+
         <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
@@ -305,9 +333,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         <LayoutClient categories={categories}>{children}</LayoutClient>
-
-        {/* ✅ JivoChat - global (через client компонент, чтобы не падал SSR) */}
-        <JivoWidget />
       </body>
     </html>
   );

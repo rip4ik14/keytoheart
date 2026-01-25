@@ -1,8 +1,7 @@
-// ✅ Путь: components/CookieBanner.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { trackEvent } from '@/lib/analytics';
 
@@ -13,34 +12,46 @@ declare global {
 }
 
 const CONSENT_KEY = 'cookieConsent';
-const A_KEY = 'analyticsCookies';
-const F_KEY = 'functionalCookies';
+
+// CSS var, чтобы MobileContactFab автоматически поднимался выше баннера
+const CSS_VAR = '--kth-cookie-banner-h';
 
 export default function CookieBanner() {
-  const [allowMount, setAllowMount] = useState(true); // singleton guard
   const [isVisible, setIsVisible] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [analyticsCookies, setAnalyticsCookies] = useState(false);
-  const [functionalCookies, setFunctionalCookies] = useState(false);
-  const mountedOnce = useRef(false);
 
-  // ---------- Singleton + первичная инициализация ----------
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // singleton (чтобы баннер не смонтировался дважды)
+  const isPrimaryRef = useRef(true);
+
+  const setBannerHeightVar = (px: number) => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty(CSS_VAR, `${Math.max(0, px)}px`);
+  };
+
+  const clearBannerHeightVar = () => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty(CSS_VAR, '0px');
+  };
+
+  // mount + singleton + initial check
   useEffect(() => {
-    // если баннер уже смонтирован где-то ещё — не рендерим второй
     if (typeof window !== 'undefined') {
       if (window.__cookieBannerMounted) {
-        setAllowMount(false);
+        isPrimaryRef.current = false;
+        setIsVisible(false);
+        clearBannerHeightVar();
         return;
       }
       window.__cookieBannerMounted = true;
+      isPrimaryRef.current = true;
     }
-
-    mountedOnce.current = true;
 
     let hasAccepted: string | null = null;
     try {
       hasAccepted = localStorage.getItem(CONSENT_KEY);
     } catch {}
+
     if (!hasAccepted) {
       setIsVisible(true);
       try {
@@ -48,7 +59,6 @@ export default function CookieBanner() {
       } catch {}
     }
 
-    // если в другой вкладке/инстансе изменили localStorage — закрываемся
     const onStorage = (e: StorageEvent) => {
       if (e.key === CONSENT_KEY && e.newValue) setIsVisible(false);
     };
@@ -56,162 +66,135 @@ export default function CookieBanner() {
 
     return () => {
       window.removeEventListener('storage', onStorage);
-      // освобождаем singleton-флаг
-      if (window.__cookieBannerMounted) window.__cookieBannerMounted = false;
+      clearBannerHeightVar();
+      if (typeof window !== 'undefined' && isPrimaryRef.current) {
+        window.__cookieBannerMounted = false;
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // если этот инстанс не разрешён к монтированию — ничего не рисуем
-  if (!allowMount) return null;
+  // measure height while visible
+  useLayoutEffect(() => {
+    if (!isPrimaryRef.current) {
+      clearBannerHeightVar();
+      return;
+    }
 
-  // ---------- Actions ----------
-  const acceptAll = () => {
+    if (!isVisible) {
+      clearBannerHeightVar();
+      return;
+    }
+
+    const measure = () => {
+      const el = rootRef.current;
+      if (!el) return;
+      setBannerHeightVar(el.offsetHeight);
+    };
+
+    measure();
+
+    const ro = new ResizeObserver(() => measure());
+    if (rootRef.current) ro.observe(rootRef.current);
+
+    window.addEventListener('resize', measure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible]);
+
+  const accept = () => {
     try {
       localStorage.setItem(CONSENT_KEY, 'accepted');
-      localStorage.setItem(A_KEY, 'true');
-      localStorage.setItem(F_KEY, 'true');
     } catch {}
     setIsVisible(false);
     try {
-      trackEvent({ category: 'cookie_banner', action: 'cookie_accept_all', type: 'banner' });
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('consent', 'update', { analytics_storage: 'granted' });
-      }
+      trackEvent({ category: 'cookie_banner', action: 'cookie_accept', type: 'banner' });
     } catch {}
   };
 
-  const saveSettings = () => {
-    try {
-      localStorage.setItem(CONSENT_KEY, 'custom');
-      localStorage.setItem(A_KEY, analyticsCookies ? 'true' : 'false');
-      localStorage.setItem(F_KEY, functionalCookies ? 'true' : 'false');
-    } catch {}
-    setIsVisible(false);
-    try {
-      trackEvent({
-        category: 'cookie_banner',
-        action: 'cookie_save_settings',
-        type: 'banner',
-        label: `Analytics:${analyticsCookies} Functional:${functionalCookies}`,
-      });
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('consent', 'update', {
-          analytics_storage: analyticsCookies ? 'granted' : 'denied',
-        });
-      }
-    } catch {}
-  };
-
-  const decline = () => {
-    try {
-      localStorage.setItem(CONSENT_KEY, 'declined');
-      localStorage.setItem(A_KEY, 'false');
-      localStorage.setItem(F_KEY, 'false');
-    } catch {}
-    setIsVisible(false);
-    try {
-      trackEvent({ category: 'cookie_banner', action: 'cookie_decline', type: 'banner' });
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('consent', 'update', { analytics_storage: 'denied' });
-      }
-    } catch {}
-  };
-
-  if (!isVisible) return null;
+  if (!isPrimaryRef.current) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="
-        fixed z-[1000] left-0 right-0 bottom-0 w-full mx-auto
-        bg-white text-black p-3 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.10)]
-        border-t border-gray-200 flex flex-col items-center gap-2
-        max-h-[40vh] overflow-y-auto
-        sm:max-h-none sm:max-w-md sm:left-auto sm:right-4 sm:bottom-4 sm:rounded-xl
-      "
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cookie-banner-title"
-      aria-describedby="cookie-banner-desc"
-    >
-      <p id="cookie-banner-desc" className="text-[13px] leading-snug text-center">
-        Мы используем cookies для улучшения работы сайта и аналитики. Подробнее в{' '}
-        <Link
-          href="/cookie-policy"
-          className="underline hover:text-gray-600 transition-colors"
-          aria-label="Перейти к политике использования cookies"
-          onClick={() => trackEvent({ category: 'cookie_banner', action: 'cookie_policy_click', type: 'link' })}
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          ref={rootRef}
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 18, scale: 0.98 }}
+          transition={{ duration: 0.2 }}
+          className="
+            fixed left-0 right-0 bottom-0 mx-auto
+            z-[10010]
+            px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3
+            sm:left-auto sm:right-4 sm:bottom-4 sm:px-0 sm:pb-0 sm:pt-0
+          "
+          role="dialog"
+          aria-modal="true"
+          aria-describedby="cookie-banner-desc"
+          data-cookie-banner="true"
         >
-          Политике использования cookies
-        </Link>
-        .
-      </p>
-
-      {!showSettings ? (
-        <div className="flex w-full gap-2 mt-1">
-          <button
-            type="button"
-            onClick={() => setShowSettings(true)}
-            className="flex-1 py-2 rounded-xl bg-gray-100 border border-gray-300 text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
+          <div
+            className="
+              mx-auto w-full max-w-[520px]
+              rounded-3xl
+              bg-white/82 backdrop-blur-xl
+              border border-black/10
+              shadow-[0_22px_70px_rgba(0,0,0,0.18)]
+              overflow-hidden
+            "
           >
-            Подробнее
-          </button>
-          <button
-            type="button"
-            onClick={acceptAll}
-            className="flex-1 py-2 rounded-xl bg-black text-white text-sm font-semibold shadow hover:bg-gray-900 transition-colors"
-          >
-            Принять все
-          </button>
-        </div>
-      ) : (
-        <div className="w-full mt-2">
-          <div className="flex items-start mb-2">
-            <input
-              type="checkbox"
-              id="analytics-cookies"
-              checked={analyticsCookies}
-              onChange={(e) => setAnalyticsCookies(e.target.checked)}
-              className="mr-2 mt-1"
-            />
-            <label htmlFor="analytics-cookies" className="text-[13px] leading-snug">
-              Аналитические cookies (Яндекс.Метрика)
-            </label>
-          </div>
+            <div className="px-4 pt-3.5 pb-3">
+              <p
+                id="cookie-banner-desc"
+                className="text-[13px] leading-snug text-black/80 text-center"
+              >
+                Мы используем{' '}
+                <Link
+                  href="/cookie-policy"
+                  className="underline underline-offset-2 text-black/80 hover:text-black transition-colors"
+                  aria-label="Перейти к политике cookies"
+                  onClick={() =>
+                    trackEvent({
+                      category: 'cookie_banner',
+                      action: 'cookie_policy_click',
+                      type: 'link',
+                    })
+                  }
+                >
+                  cookies
+                </Link>{' '}
+                для улучшения работы сайта и аналитики.
+              </p>
 
-          <div className="flex items-start mb-4">
-            <input
-              type="checkbox"
-              id="functional-cookies"
-              checked={functionalCookies}
-              onChange={(e) => setFunctionalCookies(e.target.checked)}
-              className="mr-2 mt-1"
-            />
-            <label htmlFor="functional-cookies" className="text-[13px] leading-snug">
-              Функциональные cookies (предпочтения, регион доставки)
-            </label>
+              <div className="mt-3">
+                <motion.button
+                  type="button"
+                  onClick={accept}
+                  whileTap={{ scale: 0.98 }}
+                  className="
+                    w-full
+                    h-12
+                    rounded-2xl
+                    bg-white/88 backdrop-blur
+                    border border-black/10
+                    shadow-[0_12px_35px_rgba(0,0,0,0.12)]
+                    text-sm font-semibold text-black
+                    transition
+                    hover:bg-white
+                  "
+                >
+                  Согласен
+                </motion.button>
+              </div>
+            </div>
           </div>
-
-          <div className="flex w-full gap-2">
-            <button
-              type="button"
-              onClick={saveSettings}
-              className="flex-1 py-2 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-900 transition-colors"
-            >
-              Сохранить
-            </button>
-            <button
-              type="button"
-              onClick={decline}
-              className="flex-1 py-2 rounded-xl bg-gray-100 border border-gray-300 text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
-            >
-              Отклонить
-            </button>
-          </div>
-        </div>
+        </motion.div>
       )}
-    </motion.div>
+    </AnimatePresence>
   );
 }
