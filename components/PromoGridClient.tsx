@@ -66,6 +66,64 @@ export default function PromoGridClient({
 
   if (!banners.length && !cards.length) return null;
 
+  // --- helpers для позиционирования капсул как в рефе ---
+  const getPillPosClass = (idx: number) => {
+    // 0: верх-лево (сверху слева)
+    // 1: верх-право (снизу слева)
+    // 2: низ-лево (снизу слева)
+    // 3: низ-право (сверху слева)
+    if (idx === 1 || idx === 2) return 'left-3 bottom-3';
+    return 'left-3 top-3';
+  };
+
+  const Card = (c: PromoBlock, idx: number, eager?: boolean) => (
+    <Link
+      key={c.id}
+      href={c.href}
+      className="group relative overflow-hidden rounded-[24px] block h-full w-full"
+      title={c.title}
+    >
+      <Image
+        src={c.image_url}
+        alt={c.title}
+        fill
+        sizes="(max-width: 1024px) 320px, 260px"
+        loading={eager ? 'eager' : 'lazy'}
+        priority={!!eager}
+        fetchPriority={eager ? 'high' : undefined}
+        placeholder="blur"
+        blurDataURL={BLUR_SRC}
+        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+      />
+
+      {/* лёгкий затемняющий слой на hover как в ecom */}
+      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+
+      {/* капсула - как в рефе, позиции: часть сверху, часть снизу */}
+      <span
+        className={`
+          absolute ${getPillPosClass(idx)} z-10
+          inline-flex w-fit max-w-[calc(100%-24px)]
+          items-center
+          rounded-full
+          bg-white/85 backdrop-blur
+          px-3 py-[6px]
+          text-[12px] font-medium text-black
+          shadow-[0_6px_18px_rgba(0,0,0,0.18)]
+        `}
+        style={{
+          lineHeight: '1.05',
+          whiteSpace: 'normal',
+          wordBreak: 'break-word',
+        }}
+      >
+        {c.title}
+      </span>
+    </Link>
+  );
+
+  const desktopCards = cards.slice(0, 4);
+
   return (
     <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-labelledby="promo-grid-title">
       <h2 id="promo-grid-title" className="sr-only">
@@ -198,35 +256,19 @@ export default function PromoGridClient({
           </div>
         </div>
 
-        {/* ================== КАРТОЧКИ (desktop) ================== */}
-        <div className="hidden lg:grid h-full grid-cols-2 grid-rows-2 gap-[20px] auto-rows-fr min-h-[320px]">
-          {cards.slice(0, 4).map((c, i) => (
-            <div key={c.id} className="relative w-full h-full overflow-hidden rounded-[24px] transition-transform duration-300">
-              <Link href={c.href} className="group block h-full w-full" title={c.title}>
-                <div className="relative w-full h-full rounded-[24px] overflow-hidden">
-                  <Image
-                    src={c.image_url}
-                    alt={c.title}
-                    fill
-                    sizes="(max-width: 1024px) 320px, 240px"
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    priority={i === 0}
-                    fetchPriority={i === 0 ? 'high' : undefined}
-                    placeholder="blur"
-                    blurDataURL={BLUR_SRC}
-                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-[24px]"
-                  />
-                  <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/30" />
-                  <span
-                    className="absolute bottom-3 left-3 z-10 px-3 py-2 bg-white/80 rounded-full text-xs lg:text-sm font-semibold text-black shadow-sm flex items-center whitespace-normal break-words max-w-[calc(100%-24px)] min-h-[28px] transition-all"
-                    style={{ lineHeight: '1.2' }}
-                  >
-                    {c.title}
-                  </span>
-                </div>
-              </Link>
-            </div>
-          ))}
+        {/* ================== КАРТОЧКИ (desktop, мозаика как Labberry) ================== */}
+        <div className="hidden lg:flex h-full gap-[20px]">
+          {/* левая колонка: высокая + низкая */}
+          <div className="flex-1 flex flex-col gap-[20px] min-h-0">
+            <div className="flex-[6] min-h-0">{desktopCards[0] && Card(desktopCards[0], 0, true)}</div>
+            <div className="flex-[4] min-h-0">{desktopCards[2] && Card(desktopCards[2], 2)}</div>
+          </div>
+
+          {/* правая колонка: низкая + высокая */}
+          <div className="flex-1 flex flex-col gap-[20px] min-h-0">
+            <div className="flex-[4] min-h-0">{desktopCards[1] && Card(desktopCards[1], 1)}</div>
+            <div className="flex-[6] min-h-0">{desktopCards[3] && Card(desktopCards[3], 3)}</div>
+          </div>
         </div>
       </div>
 
