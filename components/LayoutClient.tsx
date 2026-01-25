@@ -1,4 +1,3 @@
-// ✅ Путь: components/LayoutClient.tsx
 'use client';
 
 import { Suspense, useMemo } from 'react';
@@ -20,6 +19,7 @@ const CookieBanner = dynamic(() => import('@components/CookieBanner'), { ssr: fa
 const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), { ssr: false });
 const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
 const Footer = dynamic(() => import('@components/Footer'), { ssr: false });
+const JivoWidget = dynamic(() => import('@components/JivoWidget'), { ssr: false });
 
 export default function LayoutClient({
   children,
@@ -30,13 +30,10 @@ export default function LayoutClient({
 }) {
   const pathname = usePathname();
 
-  const isCartPage = pathname === '/cart' || pathname?.startsWith('/cart/');
-
   const isGiftPage = useMemo(() => {
     if (!pathname) return false;
 
     const GIFT_ROUTES = new Set<string>(['/regina2026', '/anya2026']);
-
     if (GIFT_ROUTES.has(pathname)) return true;
 
     for (const r of GIFT_ROUTES) {
@@ -62,7 +59,6 @@ export default function LayoutClient({
               </Suspense>
             )}
 
-            {/* ✅ Убрали font-sans отсюда. Шрифт теперь задаётся на body в app/layout.tsx */}
             <main id="main-content" tabIndex={-1} className={isGiftPage ? '' : 'pt-12 sm:pt-14'}>
               {children}
             </main>
@@ -77,6 +73,9 @@ export default function LayoutClient({
 
             {!isGiftPage && <CookieBanner />}
             {!isGiftPage && <MobileContactFab />}
+
+            {/* ✅ Jivo на всех страницах, кроме gift */}
+            {!isGiftPage && <JivoWidget />}
           </CartProvider>
         </CartAnimationProvider>
       </AuthProvider>

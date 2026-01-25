@@ -9,10 +9,10 @@ const isDev = process.env.NODE_ENV !== 'production';
 /* ------------------------- Content-Security-Policy ------------------------- */
 /**
  * JivoChat requires:
- * - script-src: https://code.jivo.ru
- * - connect-src: https://*.jivosite.com https://node.jivosite.com (and sometimes wss://*)
- * - img-src: https://*.jivosite.com data: blob:
- * - frame-src: sometimes used for internal flows (safe to allow jivosite)
+ * - script-src: https://code.jivo.ru (и иногда *.jivo.ru)
+ * - connect-src: https://*.jivosite.com https://node.jivosite.com + wss
+ * - img-src: https://*.jivosite.com + data/blob
+ * - frame/child-src: https://*.jivosite.com (иногда)
  */
 const buildCsp = () => {
   const COMMON = {
@@ -49,7 +49,7 @@ const buildCsp = () => {
       'https://yastatic.net',
       'https://ymetrica1.com',
 
-      // ✅ Jivo (API + realtime)
+      // ✅ Jivo
       'https://*.jivosite.com',
       'https://node.jivosite.com',
       'wss://*.jivosite.com',
@@ -63,7 +63,7 @@ const buildCsp = () => {
       'https://yandex.ru',
       'https://*.yandex.ru',
 
-      // ✅ Jivo (на всякий случай)
+      // ✅ Jivo
       'https://*.jivosite.com',
     ],
   };
@@ -78,8 +78,9 @@ const buildCsp = () => {
     'https://*.yastatic.net',
     'https://cdn.turbo.yandex.ru',
 
-    // ✅ Jivo main script
+    // ✅ Jivo
     'https://code.jivo.ru',
+    'https://*.jivo.ru',
   ];
 
   if (isDev) SCRIPT_SRC.push("'unsafe-eval'");
@@ -92,6 +93,7 @@ const buildCsp = () => {
     `connect-src ${COMMON.connect.join(' ')};`,
     `font-src ${COMMON.font.join(' ')};`,
     `frame-src ${COMMON.frame.join(' ')};`,
+    `child-src ${COMMON.frame.join(' ')};`,
     "object-src 'none'; base-uri 'self'; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none';",
   ].join(' ');
 };
