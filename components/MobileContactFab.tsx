@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import { HelpCircle, X } from 'lucide-react';
 
@@ -14,9 +15,16 @@ const PHONE = '+79886033821';
 const MAX_LINK =
   'https://max.ru/u/f9LHodD0cOI-9oT8wIMLqNgL9blgVvmWzHwla0t-q1TLriNRDUJsOEIedDk';
 
-// авто-открытие: 40 секунд, только на первой странице входа, 1 раз за сессию
-const AUTO_OPEN_MS = 40_000;
-const AUTO_OPEN_SESSION_KEY = 'kth_contactfab_autoopened_v1';
+// UX keys
+const FIRST_HINT_KEY = 'kth_contactfab_first_visit_hint_v1';
+const DAILY_HINT_KEY = 'kth_contactfab_hint_ts';
+const PRODUCT_HINT_KEY = 'kth_contactfab_product_hint_ts';
+
+// умное авто-открытие: 1 раз за сессию и только если юзер "завис" без действий
+const AUTO_OPEN_SESSION_KEY = 'kth_contactfab_autoopened_v2';
+const AUTO_OPEN_AFTER_MS = 32_000; // не слишком быстро
+const AUTO_OPEN_IDLE_MS = 8_000; // открыть только если был простой
+const AUTO_OPEN_MIN_SCROLL_PX = 260;
 
 // CSS var, которую выставляет CookieBanner
 const COOKIE_BANNER_VAR = '--kth-cookie-banner-h';
@@ -41,7 +49,7 @@ function track(channel: Channel) {
   }
 }
 
-// “псевдо-хаптик” - микровибрация если доступно, иначе просто ничего
+// “псевдо-хаптик”
 function haptic(light = true) {
   try {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -51,17 +59,27 @@ function haptic(light = true) {
 }
 
 export default function MobileContactFab() {
+  const pathname = usePathname() || '/';
+
   const [open, setOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [hintText, setHintText] = useState<string>('Нужна помощь? Жми "Чат"');
 
   // чтобы авто-открытие не срабатывало, если человек начал ходить по страницам
   const initialPathRef = useRef<string | null>(null);
 
-  // для desktop-режима (без bottom sheet), будет popover справа снизу
+  // desktop режим
   const [isDesktop, setIsDesktop] = useState(false);
 
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  // поведение (умный триггер)
+  const mountedAtRef = useRef<number>(Date.now());
+  const lastInteractionRef = useRef<number>(Date.now());
+  const maxScrollRef = useRef<number>(0);
+  const suppressedRef = useRef<boolean>(false); // если был явный "интент покупки"
+  const lastPathRef = useRef<string>(pathname);
 
   const links = useMemo(() => {
     return {
@@ -71,6 +89,21 @@ export default function MobileContactFab() {
       tel: `tel:${PHONE}`,
     };
   }, []);
+
+  const isProductPage = useMemo(() => {
+    // /product/[id] или /product/...
+    return pathname === '/product' || pathname.startsWith('/product/');
+  }, [pathname]);
+
+  const isHighIntentPage = useMemo(() => {
+    // страницы, где авто-открытие не нужно
+    return (
+      pathname.startsWith('/cart') ||
+      pathname.startsWith('/checkout') ||
+      pathname.startsWith('/order') ||
+      pathname.startsWith('/payment')
+    );
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -87,48 +120,244 @@ export default function MobileContactFab() {
     if (!initialPathRef.current) initialPathRef.current = window.location.pathname;
   }, []);
 
-  // авто-открытие через 40 секунд: только на первой странице входа и 1 раз за сессию
+  // если человек ушёл на cart/checkout - не надо больше пытаться авто-открывать в этой сессии
+  useEffect(() => {
+    if (isHighIntentPage) {
+      suppressedRef.current = true;
+      try {
+        sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+      } catch {}
+    }
+  }, [isHighIntentPage]);
+
+  // трекинг взаимодействий: чтобы авто-открытие было только при "простое"
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const already = sessionStorage.getItem(AUTO_OPEN_SESSION_KEY);
-    if (already === '1') return;
+    const markInteraction = () => {
+      lastInteractionRef.current = Date.now();
+    };
 
-    const t = window.setTimeout(() => {
-      const initialPath = initialPathRef.current;
-      const currentPath = window.location.pathname;
+    const onScroll = () => {
+      markInteraction();
+      maxScrollRef.current = Math.max(maxScrollRef.current, window.scrollY || 0);
+    };
 
-      // если пользователь ушел на другую страницу - не открываем
-      if (!initialPath || currentPath !== initialPath) return;
+    const onPointer = () => markInteraction();
+    const onKey = () => markInteraction();
 
-      // если уже открыто - не надо
-      if (open) return;
+    // "интент покупки" по кликам
+    const onClickCapture = (e: MouseEvent) => {
+      markInteraction();
 
-      sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
-      setOpen(true);
-      setShowHint(false);
-    }, AUTO_OPEN_MS);
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
 
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      const el = target.closest('button, a') as HTMLElement | null;
+      if (!el) return;
+
+      const text = (el.textContent || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+
+      // если юзер явно нажал "в корзину" или пошел в корзину/оформление - не отвлекаем авто-чатом
+      const looksLikeAdd =
+        text.includes('в корзину') ||
+        aria.includes('в корзину') ||
+        text.includes('оформ') ||
+        aria.includes('оформ') ||
+        text.includes('перейти в корзину') ||
+        aria.includes('перейти в корзину');
+
+      const looksLikeCart =
+        (el as HTMLAnchorElement).getAttribute?.('href')?.includes('/cart') ||
+        text.includes('корзин') ||
+        aria.includes('корзин');
+
+      if (looksLikeAdd || looksLikeCart) {
+        suppressedRef.current = true;
+        try {
+          sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+        } catch {}
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pointerdown', onPointer, { passive: true });
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('click', onClickCapture, { capture: true });
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('click', onClickCapture, { capture: true } as any);
+    };
   }, []);
 
-  // Подсказка 1 раз в сутки, через 10 секунд
+  // не раздражающий "первый визит" hint (1 раз на устройство)
   useEffect(() => {
-    const KEY = 'kth_contactfab_hint_ts';
-    const last = Number(localStorage.getItem(KEY) || '0');
+    if (typeof window === 'undefined') return;
+
+    let already = false;
+    try {
+      already = localStorage.getItem(FIRST_HINT_KEY) === '1';
+    } catch {}
+
+    if (already) return;
+
+    const t = window.setTimeout(() => {
+      if (open) return;
+
+      setHintText('Есть поддержка - поможем выбрать в чате');
+      setShowHint(true);
+
+      try {
+        localStorage.setItem(FIRST_HINT_KEY, '1');
+      } catch {}
+
+      window.setTimeout(() => setShowHint(false), 6500);
+    }, 2800);
+
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  // "умный" hint на карточке товара (1 раз в сутки)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isProductPage) return;
+
     const day = 24 * 60 * 60 * 1000;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(PRODUCT_HINT_KEY) || '0');
+    } catch {}
 
     if (Date.now() - last < day) return;
 
     const t = window.setTimeout(() => {
-      if (!open) setShowHint(true);
-      localStorage.setItem(KEY, String(Date.now()));
-      window.setTimeout(() => setShowHint(false), 4500);
-    }, 10_000);
+      if (open) return;
+
+      setHintText('Вопрос по составу или доставке? Напиши - ответим быстро');
+      setShowHint(true);
+
+      try {
+        localStorage.setItem(PRODUCT_HINT_KEY, String(Date.now()));
+      } catch {}
+
+      window.setTimeout(() => setShowHint(false), 7000);
+    }, 8500);
 
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [isProductPage, open]);
+
+  // общий daily hint (бережно, как было, но без "лишних" показов)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // если только что показывали первый hint - не надо дублировать daily
+    let firstShown = false;
+    try {
+      firstShown = localStorage.getItem(FIRST_HINT_KEY) === '1';
+    } catch {}
+
+    // daily подсказка логичнее тем, кто не на карточке товара (там есть отдельная)
+    if (isProductPage) return;
+
+    const day = 24 * 60 * 60 * 1000;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(DAILY_HINT_KEY) || '0');
+    } catch {}
+
+    if (Date.now() - last < day) return;
+
+    const t = window.setTimeout(() => {
+      if (open) return;
+      if (!firstShown) return; // если это прям первый визит, уже показали мягкий hint выше
+
+      setHintText('Нужна помощь? Жми "Чат"');
+      setShowHint(true);
+
+      try {
+        localStorage.setItem(DAILY_HINT_KEY, String(Date.now()));
+      } catch {}
+
+      window.setTimeout(() => setShowHint(false), 4500);
+    }, 12_000);
+
+    return () => window.clearTimeout(t);
+  }, [open, isProductPage]);
+
+  // умное авто-открытие: только если пользователь "завис" и не проявил покупательский интент
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // если модалка открыта - не надо
+    if (open) return;
+
+    // если страница "интентная" (cart/checkout) - не надо
+    if (isHighIntentPage) return;
+
+    let already = false;
+    try {
+      already = sessionStorage.getItem(AUTO_OPEN_SESSION_KEY) === '1';
+    } catch {}
+
+    if (already) return;
+
+    // если юзер уже сделал "интент покупки" - не отвлекаем
+    if (suppressedRef.current) return;
+
+    // при смене маршрута считаем, что "условия" сбросились
+    if (lastPathRef.current !== pathname) {
+      lastPathRef.current = pathname;
+      mountedAtRef.current = Date.now();
+      lastInteractionRef.current = Date.now();
+      maxScrollRef.current = window.scrollY || 0;
+    }
+
+    const timer = window.setTimeout(() => {
+      const initialPath = initialPathRef.current;
+      const currentPath = window.location.pathname;
+
+      // если пользователь ушел с первой страницы входа - не открываем
+      // но если это карточка товара (часто заходят с каталога) - допускаем авто-открытие по текущей
+      const allowByContext = isProductPage;
+      if (!allowByContext) {
+        if (!initialPath || currentPath !== initialPath) return;
+      }
+
+      if (open) return;
+
+      // если за это время проявился интент - не открываем
+      if (suppressedRef.current) return;
+
+      const now = Date.now();
+      const idleFor = now - lastInteractionRef.current;
+      const timeOnPage = now - mountedAtRef.current;
+      const scrolled = maxScrollRef.current;
+
+      // открываем только если:
+      // - прошло достаточно времени
+      // - был простой (idle)
+      // - юзер хоть как-то взаимодействовал со страницей (скроллил), либо это карточка товара
+      const ok =
+        timeOnPage >= AUTO_OPEN_AFTER_MS &&
+        idleFor >= AUTO_OPEN_IDLE_MS &&
+        (isProductPage || scrolled >= AUTO_OPEN_MIN_SCROLL_PX);
+
+      if (!ok) return;
+
+      try {
+        sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+      } catch {}
+
+      setOpen(true);
+      setShowHint(false);
+    }, AUTO_OPEN_AFTER_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [pathname, open, isProductPage, isHighIntentPage]);
 
   // ESC close
   useEffect(() => {
@@ -139,7 +368,7 @@ export default function MobileContactFab() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // lock body scroll when open (только для мобилки, на десктопе это поповер)
+  // lock body scroll when open (только для мобилки)
   useEffect(() => {
     if (!open) return;
     if (isDesktop) return;
@@ -155,6 +384,11 @@ export default function MobileContactFab() {
     haptic(true);
     setOpen(true);
     setShowHint(false);
+
+    // если человек сам открыл - считаем, что "поддержка найдена", авто-открытие больше не нужно
+    try {
+      sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+    } catch {}
   };
 
   const closeSheet = () => {
@@ -184,6 +418,11 @@ export default function MobileContactFab() {
           haptic(true);
           track(channel);
           setOpen(false);
+
+          // если юзер ушел в мессенджер, авто-открытие не нужно
+          try {
+            sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+          } catch {}
         }}
         className="
           group
@@ -220,7 +459,6 @@ export default function MobileContactFab() {
     );
   };
 
-  // десктопный пункт “Позвонить”
   const CallItem = ({
     title,
     subtitle,
@@ -246,6 +484,10 @@ export default function MobileContactFab() {
           if (YM_ID !== undefined) {
             callYm(YM_ID, 'reachGoal', 'contact_call', { source: 'fab' });
           }
+
+          try {
+            sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
+          } catch {}
         }}
         className="
           group
@@ -284,9 +526,9 @@ export default function MobileContactFab() {
 
   return (
     <>
-      {/* FAB: поднимается вверх на высоту CookieBanner и нижней панели товара, чтобы не перекрывать UI */}
+      {/* FAB: поднимается вверх на высоту CookieBanner и нижней панели товара */}
       <div
-        className="fixed right-4 z-[9999]"
+        className="fixed right-4 z-[20000]"
         style={{
           bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
         }}
@@ -307,10 +549,9 @@ export default function MobileContactFab() {
                   shadow-[0_10px_30px_rgba(0,0,0,0.10)]
                   text-xs font-medium text-black/80
                   whitespace-nowrap
-                  sm:hidden
                 "
               >
-                Нужна помощь? Жми “Чат”
+                {hintText}
               </motion.div>
             )}
           </AnimatePresence>
@@ -360,7 +601,7 @@ export default function MobileContactFab() {
               type="button"
               aria-label="Закрыть чат"
               onClick={closeSheet}
-              className="fixed inset-0 z-[9998] bg-black/35 sm:hidden"
+              className="fixed inset-0 z-[19998] bg-black/35 sm:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -369,7 +610,7 @@ export default function MobileContactFab() {
             <motion.div
               ref={sheetRef}
               className="
-                fixed left-0 right-0 bottom-0 z-[9999] sm:hidden
+                fixed left-0 right-0 bottom-0 z-[19999] sm:hidden
                 rounded-t-[28px]
                 bg-white
                 border-t border-black/10
@@ -440,7 +681,13 @@ export default function MobileContactFab() {
                     href={links.whatsapp}
                     channel="whatsapp"
                   />
-                  <Item title="MAX" subtitle="актуально" iconSrc="/icons/max.svg" href={links.max} channel="max" />
+                  <Item
+                    title="MAX"
+                    subtitle="актуально"
+                    iconSrc="/icons/max.svg"
+                    href={links.max}
+                    channel="max"
+                  />
                 </div>
 
                 <div className="mt-4 text-[11px] leading-4 text-black/45">
@@ -460,7 +707,7 @@ export default function MobileContactFab() {
               type="button"
               aria-label="Закрыть чат"
               onClick={closeSheet}
-              className="fixed inset-0 z-[9998] bg-black/25 hidden sm:block"
+              className="fixed inset-0 z-[19998] bg-black/25 hidden sm:block"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -468,7 +715,7 @@ export default function MobileContactFab() {
 
             <motion.div
               className="
-                fixed z-[9999]
+                fixed z-[19999]
                 right-4 bottom-20
                 hidden sm:block
                 w-[360px]
@@ -517,9 +764,27 @@ export default function MobileContactFab() {
 
                 <div className="px-5 pb-5">
                   <div className="grid grid-cols-4 gap-2">
-                    <Item title="Telegram" subtitle="быстро" iconSrc="/icons/telegram.svg" href={links.telegram} channel="telegram" />
-                    <Item title="WhatsApp" subtitle="удобно" iconSrc="/icons/whatsapp.svg" href={links.whatsapp} channel="whatsapp" />
-                    <Item title="MAX" subtitle="актуально" iconSrc="/icons/max.svg" href={links.max} channel="max" />
+                    <Item
+                      title="Telegram"
+                      subtitle="быстро"
+                      iconSrc="/icons/telegram.svg"
+                      href={links.telegram}
+                      channel="telegram"
+                    />
+                    <Item
+                      title="WhatsApp"
+                      subtitle="удобно"
+                      iconSrc="/icons/whatsapp.svg"
+                      href={links.whatsapp}
+                      channel="whatsapp"
+                    />
+                    <Item
+                      title="MAX"
+                      subtitle="актуально"
+                      iconSrc="/icons/max.svg"
+                      href={links.max}
+                      channel="max"
+                    />
                     <CallItem title="Звонок" subtitle="с 09:00 до 22:00" iconSrc="/icons/phone.svg" href={links.tel} />
                   </div>
 
