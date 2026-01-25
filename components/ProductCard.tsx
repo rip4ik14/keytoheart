@@ -67,7 +67,10 @@ export default function ProductCard({
 
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ✅ фикс "двойного мигания" (dev StrictMode и любые двойные вызовы)
+  // ✅ защита от гонки таймеров (старый таймер не погасит новый тост)
+  const toastSeqRef = useRef(0);
+
+  // ✅ фикс "двойного мигания" (двойные клики и любые быстрые повторные вызовы)
   const toastLockRef = useRef<number>(0);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -121,7 +124,7 @@ export default function ProductCard({
 
   const handleAddToCart = () => {
     const now = Date.now();
-    if (now - toastLockRef.current < 350) return;
+    if (now - toastLockRef.current < 180) return; // чуть мягче, чтобы не мешать пользователю
     toastLockRef.current = now;
 
     addItem({
@@ -145,9 +148,17 @@ export default function ProductCard({
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
 
+    // ✅ toast без мерцания: продлеваем показ, старый таймер не может погасить новый
+    toastSeqRef.current += 1;
+    const seq = toastSeqRef.current;
+
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+
     setShowToast(true);
-    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
+
+    toastTimeoutRef.current = setTimeout(() => {
+      if (toastSeqRef.current === seq) setShowToast(false);
+    }, 2400);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -167,10 +178,14 @@ export default function ProductCard({
   const MobileToast = () => {
     if (!mounted || !showToast) return null;
 
+    // ✅ key завязан на seq: при повторном нажатии можно "переиграть" анимацию мягко
+    const overlayKey = `kth-mobile-toast-overlay-${toastSeqRef.current}`;
+    const toastKey = `kth-mobile-toast-${toastSeqRef.current}`;
+
     return createPortal(
       <AnimatePresence>
         <motion.div
-          key="kth-mobile-toast-overlay"
+          key={overlayKey}
           className="fixed inset-0 z-[2147483647] flex items-center justify-center px-4"
           style={{
             paddingTop: `calc(16px + env(safe-area-inset-top))`,
@@ -183,7 +198,7 @@ export default function ProductCard({
           aria-live="polite"
         >
           <motion.div
-            key="kth-mobile-toast"
+            key={toastKey}
             className={[
               'w-full max-w-[420px]',
               'bg-white/78 backdrop-blur-xl',
@@ -388,6 +403,9 @@ export default function ProductCard({
   const DESKTOP_META_H = 'h-[36px]';
   const DESKTOP_BOTTOM_H = 'h-[104px]';
 
+  // ✅ key завязан на seq: повторный клик мягко переиграет анимацию (без мерцания)
+  const desktopToastKey = `kth-desktop-toast-${toastSeqRef.current}`;
+
   return (
     <>
       <motion.div
@@ -530,10 +548,11 @@ export default function ProductCard({
         </div>
       </motion.div>
 
-      {/* ✅ desktop toast: убрали кнопку, только "добавлено" */}
+      {/* ✅ desktop toast: без кнопки, только "добавлено" */}
       <AnimatePresence>
         {showToast && (
           <motion.div
+            key={desktopToastKey}
             className={[
               'fixed bottom-4 right-4 z-[9999]',
               'max-w-[380px] w-[92%] sm:w-[340px]',
@@ -542,9 +561,9 @@ export default function ProductCard({
               'border border-black/10',
               'px-3 py-3 flex items-center gap-3',
             ].join(' ')}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             aria-live="polite"
           >
