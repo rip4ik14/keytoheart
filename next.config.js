@@ -8,8 +8,10 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 /* ------------------------- Content-Security-Policy ------------------------- */
 /**
+ * Yandex + Supabase + JivoChat CSP
  * JivoChat requires:
  * - script-src: https://code.jivo.ru (и иногда *.jivo.ru)
+ * - style-src: https://code.jivo.ru (widget.css)
  * - connect-src: https://*.jivosite.com https://node.jivosite.com + wss
  * - img-src: https://*.jivosite.com + data/blob
  * - frame/child-src: https://*.jivosite.com (иногда)
@@ -17,7 +19,19 @@ const isDev = process.env.NODE_ENV !== 'production';
 const buildCsp = () => {
   const COMMON = {
     default: ["'self'"],
-    style: ["'self'", "'unsafe-inline'", 'https://yastatic.net', 'https://*.yastatic.net'],
+
+    // ✅ важно: code.jivo.ru должен быть и тут, иначе widget.css будет блокироваться
+    style: [
+      "'self'",
+      "'unsafe-inline'",
+      'https://yastatic.net',
+      'https://*.yastatic.net',
+
+      // ✅ Jivo styles
+      'https://code.jivo.ru',
+      'https://*.jivo.ru',
+    ],
+
     img: [
       "'self'",
       'data:',
@@ -33,32 +47,34 @@ const buildCsp = () => {
       'https://yastatic.net',
       'https://*.yastatic.net',
 
-      // ✅ Jivo
+      // ✅ Jivo images/assets
       'https://*.jivosite.com',
-      'https://*.jivo.ru',
       'https://code.jivo.ru',
+      'https://*.jivo.ru',
     ],
-    connect: [
-  "'self'",
-  'ws:',
-  'wss:',
-  'https://*.supabase.co',
-  'https://mc.yandex.com',
-  'https://mc.yandex.ru',
-  'https://api-maps.yandex.ru',
-  'https://yastatic.net',
-  'https://ymetrica1.com',
 
-  // ✅ Jivo (API + realtime)
-  'https://code.jivo.ru',
-  'https://*.jivo.ru',
-  'https://*.jivosite.com',
-  'https://node.jivosite.com',
-  'wss://*.jivosite.com',
-  'wss://node.jivosite.com',
-],
+    connect: [
+      "'self'",
+      'ws:',
+      'wss:',
+      'https://*.supabase.co',
+      'https://mc.yandex.com',
+      'https://mc.yandex.ru',
+      'https://api-maps.yandex.ru',
+      'https://yastatic.net',
+      'https://ymetrica1.com',
+
+      // ✅ Jivo (API + realtime)
+      'https://code.jivo.ru',
+      'https://*.jivo.ru',
+      'https://*.jivosite.com',
+      'https://node.jivosite.com',
+      'wss://*.jivosite.com',
+      'wss://node.jivosite.com',
+    ],
 
     font: ["'self'", 'data:', 'https://yastatic.net', 'https://*.yastatic.net'],
+
     frame: [
       "'self'",
       'https://mc.yandex.com',
@@ -66,7 +82,7 @@ const buildCsp = () => {
       'https://yandex.ru',
       'https://*.yandex.ru',
 
-      // ✅ Jivo
+      // ✅ Jivo frames
       'https://*.jivosite.com',
     ],
   };
@@ -74,6 +90,8 @@ const buildCsp = () => {
   const SCRIPT_SRC = [
     "'self'",
     "'unsafe-inline'",
+
+    // ✅ Yandex
     'https://mc.yandex.com',
     'https://mc.yandex.ru',
     'https://api-maps.yandex.ru',
@@ -81,11 +99,12 @@ const buildCsp = () => {
     'https://*.yastatic.net',
     'https://cdn.turbo.yandex.ru',
 
-    // ✅ Jivo
+    // ✅ Jivo script
     'https://code.jivo.ru',
     'https://*.jivo.ru',
   ];
 
+  // ✅ dev only (HMR / react refresh / etc)
   if (isDev) SCRIPT_SRC.push("'unsafe-eval'");
 
   return [
@@ -117,6 +136,7 @@ if (isDev) {
   remotePatterns.push({ protocol: 'https', hostname: 'example.com', pathname: '/**' });
 }
 
+/* ------------------------------- Next config -------------------------------- */
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
@@ -152,12 +172,16 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
+
+      // long cache for static assets
       ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
         (source) => ({
           source,
           headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
         }),
       ),
+
+      // shortish cache for key pages
       ...['/', '/about', '/policy'].map((source) => ({
         source,
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
