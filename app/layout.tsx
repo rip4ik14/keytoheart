@@ -12,6 +12,7 @@ import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schem
 
 import LayoutClient from '@components/LayoutClient';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
+import JivoWidget from '@components/JivoWidget';
 import { Category } from '@/types/category';
 import { YM_ID } from '@/utils/ym'; // Яндекс.Метрика
 
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
     locale: 'ru_RU',
     siteName: 'КЛЮЧ К СЕРДЦУ',
     url: 'https://keytoheart.ru',
-    title: 'КЛЮЧ К СЕРДЦУ – клубника в шоколаде, букеты и цветы в Краснодаре',
+    title: 'КЛЮЧ К СЕРДЦУ - клубника в шоколаде, букеты и цветы в Краснодаре',
     description:
       'Клубника в шоколаде, клубничные букеты и цветы с доставкой по Краснодару за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой.',
     images: [
@@ -73,21 +74,21 @@ export const metadata: Metadata = {
         url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Клубника в шоколаде – КЛЮЧ К СЕРДЦУ',
+        alt: 'Клубника в шоколаде - КЛЮЧ К СЕРДЦУ',
         type: 'image/webp',
       },
       {
         url: 'https://keytoheart.ru/og-square.webp',
         width: 800,
         height: 800,
-        alt: 'Клубничный букет – КЛЮЧ К СЕРДЦУ',
+        alt: 'Клубничный букет - КЛЮЧ К СЕРДЦУ',
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'КЛЮЧ К СЕРДЦУ – клубника в шоколаде и цветы в Краснодаре',
+    title: 'КЛЮЧ К СЕРДЦУ - клубника в шоколаде и цветы в Краснодаре',
     description:
       'Клубника в шоколаде, букеты и цветы с доставкой за 30 мин по Краснодару. Фото перед отправкой, доставка 9-22.',
     images: ['https://keytoheart.ru/og-cover.webp'],
@@ -146,7 +147,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       }));
     }
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error →', e);
+    process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error -', e);
     categories = [];
   } finally {
     clearTimeout(timeoutId);
@@ -289,7 +290,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
 
       <body className={`${golosText.className} antialiased`}>
-        {/* ✅ глушим console.* в проде (в браузере), но dev не трогаем */}
         <DisableConsoleInProd />
 
         {YM_ID && (
@@ -305,6 +305,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         <LayoutClient categories={categories}>{children}</LayoutClient>
+
+        {/* ✅ JivoChat - global (через client компонент, чтобы не падал SSR) */}
+        <JivoWidget />
       </body>
     </html>
   );

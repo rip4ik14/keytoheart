@@ -1,3 +1,4 @@
+// ✅ Путь: next.config.js
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
@@ -6,6 +7,13 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const isDev = process.env.NODE_ENV !== 'production';
 
 /* ------------------------- Content-Security-Policy ------------------------- */
+/**
+ * JivoChat requires:
+ * - script-src: https://code.jivo.ru
+ * - connect-src: https://*.jivosite.com https://node.jivosite.com (and sometimes wss://*)
+ * - img-src: https://*.jivosite.com data: blob:
+ * - frame-src: sometimes used for internal flows (safe to allow jivosite)
+ */
 const buildCsp = () => {
   const COMMON = {
     default: ["'self'"],
@@ -24,6 +32,11 @@ const buildCsp = () => {
       'https://api-maps.yandex.ru',
       'https://yastatic.net',
       'https://*.yastatic.net',
+
+      // ✅ Jivo
+      'https://*.jivosite.com',
+      'https://*.jivo.ru',
+      'https://code.jivo.ru',
     ],
     connect: [
       "'self'",
@@ -35,9 +48,24 @@ const buildCsp = () => {
       'https://api-maps.yandex.ru',
       'https://yastatic.net',
       'https://ymetrica1.com',
+
+      // ✅ Jivo (API + realtime)
+      'https://*.jivosite.com',
+      'https://node.jivosite.com',
+      'wss://*.jivosite.com',
+      'wss://node.jivosite.com',
     ],
     font: ["'self'", 'data:', 'https://yastatic.net', 'https://*.yastatic.net'],
-    frame: ["'self'", 'https://mc.yandex.com', 'https://mc.yandex.ru', 'https://yandex.ru', 'https://*.yandex.ru'],
+    frame: [
+      "'self'",
+      'https://mc.yandex.com',
+      'https://mc.yandex.ru',
+      'https://yandex.ru',
+      'https://*.yandex.ru',
+
+      // ✅ Jivo (на всякий случай)
+      'https://*.jivosite.com',
+    ],
   };
 
   const SCRIPT_SRC = [
@@ -49,6 +77,9 @@ const buildCsp = () => {
     'https://yastatic.net',
     'https://*.yastatic.net',
     'https://cdn.turbo.yandex.ru',
+
+    // ✅ Jivo main script
+    'https://code.jivo.ru',
   ];
 
   if (isDev) SCRIPT_SRC.push("'unsafe-eval'");
@@ -67,7 +98,11 @@ const buildCsp = () => {
 
 /* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
-  { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/object/public/**' },
+  {
+    protocol: 'https',
+    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
+    pathname: '/storage/v1/object/public/**',
+  },
   { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
   { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
   { protocol: 'https', hostname: 'keytoheart.ru', pathname: '/**' },
@@ -99,9 +134,7 @@ const nextConfig = {
 
   /* ----------------------------- Rewrites ----------------------------- */
   async rewrites() {
-    return [
-      { source: '/sitemap-products/:page.xml', destination: '/sitemap-products/:page' },
-    ];
+    return [{ source: '/sitemap-products/:page.xml', destination: '/sitemap-products/:page' }];
   },
 
   /* ----------------------------- Custom headers ---------------------------- */
@@ -114,10 +147,12 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map((source) => ({
-        source,
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      })),
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
+        (source) => ({
+          source,
+          headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+        }),
+      ),
       ...['/', '/about', '/policy'].map((source) => ({
         source,
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],

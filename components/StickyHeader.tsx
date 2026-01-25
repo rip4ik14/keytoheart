@@ -16,9 +16,15 @@ import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 import { useAuth } from '@context/AuthContext';
 
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
+
 type StickyHeaderProps = {
   initialCategories: Category[];
 };
+
+const MAX_LINK =
+  'https://max.ru/u/f9LHodD0cOI-9oT8wIMLqNgL9blgVvmWzHwla0t-q1TLriNRDUJsOEIedDk';
 
 export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
@@ -147,6 +153,21 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       </motion.div>
     ) : null;
 
+  const trackContact = (kind: 'whatsapp' | 'telegram' | 'max') => {
+    const eventName =
+      kind === 'whatsapp' ? 'contact_whatsapp' : kind === 'telegram' ? 'contact_telegram' : 'contact_max';
+
+    window.gtag?.('event', eventName, {
+      event_category: 'header',
+      event_label: `StickyHeader: ${kind}`,
+      value: 1,
+    });
+
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', eventName, { source: 'sticky_header' });
+    }
+  };
+
   return (
     <>
       <header
@@ -160,7 +181,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           <div className="flex items-center gap-2 md:gap-4">
             <BurgerMenu />
 
-            {/* ✅ ЛОГО: жирное как H1, без drop-shadow */}
             <Link
               href="/"
               className={[
@@ -192,6 +212,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 <span className="text-xs text-gray-600">с 09:00 до 22:00</span>
               </div>
 
+              {/* ✅ ИКОНКИ МЕССЕНДЖЕРОВ (desktop) */}
               <div className="flex items-center gap-2">
                 <a
                   href="https://wa.me/79886033821"
@@ -199,6 +220,8 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   title="WhatsApp"
                   aria-label="Перейти в WhatsApp"
                   rel="nofollow"
+                  target="_blank"
+                  onClick={() => trackContact('whatsapp')}
                 >
                   <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
                 </a>
@@ -209,8 +232,23 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   title="Telegram"
                   aria-label="Перейти в Telegram"
                   rel="nofollow"
+                  target="_blank"
+                  onClick={() => trackContact('telegram')}
                 >
                   <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
+                </a>
+
+                {/* ✅ MAX */}
+                <a
+                  href={MAX_LINK}
+                  className="border rounded-full p-2 hover:bg-gray-100"
+                  title="MAX"
+                  aria-label="Перейти в MAX"
+                  rel="nofollow"
+                  target="_blank"
+                  onClick={() => trackContact('max')}
+                >
+                  <Image src="/icons/max.svg" alt="MAX" width={16} height={16} />
                 </a>
               </div>
             </div>
