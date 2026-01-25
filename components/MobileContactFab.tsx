@@ -534,27 +534,82 @@ export default function MobileContactFab() {
         }}
       >
         <div className="relative">
-          <AnimatePresence>
-            {showHint && !open && (
-              <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: 0.18 }}
-                className="
-                  absolute -top-12 right-0
-                  rounded-2xl border border-black/10
-                  bg-white/90 backdrop-blur
-                  px-3 py-2
-                  shadow-[0_10px_30px_rgba(0,0,0,0.10)]
-                  text-xs font-medium text-black/80
-                  whitespace-nowrap
-                "
-              >
-                {hintText}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* FAB: показываем только когда чат закрыт */}
+<AnimatePresence>
+  {!open && (
+    <motion.div
+      key="kth-fab"
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+      transition={{ duration: 0.16 }}
+      className="fixed right-4 z-[20000]"
+      style={{
+        bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
+      }}
+    >
+      <div className="relative">
+        <AnimatePresence>
+          {showHint && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="
+                absolute -top-12 right-0
+                rounded-2xl border border-black/10
+                bg-white/90 backdrop-blur
+                px-3 py-2
+                shadow-[0_10px_30px_rgba(0,0,0,0.10)]
+                text-xs font-medium text-black/80
+                whitespace-nowrap
+              "
+            >
+              {hintText}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          type="button"
+          onClick={openSheet}
+          aria-label="Открыть чат"
+          whileTap={{ scale: 0.98 }}
+          className="
+            flex items-center gap-2
+            h-14
+            rounded-full
+            px-4
+            bg-white/88 backdrop-blur
+            border border-black/10
+            shadow-[0_12px_35px_rgba(0,0,0,0.18)]
+            transition
+          "
+        >
+          <div
+            className="
+              h-10 w-10 rounded-full
+              bg-white/85 backdrop-blur
+              border border-black/10
+              shadow-[0_10px_26px_rgba(0,0,0,0.10)]
+              grid place-items-center
+            "
+            aria-hidden="true"
+          >
+            <HelpCircle className="h-5 w-5 text-black/75" />
+          </div>
+
+          <div className="leading-tight text-left">
+            <p className="text-sm font-semibold text-black">Чат</p>
+            <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
+          </div>
+        </motion.button>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
 
           <motion.button
             type="button"

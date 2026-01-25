@@ -10,6 +10,7 @@ import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -41,9 +42,6 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
-// CSS var from StickyHeader.tsx
-const STICKY_HEADER_VAR = '--kth-sticky-header-h';
-
 export default function ProductCard({
   product,
   priority = false,
@@ -56,9 +54,21 @@ export default function ProductCard({
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  const [isMobile, setIsMobile] = useState(false);
+  // ✅ фикс: определяем мобилку сразу + matchMedia вместо resize
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 640px)').matches;
+  });
+
   const [showToast, setShowToast] = useState(false);
+
+  // ✅ важно для portal
+  const [mounted, setMounted] = useState(false);
+
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ✅ фикс "двойного мигания" (dev StrictMode и любые двойные вызовы)
+  const toastLockRef = useRef<number>(0);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -67,10 +77,22 @@ export default function ProductCard({
   const title = useMemo(() => normalizeTitle(product.title || ''), [product.title]);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 640);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const onChange = () => setIsMobile(mq.matches);
+
+    onChange();
+
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+
+    return () => {
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
   }, []);
 
   const images = Array.isArray(product.images) ? product.images : [];
@@ -98,6 +120,10 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
+    const now = Date.now();
+    if (now - toastLockRef.current < 350) return;
+    toastLockRef.current = now;
+
     addItem({
       id: product.id.toString(),
       title,
@@ -134,8 +160,58 @@ export default function ProductCard({
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
   // ✅ фиксируем зоны на мобилке: заголовок и низ карточки
-  const MOBILE_TITLE_H = 'h-[96px]'; // 3-4 строки спокойно
-  const MOBILE_BOTTOM_H = 'h-[112px]'; // цена/время/кнопка всегда на месте
+  const MOBILE_TITLE_H = 'h-[96px]';
+  const MOBILE_BOTTOM_H = 'h-[112px]';
+
+  // ✅ mobile toast через portal + центр через flex, без кнопки
+  const MobileToast = () => {
+    if (!mounted || !showToast) return null;
+
+    return createPortal(
+      <AnimatePresence>
+        <motion.div
+          key="kth-mobile-toast-overlay"
+          className="fixed inset-0 z-[2147483647] flex items-center justify-center px-4"
+          style={{
+            paddingTop: `calc(16px + env(safe-area-inset-top))`,
+            paddingBottom: `calc(16px + env(safe-area-inset-bottom))`,
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16 }}
+          aria-live="polite"
+        >
+          <motion.div
+            key="kth-mobile-toast"
+            className={[
+              'w-full max-w-[420px]',
+              'bg-white/78 backdrop-blur-xl',
+              'text-black rounded-2xl',
+              'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+              'border border-black/10',
+              'px-3 py-3 flex items-center gap-3',
+              'overflow-hidden',
+            ].join(' ')}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+              <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+            </div>
+
+            <div className="flex flex-col flex-1 min-w-0">
+              <p className="text-sm font-semibold">добавлено в корзину</p>
+              <p className="text-xs text-black/60 break-words line-clamp-2">{title}</p>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>,
+      document.body,
+    );
+  };
 
   if (isMobile) {
     return (
@@ -161,7 +237,6 @@ export default function ProductCard({
           role="article"
           aria-labelledby={`product-${product.id}-title`}
           tabIndex={0}
-          aria-live="polite"
         >
           <script
             type="application/ld+json"
@@ -252,7 +327,7 @@ export default function ProductCard({
               </h3>
             </div>
 
-            {/* ✅ фиксированный низ: цена/время/кнопка всегда на одной линии во всех карточках */}
+            {/* ✅ фиксированный низ */}
             <div className={[MOBILE_BOTTOM_H, 'flex flex-col justify-end'].join(' ')}>
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center gap-2">
@@ -301,61 +376,17 @@ export default function ProductCard({
           </div>
         </motion.div>
 
-        {/* ✅ toast сверху, учитывает высоту StickyHeader */}
-        <AnimatePresence>
-          {showToast && (
-            <motion.div
-              className={[
-                'fixed left-1/2 -translate-x-1/2 z-[9999]',
-                'w-[92%] max-w-[420px]',
-                'bg-white/78 backdrop-blur-xl',
-                'text-black rounded-2xl',
-                'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-                'border border-black/10',
-                'px-3 py-3 flex items-center gap-3',
-              ].join(' ')}
-              style={{
-                top: `calc(var(${STICKY_HEADER_VAR}, 0px) + 12px + env(safe-area-inset-top))`,
-              }}
-              initial={{ opacity: 0, y: -10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-            >
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-                <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
-              </div>
-
-              <div className="flex flex-col flex-1 min-w-0">
-                <p className="text-sm font-semibold">добавлено в корзину</p>
-                <p className="text-xs text-black/60 break-words">{title}</p>
-              </div>
-
-              <a
-                href="/cart"
-                className={[
-                  'px-3 py-2 rounded-xl',
-                  'bg-black text-white text-xs font-semibold',
-                  'uppercase tracking-tight',
-                  'active:scale-[0.98] transition',
-                  'flex-shrink-0',
-                ].join(' ')}
-              >
-                в корзину
-              </a>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ✅ mobile toast */}
+        <MobileToast />
       </>
     );
   }
 
   const useInternalShadow = shadowMode !== 'none';
 
-  // ✅ подстрой при необходимости под свои самые длинные названия
-  const DESKTOP_TITLE_H = 'h-[50px]'; // 3-4 строки
-  const DESKTOP_META_H = 'h-[36px]'; // изготовление 1-2 строки в фиксированной зоне
-  const DESKTOP_BOTTOM_H = 'h-[104px]'; // цена + изготовление + зона кнопки
+  const DESKTOP_TITLE_H = 'h-[50px]';
+  const DESKTOP_META_H = 'h-[36px]';
+  const DESKTOP_BOTTOM_H = 'h-[104px]';
 
   return (
     <>
@@ -437,9 +468,7 @@ export default function ProductCard({
           </Link>
         </div>
 
-        {/* ✅ контент карточки: фиксируем зоны, чтобы низ всегда был параллелен */}
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
-          {/* ✅ фикс зона названия */}
           <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
             <h3
               id={`product-${product.id}-title`}
@@ -450,7 +479,6 @@ export default function ProductCard({
             </h3>
           </div>
 
-          {/* ✅ фикс низ */}
           <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
@@ -462,7 +490,6 @@ export default function ProductCard({
                   )}
                 </div>
 
-                {/* ✅ зона изготовление фикс по высоте, чтобы переносы не двигали кнопку/цену */}
                 <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
                   {productionText ? (
                     <div className="text-[11px] text-black/55 leading-snug break-words">Изготовление: {productionText}</div>
@@ -472,7 +499,6 @@ export default function ProductCard({
                 </div>
               </div>
 
-              {/* ✅ место под кнопку всегда есть, даже когда она скрыта */}
               <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
                 <button
                   ref={buttonRef}
@@ -504,7 +530,7 @@ export default function ProductCard({
         </div>
       </motion.div>
 
-      {/* toast desktop оставляем как было */}
+      {/* ✅ desktop toast: убрали кнопку, только "добавлено" */}
       <AnimatePresence>
         {showToast && (
           <motion.div
@@ -520,6 +546,7 @@ export default function ProductCard({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 18 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
+            aria-live="polite"
           >
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
               <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
@@ -529,17 +556,6 @@ export default function ProductCard({
               <p className="text-sm font-semibold">добавлено в корзину</p>
               <p className="text-xs text-black/60 break-words">{title}</p>
             </div>
-
-            <a
-              href="/cart"
-              className={[
-                'px-3 py-2 rounded-xl',
-                'bg-black text-white text-xs font-semibold uppercase tracking-tight',
-                'hover:bg-black/90 transition flex-shrink-0',
-              ].join(' ')}
-            >
-              в корзину
-            </a>
           </motion.div>
         )}
       </AnimatePresence>
