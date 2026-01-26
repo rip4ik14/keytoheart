@@ -9,7 +9,7 @@ import { HelpCircle, X } from 'lucide-react';
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-type Channel = 'telegram' | 'whatsapp' | 'max';
+type Channel = 'telegram' | 'whatsapp' | 'max' | 'call';
 
 const PHONE = '+79886033821';
 const MAX_LINK =
@@ -22,8 +22,8 @@ const PRODUCT_HINT_KEY = 'kth_contactfab_product_hint_ts';
 
 // умное авто-открытие: 1 раз за сессию и только если юзер "завис" без действий
 const AUTO_OPEN_SESSION_KEY = 'kth_contactfab_autoopened_v2';
-const AUTO_OPEN_AFTER_MS = 32_000; // не слишком быстро
-const AUTO_OPEN_IDLE_MS = 8_000; // открыть только если был простой
+const AUTO_OPEN_AFTER_MS = 32_000;
+const AUTO_OPEN_IDLE_MS = 8_000;
 const AUTO_OPEN_MIN_SCROLL_PX = 260;
 
 // CSS var, которую выставляет CookieBanner
@@ -36,7 +36,9 @@ function track(channel: Channel) {
       ? 'contact_telegram'
       : channel === 'whatsapp'
         ? 'contact_whatsapp'
-        : 'contact_max';
+        : channel === 'max'
+          ? 'contact_max'
+          : 'contact_call';
 
   window.gtag?.('event', gtagEvent, {
     event_category: 'contact',
@@ -91,12 +93,10 @@ export default function MobileContactFab() {
   }, []);
 
   const isProductPage = useMemo(() => {
-    // /product/[id] или /product/...
     return pathname === '/product' || pathname.startsWith('/product/');
   }, [pathname]);
 
   const isHighIntentPage = useMemo(() => {
-    // страницы, где авто-открытие не нужно
     return (
       pathname.startsWith('/cart') ||
       pathname.startsWith('/checkout') ||
@@ -159,7 +159,6 @@ export default function MobileContactFab() {
       const text = (el.textContent || '').toLowerCase().replace(/\s+/g, ' ').trim();
       const aria = (el.getAttribute('aria-label') || '').toLowerCase();
 
-      // если юзер явно нажал "в корзину" или пошел в корзину/оформление - не отвлекаем авто-чатом
       const looksLikeAdd =
         text.includes('в корзину') ||
         aria.includes('в корзину') ||
@@ -250,17 +249,15 @@ export default function MobileContactFab() {
     return () => window.clearTimeout(t);
   }, [isProductPage, open]);
 
-  // общий daily hint (бережно, как было, но без "лишних" показов)
+  // общий daily hint
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // если только что показывали первый hint - не надо дублировать daily
     let firstShown = false;
     try {
       firstShown = localStorage.getItem(FIRST_HINT_KEY) === '1';
     } catch {}
 
-    // daily подсказка логичнее тем, кто не на карточке товара (там есть отдельная)
     if (isProductPage) return;
 
     const day = 24 * 60 * 60 * 1000;
@@ -273,7 +270,7 @@ export default function MobileContactFab() {
 
     const t = window.setTimeout(() => {
       if (open) return;
-      if (!firstShown) return; // если это прям первый визит, уже показали мягкий hint выше
+      if (!firstShown) return;
 
       setHintText('Нужна помощь? Жми "Чат"');
       setShowHint(true);
@@ -288,27 +285,20 @@ export default function MobileContactFab() {
     return () => window.clearTimeout(t);
   }, [open, isProductPage]);
 
-  // умное авто-открытие: только если пользователь "завис" и не проявил покупательский интент
+  // умное авто-открытие
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    // если модалка открыта - не надо
     if (open) return;
-
-    // если страница "интентная" (cart/checkout) - не надо
     if (isHighIntentPage) return;
 
     let already = false;
     try {
       already = sessionStorage.getItem(AUTO_OPEN_SESSION_KEY) === '1';
     } catch {}
-
     if (already) return;
 
-    // если юзер уже сделал "интент покупки" - не отвлекаем
     if (suppressedRef.current) return;
 
-    // при смене маршрута считаем, что "условия" сбросились
     if (lastPathRef.current !== pathname) {
       lastPathRef.current = pathname;
       mountedAtRef.current = Date.now();
@@ -320,16 +310,12 @@ export default function MobileContactFab() {
       const initialPath = initialPathRef.current;
       const currentPath = window.location.pathname;
 
-      // если пользователь ушел с первой страницы входа - не открываем
-      // но если это карточка товара (часто заходят с каталога) - допускаем авто-открытие по текущей
       const allowByContext = isProductPage;
       if (!allowByContext) {
         if (!initialPath || currentPath !== initialPath) return;
       }
 
       if (open) return;
-
-      // если за это время проявился интент - не открываем
       if (suppressedRef.current) return;
 
       const now = Date.now();
@@ -337,10 +323,6 @@ export default function MobileContactFab() {
       const timeOnPage = now - mountedAtRef.current;
       const scrolled = maxScrollRef.current;
 
-      // открываем только если:
-      // - прошло достаточно времени
-      // - был простой (idle)
-      // - юзер хоть как-то взаимодействовал со страницей (скроллил), либо это карточка товара
       const ok =
         timeOnPage >= AUTO_OPEN_AFTER_MS &&
         idleFor >= AUTO_OPEN_IDLE_MS &&
@@ -385,7 +367,6 @@ export default function MobileContactFab() {
     setOpen(true);
     setShowHint(false);
 
-    // если человек сам открыл - считаем, что "поддержка найдена", авто-открытие больше не нужно
     try {
       sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
     } catch {}
@@ -409,17 +390,18 @@ export default function MobileContactFab() {
     href: string;
     channel: Channel;
   }) => {
+    const isCall = channel === 'call';
+
     return (
       <a
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
+        target={isCall ? undefined : '_blank'}
+        rel={isCall ? undefined : 'noopener noreferrer'}
         onClick={() => {
           haptic(true);
           track(channel);
           setOpen(false);
 
-          // если юзер ушел в мессенджер, авто-открытие не нужно
           try {
             sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
           } catch {}
@@ -437,72 +419,7 @@ export default function MobileContactFab() {
           transition
           w-full
         "
-        aria-label={`Написать в ${title}`}
-      >
-        <div
-          className="
-            h-14 w-14 rounded-[22px]
-            bg-black/5
-            grid place-items-center
-            group-active:scale-[0.98]
-            transition
-          "
-        >
-          <Image src={iconSrc} alt={title} width={26} height={26} />
-        </div>
-
-        <div className="text-center leading-tight">
-          <p className="text-sm font-semibold text-black">{title}</p>
-          <p className="text-[11px] text-black/55 mt-0.5">{subtitle}</p>
-        </div>
-      </a>
-    );
-  };
-
-  const CallItem = ({
-    title,
-    subtitle,
-    iconSrc,
-    href,
-  }: {
-    title: string;
-    subtitle: string;
-    iconSrc: string;
-    href: string;
-  }) => {
-    return (
-      <a
-        href={href}
-        onClick={() => {
-          haptic(true);
-          setOpen(false);
-          window.gtag?.('event', 'contact_call', {
-            event_category: 'contact',
-            event_label: 'ContactFab: call',
-            value: 1,
-          });
-          if (YM_ID !== undefined) {
-            callYm(YM_ID, 'reachGoal', 'contact_call', { source: 'fab' });
-          }
-
-          try {
-            sessionStorage.setItem(AUTO_OPEN_SESSION_KEY, '1');
-          } catch {}
-        }}
-        className="
-          group
-          flex flex-col items-center justify-center
-          gap-2
-          rounded-3xl
-          border border-black/10
-          bg-white
-          px-3 py-3
-          shadow-[0_10px_30px_rgba(0,0,0,0.06)]
-          active:scale-[0.98]
-          transition
-          w-full
-        "
-        aria-label={title}
+        aria-label={isCall ? title : `Написать в ${title}`}
       >
         <div
           className="
@@ -526,127 +443,81 @@ export default function MobileContactFab() {
 
   return (
     <>
-      {/* FAB: поднимается вверх на высоту CookieBanner и нижней панели товара */}
-      <div
-        className="fixed right-4 z-[20000]"
-        style={{
-          bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
-        }}
-      >
-        <div className="relative">
-          {/* FAB: показываем только когда чат закрыт */}
-<AnimatePresence>
-  {!open && (
-    <motion.div
-      key="kth-fab"
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.98 }}
-      transition={{ duration: 0.16 }}
-      className="fixed right-4 z-[20000]"
-      style={{
-        bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
-      }}
-    >
-      <div className="relative">
-        <AnimatePresence>
-          {showHint && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.18 }}
-              className="
-                absolute -top-12 right-0
-                rounded-2xl border border-black/10
-                bg-white/90 backdrop-blur
-                px-3 py-2
-                shadow-[0_10px_30px_rgba(0,0,0,0.10)]
-                text-xs font-medium text-black/80
-                whitespace-nowrap
-              "
-            >
-              {hintText}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <motion.button
-          type="button"
-          onClick={openSheet}
-          aria-label="Открыть чат"
-          whileTap={{ scale: 0.98 }}
-          className="
-            flex items-center gap-2
-            h-14
-            rounded-full
-            px-4
-            bg-white/88 backdrop-blur
-            border border-black/10
-            shadow-[0_12px_35px_rgba(0,0,0,0.18)]
-            transition
-          "
-        >
-          <div
-            className="
-              h-10 w-10 rounded-full
-              bg-white/85 backdrop-blur
-              border border-black/10
-              shadow-[0_10px_26px_rgba(0,0,0,0.10)]
-              grid place-items-center
-            "
-            aria-hidden="true"
+      {/* ✅ FAB: один единственный (раньше у тебя был дубль) */}
+      <AnimatePresence>
+        {!open && (
+          <motion.div
+            key="kth-fab"
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.16 }}
+            className="fixed right-4 z-[20000]"
+            style={{
+              bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
+            }}
           >
-            <HelpCircle className="h-5 w-5 text-black/75" />
-          </div>
+            <div className="relative">
+              <AnimatePresence>
+                {showHint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.18 }}
+                    className="
+                      absolute -top-12 right-0
+                      rounded-2xl border border-black/10
+                      bg-white/90 backdrop-blur
+                      px-3 py-2
+                      shadow-[0_10px_30px_rgba(0,0,0,0.10)]
+                      text-xs font-medium text-black/80
+                      whitespace-nowrap
+                    "
+                  >
+                    {hintText}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-          <div className="leading-tight text-left">
-            <p className="text-sm font-semibold text-black">Чат</p>
-            <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
-          </div>
-        </motion.button>
-      </div>
-    </motion.div>
-  )}
-</AnimatePresence>
+              <motion.button
+                type="button"
+                onClick={openSheet}
+                aria-label="Открыть чат"
+                whileTap={{ scale: 0.98 }}
+                className="
+                  flex items-center gap-2
+                  h-14
+                  rounded-full
+                  px-4
+                  bg-white/88 backdrop-blur
+                  border border-black/10
+                  shadow-[0_12px_35px_rgba(0,0,0,0.18)]
+                  transition
+                "
+              >
+                <div
+                  className="
+                    h-10 w-10 rounded-full
+                    bg-white/85 backdrop-blur
+                    border border-black/10
+                    shadow-[0_10px_26px_rgba(0,0,0,0.10)]
+                    grid place-items-center
+                  "
+                  aria-hidden="true"
+                >
+                  <HelpCircle className="h-5 w-5 text-black/75" />
+                </div>
 
-
-          <motion.button
-            type="button"
-            onClick={openSheet}
-            aria-label="Открыть чат"
-            whileTap={{ scale: 0.98 }}
-            className="
-              flex items-center gap-2
-              h-14
-              rounded-full
-              px-4
-              bg-white/88 backdrop-blur
-              border border-black/10
-              shadow-[0_12px_35px_rgba(0,0,0,0.18)]
-              transition
-            "
-          >
-            <div
-              className="
-                h-10 w-10 rounded-full
-                bg-white/85 backdrop-blur
-                border border-black/10
-                shadow-[0_10px_26px_rgba(0,0,0,0.10)]
-                grid place-items-center
-              "
-              aria-hidden="true"
-            >
-              <HelpCircle className="h-5 w-5 text-black/75" />
+                <div className="leading-tight text-left">
+                  <p className="text-sm font-semibold text-black">Чат</p>
+                  <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
+                </div>
+              </motion.button>
             </div>
-
-            <div className="leading-tight text-left">
-              <p className="text-sm font-semibold text-black">Чат</p>
-              <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
-            </div>
-          </motion.button>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MOBILE: Overlay + bottom sheet */}
       <AnimatePresence>
@@ -701,7 +572,7 @@ export default function MobileContactFab() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-base font-semibold tracking-tight text-black">Чат с нами</p>
-                    <p className="text-xs text-black/55 mt-0.5">Выберите мессенджер - ответим быстро</p>
+                    <p className="text-xs text-black/55 mt-0.5">Выберите способ связи - ответим быстро</p>
                   </div>
 
                   <motion.button
@@ -721,7 +592,8 @@ export default function MobileContactFab() {
                   </motion.button>
                 </div>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
+                {/* ✅ было 3 - добавили 4 (включая звонок) */}
+                <div className="mt-4 grid grid-cols-2 gap-2">
                   <Item
                     title="Telegram"
                     subtitle="быстро"
@@ -742,6 +614,13 @@ export default function MobileContactFab() {
                     iconSrc="/icons/max.svg"
                     href={links.max}
                     channel="max"
+                  />
+                  <Item
+                    title="Звонок"
+                    subtitle="с 09:00 до 22:00"
+                    iconSrc="/icons/phone.svg"
+                    href={links.tel}
+                    channel="call"
                   />
                 </div>
 
@@ -840,7 +719,13 @@ export default function MobileContactFab() {
                       href={links.max}
                       channel="max"
                     />
-                    <CallItem title="Звонок" subtitle="с 09:00 до 22:00" iconSrc="/icons/phone.svg" href={links.tel} />
+                    <Item
+                      title="Звонок"
+                      subtitle="с 09:00 до 22:00"
+                      iconSrc="/icons/phone.svg"
+                      href={links.tel}
+                      channel="call"
+                    />
                   </div>
 
                   <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] px-3 py-2">

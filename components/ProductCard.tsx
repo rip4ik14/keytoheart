@@ -42,6 +42,9 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
+// CSS var from StickyHeader.tsx
+const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
 export default function ProductCard({
   product,
   priority = false,
@@ -54,27 +57,19 @@ export default function ProductCard({
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  // ✅ фикс: определяем мобилку сразу + matchMedia вместо resize
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(max-width: 640px)').matches;
   });
 
   const [showToast, setShowToast] = useState(false);
-
-  // ✅ пульс анимации без пересоздания тоста (НЕ через key)
-  const [toastBump, setToastBump] = useState(0);
-
-  // ✅ важно для portal
-  const [mounted, setMounted] = useState(false);
-
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ✅ защита от гонки таймеров (старый таймер не погасит новый тост)
-  const toastSeqRef = useRef(0);
+  // ✅ фиксируем, какая версия тоста должна показываться (моб/десктоп) в момент клика
+  const toastPlacementRef = useRef<'mobile' | 'desktop'>('desktop');
 
-  // ✅ анти-спам кликов (слегка, чтобы не мешать)
-  const toastLockRef = useRef<number>(0);
+  // ✅ для portal
+  const [mounted, setMounted] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -126,10 +121,6 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
-    const now = Date.now();
-    if (now - toastLockRef.current < 180) return;
-    toastLockRef.current = now;
-
     addItem({
       id: product.id.toString(),
       title,
@@ -151,20 +142,11 @@ export default function ProductCard({
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
     }
 
-    // ✅ toast: без мерцания и без двойного появления
-    toastSeqRef.current += 1;
-    const seq = toastSeqRef.current;
+    toastPlacementRef.current = isMobile ? 'mobile' : 'desktop';
 
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-
     setShowToast(true);
-
-    // ✅ "пульс" при повторном добавлении, но тост НЕ пересоздается
-    setToastBump((v) => v + 1);
-
-    toastTimeoutRef.current = setTimeout(() => {
-      if (toastSeqRef.current === seq) setShowToast(false);
-    }, 2400);
+    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -176,58 +158,62 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  // ✅ фиксируем зоны на мобилке: заголовок и низ карточки
   const MOBILE_TITLE_H = 'h-[96px]';
   const MOBILE_BOTTOM_H = 'h-[112px]';
 
-  // ✅ mobile toast через portal + центр через flex, без кнопки
+  // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> не мерцает "как дважды"
   const MobileToast = () => {
-    if (!mounted || !showToast) return null;
+    if (!mounted) return null;
 
     return createPortal(
-      <AnimatePresence>
-        <motion.div
-          className="fixed inset-0 z-[2147483647] flex items-center justify-center px-4"
-          style={{
-            paddingTop: `calc(16px + env(safe-area-inset-top))`,
-            paddingBottom: `calc(16px + env(safe-area-inset-bottom))`,
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.16 }}
-          aria-live="polite"
-        >
-          <motion.div
-            className={[
-              'w-full max-w-[420px]',
-              'bg-white/78 backdrop-blur-xl',
-              'text-black rounded-2xl',
-              'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-              'border border-black/10',
-              'px-3 py-3 flex items-center gap-3',
-              'overflow-hidden',
-            ].join(' ')}
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: toastBump ? [1, 1.03, 1] : 1,
-            }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-          >
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-              <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
-            </div>
+      <motion.div
+        className={[
+          'fixed z-[2147483647]',
+          'bg-white/78 backdrop-blur-xl',
+          'text-black rounded-2xl',
+          'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+          'border border-black/10',
+          'px-3 py-3 flex items-center gap-3',
+        ].join(' ')}
+        style={{
+          left: `calc(12px + env(safe-area-inset-left))`,
+          right: `calc(12px + env(safe-area-inset-right))`,
+          maxWidth: 420,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+        }}
+        initial={false}
+        animate={
+          showToast && toastPlacementRef.current === 'mobile'
+            ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }
+            : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }
+        }
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        aria-live="polite"
+      >
+        <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+          <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+        </div>
 
-            <div className="flex flex-col flex-1 min-w-0">
-              <p className="text-sm font-semibold">добавлено в корзину</p>
-              <p className="text-xs text-black/60 break-words line-clamp-2">{title}</p>
-            </div>
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>,
+        <div className="flex flex-col flex-1 min-w-0">
+          <p className="text-sm font-semibold">добавлено в корзину</p>
+          <p className="text-xs text-black/60 break-words">{title}</p>
+        </div>
+
+        <a
+          href="/cart"
+          className={[
+            'px-3 py-2 rounded-xl',
+            'bg-black text-white text-xs font-semibold',
+            'uppercase tracking-tight',
+            'active:scale-[0.98] transition',
+            'flex-shrink-0',
+          ].join(' ')}
+        >
+          в корзину
+        </a>
+      </motion.div>,
       document.body,
     );
   };
@@ -284,7 +270,6 @@ export default function ProductCard({
             }}
           />
 
-          {/* badges */}
           <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
             <div className="flex flex-col items-end gap-2">
               {isPopular && (
@@ -313,7 +298,6 @@ export default function ProductCard({
             </div>
           </div>
 
-          {/* image */}
           <Link
             href={`/product/${product.id}`}
             className="block relative w-full aspect-[3/4] overflow-hidden"
@@ -333,9 +317,7 @@ export default function ProductCard({
             />
           </Link>
 
-          {/* content */}
           <div className="flex flex-col px-3 pt-2 pb-3">
-            {/* ✅ фиксированная зона под заголовок */}
             <div className={[MOBILE_TITLE_H, 'flex items-center justify-center'].join(' ')}>
               <h3
                 id={`product-${product.id}-title`}
@@ -346,7 +328,6 @@ export default function ProductCard({
               </h3>
             </div>
 
-            {/* ✅ фиксированный низ */}
             <div className={[MOBILE_BOTTOM_H, 'flex flex-col justify-end'].join(' ')}>
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center gap-2">
@@ -395,14 +376,12 @@ export default function ProductCard({
           </div>
         </motion.div>
 
-        {/* ✅ mobile toast */}
         <MobileToast />
       </>
     );
   }
 
   const useInternalShadow = shadowMode !== 'none';
-
   const DESKTOP_TITLE_H = 'h-[50px]';
   const DESKTOP_META_H = 'h-[36px]';
   const DESKTOP_BOTTOM_H = 'h-[104px]';
@@ -549,9 +528,9 @@ export default function ProductCard({
         </div>
       </motion.div>
 
-      {/* ✅ desktop toast: без кнопки, только "добавлено" */}
+      {/* ✅ desktop toast */}
       <AnimatePresence>
-        {showToast && (
+        {showToast && toastPlacementRef.current === 'desktop' && (
           <motion.div
             className={[
               'fixed bottom-4 right-4 z-[9999]',
@@ -561,14 +540,10 @@ export default function ProductCard({
               'border border-black/10',
               'px-3 py-3 flex items-center gap-3',
             ].join(' ')}
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: toastBump ? [1, 1.03, 1] : 1,
-            }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 18 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             aria-live="polite"
           >
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
@@ -579,6 +554,17 @@ export default function ProductCard({
               <p className="text-sm font-semibold">добавлено в корзину</p>
               <p className="text-xs text-black/60 break-words">{title}</p>
             </div>
+
+            <a
+              href="/cart"
+              className={[
+                'px-3 py-2 rounded-xl',
+                'bg-black text-white text-xs font-semibold uppercase tracking-tight',
+                'hover:bg-black/90 transition flex-shrink-0',
+              ].join(' ')}
+            >
+              в корзину
+            </a>
           </motion.div>
         )}
       </AnimatePresence>
