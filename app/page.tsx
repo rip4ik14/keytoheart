@@ -14,7 +14,7 @@ import type {
 } from 'schema-dts';
 
 import PromoGridServer from '@components/PromoGridServer';
-import PopularProductsServer from '@components/PopularProductsServer';
+/*import PopularProductsServer from '@components/PopularProductsServer'; */
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import AdvantagesClient from '@components/AdvantagesClient';
@@ -379,13 +379,7 @@ export default async function Home() {
         <PromoGridServer />
       </section>
 
-      <Suspense fallback={null}>
-        <section role="region" aria-label="Популярные товары">
-          <h2 className="sr-only">Популярные товары</h2>
-          <PopularProductsServer />
-        </section>
-      </Suspense>
-
+  
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>
         {products.length === 0 ? (
