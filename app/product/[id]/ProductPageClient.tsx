@@ -16,6 +16,8 @@ import { createClient } from '@supabase/supabase-js';
 import { callYm } from '@utils/metrics';
 import { YM_ID } from '@utils/ym';
 
+import { createPortal } from 'react-dom';
+
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/thumbs';
@@ -82,11 +84,6 @@ const buttonVariants = {
   rest: { scale: 1 },
   hover: { scale: 1.01 },
   tap: { scale: 0.99 },
-};
-const notificationVariants = {
-  hidden: { opacity: 0, y: -16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit: { opacity: 0, y: -16, transition: { duration: 0.2 } },
 };
 
 function declineWord(num: number, words: [string, string, string]): string {
@@ -190,6 +187,9 @@ const CATEGORY_GIFTS_ID = 8;
 const SUB_BALLOONS_ID = 173; // Шары
 const SUB_CARDS_ID = 171; // Открытки
 
+// ✅ CSS var from StickyHeader.tsx (как в ProductCard)
+const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
 export default function ProductPageClient({
   product,
   combos,
@@ -202,7 +202,12 @@ export default function ProductPageClient({
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const [showNotification, setShowNotification] = useState(false);
+  // ✅ тост "как в ProductCard"
+  const [showToast, setShowToast] = useState(false);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const toastTopRef = useRef<string | null>(null);
+
   const [comboNotifications, setComboNotifications] = useState<Record<number, boolean>>({});
 
   const [bonusPercent] = useState(0.025);
@@ -273,6 +278,77 @@ export default function ProductPageClient({
     'bg-white text-black border border-black/15 hover:border-black/30 hover:bg-black/[0.02]';
   const iconBtn = 'bg-white border border-black/10 hover:border-black/20 hover:bg-black/[0.02]';
 
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  // ✅ тост "как в ProductCard": фиксируем top при показе (iOS), без кнопки "в корзину"
+  const showAddedToast = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const headerH =
+        getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
+      const safeTop = 'max(env(safe-area-inset-top), 12px)';
+      toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
+    }
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setShowToast(true);
+    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
+  }, []);
+
+  const MobileToast = useCallback(
+    ({ imageUrl, title }: { imageUrl: string; title: string }) => {
+      if (!mounted) return null;
+
+      return createPortal(
+        <motion.div
+          className={[
+            'fixed z-[2147483647]',
+            'bg-white/78 backdrop-blur-xl',
+            'text-black rounded-2xl',
+            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+            'border border-black/10',
+            'px-3 py-3 flex items-center gap-3',
+          ].join(' ')}
+          style={{
+            left: `calc(12px + env(safe-area-inset-left))`,
+            right: `calc(12px + env(safe-area-inset-right))`,
+            maxWidth: 420,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            top:
+              toastTopRef.current ??
+              `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+            WebkitTransform: 'translateZ(0)',
+            transform: 'translateZ(0)',
+            willChange: 'transform, opacity',
+            WebkitBackfaceVisibility: 'hidden',
+          }}
+          initial={false}
+          animate={showToast ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' } : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          aria-live="polite"
+        >
+          <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+            <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+          </div>
+
+          <div className="flex flex-col flex-1 min-w-0">
+            <p className="text-sm font-semibold">добавлено в корзину</p>
+            <p className="text-xs text-black/60 break-words">{title}</p>
+          </div>
+
+          {/* ✅ кнопки нет */}
+        </motion.div>,
+        document.body,
+      );
+    },
+    [mounted, showToast],
+  );
+
   const handleAdd = useCallback(
     (
       id: number,
@@ -291,12 +367,13 @@ export default function ProductPageClient({
         production_time: productionTime,
       });
 
+      // ✅ единый тост как в карточках (для обычного товара и для комбо-айтемов)
+      showAddedToast();
+
+      // ✅ если хочешь оставить "микро-нотиф" для комбо-списка (как было) - оставляем, но он ни на что не влияет
       if (isCombo) {
         setComboNotifications((p) => ({ ...p, [id]: true }));
-        setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1800);
-      } else {
-        setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 1800);
+        setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1400);
       }
 
       try {
@@ -308,7 +385,7 @@ export default function ProductPageClient({
         YM_ID && callYm(YM_ID, 'reachGoal', 'add_to_cart', { product_id: id });
       } catch {}
     },
-    [addItem],
+    [addItem, showAddedToast],
   );
 
   const handleShare = () => {
@@ -440,7 +517,9 @@ export default function ProductPageClient({
         const subIds = [SUB_CARDS_ID, SUB_BALLOONS_ID];
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
-            const r = await fetch(`/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${sub}`);
+            const r = await fetch(
+              `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${sub}`,
+            );
             if (!r.ok) return [];
             const { success, data } = await r.json();
             return success ? data : [];
@@ -779,9 +858,15 @@ export default function ProductPageClient({
     await fetchPickList(t);
   };
 
+  const toastImageUrl = useMemo(() => images[0] || '/placeholder.jpg', [images]);
+  const toastTitle = useMemo(() => product.title || 'Товар', [product.title]);
+
   /* -------------------------- RENDER -------------------------- */
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
+      {/* ✅ единый тост (как ProductCard): появляется сверху, не мерцает, без кнопки */}
+      <MobileToast imageUrl={toastImageUrl} title={toastTitle} />
+
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-10">
         {/* mobile top bar */}
         <div className="flex items-center justify-between mb-3 lg:hidden">
@@ -805,61 +890,18 @@ export default function ProductPageClient({
           </button>
         </div>
 
-        {/* notifications */}
+        {/* (оставил comboNotifications как было - но теперь основной UX тост единый сверху) */}
         <AnimatePresence>
-          {showNotification && (
-            <motion.div
-              className="
-                fixed z-50
-                bg-black text-white px-4 py-3 rounded-2xl shadow-lg
-                left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
-                md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
-              "
-              variants={notificationVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              aria-live="assertive"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
-                <a
-                  href="/cart"
-                  className="text-[11px] sm:text-xs font-semibold uppercase tracking-tight bg-white text-black rounded-full px-3 py-1"
-                >
-                  В корзину
-                </a>
-              </div>
-            </motion.div>
-          )}
-
           {Object.entries(comboNotifications).map(
             ([id, visible]) =>
               visible && (
                 <motion.div
                   key={id}
-                  className="
-                    fixed z-50
-                    bg-black text-white px-4 py-3 rounded-2xl shadow-lg
-                    left-1/2 bottom-24 -translate-x-1/2 w-[92%] max-w-sm
-                    md:top-4 md:right-4 md:left-auto md:bottom-auto md:translate-x-0
-                  "
-                  variants={notificationVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  aria-live="assertive"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs sm:text-sm font-medium">Товар добавлен в корзину</span>
-                    <a
-                      href="/cart"
-                      className="text-[11px] sm:text-xs font-semibold uppercase tracking-tight bg-white text-black rounded-full px-3 py-1"
-                    >
-                      В корзину
-                    </a>
-                  </div>
-                </motion.div>
+                  className="hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                />
               ),
           )}
         </AnimatePresence>
@@ -1222,7 +1264,13 @@ export default function ProductPageClient({
               <div className="mt-6 hidden lg:flex gap-3">
                 <motion.button
                   onClick={() =>
-                    handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
+                    handleAdd(
+                      product.id,
+                      product.title,
+                      discountedPrice,
+                      images[0] || null,
+                      product.production_time ?? null,
+                    )
                   }
                   className={`flex-1 py-3.5 rounded-2xl font-bold tracking-tight transition ${primaryBtnMain}`}
                   variants={buttonVariants}
@@ -1265,7 +1313,13 @@ export default function ProductPageClient({
               <div className="mt-6 lg:hidden grid grid-cols-2 gap-2">
                 <motion.button
                   onClick={() =>
-                    handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
+                    handleAdd(
+                      product.id,
+                      product.title,
+                      discountedPrice,
+                      images[0] || null,
+                      product.production_time ?? null,
+                    )
                   }
                   className={`py-3 rounded-2xl font-bold text-sm transition ${primaryBtnMain}`}
                   variants={buttonVariants}
@@ -1565,7 +1619,13 @@ export default function ProductPageClient({
             <div className="flex-1 flex gap-2">
               <motion.button
                 onClick={() =>
-                  handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)
+                  handleAdd(
+                    product.id,
+                    product.title,
+                    discountedPrice,
+                    images[0] || null,
+                    product.production_time ?? null,
+                  )
                 }
                 className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
                 variants={buttonVariants}
@@ -1612,7 +1672,9 @@ export default function ProductPageClient({
           onPickSecondBase={() => startPick(isBerryProduct ? 'flowers' : 'berries')}
           onPickBalloons={() => startPick('balloons')}
           onPickCards={() => startPick('cards')}
-          onReplaceSecondBase={() => startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))}
+          onReplaceSecondBase={() =>
+            startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))
+          }
           onReplaceBalloons={() => startPick('balloons')}
           onReplaceCards={() => startPick('cards')}
           onRemoveSecondBase={() => removeSelection(isBerryProduct ? 'flowers' : 'berries')}

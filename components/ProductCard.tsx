@@ -68,6 +68,9 @@ export default function ProductCard({
   // ✅ фиксируем, какая версия тоста должна показываться (моб/десктоп) в момент клика
   const toastPlacementRef = useRef<'mobile' | 'desktop'>('desktop');
 
+  // ✅ фиксируем top тоста при показе (на iOS это сильно снижает мерцание при скролле)
+  const toastTopRef = useRef<string | null>(null);
+
   // ✅ для portal
   const [mounted, setMounted] = useState(false);
 
@@ -144,6 +147,19 @@ export default function ProductCard({
 
     toastPlacementRef.current = isMobile ? 'mobile' : 'desktop';
 
+    // ✅ фиксируем top один раз, чтобы при скролле iOS не пересчитывал позицию fixed + blur
+    if (typeof window !== 'undefined') {
+      if (isMobile) {
+        const headerH =
+          getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
+
+        const safeTop = 'max(env(safe-area-inset-top), 12px)';
+        toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
+      } else {
+        toastTopRef.current = null;
+      }
+    }
+
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setShowToast(true);
     toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
@@ -161,7 +177,7 @@ export default function ProductCard({
   const MOBILE_TITLE_H = 'h-[96px]';
   const MOBILE_BOTTOM_H = 'h-[112px]';
 
-  // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> не мерцает "как дважды"
+  // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> меньше артефактов
   const MobileToast = () => {
     if (!mounted) return null;
 
@@ -181,7 +197,13 @@ export default function ProductCard({
           maxWidth: 420,
           marginLeft: 'auto',
           marginRight: 'auto',
-          top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+          top:
+            toastTopRef.current ??
+            `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+          WebkitTransform: 'translateZ(0)',
+          transform: 'translateZ(0)',
+          willChange: 'transform, opacity',
+          WebkitBackfaceVisibility: 'hidden',
         }}
         initial={false}
         animate={
@@ -201,18 +223,7 @@ export default function ProductCard({
           <p className="text-xs text-black/60 break-words">{title}</p>
         </div>
 
-        <a
-          href="/cart"
-          className={[
-            'px-3 py-2 rounded-xl',
-            'bg-black text-white text-xs font-semibold',
-            'uppercase tracking-tight',
-            'active:scale-[0.98] transition',
-            'flex-shrink-0',
-          ].join(' ')}
-        >
-          в корзину
-        </a>
+        {/* ✅ кнопку убрали по твоей просьбе */}
       </motion.div>,
       document.body,
     );
@@ -490,7 +501,9 @@ export default function ProductCard({
 
                 <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
                   {productionText ? (
-                    <div className="text-[11px] text-black/55 leading-snug break-words">Изготовление: {productionText}</div>
+                    <div className="text-[11px] text-black/55 leading-snug break-words">
+                      Изготовление: {productionText}
+                    </div>
                   ) : (
                     <span className="text-[11px] text-transparent select-none">.</span>
                   )}
@@ -555,16 +568,7 @@ export default function ProductCard({
               <p className="text-xs text-black/60 break-words">{title}</p>
             </div>
 
-            <a
-              href="/cart"
-              className={[
-                'px-3 py-2 rounded-xl',
-                'bg-black text-white text-xs font-semibold uppercase tracking-tight',
-                'hover:bg-black/90 transition flex-shrink-0',
-              ].join(' ')}
-            >
-              в корзину
-            </a>
+            {/* ✅ кнопку убрали по твоей просьбе */}
           </motion.div>
         )}
       </AnimatePresence>
