@@ -215,7 +215,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 name: 'КЛЮЧ К СЕРДЦУ',
                 url: 'https://keytoheart.ru',
                 description:
-                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре - от 30 минут, с 9:00 до 22:00.',
+                  'Клубника в шоколаде, цветы и подарки с доставкой в Краснодаре - от 30 минут, с 9:00 до 21:00.',
                 potentialAction: {
                   '@type': 'SearchAction',
                   target: {
@@ -270,7 +270,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       'Sunday',
                     ],
                     opens: '09:00',
-                    closes: '22:00',
+                    closes: '21:00',
                   },
                 ],
                 areaServed: { '@type': 'City', name: 'Краснодар' },

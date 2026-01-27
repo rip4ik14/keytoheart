@@ -78,7 +78,7 @@ const contactSchema: ContactPage = {
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
       opens: '09:00',
-      closes: '22:00',
+      closes: '21:00',
     },
   },
 };
@@ -91,7 +91,7 @@ const faqSchema: FAQPage = {
       name: 'Как связаться с КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Вы можете позвонить по телефону +7 (988) 603-38-21, написать на email info@keytoheart.ru или связаться через WhatsApp/Telegram. Мы работаем с 09:00 до 22:00 ежедневно.',
+        text: 'Вы можете позвонить по телефону +7 (988) 603-38-21, написать на email info@keytoheart.ru или связаться через WhatsApp/Telegram. Мы работаем с 09:00 до 21:00 ежедневно.',
       },
     },
     {

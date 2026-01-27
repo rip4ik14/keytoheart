@@ -69,7 +69,7 @@ export default function AboutPage() {
             addressLocality: 'Краснодар',
             addressCountry: 'RU',
           },
-          openingHours: 'Mo-Su 09:00-22:00',
+          openingHours: 'Mo-Su 09:00-21:00',
         }}
       />
 

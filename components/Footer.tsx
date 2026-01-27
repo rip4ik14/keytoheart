@@ -121,7 +121,7 @@ export default function Footer({ categories }: FooterProps) {
               <FlowwowFooterBadge />
             </div>
 
-            <p className="text-xs text-gray-600 mt-4">© 2025 КЛЮЧ К СЕРДЦУ. Все права защищены.</p>
+            <p className="text-xs text-gray-600 mt-4">© 2026 КЛЮЧ К СЕРДЦУ. Все права защищены.</p>
 
             <div className="mt-2 space-y-1">
               <Link

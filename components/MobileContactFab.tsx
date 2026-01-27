@@ -617,7 +617,7 @@ export default function MobileContactFab() {
                   />
                   <Item
                     title="Звонок"
-                    subtitle="с 09:00 до 22:00"
+                    subtitle="с 09:00 до 21:00"
                     iconSrc="/icons/phone.svg"
                     href={links.tel}
                     channel="call"
@@ -721,7 +721,7 @@ export default function MobileContactFab() {
                     />
                     <Item
                       title="Звонок"
-                      subtitle="с 09:00 до 22:00"
+                      subtitle="с 09:00 до 21:00"
                       iconSrc="/icons/phone.svg"
                       href={links.tel}
                       channel="call"

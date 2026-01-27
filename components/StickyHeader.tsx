@@ -244,7 +244,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 >
                   +7 (988) 603-38-21
                 </a>
-                <span className="text-xs text-gray-600">с 09:00 до 22:00</span>
+                <span className="text-xs text-gray-600">с 09:00 до 21:00</span>
               </div>
 
               <div className="flex items-center gap-2">

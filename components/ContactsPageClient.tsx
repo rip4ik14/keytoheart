@@ -75,7 +75,7 @@ export default function ContactsPageClient() {
             <strong>Адрес:</strong> г. Краснодар, ул. Героев-Разведчиков, 17/1
           </li>
           <li role="listitem">
-            <strong>Часы работы:</strong> Пн-Вс, 09:00–22:00
+            <strong>Часы работы:</strong> Пн-Вс, 09:00–21:00
           </li>
         </motion.ul>
         <motion.p
