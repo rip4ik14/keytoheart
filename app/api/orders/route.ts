@@ -7,18 +7,23 @@ import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
 import { Prisma } from '@prisma/client';
 
+// Явно фиксируем node runtime, чтобы не было сюрпризов с edge
+export const runtime = 'nodejs';
+
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
 // Базовый URL сайта, чтобы дать ссылку на админку без передачи ПДн в Telegram
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
 
+// Таймаут на Telegram, чтобы сеть/днс не блокировали заказ
+const TELEGRAM_TIMEOUT_MS = 8000;
+
 interface OrderRequest {
   phone: string;
-  name?: string; // ✅ стало необязательным
+  name?: string;
   recipient: string;
 
-  // ✅ НОВОЕ (у тебя уже было в интерфейсе, оставляем)
   occasion?: string | null;
 
   recipientPhone: string;
@@ -39,9 +44,9 @@ interface OrderRequest {
 
   total: number;
 
-  bonuses_used?: number; // Int в prisma
-  promo_id?: string; // Uuid
-  promo_discount?: number; // Decimal в prisma
+  bonuses_used?: number;
+  promo_id?: string;
+  promo_discount?: number;
   delivery_instructions?: string;
   postcard_text?: string;
   anonymous?: boolean;
@@ -54,19 +59,16 @@ function normalizePhoneRuHard(raw: string): string | null {
   const d = digitsOnly(raw);
   if (!d) return null;
 
-  // 11+ цифр и начинается с 7/8 -> берём 10 после префикса
   if (d.length >= 11 && (d.startsWith('7') || d.startsWith('8'))) {
     const local10 = d.slice(1, 11);
     return local10.length === 10 ? `+7${local10}` : null;
   }
 
-  // если цифр больше 10 - берём последние 10
   if (d.length > 10) {
     const local10 = d.slice(-10);
     return local10.length === 10 ? `+7${local10}` : null;
   }
 
-  // ровно 10 -> ок
   if (d.length === 10) return `+7${d}`;
 
   return null;
@@ -157,43 +159,75 @@ ${upsellList}
 async function sendTelegramMessageSafe(text: string) {
   if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return { ok: false, error: 'Missing TELEGRAM env' };
 
+  const started = Date.now();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), TELEGRAM_TIMEOUT_MS);
+
   try {
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-        }),
-      },
-    );
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
 
     if (!telegramResponse.ok) {
-      const t = await telegramResponse.text();
-      return { ok: false, error: t || 'Telegram error' };
+      const body = await telegramResponse.text().catch(() => '');
+      return { ok: false, error: body || `Telegram HTTP ${telegramResponse.status}`, ms: Date.now() - started };
     }
 
-    return { ok: true, error: null };
+    return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
-    return { ok: false, error: e?.message || 'Telegram send failed' };
+    const msg = e?.name === 'AbortError' ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms` : e?.message || 'Telegram send failed';
+    return { ok: false, error: msg, ms: Date.now() - started };
+  } finally {
+    clearTimeout(t);
   }
 }
 
+// Чтобы Telegram не мог заблокировать создание заказа
+function fireAndForgetTelegram(params: { text: string; orderNumber: number | null; requestId: string }) {
+  const { text, orderNumber, requestId } = params;
+
+  // гарантированно отрываемся от основного await-цепочки
+  setTimeout(() => {
+    sendTelegramMessageSafe(text)
+      .then((res) => {
+        if (!res.ok) {
+          console.error(
+            `[ORDERS][${requestId}] Telegram failed for order ${orderNumber ?? 'n/a'}: ${res.error} (ms=${res.ms ?? 'n/a'})`,
+          );
+        } else {
+          console.log(
+            `[ORDERS][${requestId}] Telegram sent OK for order ${orderNumber ?? 'n/a'} (ms=${res.ms ?? 'n/a'})`,
+          );
+        }
+      })
+      .catch((e: any) => {
+        console.error(
+          `[ORDERS][${requestId}] Telegram unexpected error for order ${orderNumber ?? 'n/a'}: ${e?.message || e}`,
+        );
+      });
+  }, 0);
+}
+
 export async function POST(req: Request) {
+  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
   try {
     const body = await safeBody<OrderRequest>(req, 'ORDERS API');
     if (body instanceof NextResponse) return body;
 
     const {
       phone: rawPhone,
-      name = '', // ✅ default
+      name = '',
       recipient,
 
-      // ✅ НОВОЕ: достаём occasion из body
       occasion = null,
 
       recipientPhone: rawRecipientPhone,
@@ -229,7 +263,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
     }
 
-    // Телефон клиента (для базы - нужен, но НЕ для Telegram)
     const sanitizedPhoneInput = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
     const sanitizedPhone = normalizePhoneRuHard(normalizePhone(sanitizedPhoneInput)) || '';
 
@@ -240,13 +273,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Телефон получателя (для базы - нужен, но НЕ для Telegram)
     const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, {
       allowedTags: [],
       allowedAttributes: {},
     });
-    const sanitizedRecipientPhone =
-      normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
+    const sanitizedRecipientPhone = normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
 
     if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
@@ -255,27 +286,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // Санитизация строк для БД
     const sanitizedName = sanitizeHtml(name || '', { allowedTags: [], allowedAttributes: {} });
     const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
     const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
 
-    // ✅ НОВОЕ: санитизируем occasion для БД (и приводим к null если пусто)
-    const sanitizedOccasionRaw = occasion
-      ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} })
-      : '';
+    const sanitizedOccasionRaw = occasion ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} }) : '';
     const sanitizedOccasion = sanitizedOccasionRaw.trim() ? sanitizedOccasionRaw.trim() : null;
 
     const sanitizedDeliveryInstructions = delivery_instructions
       ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    const sanitizedPostcardText = postcard_text
-      ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
-      : null;
+    const sanitizedPostcardText = postcard_text ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} }) : null;
 
-    // ✅ user_profiles - НЕ блокируем заказ. создаём профиль, если нет
+    // ✅ user_profiles - НЕ блокируем заказ
     const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
       create: {
@@ -283,7 +308,6 @@ export async function POST(req: Request) {
         name: sanitizedName || null,
       } as any,
       update: {
-        // если имя пустое - не трогаем
         ...(sanitizedName ? { name: sanitizedName } : {}),
       } as any,
       select: { id: true },
@@ -303,10 +327,7 @@ export async function POST(req: Request) {
       .filter((id): id is number => id !== null);
 
     if (regularItems.length > 0 && productIds.length !== regularItems.length) {
-      return NextResponse.json(
-        { error: 'Некоторые ID товаров некорректны (не числа)' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Некоторые ID товаров некорректны (не числа)' }, { status: 400 });
     }
 
     if (productIds.length > 0) {
@@ -316,12 +337,8 @@ export async function POST(req: Request) {
         .in('id', productIds);
 
       if (productError) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('Supabase error fetching products:', productError);
-        return NextResponse.json(
-          { error: 'Ошибка получения товаров: ' + productError.message },
-          { status: 500 },
-        );
+        console.error(`[ORDERS][${requestId}] Supabase error fetching products:`, productError);
+        return NextResponse.json({ error: 'Ошибка получения товаров: ' + productError.message }, { status: 500 });
       }
 
       const invalidItems = regularItems.filter((item) => {
@@ -347,11 +364,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // delivery_method
     const finalDeliveryMethod: 'pickup' | 'delivery' =
       deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
 
-    // total/promo_discount - Decimal
     const totalDecimal = new Prisma.Decimal(String(total));
     const promoDiscountDecimal = new Prisma.Decimal(String(promo_discount));
 
@@ -362,7 +377,6 @@ export async function POST(req: Request) {
         phone: sanitizedPhone,
         recipient_phone: sanitizedRecipientPhone,
 
-        // ✅ имя может быть пустым
         name: sanitizedName || null,
         contact_name: sanitizedName || null,
 
@@ -387,7 +401,6 @@ export async function POST(req: Request) {
         anonymous,
         whatsapp,
 
-        // ✅ НОВОЕ: сохраняем повод
         occasion: sanitizedOccasion,
 
         items: regularItems as any,
@@ -410,8 +423,7 @@ export async function POST(req: Request) {
       try {
         await prisma.order_items.createMany({ data: orderItems });
       } catch (itemError: any) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[order_items error]', itemError.message);
+        console.error(`[ORDERS][${requestId}] [order_items error]`, itemError?.message || itemError);
       }
     }
 
@@ -434,11 +446,11 @@ export async function POST(req: Request) {
         }
       } catch (e: any) {
         promoError = e?.message || 'Promo update error';
+        console.error(`[ORDERS][${requestId}] Promo update error:`, promoError);
       }
     }
 
-    // Telegram (без ПДн)
-    let telegramError: string | null = null;
+    // Telegram (без ПДн) - НЕ блокируем ответ клиенту
     try {
       const tgText = buildTelegramMessageSafe({
         orderNumber: order.order_number ?? null,
@@ -454,12 +466,13 @@ export async function POST(req: Request) {
         upsellItems,
       });
 
-      const tg = await sendTelegramMessageSafe(tgText);
-      if (!tg.ok) telegramError = tg.error || 'Telegram error';
+      fireAndForgetTelegram({
+        text: tgText,
+        orderNumber: order.order_number ?? null,
+        requestId,
+      });
     } catch (e: any) {
-      telegramError = e?.message || 'Telegram error';
-      process.env.NODE_ENV !== 'production' &&
-        console.error('[Telegram build/send error]', telegramError);
+      console.error(`[ORDERS][${requestId}] [Telegram build error]`, e?.message || e);
     }
 
     return NextResponse.json({
@@ -470,12 +483,10 @@ export async function POST(req: Request) {
       items: order.items,
       upsell_details: order.upsell_details,
       tracking_url: `/account/orders/${order.id}`,
-      telegramError,
       promoError,
     });
   } catch (error: any) {
-    process.env.NODE_ENV !== 'production' &&
-      console.error('[ORDER API ERROR]', error, error?.stack);
-    return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
+    console.error(`[ORDERS][${requestId}] [ORDER API ERROR]`, error, error?.stack);
+    return NextResponse.json({ error: 'Ошибка сервера: ' + (error?.message || String(error)) }, { status: 500 });
   }
 }
