@@ -2,7 +2,7 @@
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -42,7 +42,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
 
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
-  // подкатегории: автоскролл активного чипа в центр
+  // подкатегории: автоскролл активного чипа
   const chipsWrapRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
 
@@ -66,10 +66,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
   }, [sort, subcategory, products, subcategories]);
 
   useEffect(() => {
-    window.gtag?.('event', 'view_category', {
-      event_category: 'category',
-      event_label: h1,
-    });
+    window.gtag?.('event', 'view_category', { event_category: 'category', event_label: h1 });
     if (YM_ID) callYm(YM_ID, 'reachGoal', 'view_category', { category: h1 });
   }, [h1]);
 
@@ -78,9 +75,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
     return t.length ? t : null;
   }, [seoText]);
 
-  const sortLabel = useMemo(() => {
-    return SORT_OPTIONS.find((o) => o.key === sort)?.label || 'По новинкам';
-  }, [sort]);
+  const sortLabel = useMemo(() => SORT_OPTIONS.find((o) => o.key === sort)?.label || 'По новинкам', [sort]);
 
   const setQuery = (next: { sort?: SortKey; subcategory?: string }) => {
     const nextSort = next.sort ?? sort;
@@ -88,22 +83,16 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
     router.push(`/category/${slug}?sort=${encodeURIComponent(nextSort)}&subcategory=${encodeURIComponent(nextSub)}`);
   };
 
-  // автоскролл активного чипа
+  // автоскролл активного чипа (надёжнее через scrollIntoView)
   useEffect(() => {
     const el = chipRefs.current[subcategory];
-    const wrap = chipsWrapRef.current;
-    if (!el || !wrap) return;
+    if (!el) return;
 
-    const wrapRect = wrap.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const elCenter = elRect.left + elRect.width / 2;
-    const wrapCenter = wrapRect.left + wrapRect.width / 2;
-    const delta = elCenter - wrapCenter;
-
-    wrap.scrollBy({ left: delta, behavior: 'smooth' });
+    // inline: 'center' работает отлично для горизонтальных чипов
+    el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [subcategory]);
 
-  // закрытие dropdown сортировки по клику вне
+  // закрытие dropdown по клику вне
   useEffect(() => {
     if (!sortOpen) return;
 
@@ -128,14 +117,14 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
         {h1}
       </h1>
 
-      {/* Подкатегории: свайп + peek следующего чипа */}
+      {/* Подкатегории: peek следующего чипа */}
       {subcategories.length > 0 && (
         <div className="mt-4">
           <div className="relative">
-            {/* делаем область скролла "в край" и добавляем правый отступ под peek */}
             <div
               ref={chipsWrapRef}
               className={[
+                // делаем в край и добавляем "peek"
                 '-mx-4 px-4 pr-12',
                 'flex gap-2 overflow-x-auto no-scrollbar',
                 'pb-2',
@@ -174,12 +163,11 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
                 />
               ))}
             </div>
-
           </div>
         </div>
       )}
 
-      {/* Сортировка: нормальный dropdown */}
+      {/* Сортировка: dropdown */}
       <div className="mt-3 flex items-center gap-2 text-[13px] text-neutral-600">
         <span>Сортировать:</span>
 
@@ -243,12 +231,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
           aria-label="Список товаров"
         >
           {filteredProducts.map((p) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-            >
+            <motion.div key={p.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <ProductCard product={p} />
             </motion.div>
           ))}
@@ -268,28 +251,22 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
   );
 }
 
-/**
- * Важно: чтобы ref работал на Link, используем forwardRef.
- */
-const FilterChip = (function FilterChipImpl(
-  {
-    href,
-    active,
-    label,
-    onClick,
-  }: {
-    href: string;
-    active: boolean;
-    label: string;
-    onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
-  },
-  ref: React.Ref<HTMLAnchorElement>,
+type FilterChipProps = {
+  href: string;
+  active: boolean;
+  label: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+};
+
+const FilterChip = forwardRef<HTMLAnchorElement, FilterChipProps>(function FilterChip(
+  { href, active, label, onClick }: FilterChipProps,
+  ref,
 ) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      ref={ref as any}
+      ref={ref}
       className={[
         'shrink-0 snap-start',
         'inline-flex items-center whitespace-nowrap',
@@ -306,9 +283,4 @@ const FilterChip = (function FilterChipImpl(
       {label}
     </Link>
   );
-} as unknown) as React.ForwardRefExoticComponent<{
-  href: string;
-  active: boolean;
-  label: string;
-  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
-} & React.RefAttributes<HTMLAnchorElement>>;
+});
