@@ -416,7 +416,7 @@ export default function Footer({ categories }: FooterProps) {
             <Link href="/contacts" className="text-gray-500 underline">Контакты</Link>
           </div>
 
-          <div className="text-gray-400">© 2025 КЛЮЧ К СЕРДЦУ</div>
+          <div className="text-gray-400">© 2026 КЛЮЧ К СЕРДЦУ</div>
         </div>
       </div>
     </footer>

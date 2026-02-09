@@ -5,7 +5,7 @@ import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
@@ -73,15 +73,16 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const chipRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const currentCategorySlug = (() => {
+  const currentCategorySlug = useMemo(() => {
     const parts = pathname.split('/').filter(Boolean);
     if (parts[0] !== 'category') return null;
     return parts[1] || null;
-  })();
+  }, [pathname]);
 
   const fetchCategories = async () => {
     try {
@@ -102,7 +103,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
           slug,
           is_visible,
           subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
-        `
+        `,
         )
         .eq('is_visible', true)
         .order('id', { ascending: true });
@@ -182,9 +183,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       type: 'category',
     });
 
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'category_nav_click', { category: name, type: 'category' });
-    }
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'category_nav_click', { category: name, type: 'category' });
   };
 
   const trackSubcategory = (name: string) => {
@@ -194,79 +193,121 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       type: 'subcategory',
     });
 
-    if (YM_ID !== undefined) {
-      callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', {
-        subcategory: name,
-        type: 'subcategory',
-      });
-    }
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
   };
 
+  // автоскролл активной категории в центр (мобилка)
+  useEffect(() => {
+    const wrap = scrollRef.current;
+    if (!wrap) return;
+
+    const activeKey = currentCategorySlug ? `cat:${currentCategorySlug}` : '';
+    const el = activeKey ? chipRefs.current[activeKey] : null;
+    if (!el) return;
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+
+    const elCenter = elRect.left + elRect.width / 2;
+    const wrapCenter = wrapRect.left + wrapRect.width / 2;
+    const delta = elCenter - wrapCenter;
+
+    wrap.scrollBy({ left: delta, behavior: 'smooth' });
+  }, [currentCategorySlug, categories.length]);
+
   return (
-    <nav
-      className="sticky top-14 sm:top-16 z-40 bg-white border-b text-black font-sans"
-      aria-label="Навигация по категориям"
-    >
+    <nav className="bg-white border-b text-black font-sans" aria-label="Навигация по категориям">
       {/* mobile */}
-      <div className="sm:hidden relative">
-        <div className="overflow-x-auto no-scrollbar" ref={scrollRef}>
-          <ul className="flex gap-2 px-4 py-4">
-            {showMobileFilter && (
-              <li className="flex-shrink-0">
-                <button
-                  onClick={() => setFilterOpen(true)}
-                  className="inline-flex items-center whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm transition-all focus:ring-2 focus:ring-gray-500"
-                  aria-label="Открыть фильтр"
-                >
-                  Фильтр
-                </button>
-              </li>
-            )}
+      <div className="sm:hidden">
+        <div className="relative">
+          {/* делаем "peek" следующего чипа: -mx-4 px-4 pr-12 */}
+          <div
+            className={[
+              '-mx-4 px-4 pr-12',
+              'overflow-x-auto no-scrollbar',
+              '[-webkit-overflow-scrolling:touch]',
+              'snap-x snap-mandatory',
+              'scroll-px-4',
+            ].join(' ')}
+            ref={scrollRef}
+            aria-label="Категории (свайп)"
+          >
+            <ul className="flex gap-2 py-3">
+              {showMobileFilter && (
+                <li className="shrink-0 snap-start">
+                  <button
+                    onClick={() => setFilterOpen(true)}
+                    className={[
+                      'inline-flex items-center whitespace-nowrap',
+                      'h-9 px-4',
+                      'rounded-full',
+                      'border border-neutral-200',
+                      'bg-white text-black',
+                      'text-[13px] font-medium',
+                      'hover:border-neutral-300 hover:bg-neutral-50',
+                      'transition',
+                      'focus:ring-2 focus:ring-black/20 focus:outline-none',
+                    ].join(' ')}
+                    aria-label="Открыть фильтр"
+                  >
+                    Фильтр
+                  </button>
+                </li>
+              )}
 
-            {loading
-              ? Array.from({ length: 6 }).map((_, i) => (
-                  <li key={i} className="flex-shrink-0">
-                    <div className="h-8 w-24 rounded-xl bg-gray-200 animate-pulse" />
-                  </li>
-                ))
-              : categories.length === 0
-              ? (
-                  <li className="text-center text-gray-500 font-sans w-full">
-                    Категории отсутствуют
-                  </li>
-                )
-              : categories.map((cat) => {
-                  const href = `/category/${cat.slug}`;
-                  const isActiveCategory = pathname.startsWith(href);
-                  const isActiveSubcategory = cat.subcategories.some((sub) =>
-                    pathname.includes(`/category/${cat.slug}/${sub.slug}`)
-                  );
-                  const active = isActiveCategory || isActiveSubcategory;
+              {loading
+                ? Array.from({ length: 7 }).map((_, i) => (
+                    <li key={i} className="shrink-0 snap-start">
+                      <div className="h-9 w-24 rounded-full bg-neutral-200 animate-pulse" />
+                    </li>
+                  ))
+                : categories.length === 0
+                  ? (
+                    <li className="text-center text-neutral-500 w-full text-[13px]">Категории отсутствуют</li>
+                  )
+                  : categories.map((cat, idx) => {
+                      const href = `/category/${cat.slug}`;
+                      const isActiveCategory = pathname.startsWith(href);
+                      const isActiveSubcategory = cat.subcategories.some((sub) => pathname.includes(`/category/${cat.slug}/${sub.slug}`));
+                      const active = isActiveCategory || isActiveSubcategory;
 
-                  return (
-                    <motion.li
-                      key={cat.id}
-                      className="flex-shrink-0"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: cat.id * 0.05 }}
-                    >
-                      <Link
-                        href={href}
-                        className={`inline-block whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium border border-gray-300 transition-all ${
-                          active
-                            ? 'bg-black text-white !text-white shadow-sm scale-105'
-                            : 'bg-white text-gray-800 hover:bg-gray-100 hover:shadow-sm'
-                        } focus:ring-2 focus:ring-gray-500`}
-                        aria-current={active ? 'page' : undefined}
-                        onClick={() => trackCategory(cat.name)}
-                      >
-                        {cat.name}
-                      </Link>
-                    </motion.li>
-                  );
-                })}
-          </ul>
+                      return (
+                        <motion.li
+                          key={cat.id}
+                          className="shrink-0 snap-start"
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2, delay: Math.min(idx, 8) * 0.03 }}
+                        >
+                          <Link
+                            href={href}
+                            ref={(el) => {
+                              chipRefs.current[`cat:${cat.slug}`] = el;
+                            }}
+                            className={[
+                              'inline-flex items-center whitespace-nowrap',
+                              'h-9 px-4',
+                              'rounded-full',
+                              'border',
+                              active ? 'bg-black text-white border-black' : 'bg-white text-black border-neutral-200',
+                              'text-[13px] font-medium',
+                              active ? '' : 'hover:border-neutral-300 hover:bg-neutral-50',
+                              'transition',
+                              'focus:ring-2 focus:ring-black/20 focus:outline-none',
+                            ].join(' ')}
+                            aria-current={active ? 'page' : undefined}
+                            onClick={() => trackCategory(cat.name)}
+                          >
+                            {cat.name}
+                          </Link>
+                        </motion.li>
+                      );
+                    })}
+            </ul>
+          </div>
+
+          
+         
         </div>
       </div>
 
@@ -275,99 +316,96 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
         {loading
           ? Array.from({ length: 6 }).map((_, i) => (
               <li key={i}>
-                <div className="h-6 w-20 rounded bg-gray-200 animate-pulse" />
+                <div className="h-6 w-20 rounded bg-neutral-200 animate-pulse" />
               </li>
             ))
           : categories.length === 0
-          ? (
-              <li className="text-center text-gray-500 font-sans">Категории отсутствуют</li>
+            ? (
+              <li className="text-center text-neutral-500">Категории отсутствуют</li>
             )
-          : categories.map((cat, idx) => {
-              const href = `/category/${cat.slug}`;
-              const isActive = pathname.startsWith(href);
-              const hasDropdown = (cat.subcategories?.length ?? 0) > 0;
+            : categories.map((cat, idx) => {
+                const href = `/category/${cat.slug}`;
+                const isActive = pathname.startsWith(href);
+                const hasDropdown = (cat.subcategories?.length ?? 0) > 0;
 
-              return (
-                <li key={cat.id} className="flex items-center">
-                  <div className="relative group inline-block">
-                    <Link
-                      href={href}
-                      className={[
-                        'inline-flex items-center gap-1.5',
-                        'px-2 py-1',
-                        'text-sm font-medium transition-colors',
-                        isActive
-                          ? 'text-black underline'
-                          : 'text-gray-500 hover:text-black hover:underline',
-                        'focus:ring-2 focus:ring-gray-500',
-                      ].join(' ')}
-                      onClick={() => trackCategory(cat.name)}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <span className="whitespace-nowrap">{cat.name}</span>
-
-                      {/* ✅ стрелка только там, где есть выпадашка */}
-                      {hasDropdown && (
-                        <ChevronDown
-                          className="h-4 w-4 text-gray-400 transition-transform duration-200 group-hover:rotate-180"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </Link>
-
-                    {hasDropdown && (
-                      <div
-                        className="
-                          absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64
-                          bg-white border rounded-xl shadow-xl z-50
-                          opacity-0 invisible translate-y-1 scale-[0.98]
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:scale-100
-                          transition-all duration-200 ease-out
-                          py-2
-                          before:absolute before:-top-4 before:left-0 before:w-full before:h-4
-                          before:content-[''] before:block
-                        "
-                        role="menu"
-                        aria-label={`Подкатегории для ${cat.name}`}
-                        tabIndex={-1}
+                return (
+                  <li key={cat.id} className="flex items-center">
+                    <div className="relative group inline-block">
+                      <Link
+                        href={href}
+                        className={[
+                          'inline-flex items-center gap-1.5',
+                          'px-2 py-1',
+                          'text-sm font-medium transition-colors',
+                          isActive ? 'text-black underline' : 'text-neutral-500 hover:text-black hover:underline',
+                          'focus:ring-2 focus:ring-black/20 focus:outline-none',
+                        ].join(' ')}
+                        onClick={() => trackCategory(cat.name)}
+                        aria-current={isActive ? 'page' : undefined}
                       >
+                        <span className="whitespace-nowrap">{cat.name}</span>
+
+                        {hasDropdown && (
+                          <ChevronDown
+                            className="h-4 w-4 text-neutral-400 transition-transform duration-200 group-hover:rotate-180"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </Link>
+
+                      {hasDropdown && (
                         <div
                           className="
-                            absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
-                            w-3 h-3 rotate-45 bg-white border-l border-t border-gray-200
-                            z-[-1]
+                            absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64
+                            bg-white border rounded-xl shadow-xl z-50
+                            opacity-0 invisible translate-y-1 scale-[0.98]
+                            group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:scale-100
+                            transition-all duration-200 ease-out
+                            py-2
+                            before:absolute before:-top-4 before:left-0 before:w-full before:h-4
+                            before:content-[''] before:block
                           "
-                          aria-hidden="true"
-                        />
+                          role="menu"
+                          aria-label={`Подкатегории для ${cat.name}`}
+                          tabIndex={-1}
+                        >
+                          <div
+                            className="
+                              absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
+                              w-3 h-3 rotate-45 bg-white border-l border-t border-neutral-200
+                              z-[-1]
+                            "
+                            aria-hidden="true"
+                          />
 
-                        {cat.subcategories.map((sub) => (
-                          <Link
-                            key={sub.id}
-                            href={`/category/${cat.slug}/${sub.slug}`}
-                            className="block px-4 py-2 text-sm text-black hover:bg-gray-100 font-sans focus:bg-gray-100 outline-none"
-                            role="menuitem"
-                            tabIndex={0}
-                            onClick={() => trackSubcategory(sub.name)}
-                          >
-                            {sub.name}
-                          </Link>
-                        ))}
-                      </div>
+                          {cat.subcategories.map((sub) => (
+                            <Link
+                              key={sub.id}
+                              href={`/category/${cat.slug}/${sub.slug}`}
+                              className="block px-4 py-2 text-sm text-black hover:bg-neutral-100 focus:bg-neutral-100 outline-none"
+                              role="menuitem"
+                              tabIndex={0}
+                              onClick={() => trackSubcategory(sub.name)}
+                            >
+                              {sub.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {idx < categories.length - 1 && (
+                      <span aria-hidden="true" className="mx-4 text-neutral-300 select-none font-bold text-lg">
+                        ·
+                      </span>
                     )}
-                  </div>
-
-                  {idx < categories.length - 1 && (
-                    <span aria-hidden="true" className="mx-4 text-gray-300 select-none font-bold text-lg">
-                      ·
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+                  </li>
+                );
+              })}
       </ul>
 
       {error && (
-        <div className="text-center text-sm text-black py-2 font-sans">
+        <div className="text-center text-sm text-black py-2">
           <p>{error}</p>
           <button
             onClick={() => {
@@ -375,7 +413,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
               setError(null);
               fetchCategories();
             }}
-            className="mt-2 px-4 py-1 bg-black text-white rounded hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black"
+            className="mt-2 px-4 py-1 bg-black text-white rounded hover:bg-neutral-800 transition-colors focus:outline-none focus:ring-2 focus:ring-black/20"
             aria-label="Повторить попытку загрузки категорий"
           >
             Повторить
