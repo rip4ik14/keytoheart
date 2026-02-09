@@ -12,12 +12,14 @@ export const runtime = 'nodejs';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+const ORDER_WEBHOOK_URL = process.env.ORDER_WEBHOOK_URL || '';
 
 // Базовый URL сайта, чтобы дать ссылку на админку без передачи ПДн в Telegram
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
 
 // Таймаут на Telegram, чтобы сеть/днс не блокировали заказ
 const TELEGRAM_TIMEOUT_MS = 8000;
+const ORDER_WEBHOOK_TIMEOUT_MS = 8000;
 
 interface OrderRequest {
   phone: string;
@@ -190,30 +192,70 @@ async function sendTelegramMessageSafe(text: string) {
   }
 }
 
-// Чтобы Telegram не мог заблокировать создание заказа
-function fireAndForgetTelegram(params: { text: string; orderNumber: number | null; requestId: string }) {
-  const { text, orderNumber, requestId } = params;
+async function sendOrderWebhookSafe(params: {
+  orderNumber: number | null;
+  total: number;
+  date: string;
+  time: string;
+  deliveryMethod: 'pickup' | 'delivery';
+  payment: string;
+  bonusesUsed: number;
+  promoApplied: boolean;
+  promoDiscount: number;
+  regularItems: OrderRequest['items'];
+  upsellItems: OrderRequest['items'];
+}) {
+  if (!ORDER_WEBHOOK_URL) return { ok: false, error: 'Missing ORDER_WEBHOOK_URL' };
 
-  // гарантированно отрываемся от основного await-цепочки
-  setTimeout(() => {
-    sendTelegramMessageSafe(text)
-      .then((res) => {
-        if (!res.ok) {
-          console.error(
-            `[ORDERS][${requestId}] Telegram failed for order ${orderNumber ?? 'n/a'}: ${res.error} (ms=${res.ms ?? 'n/a'})`,
-          );
-        } else {
-          console.log(
-            `[ORDERS][${requestId}] Telegram sent OK for order ${orderNumber ?? 'n/a'} (ms=${res.ms ?? 'n/a'})`,
-          );
-        }
-      })
-      .catch((e: any) => {
-        console.error(
-          `[ORDERS][${requestId}] Telegram unexpected error for order ${orderNumber ?? 'n/a'}: ${e?.message || e}`,
-        );
-      });
-  }, 0);
+  const started = Date.now();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ORDER_WEBHOOK_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(ORDER_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        source: 'orders',
+        created_at: new Date().toISOString(),
+        order_number: params.orderNumber,
+        total: params.total,
+        date: params.date,
+        time: params.time,
+        delivery_method: params.deliveryMethod,
+        payment: params.payment,
+        bonuses_used: params.bonusesUsed,
+        promo_applied: params.promoApplied,
+        promo_discount: params.promoDiscount,
+        regular_items: params.regularItems.map((item) => ({
+          title: item.title,
+          quantity: item.quantity,
+          price: item.price,
+          category: item.category ?? null,
+        })),
+        upsell_items: params.upsellItems.map((item) => ({
+          title: item.title,
+          quantity: item.quantity,
+          price: item.price,
+          category: item.category ?? null,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return { ok: false, error: body || `Webhook HTTP ${response.status}`, ms: Date.now() - started };
+    }
+
+    return { ok: true, error: null, ms: Date.now() - started };
+  } catch (e: any) {
+    const msg =
+      e?.name === 'AbortError' ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms` : e?.message || 'Webhook send failed';
+    return { ok: false, error: msg, ms: Date.now() - started };
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 export async function POST(req: Request) {
@@ -450,9 +492,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Telegram (без ПДн) - НЕ блокируем ответ клиенту
+    // Telegram + Webhook (без ПДн)
     try {
-      const tgText = buildTelegramMessageSafe({
+      const safeNotificationParams = {
         orderNumber: order.order_number ?? null,
         total,
         date,
@@ -464,15 +506,47 @@ export async function POST(req: Request) {
         promoDiscount: Number.isFinite(promo_discount) ? promo_discount : 0,
         regularItems,
         upsellItems,
-      });
+      };
 
-      fireAndForgetTelegram({
-        text: tgText,
-        orderNumber: order.order_number ?? null,
-        requestId,
-      });
+      const tgText = buildTelegramMessageSafe(safeNotificationParams);
+      const [telegramRes, webhookRes] = await Promise.allSettled([
+        sendTelegramMessageSafe(tgText),
+        sendOrderWebhookSafe(safeNotificationParams),
+      ]);
+
+      if (telegramRes.status === 'fulfilled') {
+        if (!telegramRes.value.ok) {
+          console.error(
+            `[ORDERS][${requestId}] Telegram failed for order ${order.order_number ?? 'n/a'}: ${telegramRes.value.error} (ms=${telegramRes.value.ms ?? 'n/a'})`,
+          );
+        } else {
+          console.log(
+            `[ORDERS][${requestId}] Telegram sent OK for order ${order.order_number ?? 'n/a'} (ms=${telegramRes.value.ms ?? 'n/a'})`,
+          );
+        }
+      } else {
+        console.error(
+          `[ORDERS][${requestId}] Telegram unexpected error for order ${order.order_number ?? 'n/a'}: ${telegramRes.reason?.message || telegramRes.reason}`,
+        );
+      }
+
+      if (webhookRes.status === 'fulfilled') {
+        if (!webhookRes.value.ok) {
+          console.error(
+            `[ORDERS][${requestId}] Webhook failed for order ${order.order_number ?? 'n/a'}: ${webhookRes.value.error} (ms=${webhookRes.value.ms ?? 'n/a'})`,
+          );
+        } else {
+          console.log(
+            `[ORDERS][${requestId}] Webhook sent OK for order ${order.order_number ?? 'n/a'} (ms=${webhookRes.value.ms ?? 'n/a'})`,
+          );
+        }
+      } else {
+        console.error(
+          `[ORDERS][${requestId}] Webhook unexpected error for order ${order.order_number ?? 'n/a'}: ${webhookRes.reason?.message || webhookRes.reason}`,
+        );
+      }
     } catch (e: any) {
-      console.error(`[ORDERS][${requestId}] [Telegram build error]`, e?.message || e);
+      console.error(`[ORDERS][${requestId}] [Notification build error]`, e?.message || e);
     }
 
     return NextResponse.json({
