@@ -779,25 +779,26 @@ export default function CartPageClient({
           : '') + ((form as any).deliveryInstructions || '');
 
       const payload = {
-        phone: customerPhone,
-        name: form.name,
-        recipient: form.recipient,
-        recipientPhone: normalizePhone(form.recipientPhone),
-        address: addressString,
-        payment: (form as any).payment,
-        date: form.date,
-        time: form.time,
-        items: [...cartItems, ...upsellItemsPayload],
-        total: finalTotal,
-        bonuses_used: bonusesUsed,
-        promo_id: promoId,
-        promo_discount: discountAmount,
-        delivery_instructions: deliveryInstructionsCombined || null,
-        postcard_text: postcardText || null,
-        anonymous: (form as any).anonymous,
-        whatsapp: (form as any).whatsapp,
-        occasion: occasion || null,
-      };
+  phone: customerPhone,
+  name: form.name,
+  recipient: form.recipient,
+  recipientPhone: normalizePhone(form.recipientPhone),
+  address: addressString,
+  payment: (form as any).payment,
+  date: form.date,
+  time: form.time,
+  items: [...cartItems, ...upsellItemsPayload],
+  total: finalTotal,
+  bonuses_used: bonusesUsed,
+  promo_id: promoId,
+  promo_discount: discountAmount,
+  delivery_instructions: deliveryInstructionsCombined || null,
+  postcard_text: postcardText || null,
+  anonymous: (form as any).anonymous,
+  contact_method: (form as any).contactMethod || 'call',
+  occasion: occasion || null,
+};
+
 
       const res = await fetch('/api/orders', {
         method: 'POST',

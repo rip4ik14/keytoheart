@@ -3,14 +3,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink } from 'lucide-react';
+import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink, Send } from 'lucide-react';
 
 export interface Order {
   id: string;
@@ -41,6 +39,8 @@ export interface Order {
   anonymous: boolean | null;
   whatsapp: boolean | null;
 
+  contact_method?: string | null;
+
   delivery_instructions: string | null;
   postcard_text: string | null;
 
@@ -57,7 +57,6 @@ export interface Order {
     isUpsell?: boolean;
     category?: string;
 
-    // ✅ новые поля для админки
     product_url?: string;
     image_url?: string | null;
   }>;
@@ -69,7 +68,6 @@ export interface Order {
     quantity: number;
     category?: string;
 
-    // ✅ на будущее
     product_url?: string;
     image_url?: string | null;
   }>;
@@ -81,11 +79,11 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-gray-200 text-gray-800',
-  processing: 'bg-yellow-100 text-yellow-900',
-  delivering: 'bg-blue-100 text-blue-900',
-  delivered: 'bg-green-100 text-green-900',
-  canceled: 'bg-red-100 text-red-900',
+  pending: 'bg-gray-100 text-gray-900 border-gray-200',
+  processing: 'bg-yellow-50 text-yellow-900 border-yellow-200',
+  delivering: 'bg-blue-50 text-blue-900 border-blue-200',
+  delivered: 'bg-green-50 text-green-900 border-green-200',
+  canceled: 'bg-red-50 text-red-800 border-red-200',
 };
 
 const statusOptions = [
@@ -105,10 +103,53 @@ function safeLower(v: string | null | undefined) {
   return (v || '').toLowerCase();
 }
 
+const mskDtf = new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function formatMskDateTime(iso: string | null | undefined) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+
+  const parts = mskDtf.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+
+  const day = get('day');
+  const month = get('month');
+  const year = get('year');
+  const hour = get('hour');
+  const minute = get('minute');
+
+  return `${day}.${month}.${year} ${hour}:${minute}`;
+}
+
 type StatusMenuState = {
   orderId: string;
   anchorRect: DOMRect;
 };
+
+const digitsOnly = (v: string) => (v || '').replace(/\D/g, '');
+
+function normalizeContactMethod(o: Order): 'call' | 'whatsapp' | 'telegram' | 'max' {
+  const raw = (o.contact_method || '').toLowerCase().trim();
+  if (raw === 'whatsapp' || raw === 'telegram' || raw === 'max' || raw === 'call') return raw;
+  if (o.whatsapp) return 'whatsapp';
+  return 'call';
+}
+
+function contactLabel(m: 'call' | 'whatsapp' | 'telegram' | 'max') {
+  if (m === 'whatsapp') return 'WhatsApp';
+  if (m === 'telegram') return 'Telegram';
+  if (m === 'max') return 'MAX';
+  return 'Звонок';
+}
 
 export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
@@ -119,13 +160,21 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
-  // 👇 вместо inline absolute-меню внутри таблицы используем портал
   const [statusMenu, setStatusMenu] = useState<StatusMenuState | null>(null);
 
   const [deleteModal, setDeleteModal] = useState<{ id: string; label: string } | null>(null);
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
 
   const router = useRouter();
+
+  const uiBtn =
+    'inline-flex items-center justify-center gap-2 rounded-full border bg-white hover:bg-gray-50 active:bg-gray-100 transition px-3 py-1.5 text-xs font-semibold text-gray-900';
+  const uiBtnIcon =
+    'inline-flex items-center justify-center rounded-full border bg-white hover:bg-gray-50 active:bg-gray-100 transition h-8 w-8 text-gray-900';
+  const uiBtnDanger =
+    'inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-white hover:bg-red-50 active:bg-red-100 transition px-3 py-1.5 text-xs font-semibold text-red-700';
+
+  const badgeBase = 'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold';
 
   const updateStatus = async (id: string, newStatus: (typeof statusOptions)[number]['value']) => {
     try {
@@ -169,6 +218,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   };
 
   const visibleOrders = useMemo(() => {
+    const fromMs = dateFrom ? Date.parse(`${dateFrom}T00:00:00+03:00`) : null;
+    const toMs = dateTo ? Date.parse(`${dateTo}T23:59:59+03:00`) : null;
+
     return orders.filter((o) => {
       let ok = true;
 
@@ -183,13 +235,18 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
           o.recipient_phone,
           o.address,
           o.order_number ? String(o.order_number) : '',
+          o.contact_method ? String(o.contact_method) : '',
         ].some((f) => safeLower(f).includes(q));
       }
 
       if (ok && statusFilter) ok = o.status === statusFilter;
 
-      if (ok && dateFrom) ok = !!o.created_at && new Date(o.created_at) >= new Date(dateFrom);
-      if (ok && dateTo) ok = !!o.created_at && new Date(o.created_at) <= new Date(dateTo + 'T23:59:59');
+      if (ok && (fromMs || toMs)) {
+        const createdMs = o.created_at ? Date.parse(o.created_at) : NaN;
+        if (!Number.isFinite(createdMs)) return false;
+        if (fromMs && createdMs < fromMs) return false;
+        if (toMs && createdMs > toMs) return false;
+      }
 
       return ok;
     });
@@ -200,7 +257,21 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     toast.success('Скопировано!');
   };
 
-  // Drag-to-scroll для десктоп-таблицы
+  const openTelegramByPhone = (phone: string) => {
+    const digits = digitsOnly(phone);
+    if (!digits) return;
+    try {
+      window.open(`tg://resolve?phone=${digits}`, '_blank');
+    } catch {
+      copyToClipboard(phone);
+    }
+  };
+
+  const openMaxByPhone = (phone: string) => {
+    copyToClipboard(phone);
+    toast('MAX: номер скопирован', { icon: '📋' });
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;
@@ -239,7 +310,6 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     };
   }, []);
 
-  // refs на кнопки статуса (чтобы корректно снять DOMRect)
   const statusBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const openStatusMenu = (orderId: string) => {
@@ -247,12 +317,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     if (!btn) return;
 
     const rect = btn.getBoundingClientRect();
-
-    // toggle
     setStatusMenu((prev) => (prev?.orderId === orderId ? null : { orderId, anchorRect: rect }));
   };
 
-  // закрытие по клику вне и ESC
   useEffect(() => {
     if (!statusMenu) return;
 
@@ -264,11 +331,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      // если клик по кнопке статуса - не закрываем тут (toggle уже обработан)
       const btn = statusBtnRefs.current[statusMenu.orderId];
       if (btn && (btn === target || btn.contains(target))) return;
 
-      // если клик внутри меню - не закрываем
       const menuEl = document.getElementById('orders-status-menu-portal');
       if (menuEl && menuEl.contains(target)) return;
 
@@ -283,7 +348,6 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     };
   }, [statusMenu]);
 
-  // перепозиционирование при скролле/ресайзе (иначе меню “отлипает”)
   useEffect(() => {
     if (!statusMenu) return;
 
@@ -306,14 +370,13 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
     return <div className="p-4 bg-red-50 text-red-700 rounded-xl m-4">{error}</div>;
   }
 
-  // Рендер портального меню статуса (не режется overflow'ами)
   const statusMenuPortal =
     statusMenu && typeof document !== 'undefined'
       ? createPortal(
           (() => {
-            const w = 192; // w-48
+            const w = 210;
             const gap = 8;
-            const pad = 8;
+            const pad = 10;
 
             const viewportW = window.innerWidth;
             const viewportH = window.innerHeight;
@@ -324,7 +387,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             if (left + w + pad > viewportW) left = Math.max(pad, viewportW - w - pad);
             if (left < pad) left = pad;
 
-            const menuH = 6 * 40 + 10;
+            const menuH = statusOptions.length * 40 + 44;
             if (top + menuH + pad > viewportH) {
               top = Math.max(pad, statusMenu.anchorRect.top - gap - menuH);
             }
@@ -338,7 +401,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   exit={{ opacity: 0, y: 10, scale: 0.98 }}
                   transition={{ duration: 0.14 }}
                   style={{ position: 'fixed', left, top, width: w, zIndex: 90 }}
-                  className="bg-white border rounded-xl shadow-lg py-2"
+                  className="bg-white border rounded-2xl shadow-lg py-2 overflow-hidden"
                 >
                   {statusOptions.map((s) => (
                     <button
@@ -355,7 +418,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   ))}
                   <button
                     onClick={() => setStatusMenu(null)}
-                    className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-black"
+                    className="block w-full text-left px-3 py-2 text-xs text-gray-500 hover:text-gray-900"
                   >
                     Отмена
                   </button>
@@ -369,7 +432,6 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
   return (
     <div className="min-h-screen w-full">
-      {/* Шапка + фильтры */}
       <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur border-b border-gray-200">
         <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-3">
@@ -385,7 +447,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full p-2 border rounded-lg bg-white"
+                className="w-full px-3 py-2 border rounded-2xl bg-white text-sm"
               >
                 <option value="">Все</option>
                 {statusOptions.map((s) => (
@@ -397,13 +459,15 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             </div>
 
             <div>
-              <label className="block mb-1 text-xs font-semibold text-gray-700">Поиск (№, имя, телефон, адрес, повод)</label>
+              <label className="block mb-1 text-xs font-semibold text-gray-700">
+                Поиск (№, имя, телефон, адрес, повод, способ связи)
+              </label>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Например: 124, +7..., Краснодар, Анна, день рождения"
-                className="w-full p-2 border rounded-lg bg-white"
+                placeholder="Например: 124, +7..., Краснодар, Анна, день рождения, whatsapp"
+                className="w-full px-3 py-2 border rounded-2xl bg-white text-sm"
               />
             </div>
 
@@ -414,7 +478,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full p-2 border rounded-lg bg-white"
+                  className="w-full px-3 py-2 border rounded-2xl bg-white text-sm"
                 />
               </div>
               <div className="flex-1">
@@ -423,7 +487,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full p-2 border rounded-lg bg-white"
+                  className="w-full px-3 py-2 border rounded-2xl bg-white text-sm"
                 />
               </div>
             </div>
@@ -432,18 +496,18 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       </div>
 
       {!visibleOrders.length ? (
-        <div className="p-4 bg-white text-gray-600 rounded-xl m-4 border">Заказы не найдены</div>
+        <div className="p-4 bg-white text-gray-600 rounded-2xl m-4 border">Заказы не найдены</div>
       ) : (
         <>
-          {/* Десктоп-таблица */}
           <div ref={scrollRef} className="hidden lg:block overflow-x-auto cursor-grab px-4 sm:px-6 py-6">
-            <div className="bg-white rounded-2xl shadow border overflow-hidden">
-              <table className="min-w-[1100px] w-full text-sm border-collapse">
+            <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
+              <table className="min-w-[1180px] w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-100 text-gray-700 uppercase text-[11px]">
                     <th className="p-3 border-b text-left">№</th>
                     <th className="p-3 border-b text-left">Дата</th>
                     <th className="p-3 border-b text-left">Клиент</th>
+                    <th className="p-3 border-b text-left">Связь</th>
                     <th className="p-3 border-b text-left">Телефон</th>
                     <th className="p-3 border-b text-left">Доставка</th>
                     <th className="p-3 border-b text-left">Адрес</th>
@@ -456,23 +520,31 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                 <tbody>
                   {visibleOrders.map((o, i) => {
                     const labelClient = o.contact_name || o.name || '-';
-                    const when = o.created_at ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-';
+                    const when = formatMskDateTime(o.created_at);
                     const deliveryText = o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка';
                     const dateTime = o.delivery_date && o.delivery_time ? `${o.delivery_date} ${o.delivery_time}` : '-';
+                    const method = normalizeContactMethod(o);
+                    const methodText = contactLabel(method);
 
                     return (
                       <motion.tr
                         key={o.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 0.2, delay: i * 0.015 }}
+                        transition={{ duration: 0.18, delay: i * 0.01 }}
                         className={i % 2 === 0 ? '' : 'bg-gray-50'}
                       >
-                        <td className="p-3 border-b font-semibold">
+                        <td className="p-3 border-b font-semibold whitespace-nowrap">
                           {o.order_number ? `#${o.order_number}` : `#${i + 1}`}
                         </td>
+
                         <td className="p-3 border-b whitespace-nowrap">{when}</td>
+
                         <td className="p-3 border-b">{labelClient}</td>
+
+                        <td className="p-3 border-b">
+                          <span className={`${badgeBase} bg-white border-gray-200`}>{methodText}</span>
+                        </td>
 
                         <td className="p-3 border-b">
                           <div className="flex items-center gap-2">
@@ -480,36 +552,60 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
                             {o.phone && (
                               <>
-                                <button
-                                  title="Позвонить"
-                                  onClick={() => window.open(`tel:${o.phone}`)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  tabIndex={-1}
-                                >
-                                  <Phone size={16} />
-                                </button>
+                                {method === 'call' && (
+                                  <button
+                                    title="Позвонить"
+                                    onClick={() => window.open(`tel:${o.phone}`)}
+                                    className={uiBtnIcon}
+                                    tabIndex={-1}
+                                  >
+                                    <Phone size={16} />
+                                  </button>
+                                )}
+
+                                {method === 'whatsapp' && (
+                                  <a
+                                    href={`https://wa.me/${digitsOnly(o.phone)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={uiBtnIcon}
+                                    title="Написать в WhatsApp"
+                                  >
+                                    <MessageCircle size={16} />
+                                  </a>
+                                )}
+
+                                {method === 'telegram' && (
+                                  <button
+                                    title="Открыть Telegram по номеру"
+                                    onClick={() => openTelegramByPhone(o.phone!)}
+                                    className={uiBtnIcon}
+                                    tabIndex={-1}
+                                  >
+                                    <Send size={16} />
+                                  </button>
+                                )}
+
+                                {method === 'max' && (
+                                  <button
+                                    title="MAX (скопировать номер)"
+                                    onClick={() => openMaxByPhone(o.phone!)}
+                                    className={uiBtnIcon}
+                                    tabIndex={-1}
+                                  >
+                                    <Info size={16} />
+                                  </button>
+                                )}
 
                                 <button
-                                  title="Скопировать"
+                                  title="Скопировать номер"
                                   onClick={() => copyToClipboard(o.phone!)}
-                                  className="text-gray-400 hover:text-gray-600"
+                                  className={uiBtnIcon}
                                   tabIndex={-1}
                                 >
                                   <Info size={16} />
                                 </button>
                               </>
-                            )}
-
-                            {o.whatsapp && o.phone && (
-                              <a
-                                href={`https://wa.me/${o.phone.replace(/\D/g, '')}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-green-600 hover:text-green-800"
-                                title="WhatsApp"
-                              >
-                                <MessageCircle size={16} />
-                              </a>
                             )}
                           </div>
                         </td>
@@ -532,7 +628,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                                 statusBtnRefs.current[o.id] = el;
                               }}
                               onClick={() => openStatusMenu(o.id)}
-                              className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                              className={`${badgeBase} ${
                                 statusColors[o.status ?? 'pending'] || statusColors.pending
                               }`}
                             >
@@ -542,17 +638,16 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         </td>
 
                         <td className="p-3 border-b">
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => setDetailsOrder(o)}
-                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold hover:bg-gray-50"
-                            >
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setDetailsOrder(o)} className={uiBtn}>
                               <ExternalLink size={14} /> Подробнее
                             </button>
 
                             <button
-                              onClick={() => setDeleteModal({ id: o.id, label: o.order_number ? `#${o.order_number}` : o.id })}
-                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50"
+                              onClick={() =>
+                                setDeleteModal({ id: o.id, label: o.order_number ? `#${o.order_number}` : o.id })
+                              }
+                              className={uiBtnDanger}
                             >
                               <Trash2 size={14} /> Удалить
                             </button>
@@ -566,21 +661,22 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             </div>
           </div>
 
-          {/* Мобильная версия */}
           <div className="lg:hidden px-4 py-4 space-y-3">
             {visibleOrders.map((o, i) => {
               const labelClient = o.contact_name || o.name || '-';
-              const when = o.created_at ? format(new Date(o.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-';
+              const when = formatMskDateTime(o.created_at);
               const deliveryText = o.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка';
               const dateTime = o.delivery_date && o.delivery_time ? `${o.delivery_date} ${o.delivery_time}` : '-';
+              const method = normalizeContactMethod(o);
+              const methodText = contactLabel(method);
 
               return (
                 <motion.div
                   key={o.id}
                   initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, delay: i * 0.01 }}
-                  className="bg-white rounded-2xl border shadow-sm p-4"
+                  transition={{ duration: 0.16, delay: i * 0.008 }}
+                  className="bg-white rounded-3xl border shadow-sm p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -590,74 +686,96 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                       <div className="text-xs text-gray-500 mt-0.5">{when}</div>
                     </div>
 
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-                        statusColors[o.status ?? 'pending'] || statusColors.pending
-                      }`}
-                    >
-                      {statusOptions.find((s) => s.value === o.status)?.label || 'Ожидает подтверждения'}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span
+                        className={`${badgeBase} ${
+                          statusColors[o.status ?? 'pending'] || statusColors.pending
+                        }`}
+                      >
+                        {statusOptions.find((s) => s.value === o.status)?.label || 'Ожидает подтверждения'}
+                      </span>
+
+                      <span className={`${badgeBase} bg-white border-gray-200`}>{methodText}</span>
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-1 text-sm">
                     <div>
                       <span className="text-gray-500">Клиент:</span> <span className="font-semibold">{labelClient}</span>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Телефон:</span> <span className="font-semibold">{o.phone || '-'}</span>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-gray-500">Телефон:</span>{' '}
+                        <span className="font-semibold">{o.phone || '-'}</span>
+                      </div>
+
+                      {o.phone ? (
+                        <div className="flex items-center gap-2">
+                          {method === 'call' && (
+                            <button onClick={() => window.open(`tel:${o.phone}`)} className={uiBtnIcon} title="Позвонить">
+                              <Phone size={16} />
+                            </button>
+                          )}
+
+                          {method === 'whatsapp' && (
+                            <a
+                              href={`https://wa.me/${digitsOnly(o.phone)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={uiBtnIcon}
+                              title="WhatsApp"
+                            >
+                              <MessageCircle size={16} />
+                            </a>
+                          )}
+
+                          {method === 'telegram' && (
+                            <button
+                              onClick={() => openTelegramByPhone(o.phone!)}
+                              className={uiBtnIcon}
+                              title="Telegram"
+                            >
+                              <Send size={16} />
+                            </button>
+                          )}
+
+                          {method === 'max' && (
+                            <button onClick={() => openMaxByPhone(o.phone!)} className={uiBtnIcon} title="MAX">
+                              <Info size={16} />
+                            </button>
+                          )}
+
+                          <button onClick={() => copyToClipboard(o.phone!)} className={uiBtnIcon} title="Скопировать">
+                            <Info size={16} />
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
+
                     <div>
                       <span className="text-gray-500">Доставка:</span>{' '}
-                      <span className="font-semibold">{deliveryText}</span> <span className="text-gray-500">({dateTime})</span>
+                      <span className="font-semibold">{deliveryText}</span>{' '}
+                      <span className="text-gray-500">({dateTime})</span>
                     </div>
+
                     <div className="break-words">
                       <span className="text-gray-500">Адрес:</span> <span className="font-semibold">{o.address || '-'}</span>
                     </div>
+
                     <div>
                       <span className="text-gray-500">Сумма:</span> <span className="font-semibold">{money(o.total)} ₽</span>
                     </div>
                   </div>
 
-                  {o.phone && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => window.open(`tel:${o.phone}`)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs border rounded-full"
-                      >
-                        <Phone size={14} /> Позвонить
-                      </button>
-
-                      {o.whatsapp && (
-                        <a
-                          href={`https://wa.me/${o.phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-2 text-xs border rounded-full"
-                        >
-                          <MessageCircle size={14} /> WhatsApp
-                        </a>
-                      )}
-
-                      <button
-                        onClick={() => copyToClipboard(o.phone!)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs border rounded-full"
-                      >
-                        <Info size={14} /> Скопировать
-                      </button>
-                    </div>
-                  )}
-
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setDetailsOrder(o)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold border rounded-xl bg-white"
-                    >
+                    <button onClick={() => setDetailsOrder(o)} className={uiBtn}>
                       <ExternalLink size={14} /> Подробнее
                     </button>
 
                     <button
                       onClick={() => setDeleteModal({ id: o.id, label: o.order_number ? `#${o.order_number}` : o.id })}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold border border-red-200 text-red-700 rounded-xl bg-white"
+                      className={uiBtnDanger}
                     >
                       <Trash2 size={14} /> Удалить
                     </button>
@@ -668,7 +786,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     <select
                       value={o.status ?? 'pending'}
                       onChange={(e) => updateStatus(o.id, e.target.value as (typeof statusOptions)[number]['value'])}
-                      className="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"
+                      className="w-full border rounded-2xl px-3 py-2 text-sm bg-gray-50"
                     >
                       {statusOptions.map((s) => (
                         <option key={s.value} value={s.value}>
@@ -684,10 +802,8 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         </>
       )}
 
-      {/* 👇 ПОРТАЛЬНОЕ МЕНЮ СТАТУСА - НЕ ОБРЕЗАЕТСЯ */}
       {statusMenuPortal}
 
-      {/* Полноэкранная модалка "Подробнее" */}
       <AnimatePresence>
         {detailsOrder && (
           <motion.div
@@ -711,11 +827,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     <div className="text-lg sm:text-xl font-bold text-gray-900">
                       {detailsOrder.order_number ? `Заказ #${detailsOrder.order_number}` : 'Заказ'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {detailsOrder.created_at
-                        ? format(new Date(detailsOrder.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })
-                        : '-'}
-                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">{formatMskDateTime(detailsOrder.created_at)}</div>
                   </div>
 
                   <button
@@ -730,52 +842,89 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
               <div className="px-4 sm:px-6 py-6 space-y-6">
                 <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border p-4">
+                  <div className="rounded-3xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Клиент</div>
                     <div className="text-sm">
                       <div>
                         <span className="text-gray-500">Имя:</span>{' '}
                         <span className="font-semibold">{detailsOrder.contact_name || detailsOrder.name || '-'}</span>
                       </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-gray-500">Телефон:</span>
-                        <span className="font-semibold">{detailsOrder.phone || '-'}</span>
-                        {detailsOrder.phone && (
-                          <>
-                            <button
-                              onClick={() => window.open(`tel:${detailsOrder.phone}`)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <Phone size={16} />
-                            </button>
+
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-gray-500">Телефон:</span>{' '}
+                          <span className="font-semibold">{detailsOrder.phone || '-'}</span>
+                        </div>
+
+                        {detailsOrder.phone ? (
+                          <div className="flex items-center gap-2">
+                            {(() => {
+                              const method = normalizeContactMethod(detailsOrder);
+                              if (method === 'call') {
+                                return (
+                                  <button
+                                    onClick={() => window.open(`tel:${detailsOrder.phone}`)}
+                                    className={uiBtnIcon}
+                                    title="Позвонить"
+                                  >
+                                    <Phone size={16} />
+                                  </button>
+                                );
+                              }
+                              if (method === 'whatsapp') {
+                                return (
+                                  <a
+                                    href={`https://wa.me/${digitsOnly(detailsOrder.phone)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={uiBtnIcon}
+                                    title="WhatsApp"
+                                  >
+                                    <MessageCircle size={16} />
+                                  </a>
+                                );
+                              }
+                              if (method === 'telegram') {
+                                return (
+                                  <button
+                                    onClick={() => openTelegramByPhone(detailsOrder.phone!)}
+                                    className={uiBtnIcon}
+                                    title="Telegram"
+                                  >
+                                    <Send size={16} />
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  onClick={() => openMaxByPhone(detailsOrder.phone!)}
+                                  className={uiBtnIcon}
+                                  title="MAX"
+                                >
+                                  <Info size={16} />
+                                </button>
+                              );
+                            })()}
+
                             <button
                               onClick={() => copyToClipboard(detailsOrder.phone!)}
-                              className="text-gray-400 hover:text-gray-600"
+                              className={uiBtnIcon}
+                              title="Скопировать"
                             >
                               <Info size={16} />
                             </button>
-                          </>
-                        )}
-                        {detailsOrder.whatsapp && detailsOrder.phone && (
-                          <a
-                            href={`https://wa.me/${detailsOrder.phone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-green-600 hover:text-green-800"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle size={16} />
-                          </a>
-                        )}
+                          </div>
+                        ) : null}
                       </div>
+
                       <div className="mt-2">
-                        <span className="text-gray-500">WhatsApp связь:</span>{' '}
-                        <span className="font-semibold">{detailsOrder.whatsapp ? 'Да' : 'Нет'}</span>
+                        <span className="text-gray-500">Способ связи:</span>{' '}
+                        <span className="font-semibold">{contactLabel(normalizeContactMethod(detailsOrder))}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border p-4">
+                  <div className="rounded-3xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Получатель</div>
                     <div className="text-sm">
                       <div>
@@ -792,6 +941,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                         <span className="text-gray-500">Телефон:</span>{' '}
                         <span className="font-semibold">{detailsOrder.recipient_phone || '-'}</span>
                       </div>
+
                       <div className="mt-2">
                         <span className="text-gray-500">Анонимный заказ:</span>{' '}
                         <span className="font-semibold">{detailsOrder.anonymous ? 'Да' : 'Нет'}</span>
@@ -800,7 +950,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border p-4">
+                <section className="rounded-3xl border p-4">
                   <div className="text-xs font-semibold text-gray-500 mb-2">Доставка и оплата</div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -827,7 +977,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     <div>
                       <div>
                         <span className="text-gray-500">Оплата:</span>{' '}
-                        <span className="font-semibold">{detailsOrder.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}</span>
+                        <span className="font-semibold">
+                          {detailsOrder.payment_method === 'cash' ? 'Наличные' : 'Онлайн'}
+                        </span>
                       </div>
                       <div className="mt-1">
                         <span className="text-gray-500">Сумма:</span>{' '}
@@ -848,25 +1000,29 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                             ? `скидка ${money(detailsOrder.promo_discount)} ₽`
                             : 'не применён'}
                         </span>
-                        {detailsOrder.promo_code ? <span className="text-gray-500"> (код: {detailsOrder.promo_code})</span> : null}
+                        {detailsOrder.promo_code ? (
+                          <span className="text-gray-500"> (код: {detailsOrder.promo_code})</span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
                 </section>
 
                 <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border p-4">
+                  <div className="rounded-3xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Пожелания (delivery_instructions)</div>
-                    <div className="text-sm whitespace-pre-wrap break-words">{detailsOrder.delivery_instructions || '-'}</div>
+                    <div className="text-sm whitespace-pre-wrap break-words">
+                      {detailsOrder.delivery_instructions || '-'}
+                    </div>
                   </div>
 
-                  <div className="rounded-2xl border p-4">
+                  <div className="rounded-3xl border p-4">
                     <div className="text-xs font-semibold text-gray-500 mb-2">Текст открытки (postcard_text)</div>
                     <div className="text-sm whitespace-pre-wrap break-words">{detailsOrder.postcard_text || '-'}</div>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border p-4">
+                <section className="rounded-3xl border p-4">
                   <div className="text-xs font-semibold text-gray-500 mb-2">Состав заказа</div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -877,7 +1033,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                           {detailsOrder.items.map((it, idx) => (
                             <li key={idx} className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
-                                <div className="h-12 w-12 rounded-xl border bg-gray-50 overflow-hidden flex-shrink-0">
+                                <div className="h-12 w-12 rounded-2xl border bg-gray-50 overflow-hidden flex-shrink-0">
                                   {it.image_url ? (
                                     <Image
                                       src={it.image_url}
@@ -942,7 +1098,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border p-4">
+                <section className="rounded-3xl border p-4">
                   <div className="text-xs font-semibold text-gray-500 mb-2">Быстрые действия</div>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -952,7 +1108,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                           label: detailsOrder.order_number ? `#${detailsOrder.order_number}` : detailsOrder.id,
                         })
                       }
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-red-200 text-red-700 font-semibold text-sm hover:bg-red-50"
+                      className={uiBtnDanger}
                     >
                       <Trash2 size={16} /> Удалить заказ
                     </button>
@@ -964,7 +1120,6 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Модалка удаления */}
       <AnimatePresence>
         {deleteModal && (
           <motion.div
@@ -975,7 +1130,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
             onClick={() => setDeleteModal(null)}
           >
             <motion.div
-              className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full border"
+              className="bg-white p-6 rounded-3xl shadow-xl max-w-sm w-full border"
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
@@ -993,16 +1148,10 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
               </p>
 
               <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setDeleteModal(null)}
-                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold"
-                >
+                <button onClick={() => setDeleteModal(null)} className="px-4 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 font-semibold">
                   Отмена
                 </button>
-                <button
-                  onClick={() => deleteOrder(deleteModal.id)}
-                  className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 font-semibold"
-                >
+                <button onClick={() => deleteOrder(deleteModal.id)} className="px-4 py-2 rounded-2xl bg-red-600 text-white hover:bg-red-700 font-semibold">
                   Удалить
                 </button>
               </div>

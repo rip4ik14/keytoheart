@@ -34,7 +34,9 @@ interface Order {
   bonus: number | null;
 
   anonymous: boolean | null;
-  whatsapp: boolean | null;
+  whatsapp: boolean |null;
+
+  contact_method: string | null;
 
   delivery_instructions: string | null;
   postcard_text: string | null;
@@ -52,7 +54,6 @@ interface Order {
     isUpsell?: boolean;
     category?: string;
 
-    // ✅ новые поля для админки
     product_url?: string;
     image_url?: string | null;
   }>;
@@ -64,7 +65,6 @@ interface Order {
     quantity: number;
     category?: string;
 
-    // ✅ если захочешь позже - можно тоже прокинуть
     product_url?: string;
     image_url?: string | null;
   }>;
@@ -96,7 +96,6 @@ function toIntOrNull(v: any): number | null {
 }
 
 export default async function AdminOrdersPage() {
-  // Проверка админ-сессии
   const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
   if (!token) redirect('/admin/login?error=no-session');
@@ -117,7 +116,7 @@ export default async function AdminOrdersPage() {
         contact_name: true,
 
         recipient: true,
-        occasion: true, // ✅ ДОБАВИЛИ
+        occasion: true,
         recipient_phone: true,
 
         address: true,
@@ -134,6 +133,8 @@ export default async function AdminOrdersPage() {
         anonymous: true,
         whatsapp: true,
 
+        contact_method: true,
+
         delivery_instructions: true,
         postcard_text: true,
 
@@ -149,7 +150,6 @@ export default async function AdminOrdersPage() {
       take: 500,
     });
 
-    // ✅ Соберем все productId (только из основных товаров, которые без isUpsell)
     const allProductIds: number[] = [];
     for (const r of rows as any[]) {
       const itemsArr = safeJsonArray(r.items);
@@ -163,7 +163,6 @@ export default async function AdminOrdersPage() {
     const uniqProductIds = Array.from(new Set(allProductIds));
     const productMap = new Map<number, { imageUrl: string | null }>();
 
-    // ✅ Тянем картинки товаров из Supabase products (images[])
     if (uniqProductIds.length > 0) {
       const { data: products, error: productError } = await supabaseAdmin
         .from('products')
@@ -193,8 +192,6 @@ export default async function AdminOrdersPage() {
           quantity: Number(it.quantity ?? 1) || 1,
           isUpsell: Boolean(it.isUpsell),
           category: it.category ? String(it.category) : undefined,
-
-          // ✅ ссылка на страницу товара (для основного товара)
           product_url: pid ? `/product/${pid}` : undefined,
           image_url: imageUrl,
         };
@@ -206,8 +203,6 @@ export default async function AdminOrdersPage() {
         price: toNumber(it.price) ?? 0,
         quantity: Number(it.quantity ?? 1) || 1,
         category: it.category ? String(it.category) : undefined,
-
-        // upsell обычно не является товаром с /product/[id]
         product_url: undefined,
         image_url: null,
       }));
@@ -222,7 +217,7 @@ export default async function AdminOrdersPage() {
         contact_name: o.contact_name ?? null,
 
         recipient: o.recipient ?? null,
-        occasion: o.occasion ?? null, // ✅ ДОБАВИЛИ
+        occasion: o.occasion ?? null,
         recipient_phone: o.recipient_phone ?? null,
 
         address: o.address ?? null,
@@ -239,6 +234,8 @@ export default async function AdminOrdersPage() {
 
         anonymous: o.anonymous ?? null,
         whatsapp: o.whatsapp ?? null,
+
+        contact_method: o.contact_method ?? null,
 
         delivery_instructions: o.delivery_instructions ?? null,
         postcard_text: o.postcard_text ?? null,
@@ -257,6 +254,5 @@ export default async function AdminOrdersPage() {
     loadError = err?.message || 'Ошибка загрузки заказов';
   }
 
-  // Не оборачивай тут в <main>, пусть layout решает отступы
   return <OrdersTableClient initialOrders={orders} loadError={loadError} />;
 }

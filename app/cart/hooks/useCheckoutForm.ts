@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,19 +8,26 @@ interface FormState {
   phone: string;
   email: string;
   name: string;
+
+  contactMethod: 'call' | 'whatsapp' | 'telegram' | 'max';
+
   recipient: string;
   recipientPhone: string;
+
   street: string;
   house: string;
   apartment: string;
   entrance: string;
+
   deliveryMethod: 'pickup' | 'delivery';
+
   date: string;
   time: string;
+
   payment: 'cash' | 'online';
   deliveryInstructions: string;
+
   anonymous: boolean;
-  whatsapp: boolean;
   agreedToTerms: boolean;
   askAddressFromRecipient: boolean;
 
@@ -33,19 +39,26 @@ const initialFormState: FormState = {
   phone: '',
   email: '',
   name: '',
+
+  contactMethod: 'call',
+
   recipient: '',
   recipientPhone: '',
+
   street: '',
   house: '',
   apartment: '',
   entrance: '',
+
   deliveryMethod: 'pickup',
+
   date: '',
   time: '',
+
   payment: 'online',
   deliveryInstructions: '',
+
   anonymous: false,
-  whatsapp: false,
   agreedToTerms: false,
   askAddressFromRecipient: false,
 
@@ -96,29 +109,35 @@ export default function useCheckoutForm() {
   const [timeError, setTimeError] = useState<string>('');
   const [agreedToTermsError, setAgreedToTermsError] = useState<string>('');
 
-  // ---------------------------
-  // Load draft once
-  // ---------------------------
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // миграция со старого ключа, если был
     const legacy = safeParse<any>(window.localStorage.getItem('checkoutForm'));
     const v2 = safeParse<any>(window.localStorage.getItem(STORAGE_KEY));
 
     const parsed = v2 || legacy;
     if (!parsed) return;
 
-    // ВАЖНО: ничего не сбрасываем принудительно.
-    // Если ты хочешь сбрасывать дату/время только при новом дне или смене режима - делай это точечно в Step4.
+    const migratedContactMethod: FormState['contactMethod'] = (() => {
+      const cm = parsed?.contactMethod;
+      if (cm === 'call' || cm === 'whatsapp' || cm === 'telegram' || cm === 'max') return cm;
+
+      if (typeof parsed?.whatsapp === 'boolean') {
+        return parsed.whatsapp ? 'whatsapp' : 'call';
+      }
+
+      return initialFormState.contactMethod;
+    })();
+
     setForm((prev) => ({
       ...prev,
       ...parsed,
+      contactMethod: migratedContactMethod,
+
       slotValid: typeof parsed.slotValid === 'boolean' ? parsed.slotValid : prev.slotValid,
       slotReason: typeof parsed.slotReason === 'string' ? parsed.slotReason : prev.slotReason,
     }));
 
-    // если сохраняли step - можно восстановить, но только в безопасном диапазоне
     if (parsed.step && Number.isFinite(parsed.step)) {
       const s = Number(parsed.step);
       if (s >= 1 && s <= 5) setStep(s as 1 | 2 | 3 | 4 | 5);
@@ -126,9 +145,6 @@ export default function useCheckoutForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------------------------
-  // Save draft (debounced)
-  // ---------------------------
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -139,7 +155,6 @@ export default function useCheckoutForm() {
         updatedAt: Date.now(),
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      // на всякий случай удалим старый ключ, чтобы не мешал
       window.localStorage.removeItem('checkoutForm');
     }, 150);
 
@@ -158,7 +173,6 @@ export default function useCheckoutForm() {
 
     const value = (e.target as HTMLInputElement).value;
 
-    // спец поля из Step4DateTime
     if (name === 'slotValid') {
       setForm((prev) => ({ ...prev, slotValid: value === 'true' }));
       return;
@@ -168,7 +182,6 @@ export default function useCheckoutForm() {
       return;
     }
 
-    // телефоны НЕ нормализуем тут
     if (name === 'phone') {
       setForm((prev) => ({ ...prev, phone: value }));
       if (phoneError) setPhoneError('');
@@ -178,6 +191,14 @@ export default function useCheckoutForm() {
     if (name === 'recipientPhone') {
       setForm((prev) => ({ ...prev, recipientPhone: value }));
       if (recipientPhoneError) setRecipientPhoneError('');
+      return;
+    }
+
+    if (name === 'contactMethod') {
+      const v = value as FormState['contactMethod'];
+      if (v === 'call' || v === 'whatsapp' || v === 'telegram' || v === 'max') {
+        setForm((prev) => ({ ...prev, contactMethod: v }));
+      }
       return;
     }
 
@@ -196,8 +217,6 @@ export default function useCheckoutForm() {
       setForm((prev) => ({ ...prev, phone: normalized }));
     }
 
-    // ✅ имя делаем необязательным для конверсии (как ты просил)
-    // если хочешь вернуть обязательность - верни старую проверку
     setNameError('');
 
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) {
@@ -205,6 +224,10 @@ export default function useCheckoutForm() {
       ok = false;
     } else {
       setEmailError('');
+    }
+
+    if (!form.contactMethod) {
+      setForm((prev) => ({ ...prev, contactMethod: 'call' }));
     }
 
     if (!form.agreedToTerms) {
@@ -289,14 +312,7 @@ export default function useCheckoutForm() {
       ok = false;
     } else {
       const [hh, mm] = form.time.split(':').map(Number);
-      if (
-        Number.isNaN(hh) ||
-        Number.isNaN(mm) ||
-        hh < 0 ||
-        hh > 23 ||
-        mm < 0 ||
-        mm > 59
-      ) {
+      if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
         setTimeError('Укажите корректное время доставки');
         ok = false;
       } else {
@@ -306,8 +322,7 @@ export default function useCheckoutForm() {
 
     if (!form.slotValid) {
       const msg =
-        form.slotReason ||
-        'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
+        form.slotReason || 'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
       setDateError(msg);
       setTimeError(msg);
       toast.error(msg);

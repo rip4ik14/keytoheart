@@ -7,7 +7,6 @@ import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
 import { Prisma } from '@prisma/client';
 
-// Явно фиксируем node runtime, чтобы не было сюрпризов с edge
 export const runtime = 'nodejs';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -15,12 +14,13 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 const ORDER_WEBHOOK_URL = process.env.ORDER_WEBHOOK_URL || '';
 const ORDER_WEBHOOK_SECRET = process.env.ORDER_WEBHOOK_SECRET || '';
 
-// Базовый URL сайта, чтобы дать ссылку на админку без передачи ПДн в Telegram
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
 
-// Таймауты на внешние уведомления, чтобы сеть/днс не блокировали заказ
 const TELEGRAM_TIMEOUT_MS = 8000;
 const ORDER_WEBHOOK_TIMEOUT_MS = 8000;
+
+type ContactMethod = 'call' | 'telegram' | 'whatsapp' | 'max';
+const CONTACT_METHODS: ContactMethod[] = ['call', 'telegram', 'whatsapp', 'max'];
 
 interface OrderRequest {
   phone: string;
@@ -53,7 +53,12 @@ interface OrderRequest {
   delivery_instructions?: string;
   postcard_text?: string;
   anonymous?: boolean;
+
+  // legacy
   whatsapp?: boolean;
+
+  // ✅ новое поле
+  contact_method?: ContactMethod;
 }
 
 const digitsOnly = (v: string) => (v || '').replace(/\D/g, '');
@@ -77,6 +82,12 @@ function normalizePhoneRuHard(raw: string): string | null {
   return null;
 }
 
+function normalizeContactMethod(input: unknown, legacyWhatsapp: boolean): ContactMethod {
+  const v = typeof input === 'string' ? input.trim().toLowerCase() : '';
+  if (CONTACT_METHODS.includes(v as ContactMethod)) return v as ContactMethod;
+  return legacyWhatsapp ? 'whatsapp' : 'call';
+}
+
 // ⚠️ Telegram: не отправляем ПДн (телефоны, имена, адрес, комментарии).
 function buildTelegramMessageSafe(params: {
   orderNumber: number | null;
@@ -90,6 +101,7 @@ function buildTelegramMessageSafe(params: {
   promoDiscount: number;
   regularItems: OrderRequest['items'];
   upsellItems: OrderRequest['items'];
+  contactMethod: ContactMethod;
 }) {
   const {
     orderNumber,
@@ -103,6 +115,7 @@ function buildTelegramMessageSafe(params: {
     promoDiscount,
     regularItems,
     upsellItems,
+    contactMethod,
   } = params;
 
   const safeLine = (s: string) => sanitizeHtml(s || '', { allowedTags: [], allowedAttributes: {} });
@@ -137,6 +150,15 @@ function buildTelegramMessageSafe(params: {
     ? `<b>Промо:</b> применён (скидка: ${promoDiscount}₽)`
     : `<b>Промо:</b> не применён`;
 
+  const contactText =
+    contactMethod === 'whatsapp'
+      ? 'WhatsApp'
+      : contactMethod === 'telegram'
+        ? 'Telegram'
+        : contactMethod === 'max'
+          ? 'MAX'
+          : 'Звонок';
+
   const num = orderNumber ? `#${orderNumber}` : 'без номера';
   const adminLink = orderNumber
     ? `${BASE_URL}/admin/orders?search=${encodeURIComponent(String(orderNumber))}`
@@ -144,6 +166,7 @@ function buildTelegramMessageSafe(params: {
 
   return `<b>🆕 Новый заказ ${num}</b>
 <b>Сумма:</b> ${total} ₽
+<b>Связь:</b> ${contactText}
 <b>Бонусы списано:</b> ${bonusesUsed}
 <b>Дата/время:</b> ${safeLine(date)} ${safeLine(time)}
 <b>Доставка:</b> ${deliveryMethodText}
@@ -206,6 +229,7 @@ async function sendOrderWebhookSafe(params: {
   promoDiscount: number;
   regularItems: OrderRequest['items'];
   upsellItems: OrderRequest['items'];
+  contactMethod: ContactMethod;
 }) {
   if (!ORDER_WEBHOOK_URL) return { ok: false, error: 'Missing ORDER_WEBHOOK_URL' };
 
@@ -233,6 +257,7 @@ async function sendOrderWebhookSafe(params: {
         bonuses_used: params.bonusesUsed,
         promo_applied: params.promoApplied,
         promo_discount: params.promoDiscount,
+        contact_method: params.contactMethod,
         regular_items: params.regularItems.map((item) => ({
           title: item.title,
           quantity: item.quantity,
@@ -291,7 +316,9 @@ export async function POST(req: Request) {
       delivery_instructions,
       postcard_text,
       anonymous = false,
+
       whatsapp = false,
+      contact_method,
     } = body;
 
     if (
@@ -308,6 +335,11 @@ export async function POST(req: Request) {
       Number.isNaN(total)
     ) {
       return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
+    }
+
+    const finalContactMethod = normalizeContactMethod(contact_method, !!whatsapp);
+    if (!CONTACT_METHODS.includes(finalContactMethod)) {
+      return NextResponse.json({ error: 'Некорректный contact_method' }, { status: 400 });
     }
 
     const sanitizedPhoneInput = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
@@ -349,7 +381,6 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
-    // ✅ user_profiles - НЕ блокируем заказ
     const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
       create: {
@@ -367,7 +398,6 @@ export async function POST(req: Request) {
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
 
-    // Проверка основных товаров через Supabase (products)
     const productIds = regularItems
       .map((item) => {
         const id = parseInt(item.id, 10);
@@ -419,7 +449,6 @@ export async function POST(req: Request) {
     const totalDecimal = new Prisma.Decimal(String(total));
     const promoDiscountDecimal = new Prisma.Decimal(String(promo_discount));
 
-    // Создание заказа
     const order = await prisma.orders.create({
       data: {
         user_id,
@@ -448,7 +477,12 @@ export async function POST(req: Request) {
         delivery_instructions: sanitizedDeliveryInstructions,
         postcard_text: sanitizedPostcardText,
         anonymous,
-        whatsapp,
+
+        // ✅ новое поле
+        contact_method: finalContactMethod,
+
+        // legacy, оставляем, чтобы старый UI не ломался
+        whatsapp: finalContactMethod === 'whatsapp',
 
         occasion: sanitizedOccasion,
 
@@ -458,7 +492,6 @@ export async function POST(req: Request) {
       select: { id: true, order_number: true, items: true, upsell_details: true },
     });
 
-    // order_items
     const orderItems = regularItems
       .map((item) => ({
         order_id: order.id,
@@ -476,7 +509,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // PROMO used_count
     let promoError: string | null = null;
     if (promo_id) {
       try {
@@ -499,7 +531,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Telegram + Webhook (без ПДн)
     try {
       const safeNotificationParams = {
         orderNumber: order.order_number ?? null,
@@ -513,6 +544,7 @@ export async function POST(req: Request) {
         promoDiscount: Number.isFinite(promo_discount) ? promo_discount : 0,
         regularItems,
         upsellItems,
+        contactMethod: finalContactMethod,
       };
 
       const tgText = buildTelegramMessageSafe(safeNotificationParams);

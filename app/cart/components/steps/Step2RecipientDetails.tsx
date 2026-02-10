@@ -124,7 +124,7 @@ export default function Step2RecipientDetails({
   onFormChange,
 }: Props) {
   const [showSuggest, setShowSuggest] = useState(false);
-  const [showAnonTip, setShowAnonTip] = useState(false);
+  const [showSurpriseTip, setShowSurpriseTip] = useState(false);
 
   const [recipientPhoneUi, setRecipientPhoneUi] = useState<string>('');
   const recipientPhoneUiRef = useRef<string>('');
@@ -172,7 +172,6 @@ export default function Step2RecipientDetails({
 
   return (
     <div className="space-y-4">
-      {/* Я получатель */}
       <motion.label
         className="flex items-center gap-3 pt-1"
         initial="hidden"
@@ -198,7 +197,6 @@ export default function Step2RecipientDetails({
         <span className="text-[13px] text-[#2f2f2f]">Я получатель</span>
       </motion.label>
 
-      {/* Имя получателя */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -224,7 +222,6 @@ export default function Step2RecipientDetails({
         {recipientError && <p className="text-red-500 text-xs">{recipientError}</p>}
       </motion.div>
 
-      {/* Телефон получателя */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -296,7 +293,6 @@ export default function Step2RecipientDetails({
         {recipientPhoneError && <p className="text-red-500 text-xs">{recipientPhoneError}</p>}
       </motion.div>
 
-      {/* Текст открытки */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -332,7 +328,6 @@ export default function Step2RecipientDetails({
         </p>
       </motion.div>
 
-      {/* Повод покупки */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -373,7 +368,6 @@ export default function Step2RecipientDetails({
         </div>
       </motion.div>
 
-      {/* Анонимный заказ */}
       <motion.div
         className="pt-1"
         initial="hidden"
@@ -388,37 +382,41 @@ export default function Step2RecipientDetails({
             checked={form.anonymous}
             onChange={onFormChange}
             className="h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
-            aria-label="Анонимный заказ"
+            aria-label="Сделать сюрприз"
           />
 
-          <span className="text-[13px] text-[#2f2f2f]">Анонимный заказ</span>
+          <span className="text-[13px] text-[#2f2f2f]">
+            Сделать сюрприз (не раскрывать отправителя)
+          </span>
 
           <button
             type="button"
-            onClick={() => setShowAnonTip((v) => !v)}
+            onClick={() => setShowSurpriseTip((v) => !v)}
             className="w-5 h-5 rounded-full bg-[#e9e9e9] text-black flex items-center justify-center text-[12px] font-bold"
-            aria-label="Что такое анонимный заказ"
+            aria-label="Что значит сделать сюрприз"
           >
             ?
           </button>
         </div>
 
         <AnimatePresence>
-          {showAnonTip && (
+          {showSurpriseTip && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.15 }}
-              className="mt-2 rounded-[14px] border border-[#bdbdbd] bg-white p-3 text-[12px] text-[#4b4b4b]"
+              className="mt-2 rounded-[14px] border border-[#bdbdbd] bg-white p-3 text-[12px] text-[#4b4b4b] space-y-1"
             >
-              Мы не передадим получателю никаких данных о вас.
+              <p className="font-semibold text-black">Это режим "сюрприз"</p>
+              <p>- получателю не скажем, от кого подарок</p>
+              <p>- на открытке не укажем отправителя (если вы сами не напишете в тексте)</p>
+              <p>- если потребуется уточнение по доставке, мы свяжемся с вами</p>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
 
-      {/* Модалка с вариантами текста */}
       <AnimatePresence>
         {showSuggest && (
           <motion.div
