@@ -28,53 +28,14 @@ import ComboBuilderModal, {
   type ComboPickerType,
   type SelectableProduct,
 } from './ComboBuilderModal';
+import {
+  fetchStoreSettingsCached,
+  type StoreSettings,
+} from '@/lib/store-settings-client';
 
 // blur placeholder
 const BLUR_PLACEHOLDER =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
-
-interface DaySchedule {
-  start: string;
-  end: string;
-  enabled?: boolean;
-}
-interface StoreSettings {
-  order_acceptance_enabled: boolean;
-  order_acceptance_schedule: Record<string, DaySchedule>;
-  store_hours: Record<string, DaySchedule>;
-}
-
-const daysOfWeek = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-] as const;
-
-const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
-  const base = Object.fromEntries(
-    daysOfWeek.map((d) => [d, { start: '09:00', end: '18:00', enabled: true }]),
-  ) as Record<string, DaySchedule>;
-
-  if (typeof schedule !== 'object' || schedule === null) return base;
-
-  for (const [key, value] of Object.entries(schedule)) {
-    if (daysOfWeek.includes(key as any) && typeof value === 'object' && value) {
-      const { start, end, enabled } = value as any;
-      if (
-        typeof start === 'string' &&
-        typeof end === 'string' &&
-        (enabled === undefined || typeof enabled === 'boolean')
-      ) {
-        base[key] = { start, end, enabled: enabled ?? true };
-      }
-    }
-  }
-  return base;
-};
 
 const containerVariants = {
   hidden: { opacity: 0, y: 14 },
@@ -477,15 +438,8 @@ export default function ProductPageClient({
     const fetchSettings = async () => {
       setIsStoreSettingsLoading(true);
       try {
-        const res = await fetch('/api/store-settings');
-        const json = await res.json();
-        if (res.ok && json.success) {
-          setStoreSettings({
-            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
-            store_hours: transformSchedule(json.data.store_hours),
-          });
-        }
+        const settings = await fetchStoreSettingsCached();
+        setStoreSettings(settings);
       } catch (error) {
         console.error('Ошибка загрузки настроек магазина:', error);
       } finally {
