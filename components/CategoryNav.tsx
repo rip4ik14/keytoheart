@@ -63,6 +63,12 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
+// ✅ ВАЖНО: нормализация slug (обрежем пробелы, приведём к lower-case)
+const normalizeSlug = (v: any) =>
+  String(v ?? '')
+    .trim()
+    .toLowerCase();
+
 type CategoryNavProps = {
   initialCategories: Category[];
   showMobileFilter?: boolean;
@@ -70,7 +76,7 @@ type CategoryNavProps = {
 
 export default function CategoryNav({ initialCategories, showMobileFilter = false }: CategoryNavProps) {
   const pathname = usePathname() || '/';
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +89,32 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     if (parts[0] !== 'category') return null;
     return parts[1] || null;
   }, [pathname]);
+
+  const hydrate = (raw: any[]): Category[] => {
+    return (raw || [])
+      .filter((cat: any) => cat?.is_visible !== false)
+      .map((cat: any) => {
+        const catSlug = normalizeSlug(cat.slug) || generateSlug(cat.name);
+
+        const subcategories = (cat.subcategories || [])
+          .filter((sub: any) => sub?.is_visible !== false)
+          .map((sub: any) => {
+            const subSlug = normalizeSlug(sub.slug) || generateSlug(sub.name);
+            return {
+              ...sub,
+              slug: subSlug,
+              is_visible: sub.is_visible ?? true,
+            };
+          });
+
+        return {
+          ...cat,
+          slug: catSlug,
+          is_visible: cat.is_visible ?? true,
+          subcategories,
+        };
+      });
+  };
 
   const fetchCategories = async () => {
     try {
@@ -110,27 +142,9 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
 
       if (error) throw error;
 
-      const updatedData: Category[] = (data || []).map((cat: any) => {
-        const subcategories = cat.subcategories
-          ? cat.subcategories
-              .filter((sub: any) => sub.is_visible !== false)
-              .map((sub: any) => ({
-                ...sub,
-                slug: sub.slug || generateSlug(sub.name),
-                is_visible: sub.is_visible ?? true,
-              }))
-          : [];
-
-        return {
-          ...cat,
-          is_visible: cat.is_visible ?? true,
-          slug: cat.slug || generateSlug(cat.name),
-          subcategories,
-        };
-      });
-
-      categoryCache = updatedData;
-      setCategories(updatedData);
+      const updated = hydrate(data as any[]);
+      categoryCache = updated;
+      setCategories(updated);
     } catch {
       setError('Не удалось загрузить категории');
     } finally {
@@ -139,19 +153,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   };
 
   useEffect(() => {
-    if (initialCategories.length > 0) {
-      const updated = initialCategories
-        .filter((cat) => cat.is_visible !== false)
-        .map((cat) => {
-          const subs = cat.subcategories
-            ? cat.subcategories
-                .filter((s) => s.is_visible !== false)
-                .map((s) => ({ ...s, slug: s.slug || generateSlug(s.name) }))
-            : [];
+    setError(null);
 
-          return { ...cat, slug: cat.slug || generateSlug(cat.name), subcategories: subs };
-        });
-
+    if (initialCategories?.length > 0) {
+      const updated = hydrate(initialCategories as any[]);
       setCategories(updated);
       categoryCache = updated;
     } else {
@@ -196,7 +201,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
   };
 
-  // автоскролл активной категории в центр (мобилка)
   useEffect(() => {
     const wrap = scrollRef.current;
     if (!wrap) return;
@@ -220,7 +224,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       {/* mobile */}
       <div className="sm:hidden">
         <div className="relative">
-          {/* делаем "peek" следующего чипа: -mx-4 px-4 pr-12 */}
           <div
             className={[
               '-mx-4 px-4 pr-12',
@@ -268,8 +271,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                   : categories.map((cat, idx) => {
                       const href = `/category/${cat.slug}`;
                       const isActiveCategory = pathname.startsWith(href);
-                      const isActiveSubcategory = cat.subcategories.some((sub) => pathname.includes(`/category/${cat.slug}/${sub.slug}`));
-                      const active = isActiveCategory || isActiveSubcategory;
+                      const isActiveSubcategory = cat.subcategories?.some((sub) =>
+                        pathname.includes(`/category/${cat.slug}/${sub.slug}`),
+                      );
+                      const active = isActiveCategory || Boolean(isActiveSubcategory);
 
                       return (
                         <motion.li
@@ -305,9 +310,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                     })}
             </ul>
           </div>
-
-          
-         
         </div>
       </div>
 

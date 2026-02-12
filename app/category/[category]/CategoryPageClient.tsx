@@ -6,7 +6,7 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Product } from '@components/CatalogClient';
 import { ChevronDown } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export interface Subcategory {
 export interface Props {
   products: Product[];
   h1: string;
-  slug: string;
+  slug: string; // slug категории
   subcategories: Subcategory[];
   seoText?: string | null;
 }
@@ -36,9 +36,29 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 export default function CategoryPageClient({ products, h1, slug, subcategories, seoText = null }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname() || '/';
 
+  // sort оставляем в query
   const sort = (searchParams.get('sort') as SortKey) || 'newest';
-  const subcategory = searchParams.get('subcategory') || 'all';
+
+  // активная подкатегория:
+  // 1) берем из URL /category/{categorySlug}/{subcategorySlug}
+  // 2) если нет - поддерживаем старое ?subcategory=...
+  const activeSubFromPath = useMemo(() => {
+    const parts = pathname.split('/').filter(Boolean);
+    // ожидаем: ['category', '{categorySlug}', '{subcategorySlug?}']
+    if (parts[0] !== 'category') return null;
+    if (parts[1] !== slug) return null;
+    return parts[2] || null;
+  }, [pathname, slug]);
+
+  const legacySubFromQuery = searchParams.get('subcategory');
+  const subcategory = activeSubFromPath || legacySubFromQuery || 'all';
+
+  const isSubRoute = useMemo(() => {
+    const parts = pathname.split('/').filter(Boolean);
+    return parts[0] === 'category' && parts[1] === slug && !!parts[2];
+  }, [pathname, slug]);
 
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
@@ -51,19 +71,36 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
   const sortWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let sorted = [...products];
+    let next = [...products];
 
+    // если мы на /category/{cat}/{sub} - товары уже могут быть отфильтрованы на сервере
+    // поэтому фильтрацию по subcategory_ids делаем только когда она реально есть
     if (subcategory !== 'all') {
       const subId = subcategories.find((s) => s.slug === subcategory)?.id;
-      sorted = subId ? sorted.filter((p) => p.subcategory_ids.includes(subId)) : [];
+
+      if (!subId) {
+        // подкатегория не найдена - в норме это должно быть 404 на сервере,
+        // но на клиенте просто покажем пусто
+        next = [];
+      } else {
+        const hasSubIds = next.length > 0 && Array.isArray((next as any)[0]?.subcategory_ids);
+
+        if (hasSubIds) {
+          next = next.filter((p: any) => Array.isArray(p.subcategory_ids) && p.subcategory_ids.includes(subId));
+        } else {
+          // если subcategory_ids нет, а мы на sub-route, считаем что товары уже корректные
+          // если не на sub-route - тогда показать пусто, чтобы не врать
+          next = isSubRoute ? next : [];
+        }
+      }
     }
 
-    if (sort === 'price-asc') sorted.sort((a, b) => a.price - b.price);
-    else if (sort === 'price-desc') sorted.sort((a, b) => b.price - a.price);
-    else sorted.sort((a, b) => b.id - a.id);
+    if (sort === 'price-asc') next.sort((a, b) => a.price - b.price);
+    else if (sort === 'price-desc') next.sort((a, b) => b.price - a.price);
+    else next.sort((a, b) => b.id - a.id);
 
-    setFilteredProducts(sorted);
-  }, [sort, subcategory, products, subcategories]);
+    setFilteredProducts(next);
+  }, [sort, subcategory, products, subcategories, isSubRoute]);
 
   useEffect(() => {
     window.gtag?.('event', 'view_category', { event_category: 'category', event_label: h1 });
@@ -77,18 +114,25 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
 
   const sortLabel = useMemo(() => SORT_OPTIONS.find((o) => o.key === sort)?.label || 'По новинкам', [sort]);
 
+  // теперь меняем URL как у Labberry:
+  // - all: /category/{slug}?sort=...
+  // - sub: /category/{slug}/{subSlug}?sort=...
+  const buildUrl = (nextSort: SortKey, nextSub: string) => {
+    const base = nextSub === 'all' ? `/category/${slug}` : `/category/${slug}/${nextSub}`;
+    const qs = `?sort=${encodeURIComponent(nextSort)}`;
+    return `${base}${qs}`;
+  };
+
   const setQuery = (next: { sort?: SortKey; subcategory?: string }) => {
     const nextSort = next.sort ?? sort;
     const nextSub = next.subcategory ?? subcategory;
-    router.push(`/category/${slug}?sort=${encodeURIComponent(nextSort)}&subcategory=${encodeURIComponent(nextSub)}`);
+    router.push(buildUrl(nextSort, nextSub));
   };
 
-  // автоскролл активного чипа (надёжнее через scrollIntoView)
+  // автоскролл активного чипа
   useEffect(() => {
     const el = chipRefs.current[subcategory];
     if (!el) return;
-
-    // inline: 'center' работает отлично для горизонтальных чипов
     el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [subcategory]);
 
@@ -117,14 +161,13 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
         {h1}
       </h1>
 
-      {/* Подкатегории: peek следующего чипа */}
+      {/* Подкатегории */}
       {subcategories.length > 0 && (
         <div className="mt-4">
           <div className="relative">
             <div
               ref={chipsWrapRef}
               className={[
-                // делаем в край и добавляем "peek"
                 '-mx-4 px-4 pr-12',
                 'flex gap-2 overflow-x-auto no-scrollbar',
                 'pb-2',
@@ -138,7 +181,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
                 ref={(el) => {
                   chipRefs.current['all'] = el;
                 }}
-                href={`/category/${slug}?sort=${sort}&subcategory=all`}
+                href={buildUrl(sort, 'all')}
                 active={subcategory === 'all'}
                 label="Все"
                 onClick={(e) => {
@@ -153,7 +196,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
                   ref={(el) => {
                     chipRefs.current[sub.slug] = el;
                   }}
-                  href={`/category/${slug}?sort=${sort}&subcategory=${sub.slug}`}
+                  href={buildUrl(sort, sub.slug)}
                   active={subcategory === sub.slug}
                   label={sub.name}
                   onClick={(e) => {
@@ -167,7 +210,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
         </div>
       )}
 
-      {/* Сортировка: dropdown */}
+      {/* Сортировка */}
       <div className="mt-3 flex items-center gap-2 text-[13px] text-neutral-600">
         <span>Сортировать:</span>
 

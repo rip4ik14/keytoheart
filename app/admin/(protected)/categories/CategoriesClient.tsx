@@ -1,4 +1,3 @@
-// ✅ Путь: app/admin/(protected)/categories/CategoriesClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -42,6 +41,62 @@ interface Props {
   categories: Category[];
 }
 
+/* ================= SLUG ================= */
+
+const translit = (input: string) => {
+  const map: Record<string, string> = {
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    е: 'e',
+    ё: 'yo',
+    ж: 'zh',
+    з: 'z',
+    и: 'i',
+    й: 'y',
+    к: 'k',
+    л: 'l',
+    м: 'm',
+    н: 'n',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    у: 'u',
+    ф: 'f',
+    х: 'kh',
+    ц: 'ts',
+    ч: 'ch',
+    ш: 'sh',
+    щ: 'shch',
+    ы: 'y',
+    э: 'e',
+    ю: 'yu',
+    я: 'ya',
+    ъ: '',
+    ь: '',
+  };
+
+  return String(input ?? '')
+    .trim()
+    .split('')
+    .map((ch) => map[ch.toLowerCase()] ?? ch)
+    .join('');
+};
+
+const generateSlug = (name: string) =>
+  translit(name)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .replace(/-+/g, '-');
+
+/* ================= COMPONENT ================= */
+
 export default function CategoriesClient({ categories: initialCategories }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
 
@@ -63,23 +118,12 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const [newSubByCat, setNewSubByCat] = useState<Record<number, string>>({});
 
-  // Генерация slug
-  const generateSlug = (name: string) =>
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9а-я]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-      .replace(/-+/g, '-');
-
-  // helpers
   const appendSeoToFormData = (fd: FormData, seo: SeoFields) => {
     fd.set('seo_h1', String(seo.seo_h1 ?? ''));
     fd.set('seo_title', String(seo.seo_title ?? ''));
     fd.set('seo_description', String(seo.seo_description ?? ''));
     fd.set('seo_text', String(seo.seo_text ?? ''));
     fd.set('og_image', String(seo.og_image ?? ''));
-
-    // ВАЖНО: чекбоксы кладём как true/false
     fd.set('seo_noindex', String(!!seo.seo_noindex));
   };
 
@@ -87,43 +131,18 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleAddCategory = async (formData: FormData) => {
     try {
-      // гарантируем правильные значения
       formData.set('is_visible', String(newCategory.is_visible));
       formData.set('seo_noindex', String(newCategory.seo_noindex));
 
+      // финально нормализуем slug, даже если руками ввели
+      const name = String(formData.get('name') ?? '');
+      const slugRaw = String(formData.get('slug') ?? '');
+      formData.set('slug', generateSlug(slugRaw || name));
+
       await addCategory(formData);
 
-      setCategories((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          name: formData.get('name') as string,
-          slug: formData.get('slug') as string,
-          is_visible: true,
-          subcategories: [],
-
-          seo_h1: (formData.get('seo_h1') as string) || '',
-          seo_title: (formData.get('seo_title') as string) || '',
-          seo_description: (formData.get('seo_description') as string) || '',
-          seo_text: (formData.get('seo_text') as string) || '',
-          og_image: (formData.get('og_image') as string) || '',
-          seo_noindex: (formData.get('seo_noindex') as string) === 'true',
-        },
-      ]);
-
-      setNewCategory({
-        name: '',
-        slug: '',
-        is_visible: true,
-        seo_h1: '',
-        seo_title: '',
-        seo_description: '',
-        seo_text: '',
-        og_image: '',
-        seo_noindex: false,
-      });
-
       toast.success('Категория добавлена');
+      location.reload();
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -131,38 +150,20 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleUpdateCategory = async (formData: FormData) => {
     try {
-      const id = Number(formData.get('id'));
-
-      // ВАЖНО: чекбоксы вручную
       if (editingCategory) {
         formData.set('is_visible', String(!!editingCategory.is_visible));
         appendSeoToFormData(formData, editingCategory);
+
+        // нормализуем slug
+        const name = String(formData.get('name') ?? editingCategory.name);
+        const slugRaw = String(formData.get('slug') ?? editingCategory.slug);
+        formData.set('slug', generateSlug(slugRaw || name));
       }
 
       await updateCategory(formData);
 
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === id
-            ? {
-                ...cat,
-                name: formData.get('name') as string,
-                slug: formData.get('slug') as string,
-                is_visible: formData.get('is_visible') === 'true',
-
-                seo_h1: (formData.get('seo_h1') as string) || '',
-                seo_title: (formData.get('seo_title') as string) || '',
-                seo_description: (formData.get('seo_description') as string) || '',
-                seo_text: (formData.get('seo_text') as string) || '',
-                og_image: (formData.get('og_image') as string) || '',
-                seo_noindex: (formData.get('seo_noindex') as string) === 'true',
-              }
-            : cat
-        )
-      );
-
-      setEditingCategory(null);
       toast.success('Категория обновлена');
+      location.reload();
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -170,8 +171,10 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleDeleteCategory = async (id: number, name: string) => {
     if (!confirm(`Удалить категорию "${name}" и все её подкатегории?`)) return;
+
     const formData = new FormData();
     formData.set('id', id.toString());
+
     try {
       await deleteCategory(formData);
       setCategories((prev) => prev.filter((cat) => cat.id !== id));
@@ -185,15 +188,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     const formData = new FormData();
     formData.set('id', cat.id.toString());
     formData.set('name', cat.name);
-    formData.set('slug', cat.slug);
+    formData.set('slug', generateSlug(cat.slug || cat.name));
     formData.set('is_visible', String(!cat.is_visible));
     appendSeoToFormData(formData, cat);
 
     try {
       await updateCategory(formData);
-      setCategories((prev) =>
-        prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c))
-      );
+      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c)));
       toast.success(cat.is_visible ? 'Категория скрыта' : 'Категория отображается');
     } catch (error: any) {
       toast.error(error.message);
@@ -228,36 +229,8 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
     try {
       await addSubcategory(formData);
-
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === catId
-            ? {
-                ...cat,
-                subcategories: [
-                  ...cat.subcategories,
-                  {
-                    id: Date.now(),
-                    name,
-                    category_id: catId,
-                    slug,
-                    is_visible: true,
-
-                    seo_h1: '',
-                    seo_title: '',
-                    seo_description: '',
-                    seo_text: '',
-                    og_image: '',
-                    seo_noindex: false,
-                  },
-                ],
-              }
-            : cat
-        )
-      );
-
-      setNewSubByCat((prev) => ({ ...prev, [catId]: '' }));
       toast.success('Подкатегория добавлена');
+      location.reload();
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -267,41 +240,19 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleUpdateSubcategory = async (formData: FormData) => {
     try {
-      const id = Number(formData.get('id'));
-
       if (editingSub) {
         formData.set('is_visible', String(!!editingSub.is_visible));
         appendSeoToFormData(formData, editingSub);
-        // slug держим из hidden input, но если хочешь менять - просто добавь поле в UI
+
+        const name = String(formData.get('name') ?? editingSub.name);
+        const slugRaw = String(formData.get('slug') ?? editingSub.slug);
+        formData.set('slug', generateSlug(slugRaw || name));
       }
 
       await updateSubcategory(formData);
 
-      setCategories((prev) =>
-        prev.map((cat) => ({
-          ...cat,
-          subcategories: cat.subcategories.map((sub) =>
-            sub.id === id
-              ? {
-                  ...sub,
-                  name: formData.get('name') as string,
-                  slug: (formData.get('slug') as string) || sub.slug,
-                  is_visible: formData.get('is_visible') === 'true',
-
-                  seo_h1: (formData.get('seo_h1') as string) || '',
-                  seo_title: (formData.get('seo_title') as string) || '',
-                  seo_description: (formData.get('seo_description') as string) || '',
-                  seo_text: (formData.get('seo_text') as string) || '',
-                  og_image: (formData.get('og_image') as string) || '',
-                  seo_noindex: (formData.get('seo_noindex') as string) === 'true',
-                }
-              : sub
-          ),
-        }))
-      );
-
-      setEditingSub(null);
       toast.success('Подкатегория обновлена');
+      location.reload();
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -309,16 +260,14 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
   const handleDeleteSubcategory = async (id: number, name: string, catId: number) => {
     if (!confirm(`Удалить подкатегорию "${name}"?`)) return;
+
     const formData = new FormData();
     formData.set('id', id.toString());
+
     try {
       await deleteSubcategory(formData);
       setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === catId
-            ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) }
-            : cat
-        )
+        prev.map((cat) => (cat.id === catId ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) } : cat))
       );
       toast.success('Подкатегория удалена');
     } catch (error: any) {
@@ -330,7 +279,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     const formData = new FormData();
     formData.set('id', sub.id.toString());
     formData.set('name', sub.name);
-    formData.set('slug', sub.slug);
+    formData.set('slug', generateSlug(sub.slug || sub.name));
     formData.set('is_visible', String(!sub.is_visible));
     appendSeoToFormData(formData, sub);
 
@@ -339,12 +288,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       setCategories((prev) =>
         prev.map((cat) =>
           cat.id === catId
-            ? {
-                ...cat,
-                subcategories: cat.subcategories.map((s) =>
-                  s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s
-                ),
-              }
+            ? { ...cat, subcategories: cat.subcategories.map((s) => (s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s)) }
             : cat
         )
       );
@@ -369,9 +313,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
 
-            // ВАЖНО: checkbox -> true/false
             formData.set('is_visible', String(newCategory.is_visible));
             formData.set('seo_noindex', String(newCategory.seo_noindex));
+
+            // нормализация slug перед отправкой
+            formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
 
             handleAddCategory(formData);
           }}
@@ -389,7 +335,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                   setNewCategory((prev) => ({
                     ...prev,
                     name,
-                    slug: prev.slug || generateSlug(name),
+                    slug: prev.slug ? prev.slug : generateSlug(name),
                     seo_h1: prev.seo_h1 || name,
                   }));
                 }}
@@ -407,7 +353,12 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 name="slug"
                 type="text"
                 value={newCategory.slug}
-                onChange={(e) => setNewCategory((prev) => ({ ...prev, slug: e.target.value }))}
+                onChange={(e) =>
+                  setNewCategory((prev) => ({
+                    ...prev,
+                    slug: generateSlug(e.target.value),
+                  }))
+                }
                 placeholder="Slug (например, klubnika-v-shokolade)"
                 className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black focus:border-transparent transition duration-200"
                 aria-label="Slug категории"
@@ -419,9 +370,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
           {/* SEO блок */}
           <details className="mt-2">
-            <summary className="cursor-pointer text-sm text-gray-700 select-none">
-              SEO поля (необязательно, но очень желательно)
-            </summary>
+            <summary className="cursor-pointer text-sm text-gray-700 select-none">SEO поля (необязательно, но очень желательно)</summary>
 
             <div className="mt-3 grid grid-cols-1 gap-3">
               <input
@@ -429,7 +378,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 type="text"
                 value={newCategory.seo_h1}
                 onChange={(e) => setNewCategory((p) => ({ ...p, seo_h1: e.target.value }))}
-                placeholder="SEO H1 (например, Клубника в шоколаде с доставкой в Краснодаре)"
+                placeholder="SEO H1"
                 className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
               />
 
@@ -463,7 +412,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 name="seo_text"
                 value={newCategory.seo_text}
                 onChange={(e) => setNewCategory((p) => ({ ...p, seo_text: e.target.value }))}
-                placeholder="SEO текст (будет на странице категории внизу)"
+                placeholder="SEO текст"
                 className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black min-h-[120px]"
               />
 
@@ -478,7 +427,6 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
             </div>
           </details>
 
-          {/* скрытая передача чекбокса */}
           <input type="hidden" name="is_visible" value={String(newCategory.is_visible)} />
           <input type="hidden" name="seo_noindex" value={String(newCategory.seo_noindex)} />
 
@@ -517,6 +465,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       formData.set('is_visible', String(!!editingCategory.is_visible));
                       appendSeoToFormData(formData, editingCategory);
 
+                      // нормализация slug
+                      formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
+
                       handleUpdateCategory(formData);
                     }}
                     className="flex flex-col gap-3 mb-3"
@@ -525,7 +476,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       <input
                         name="name"
                         value={editingCategory.name}
-                        onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                        onChange={(e) =>
+                          setEditingCategory({
+                            ...editingCategory,
+                            name: e.target.value,
+                            slug: editingCategory.slug ? editingCategory.slug : generateSlug(e.target.value),
+                          })
+                        }
                         className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                         aria-label="Название категории"
                         required
@@ -534,7 +491,12 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       <input
                         name="slug"
                         value={editingCategory.slug}
-                        onChange={(e) => setEditingCategory({ ...editingCategory, slug: e.target.value })}
+                        onChange={(e) =>
+                          setEditingCategory({
+                            ...editingCategory,
+                            slug: generateSlug(e.target.value),
+                          })
+                        }
                         className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                         aria-label="Slug категории"
                         required
@@ -588,14 +550,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                           <input
                             type="checkbox"
                             checked={!!editingCategory.seo_noindex}
-                            onChange={(e) =>
-                              setEditingCategory({ ...editingCategory, seo_noindex: e.target.checked })
-                            }
+                            onChange={(e) => setEditingCategory({ ...editingCategory, seo_noindex: e.target.checked })}
                           />
                           noindex
                         </label>
 
-                        {/* скрытое поле, чтобы на сервер улетало точно */}
                         <input type="hidden" name="seo_noindex" value={String(!!editingCategory.seo_noindex)} />
                         <input type="hidden" name="is_visible" value={String(!!editingCategory.is_visible)} />
                       </div>
@@ -666,6 +625,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                               formData.set('is_visible', String(!!editingSub.is_visible));
                               appendSeoToFormData(formData, editingSub);
 
+                              // slug нормализуем
+                              formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
+
                               handleUpdateSubcategory(formData);
                             }}
                             className="flex flex-col gap-2 w-full"
@@ -707,9 +669,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                             </div>
 
                             <details>
-                              <summary className="cursor-pointer text-xs text-gray-700 select-none">
-                                SEO подкатегории
-                              </summary>
+                              <summary className="cursor-pointer text-xs text-gray-700 select-none">SEO подкатегории</summary>
                               <div className="mt-2 grid grid-cols-1 gap-2">
                                 <input
                                   value={editingSub.seo_h1 ?? ''}
@@ -725,9 +685,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                 />
                                 <textarea
                                   value={editingSub.seo_description ?? ''}
-                                  onChange={(e) =>
-                                    setEditingSub({ ...editingSub, seo_description: e.target.value })
-                                  }
+                                  onChange={(e) => setEditingSub({ ...editingSub, seo_description: e.target.value })}
                                   className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[60px]"
                                   placeholder="SEO Description"
                                 />
@@ -747,9 +705,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                   <input
                                     type="checkbox"
                                     checked={!!editingSub.seo_noindex}
-                                    onChange={(e) =>
-                                      setEditingSub({ ...editingSub, seo_noindex: e.target.checked })
-                                    }
+                                    onChange={(e) => setEditingSub({ ...editingSub, seo_noindex: e.target.checked })}
                                   />
                                   noindex
                                 </label>
@@ -811,7 +767,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                       aria-label="Название подкатегории"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Например, "Белый шоколад"</p>
+                    <p className="text-xs text-gray-500 mt-1">Slug будет создан автоматически (латиница)</p>
                   </div>
                   <button
                     type="submit"
