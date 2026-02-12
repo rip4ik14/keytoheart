@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import AdminLayout from '../layout';
@@ -27,16 +27,11 @@ interface HrefOption {
 
 function normalizeHref(raw: string) {
   const v = (raw || '').trim();
-
-  // Базовая защита от XSS-ссылок
   const lower = v.toLowerCase();
+
+  // запретим опасные схемы
   if (lower.startsWith('javascript:') || lower.startsWith('data:')) return '';
 
-  // Разрешаем:
-  // - относительные пути: /category/combo
-  // - абсолютные: https://...
-  // - якоря: #section
-  // - tel:, whatsapp:, tg: (если понадобится)
   return v;
 }
 
@@ -45,13 +40,11 @@ export default function PromoAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [blocks, setBlocks] = useState<PromoBlock[]>([]);
   const [hrefOptions, setHrefOptions] = useState<HrefOption[]>([]);
-
   const [form, setForm] = useState<Partial<PromoBlock>>({
     type: 'card',
     order_index: 0,
     href: '',
   });
-
   const [file, setFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -104,6 +97,8 @@ export default function PromoAdminPage() {
 
       setHrefOptions(dedup);
     } catch (err: any) {
+      // 500 на /api/site-pages не должен ломать страницу и ручной ввод
+      setHrefOptions([]);
       toast.error('Ошибка загрузки списка страниц: ' + err.message);
     }
   }
@@ -112,16 +107,10 @@ export default function PromoAdminPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
-
-    setForm(f => {
-      if (name === 'order_index') {
-        return { ...f, [name]: Number(value) };
-      }
-      if (name === 'href') {
-        return { ...f, href: value }; // нормализуем уже перед submit
-      }
-      return { ...f, [name]: value };
-    });
+    setForm(f => ({
+      ...f,
+      [name]: name === 'order_index' ? Number(value) : value,
+    }));
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -261,7 +250,7 @@ export default function PromoAdminPage() {
   }
   if (!isAuthenticated) return null;
 
-  const hrefValue = useMemo(() => form.href ?? '', [form.href]);
+  const hrefValue = form.href ?? '';
 
   return (
     <AdminLayout>
@@ -319,7 +308,6 @@ export default function PromoAdminPage() {
                   />
                 </div>
 
-                {/* Ссылка (href): ручной ввод + datalist */}
                 <div>
                   <label htmlFor="href" className="font-medium">Ссылка (href)</label>
                   <motion.input
@@ -331,7 +319,7 @@ export default function PromoAdminPage() {
                     onChange={handleChange}
                     onFocus={fetchHrefOptions}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Например: /category/combo или https://..."
+                    placeholder="Введите свою ссылку или выберите из списка"
                     required
                     whileFocus={{ scale: 1.02 }}
                     autoComplete="off"
