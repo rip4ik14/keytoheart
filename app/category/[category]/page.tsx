@@ -1,6 +1,5 @@
 /* -------------------------------------------------------------------------- */
 /*  Категория (SSR + Supabase + JSON-LD + SEO из БД)                         */
-/*  Next.js 15+ App Router                                                    */
 /* -------------------------------------------------------------------------- */
 
 import { Metadata } from 'next';
@@ -19,14 +18,13 @@ const SITE_URL = 'https://keytoheart.ru';
 export const revalidate = 300;
 export const dynamicParams = true;
 
-/* ------------------------ SEO-метаданные страницы ------------------------ */
+/* ----------------------------- SEO Metadata ------------------------------ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category: slug } = await params;
-
   const supabase = await createSupabaseServerClient();
 
   const { data: cat } = await supabase
@@ -45,44 +43,29 @@ export async function generateMetadata({
     };
   }
 
-  const name = cat.name || 'Категория';
+  const name = cat.name;
   const canonical = `${SITE_URL}/category/${slug}`;
-  const city = 'Краснодар';
 
-  const titleFallback = `${name} - доставка в ${city}`;
-  const descFallback =
-    `Закажите ${name.toLowerCase()} с доставкой по ${city} от 30 минут. ` +
-    `Свежие ингредиенты, аккуратная сборка, фото перед отправкой, оплата онлайн.`;
+  const title =
+    cat.seo_title?.trim() ||
+    `${name} - доставка в Краснодаре`;
 
-  const title = (cat.seo_title || '').trim() || titleFallback;
-  const description = (cat.seo_description || '').trim() || descFallback;
-
-  const ogImageRaw = (cat.og_image || '').trim();
-  const ogImage =
-    ogImageRaw && ogImageRaw.startsWith('http')
-      ? ogImageRaw
-      : ogImageRaw
-        ? `${SITE_URL}${ogImageRaw.startsWith('/') ? '' : '/'}${ogImageRaw}`
-        : `${SITE_URL}/og-${slug}.webp`;
+  const description =
+    cat.seo_description?.trim() ||
+    `Закажите ${name.toLowerCase()} с доставкой по Краснодару. Фото перед отправкой, аккуратная упаковка.`;
 
   return {
     title,
     description,
     alternates: { canonical },
     robots: cat.seo_noindex ? { index: false, follow: false } : undefined,
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-      images: [{ url: ogImage, width: 1200, height: 630, alt: `${name} - KeyToHeart` }],
-    },
-    twitter: { card: 'summary_large_image' },
   };
 }
 
-/* ========================================================================= */
-/*                              Главная функция                              */
-/* ========================================================================= */
+/* -------------------------------------------------------------------------- */
+/*                                PAGE                                        */
+/* -------------------------------------------------------------------------- */
+
 export default async function CategoryPage({
   params,
   searchParams,
@@ -91,49 +74,44 @@ export default async function CategoryPage({
   searchParams: Promise<{ sort?: string; subcategory?: string }>;
 }) {
   const { category: slug } = await params;
-  const { sort: sortParam = 'newest', subcategory: initialSubcategory = 'all' } =
-    await searchParams;
+  const { sort = 'newest', subcategory = 'all' } = await searchParams;
 
   const supabase = await createSupabaseServerClient();
 
-  const { data: categoryData, error: categoryError } = await supabase
+  const { data: categoryData } = await supabase
     .from('categories')
-    .select('id, name, slug, is_visible, seo_h1, seo_text, seo_noindex')
+    .select('id, name, slug, is_visible, seo_h1, seo_text')
     .eq('slug', slug)
     .eq('is_visible', true)
     .single();
 
-  if (categoryError || !categoryData) notFound();
+  if (!categoryData) notFound();
 
   const categoryId = categoryData.id;
-  const apiName = categoryData.name;
+
+  /* ---------------------- Подкатегории ---------------------- */
 
   const { data: subcategoriesData } = await supabase
     .from('subcategories')
-    .select('id, name, slug, is_visible, category_id, label, seo_h1, seo_text, seo_noindex')
+    .select('id, name, slug, is_visible, category_id')
     .eq('category_id', categoryId)
     .eq('is_visible', true)
     .order('name', { ascending: true });
 
   const subcategories =
-    subcategoriesData?.map((sub: any) => ({
+    subcategoriesData?.map((sub) => ({
       id: sub.id,
       name: sub.name,
       slug: sub.slug,
       is_visible: sub.is_visible ?? true,
       category_id: sub.category_id,
-      label: sub.label ?? null,
-      seo_h1: sub.seo_h1 ?? null,
-      seo_text: sub.seo_text ?? null,
-      seo_noindex: sub.seo_noindex ?? false,
     })) ?? [];
 
-  if (subcategories.length > 0) {
-    const ok = subcategories.find((s) => s.slug === initialSubcategory);
-    if (initialSubcategory !== 'all' && !ok) {
-      redirect(`/category/${slug}?sort=${sortParam}`);
-    }
+  if (subcategory !== 'all' && !subcategories.find((s) => s.slug === subcategory)) {
+    redirect(`/category/${slug}?sort=${sort}`);
   }
+
+  /* ---------------------- Товары ---------------------- */
 
   const { data: productCategoryData } = await supabase
     .from('product_categories')
@@ -148,7 +126,7 @@ export default async function CategoryPage({
         <Suspense fallback={<div>Загрузка...</div>}>
           <CategoryPageClient
             products={[]}
-            h1={(categoryData.seo_h1 || '').trim() || apiName}
+            h1={(categoryData.seo_h1 || '').trim() || categoryData.name}
             seoText={(categoryData.seo_text || '').trim() || null}
             slug={slug}
             subcategories={subcategories}
@@ -162,13 +140,33 @@ export default async function CategoryPage({
     .from('products')
     .select('*')
     .in('id', productIds)
-    .eq('in_stock', true)
     .eq('is_visible', true)
+    .eq('in_stock', true)
     .order('id', { ascending: false });
 
   const products =
     productsData?.map((product: Tables<'products'>) => ({
-      ...product,
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      discount_percent: product.discount_percent ?? null,
+      original_price:
+        typeof product.original_price === 'string'
+          ? parseFloat(product.original_price)
+          : product.original_price ?? null,
+      in_stock: product.in_stock ?? true,
+      images: product.images ?? [],
+      image_url: product.image_url ?? null,
+      created_at: product.created_at ?? null,
+      slug: product.slug ?? null,
+      bonus: product.bonus ?? null,
+      short_desc: product.short_desc ?? null,
+      description: product.description ?? null,
+      composition: product.composition ?? null,
+      is_popular: product.is_popular ?? false,
+      is_visible: product.is_visible ?? true,
+      order_index: product.order_index ?? null,
+      production_time: product.production_time ?? null,
       category_ids: [categoryId],
       subcategory_ids: [],
       subcategory_names: [],
@@ -179,7 +177,7 @@ export default async function CategoryPage({
       <Suspense fallback={<div>Загрузка...</div>}>
         <CategoryPageClient
           products={products}
-          h1={(categoryData.seo_h1 || '').trim() || apiName}
+          h1={(categoryData.seo_h1 || '').trim() || categoryData.name}
           seoText={(categoryData.seo_text || '').trim() || null}
           slug={slug}
           subcategories={subcategories}
@@ -189,7 +187,8 @@ export default async function CategoryPage({
   );
 }
 
-/* ------------------ SSG: какие пути пререндерить ------------------ */
+/* ------------------ SSG fallback ------------------ */
+
 export async function generateStaticParams() {
   const { data } = await supabaseAdmin
     .from('categories')
