@@ -1,851 +1,788 @@
-// ✅ Путь: app/admin/(protected)/finance/FinanceClient.tsx
+// ✅ Путь: app/admin/(protected)/stats/StatsClient.tsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { format, subDays, differenceInCalendarDays, startOfDay, endOfDay } from 'date-fns';
+import { ru } from 'date-fns/locale/ru';
+import { useRouter } from 'next/navigation';
+import toast, { Toaster } from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
-const sources = ['flowwow', 'whatsapp', 'telegram', 'offline'] as const;
-type Source = (typeof sources)[number];
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
-const expenseCategories = [
-  'Клубника',
-  'Цветы',
-  'Шоколад',
-  'Упаковка',
-  'Доставка/такси',
-  'Аренда',
-  'Реклама',
-  'Прочее',
-] as const;
-type ExpenseCategory = (typeof expenseCategories)[number];
-
-type ManualRevenueRow = {
+type Order = {
   id: string;
-  date: string; // yyyy-mm-dd
-  source: string;
-  amount: number;
-  comment: string | null;
+  total: number | null;
   created_at: string;
-  updated_at?: string | null;
+  phone: string | null;
+  promo_code: string | null;
+  status?: string | null; // важно для фильтра выручки (delivered)
 };
 
-type ExpenseRow = {
-  id: string;
-  date: string; // yyyy-mm-dd
-  category: string;
-  amount: number;
-  supplier: string | null;
-  comment: string | null;
-  created_at: string;
-  updated_at?: string | null;
+type OrderItem = {
+  order_id?: string | null;
+  product_id: number;
+  quantity: number;
+  price: number;
+  title: string;
 };
 
-type SiteOrderRow = {
+type Customer = {
   id: string;
+  phone: string;
+  created_at: string;
+};
+
+type BonusHistory = {
+  amount: number;
+  reason: string;
+  created_at: string;
+};
+
+type PromoCode = {
+  code: string;
+  discount: number;
   created_at: string | null;
-  total: string | number | null;
-  order_number: number | null;
-  status: string | null;
-
-  // ✅ пришло с сервера
-  cost_total: number; // int рубли
-  has_costs: boolean;
 };
 
-type Props = {
-  initialManualRevenue: ManualRevenueRow[];
-  initialExpenses: ExpenseRow[];
-  initialSiteOrders: SiteOrderRow[];
-};
-
-type Tab = 'income' | 'expenses';
-
-function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+interface Props {
+  initialOrders: Order[];
+  initialItems: OrderItem[];
+  initialCustomers: Customer[];
+  initialBonusHistory: BonusHistory[];
+  initialPromoCodes: PromoCode[];
 }
 
-function toIntRubFromInput(v: string): number {
-  const n = Number(v.replace(',', '.').trim());
+type Granularity = 'day' | 'week' | 'month';
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function percentDelta(current: number, prev: number) {
+  if (prev === 0 && current === 0) return 0;
+  if (prev === 0) return 100;
+  return ((current - prev) / prev) * 100;
+}
+
+function formatDelta(deltaPct: number) {
+  const sign = deltaPct > 0 ? '+' : '';
+  return `${sign}${Math.round(deltaPct)}%`;
+}
+
+function toRubInt(v: any) {
+  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.'));
   if (!Number.isFinite(n)) return 0;
   return Math.round(n);
 }
 
 function formatRub(n: number) {
-  try {
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${Math.round(n)} ₽`;
-  }
+  return `${toRubInt(n).toLocaleString('ru-RU')} ₽`;
 }
 
-function getOrderTotal(o: SiteOrderRow): number {
-  if (o.total === null || o.total === undefined) return 0;
-  if (typeof o.total === 'number') return Math.round(o.total);
-  const n = Number(String(o.total).replace(',', '.'));
-  return Number.isFinite(n) ? Math.round(n) : 0;
+function isDelivered(status?: string | null) {
+  return String(status ?? '').toLowerCase() === 'delivered';
 }
 
-function getOrderDateISO(o: SiteOrderRow): string {
-  if (!o.created_at) return '';
-  const d = new Date(o.created_at);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toISOString().slice(0, 10);
+function isCanceled(status?: string | null) {
+  return String(status ?? '').toLowerCase() === 'canceled';
 }
 
-function isRevenueStatus(status: string | null): boolean {
-  if (!status) return false;
-  const s = status.trim().toLowerCase();
-  return s === 'delivered' || s === 'processing';
-}
+export default function StatsClient({
+  initialOrders,
+  initialItems,
+  initialCustomers,
+  initialBonusHistory,
+  initialPromoCodes,
+}: Props) {
+  const router = useRouter();
 
-export default function FinanceClient({ initialManualRevenue, initialExpenses, initialSiteOrders }: Props) {
-  const [tab, setTab] = useState<Tab>('income');
+  const [period, setPeriod] = useState<number>(30);
+  const [customStartDate, setCustomStartDate] = useState<string>(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [useCustomRange, setUseCustomRange] = useState(false);
 
-  const [manualRevenue, setManualRevenue] = useState<ManualRevenueRow[]>(initialManualRevenue);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
+  const [granularity, setGranularity] = useState<Granularity>('day');
 
-  const [newIncome, setNewIncome] = useState<{ date: string; source: Source; amount: string; comment: string }>({
-    date: todayISO(),
-    source: 'flowwow',
-    amount: '',
-    comment: '',
-  });
+  useEffect(() => {
+    const saved = localStorage.getItem('statsPeriod');
+    if (saved) setPeriod(Number(saved));
+    const savedGran = localStorage.getItem('statsGranularity') as Granularity | null;
+    if (savedGran) setGranularity(savedGran);
+  }, []);
 
-  const [newExpense, setNewExpense] = useState<{
-    date: string;
-    category: ExpenseCategory;
-    amount: string;
-    supplier: string;
-    comment: string;
-  }>({
-    date: todayISO(),
-    category: 'Клубника',
-    amount: '',
-    supplier: '',
-    comment: '',
-  });
+  useEffect(() => {
+    localStorage.setItem('statsPeriod', String(period));
+  }, [period]);
 
-  const [editingIncomeId, setEditingIncomeId] = useState<string | null>(null);
-  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  useEffect(() => {
+    localStorage.setItem('statsGranularity', granularity);
+  }, [granularity]);
 
-  const [editIncome, setEditIncome] = useState<{ date: string; source: Source; amount: string; comment: string }>({
-    date: todayISO(),
-    source: 'flowwow',
-    amount: '',
-    comment: '',
-  });
+  const glassShell =
+    'rounded-3xl border border-white/20 bg-white/60 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+  const glassHeader =
+    'rounded-3xl border border-white/20 bg-white/55 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+  const inputBase =
+    'border border-white/25 bg-white/60 backdrop-blur-xl rounded-full px-3 py-2 text-sm outline-none shadow-sm focus:ring-2 focus:ring-black/10 focus:border-white/40';
+  const selectBase =
+    'border border-white/25 bg-white/60 backdrop-blur-xl rounded-full px-3 py-2 text-sm outline-none shadow-sm focus:ring-2 focus:ring-black/10 focus:border-white/40';
+  const btnPrimary =
+    'inline-flex items-center justify-center rounded-full bg-black/90 text-white px-4 py-2 text-sm font-semibold hover:bg-black transition shadow-sm';
+  const hintText = 'text-xs text-gray-600';
 
-  const [editExpense, setEditExpense] = useState<{
-    date: string;
-    category: ExpenseCategory;
-    amount: string;
-    supplier: string;
-    comment: string;
-  }>({
-    date: todayISO(),
-    category: 'Клубника',
-    amount: '',
-    supplier: '',
-    comment: '',
-  });
+  const dateRange = useMemo(() => {
+    let startDate: Date;
+    let endDate: Date = new Date();
 
-  const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [errorText, setErrorText] = useState<string | null>(null);
-
-  const revenueOrders = useMemo(() => {
-    // только те, что идут в выручку и прибыль
-    return initialSiteOrders.filter((o) => isRevenueStatus(o.status));
-  }, [initialSiteOrders]);
-
-  const totals = useMemo(() => {
-    const siteRevenue = revenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
-    const siteCosts = revenueOrders.reduce((sum, o) => sum + Math.max(0, Math.round(o.cost_total || 0)), 0);
-
-    const manual = manualRevenue.reduce((a, r) => a + (r.amount || 0), 0);
-    const exp = expenses.reduce((a, e) => a + (e.amount || 0), 0);
-
-    const profit = siteRevenue + manual - exp - siteCosts;
-
-    const ordersCount = revenueOrders.length;
-    const costsFilled = revenueOrders.filter((o) => o.has_costs).length;
-
-    return { siteRevenue, siteCosts, manualRevenue: manual, expenses: exp, profit, ordersCount, costsFilled };
-  }, [revenueOrders, manualRevenue, expenses]);
-
-  async function addManualRevenue() {
-    setErrorText(null);
-    const amountInt = toIntRubFromInput(newIncome.amount);
-
-    if (!newIncome.date || amountInt <= 0) {
-      setErrorText('Заполни дату и сумму больше 0');
-      return;
+    if (useCustomRange) {
+      startDate = startOfDay(new Date(customStartDate));
+      endDate = endOfDay(new Date(customEndDate));
+    } else {
+      startDate = period === 9999 ? new Date(0) : subDays(new Date(), period);
+      startDate = startOfDay(startDate);
+      endDate = endOfDay(endDate);
     }
 
-    setLoadingAction('add-income');
-    try {
-      const res = await fetch('/api/admin/finance/manual-revenue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: newIncome.date,
-          source: newIncome.source,
-          amount: amountInt,
-          comment: newIncome.comment || null,
-        }),
-      });
+    return { startDate, endDate };
+  }, [period, useCustomRange, customStartDate, customEndDate]);
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка добавления дохода');
-        return;
-      }
+  const prevDateRange = useMemo(() => {
+    const { startDate, endDate } = dateRange;
 
-      const created: ManualRevenueRow = await res.json();
-      setManualRevenue((prev) => [created, ...prev]);
+    const daysLen = clamp(differenceInCalendarDays(endDate, startDate) + 1, 1, 3650);
+    const prevEnd = endOfDay(subDays(startDate, 1));
+    const prevStart = startOfDay(subDays(prevEnd, daysLen - 1));
 
-      setNewIncome((p) => ({ ...p, amount: '', comment: '' }));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
+    return { startDate: prevStart, endDate: prevEnd, daysLen };
+  }, [dateRange]);
 
-  async function addExpense() {
-    setErrorText(null);
-    const amountInt = toIntRubFromInput(newExpense.amount);
+  // Важно:
+  // - для выручки/графиков/среднего чека берем только delivered
+  // - canceled исключаем полностью
+  const filteredOrdersAll = useMemo(() => {
+    const { startDate, endDate } = dateRange;
 
-    if (!newExpense.date || amountInt <= 0) {
-      setErrorText('Заполни дату и сумму больше 0');
-      return;
-    }
-
-    setLoadingAction('add-expense');
-    try {
-      const res = await fetch('/api/admin/finance/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: newExpense.date,
-          category: newExpense.category,
-          amount: amountInt,
-          supplier: newExpense.supplier || null,
-          comment: newExpense.comment || null,
-        }),
-      });
-
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка добавления расхода');
-        return;
-      }
-
-      const created: ExpenseRow = await res.json();
-      setExpenses((prev) => [created, ...prev]);
-
-      setNewExpense((p) => ({ ...p, amount: '', supplier: '', comment: '' }));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
-
-  function openEditIncome(row: ManualRevenueRow) {
-    setErrorText(null);
-    setEditingIncomeId(row.id);
-    setEditIncome({
-      date: row.date,
-      source: (sources.includes(row.source as any) ? (row.source as Source) : 'flowwow'),
-      amount: String(row.amount ?? ''),
-      comment: row.comment ?? '',
+    return initialOrders.filter((o) => {
+      if (!o.created_at) return false;
+      const d = new Date(o.created_at);
+      if (d < startDate || d > endDate) return false;
+      if (isCanceled(o.status)) return false;
+      return true;
     });
-  }
+  }, [initialOrders, dateRange]);
 
-  function openEditExpense(row: ExpenseRow) {
-    setErrorText(null);
-    setEditingExpenseId(row.id);
-    const cat = expenseCategories.includes(row.category as any) ? (row.category as ExpenseCategory) : 'Прочее';
-    setEditExpense({
-      date: row.date,
-      category: cat,
-      amount: String(row.amount ?? ''),
-      supplier: row.supplier ?? '',
-      comment: row.comment ?? '',
+  const filteredOrdersRevenue = useMemo(() => {
+    // если status не приходит - считаем как delivered (иначе статистика станет нулевой),
+    // но правильный вариант - передавать status с сервера
+    const hasStatus = initialOrders.some((o) => typeof o.status !== 'undefined');
+    if (!hasStatus) return filteredOrdersAll;
+
+    return filteredOrdersAll.filter((o) => isDelivered(o.status));
+  }, [filteredOrdersAll, initialOrders]);
+
+  const prevFilteredOrdersAll = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
+
+    return initialOrders.filter((o) => {
+      if (!o.created_at) return false;
+      const d = new Date(o.created_at);
+      if (d < startDate || d > endDate) return false;
+      if (isCanceled(o.status)) return false;
+      return true;
     });
-  }
+  }, [initialOrders, prevDateRange]);
 
-  async function saveEditIncome() {
-    if (!editingIncomeId) return;
-    setErrorText(null);
+  const prevFilteredOrdersRevenue = useMemo(() => {
+    const hasStatus = initialOrders.some((o) => typeof o.status !== 'undefined');
+    if (!hasStatus) return prevFilteredOrdersAll;
 
-    const amountInt = toIntRubFromInput(editIncome.amount);
-    if (!editIncome.date || amountInt <= 0) {
-      setErrorText('Заполни дату и сумму больше 0');
-      return;
-    }
+    return prevFilteredOrdersAll.filter((o) => isDelivered(o.status));
+  }, [prevFilteredOrdersAll, initialOrders]);
 
-    setLoadingAction('save-income');
-    try {
-      const res = await fetch('/api/admin/finance/manual-revenue', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingIncomeId,
-          date: editIncome.date,
-          source: editIncome.source,
-          amount: amountInt,
-          comment: editIncome.comment || null,
-        }),
-      });
+  const filteredCustomers = useMemo(() => {
+    const { startDate, endDate } = dateRange;
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка сохранения дохода');
-        return;
+    return initialCustomers.filter((c) => {
+      const d = new Date(c.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialCustomers, dateRange]);
+
+  const prevFilteredCustomers = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
+
+    return initialCustomers.filter((c) => {
+      const d = new Date(c.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialCustomers, prevDateRange]);
+
+  const filteredBonusHistory = useMemo(() => {
+    const { startDate, endDate } = dateRange;
+
+    return initialBonusHistory.filter((b) => {
+      const d = new Date(b.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialBonusHistory, dateRange]);
+
+  const prevFilteredBonusHistory = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
+
+    return initialBonusHistory.filter((b) => {
+      const d = new Date(b.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialBonusHistory, prevDateRange]);
+
+  const groupedOrders = useMemo(() => {
+    const map = new Map<string, { date: string; count: number; revenue: number; sortKey: number }>();
+
+    const getBucket = (dt: Date) => {
+      if (granularity === 'month') {
+        const key = format(dt, 'MM.yyyy', { locale: ru });
+        const sortKey = Number(format(dt, 'yyyyMM'));
+        return { label: key, sortKey };
       }
 
-      const updated: ManualRevenueRow = await res.json();
-      setManualRevenue((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      setEditingIncomeId(null);
-    } finally {
-      setLoadingAction(null);
-    }
-  }
-
-  async function saveEditExpense() {
-    if (!editingExpenseId) return;
-    setErrorText(null);
-
-    const amountInt = toIntRubFromInput(editExpense.amount);
-    if (!editExpense.date || amountInt <= 0) {
-      setErrorText('Заполни дату и сумму больше 0');
-      return;
-    }
-
-    setLoadingAction('save-expense');
-    try {
-      const res = await fetch('/api/admin/finance/expenses', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingExpenseId,
-          date: editExpense.date,
-          category: editExpense.category,
-          amount: amountInt,
-          supplier: editExpense.supplier || null,
-          comment: editExpense.comment || null,
-        }),
-      });
-
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка сохранения расхода');
-        return;
+      if (granularity === 'week') {
+        const day = dt.getDay();
+        const diffToMon = (day + 6) % 7;
+        const monday = subDays(startOfDay(dt), diffToMon);
+        const label = format(monday, 'dd.MM.yy', { locale: ru });
+        const sortKey = monday.getTime();
+        return { label, sortKey };
       }
 
-      const updated: ExpenseRow = await res.json();
-      setExpenses((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-      setEditingExpenseId(null);
-    } finally {
-      setLoadingAction(null);
+      const label = format(dt, 'dd.MM.yy', { locale: ru });
+      const sortKey = startOfDay(dt).getTime();
+      return { label, sortKey };
+    };
+
+    // В графиках - только выручка по delivered
+    filteredOrdersRevenue.forEach((o) => {
+      if (!o.created_at) return;
+      const dt = new Date(o.created_at);
+      const bucket = getBucket(dt);
+      const cur = map.get(bucket.label) ?? { date: bucket.label, count: 0, revenue: 0, sortKey: bucket.sortKey };
+
+      cur.count += 1;
+      cur.revenue += toRubInt(o.total ?? 0);
+      map.set(bucket.label, cur);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey);
+  }, [filteredOrdersRevenue, granularity]);
+
+  const topProducts = useMemo(() => {
+    const hasOrderId = initialItems.some((i) => typeof i.order_id !== 'undefined');
+    const orderIdsInRange = new Set(filteredOrdersRevenue.map((o) => o.id));
+
+    const itemsScoped = hasOrderId
+      ? initialItems.filter((i) => i.order_id && orderIdsInRange.has(i.order_id))
+      : initialItems;
+
+    const m = new Map<number, { product_id: number; quantity: number; total: number; title: string }>();
+
+    itemsScoped.forEach((i) => {
+      const entry = m.get(i.product_id) ?? { product_id: i.product_id, quantity: 0, total: 0, title: i.title };
+      entry.quantity += i.quantity;
+      entry.total += toRubInt(i.quantity * i.price);
+      m.set(i.product_id, entry);
+    });
+
+    return Array.from(m.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+  }, [initialItems, filteredOrdersRevenue]);
+
+  const customerStats = useMemo(() => {
+    const phoneOrderCount = new Map<string, number>();
+
+    filteredOrdersRevenue.forEach((o) => {
+      if (!o.phone) return;
+      phoneOrderCount.set(o.phone, (phoneOrderCount.get(o.phone) || 0) + 1);
+    });
+
+    const repeatCustomers = Array.from(phoneOrderCount.values()).filter((c) => c > 1).length;
+
+    const totalLTV = filteredOrdersRevenue.reduce((sum, o) => sum + toRubInt(o.total ?? 0), 0);
+    const avgLTV = phoneOrderCount.size > 0 ? totalLTV / phoneOrderCount.size : 0;
+
+    return {
+      newCustomers: filteredCustomers.length,
+      repeatCustomers,
+      avgLTV,
+      uniqueCustomers: phoneOrderCount.size,
+    };
+  }, [filteredOrdersRevenue, filteredCustomers]);
+
+  const prevCustomerStats = useMemo(() => {
+    const phoneOrderCount = new Map<string, number>();
+
+    prevFilteredOrdersRevenue.forEach((o) => {
+      if (!o.phone) return;
+      phoneOrderCount.set(o.phone, (phoneOrderCount.get(o.phone) || 0) + 1);
+    });
+
+    const repeatCustomers = Array.from(phoneOrderCount.values()).filter((c) => c > 1).length;
+
+    const totalLTV = prevFilteredOrdersRevenue.reduce((sum, o) => sum + toRubInt(o.total ?? 0), 0);
+    const avgLTV = phoneOrderCount.size > 0 ? totalLTV / phoneOrderCount.size : 0;
+
+    return {
+      newCustomers: prevFilteredCustomers.length,
+      repeatCustomers,
+      avgLTV,
+      uniqueCustomers: phoneOrderCount.size,
+    };
+  }, [prevFilteredOrdersRevenue, prevFilteredCustomers]);
+
+  const bonusStats = useMemo(() => {
+    const added = filteredBonusHistory.filter((b) => b.amount > 0).reduce((sum, b) => sum + toRubInt(b.amount), 0);
+    const subtracted = filteredBonusHistory.filter((b) => b.amount < 0).reduce((sum, b) => sum + toRubInt(-b.amount), 0);
+    return { added, subtracted };
+  }, [filteredBonusHistory]);
+
+  const prevBonusStats = useMemo(() => {
+    const added = prevFilteredBonusHistory.filter((b) => b.amount > 0).reduce((sum, b) => sum + toRubInt(b.amount), 0);
+    const subtracted = prevFilteredBonusHistory.filter((b) => b.amount < 0).reduce((sum, b) => sum + toRubInt(-b.amount), 0);
+    return { added, subtracted };
+  }, [prevFilteredBonusHistory]);
+
+  const promoStats = useMemo(() => {
+    const promoUsage = new Map<string, { code: string; count: number; totalDiscount: number }>();
+
+    // промо считаем только по выручечным (delivered)
+    filteredOrdersRevenue.forEach((o) => {
+      if (!o.promo_code) return;
+      const promo = initialPromoCodes.find((p) => p.code === o.promo_code);
+      if (!promo) return;
+
+      const cur = promoUsage.get(o.promo_code) ?? { code: o.promo_code, count: 0, totalDiscount: 0 };
+      cur.count += 1;
+      cur.totalDiscount += toRubInt(promo.discount);
+      promoUsage.set(o.promo_code, cur);
+    });
+
+    return Array.from(promoUsage.values()).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [filteredOrdersRevenue, initialPromoCodes]);
+
+  const totalRevenue = useMemo(
+    () => filteredOrdersRevenue.reduce((sum, o) => sum + toRubInt(o.total ?? 0), 0),
+    [filteredOrdersRevenue]
+  );
+  const prevTotalRevenue = useMemo(
+    () => prevFilteredOrdersRevenue.reduce((sum, o) => sum + toRubInt(o.total ?? 0), 0),
+    [prevFilteredOrdersRevenue]
+  );
+
+  const avgCheck = useMemo(
+    () => (filteredOrdersRevenue.length > 0 ? Math.round(totalRevenue / filteredOrdersRevenue.length) : 0),
+    [filteredOrdersRevenue.length, totalRevenue]
+  );
+  const prevAvgCheck = useMemo(
+    () => (prevFilteredOrdersRevenue.length > 0 ? Math.round(prevTotalRevenue / prevFilteredOrdersRevenue.length) : 0),
+    [prevFilteredOrdersRevenue.length, prevTotalRevenue]
+  );
+
+  // "Заказы сегодня" - не выручка, а оперативка.
+  // Считаем все, кроме canceled, чтобы видеть нагрузку.
+  const todayOrders = useMemo(() => {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    return initialOrders.filter((o) => {
+      if (!o.created_at) return false;
+      if (isCanceled(o.status)) return false;
+      const d = new Date(o.created_at);
+      return d >= todayStart && d <= todayEnd;
+    }).length;
+  }, [initialOrders]);
+
+  const deltaRevenue = useMemo(() => percentDelta(totalRevenue, prevTotalRevenue), [totalRevenue, prevTotalRevenue]);
+  const deltaOrders = useMemo(
+    () => percentDelta(filteredOrdersRevenue.length, prevFilteredOrdersRevenue.length),
+    [filteredOrdersRevenue.length, prevFilteredOrdersRevenue.length]
+  );
+  const deltaAvgCheck = useMemo(() => percentDelta(avgCheck, prevAvgCheck), [avgCheck, prevAvgCheck]);
+  const deltaNewCustomers = useMemo(
+    () => percentDelta(customerStats.newCustomers, prevCustomerStats.newCustomers),
+    [customerStats.newCustomers, prevCustomerStats.newCustomers]
+  );
+
+  const escapeCSV = (value: any) => {
+    if (value == null) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
     }
-  }
+    return str;
+  };
 
-  async function deleteIncome(id: string) {
-    setErrorText(null);
-    setLoadingAction('delete-income');
-    try {
-      const res = await fetch('/api/admin/finance/manual-revenue', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+  const exportToCSV = () => {
+    const headers = ['Метрика', 'Значение'];
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка удаления дохода');
-        return;
-      }
+    const summaryRows = [
+      ['Период', useCustomRange ? `${customStartDate} - ${customEndDate}` : `${period} дней`],
+      ['Выручечные заказы (delivered)', filteredOrdersRevenue.length],
+      ['Выручка за период', formatRub(totalRevenue)],
+      ['Средний чек', formatRub(avgCheck)],
+      ['Новые клиенты', customerStats.newCustomers],
+      ['Повторные клиенты', customerStats.repeatCustomers],
+      ['Уникальные клиенты', customerStats.uniqueCustomers],
+      ['Средний LTV', formatRub(customerStats.avgLTV)],
+      ['Начислено бонусов', formatRub(bonusStats.added)],
+      ['Списано бонусов', formatRub(bonusStats.subtracted)],
+      ['Сравнение с предыдущим периодом', ''],
+      ['Заказы (дельта)', formatDelta(deltaOrders)],
+      ['Выручка (дельта)', formatDelta(deltaRevenue)],
+      ['Средний чек (дельта)', formatDelta(deltaAvgCheck)],
+      ['Новые клиенты (дельта)', formatDelta(deltaNewCustomers)],
+    ];
 
-      setManualRevenue((prev) => prev.filter((r) => r.id !== id));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
+    const ordersHeader = ['Период', 'Кол-во заказов', 'Выручка'];
+    const ordersRows = groupedOrders.map((g) => [g.date, g.count, toRubInt(g.revenue)]);
 
-  async function deleteExpense(id: string) {
-    setErrorText(null);
-    setLoadingAction('delete-expense');
-    try {
-      const res = await fetch('/api/admin/finance/expenses', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+    const topProductsHeader = ['Название', 'Кол-во', 'Выручка'];
+    const topProductsRows = topProducts.map((p) => [escapeCSV(p.title), p.quantity, toRubInt(p.total)]);
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        setErrorText(j?.error || 'Ошибка удаления расхода');
-        return;
-      }
+    const promoHeader = ['Промокод', 'Кол-во использований', 'Общая скидка'];
+    const promoRows = promoStats.map((p) => [p.code, p.count, toRubInt(p.totalDiscount)]);
 
-      setExpenses((prev) => prev.filter((e) => e.id !== id));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
+    const csv = [
+      headers.join(','),
+      ...summaryRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Заказы по периодам (только delivered)',
+      ordersHeader.join(','),
+      ...ordersRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Топ товаров',
+      topProductsHeader.join(','),
+      ...topProductsRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Топ промокодов',
+      promoHeader.join(','),
+      ...promoRows.map((row) => row.map(escapeCSV).join(',')),
+    ].join('\n');
 
-  const disableButtons = loadingAction !== null;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stats.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('CSV выгружен');
+  };
+
+  const periodLabel = useMemo(() => {
+    if (useCustomRange) return `${customStartDate} - ${customEndDate}`;
+    if (period === 7) return '7 дней';
+    if (period === 30) return '30 дней';
+    if (period === 90) return '90 дней';
+    if (period === 365) return 'год';
+    if (period === 9999) return 'всё время';
+    return `${period} дней`;
+  }, [useCustomRange, customStartDate, customEndDate, period]);
+
+  const showDelta = (deltaPct: number) => {
+    const isUp = deltaPct >= 0;
+    return <div className={`text-xs mt-1 ${isUp ? 'text-emerald-700' : 'text-rose-700'}`}>{formatDelta(deltaPct)} к прошлому периоду</div>;
+  };
+
+  const pageBg =
+    'min-h-screen bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(255,255,255,0.55),transparent),radial-gradient(900px_500px_at_90%_0%,rgba(255,255,255,0.35),transparent)] bg-gray-100';
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Финансы</h1>
-          <p className="text-sm text-gray-500 mt-1">Доходы и расходы, прибыль с учётом себестоимости</p>
-          <p className="text-xs text-gray-400 mt-1">Выручка сайта: delivered, processing. Отменённые и pending не считаем.</p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => setTab('income')}
-            className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
-              tab === 'income' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
-            }`}
-          >
-            Доходы
-          </button>
-          <button
-            onClick={() => setTab('expenses')}
-            className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
-              tab === 'expenses' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
-            }`}
-          >
-            Расходы
-          </button>
-        </div>
-      </div>
-
-      {errorText ? (
-        <div className="mt-4 border border-red-200 bg-red-50 text-red-700 text-sm rounded-xl p-3">{errorText}</div>
-      ) : null}
-
-      <div className="grid gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Выручка сайта</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.siteRevenue)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">заказы: {totals.ordersCount}</div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Себестоимость сайта</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.siteCosts)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">
-            заполнено: {totals.costsFilled}/{totals.ordersCount}
-          </div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Ручная выручка</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.manualRevenue)}</div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Расходы</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.expenses)}</div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Прибыль</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.profit)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">сайт + ручная - расходы - себестоимость</div>
-        </div>
-      </div>
-
-      {/* UI вкладок дальше оставляю как у тебя, без изменений по верстке, только логика денег уже int */}
-      {/* Ниже твой UI 1:1, я не трогаю оформление, только disabled/loading/error */}
-      {tab === 'income' ? (
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold">Доходы</h2>
-
-          <div className="mt-4 border rounded-xl p-4">
-            <div className="text-sm font-medium">Добавить ручную выручку</div>
-
-            <div className="grid gap-3 mt-3 md:grid-cols-4">
-              <div>
-                <label className="text-xs text-gray-500">Дата</label>
-                <input
-                  type="date"
-                  value={newIncome.date}
-                  onChange={(e) => setNewIncome((p) => ({ ...p, date: e.target.value }))}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Канал</label>
-                <select
-                  value={newIncome.source}
-                  onChange={(e) => setNewIncome((p) => ({ ...p, source: e.target.value as Source }))}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                >
-                  <option value="flowwow">Flowwow</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="telegram">Telegram</option>
-                  <option value="offline">Оффлайн</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Сумма (₽)</label>
-                <input
-                  inputMode="numeric"
-                  value={newIncome.amount}
-                  onChange={(e) => setNewIncome((p) => ({ ...p, amount: e.target.value }))}
-                  placeholder="например 15000"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Комментарий</label>
-                <input
-                  value={newIncome.comment}
-                  onChange={(e) => setNewIncome((p) => ({ ...p, comment: e.target.value }))}
-                  placeholder="необязательно"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-            </div>
-
-            <button
-              disabled={disableButtons}
-              onClick={addManualRevenue}
-              className="mt-4 px-4 py-2 rounded-lg bg-black text-white text-sm hover:opacity-90 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-            >
-              {loadingAction === 'add-income' ? 'Добавляю...' : 'Добавить'}
-            </button>
-          </div>
-
-          <div className="mt-6 border rounded-xl overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История ручной выручки</div>
-
-            <div className="divide-y">
-              {manualRevenue.length === 0 ? (
-                <div className="p-4 text-sm text-gray-500">Пока пусто</div>
-              ) : (
-                manualRevenue.map((r) => (
-                  <div key={r.id} className="p-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">
-                        {r.date} - {r.source} - {formatRub(r.amount)}
-                      </div>
-                      {r.comment ? <div className="text-xs text-gray-500 mt-1">{r.comment}</div> : null}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        disabled={disableButtons}
-                        onClick={() => openEditIncome(r)}
-                        className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                      >
-                        Редактировать
-                      </button>
-                      <button
-                        disabled={disableButtons}
-                        onClick={() => deleteIncome(r.id)}
-                        className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                      >
-                        {loadingAction === 'delete-income' ? 'Удаляю...' : 'Удалить'}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {editingIncomeId ? (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-lg rounded-2xl shadow-lg">
-                <div className="p-4 border-b flex items-center justify-between">
-                  <div className="text-sm font-semibold">Редактировать доход</div>
-                  <button
-                    disabled={disableButtons}
-                    onClick={() => setEditingIncomeId(null)}
-                    className="text-sm text-gray-500 hover:text-black disabled:opacity-60 focus:outline-none"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-
-                <div className="p-4 grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="text-xs text-gray-500">Дата</label>
-                    <input
-                      type="date"
-                      value={editIncome.date}
-                      onChange={(e) => setEditIncome((p) => ({ ...p, date: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Канал</label>
+    <>
+      <Toaster position="top-center" />
+      <div className={pageBg}>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          {/* Фильтры */}
+          <div className={`mb-6 p-4 ${glassHeader}`}>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="period-select" className="text-sm text-gray-700">
+                      Период:
+                    </label>
                     <select
-                      value={editIncome.source}
-                      onChange={(e) => setEditIncome((p) => ({ ...p, source: e.target.value as Source }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                      id="period-select"
+                      value={useCustomRange ? 'custom' : period}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setUseCustomRange(true);
+                        } else {
+                          setUseCustomRange(false);
+                          setPeriod(Number(e.target.value));
+                        }
+                      }}
+                      className={selectBase}
+                      aria-label="Выбрать период статистики"
                     >
-                      <option value="flowwow">Flowwow</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="telegram">Telegram</option>
-                      <option value="offline">Оффлайн</option>
+                      <option value={7}>7 дней</option>
+                      <option value={30}>30 дней</option>
+                      <option value={90}>90 дней</option>
+                      <option value={365}>Год</option>
+                      <option value={9999}>Всё время</option>
+                      <option value="custom">Свой диапазон</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-gray-500">Сумма (₽)</label>
-                    <input
-                      inputMode="numeric"
-                      value={editIncome.amount}
-                      onChange={(e) => setEditIncome((p) => ({ ...p, amount: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Комментарий</label>
-                    <input
-                      value={editIncome.comment}
-                      onChange={(e) => setEditIncome((p) => ({ ...p, comment: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 border-t flex gap-2 justify-end">
-                  <button
-                    disabled={disableButtons}
-                    onClick={() => setEditingIncomeId(null)}
-                    className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    disabled={disableButtons}
-                    onClick={saveEditIncome}
-                    className="px-4 py-2 text-sm rounded-lg bg-black text-white hover:opacity-90 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    {loadingAction === 'save-income' ? 'Сохраняю...' : 'Сохранить'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : (
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold">Расходы</h2>
-
-          <div className="mt-4 border rounded-xl p-4">
-            <div className="text-sm font-medium">Добавить расход</div>
-
-            <div className="grid gap-3 mt-3 md:grid-cols-5">
-              <div>
-                <label className="text-xs text-gray-500">Дата</label>
-                <input
-                  type="date"
-                  value={newExpense.date}
-                  onChange={(e) => setNewExpense((p) => ({ ...p, date: e.target.value }))}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Категория</label>
-                <select
-                  value={newExpense.category}
-                  onChange={(e) => setNewExpense((p) => ({ ...p, category: e.target.value as ExpenseCategory }))}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                >
-                  {expenseCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Сумма (₽)</label>
-                <input
-                  inputMode="numeric"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense((p) => ({ ...p, amount: e.target.value }))}
-                  placeholder="например 3200"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Поставщик</label>
-                <input
-                  value={newExpense.supplier}
-                  onChange={(e) => setNewExpense((p) => ({ ...p, supplier: e.target.value }))}
-                  placeholder="необязательно"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-500">Комментарий</label>
-                <input
-                  value={newExpense.comment}
-                  onChange={(e) => setNewExpense((p) => ({ ...p, comment: e.target.value }))}
-                  placeholder="необязательно"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-            </div>
-
-            <button
-              disabled={disableButtons}
-              onClick={addExpense}
-              className="mt-4 px-4 py-2 rounded-lg bg-black text-white text-sm hover:opacity-90 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-            >
-              {loadingAction === 'add-expense' ? 'Добавляю...' : 'Добавить'}
-            </button>
-          </div>
-
-          <div className="mt-6 border rounded-xl overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История расходов</div>
-
-            <div className="divide-y">
-              {expenses.length === 0 ? (
-                <div className="p-4 text-sm text-gray-500">Пока пусто</div>
-              ) : (
-                expenses.map((e) => (
-                  <div key={e.id} className="p-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">
-                        {e.date} - {e.category} - {formatRub(e.amount)}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {e.supplier ? `Поставщик: ${e.supplier}` : ' '}
-                        {e.comment ? ` | ${e.comment}` : ''}
-                      </div>
-                    </div>
-
+                  {useCustomRange && (
                     <div className="flex gap-2">
-                      <button
-                        disabled={disableButtons}
-                        onClick={() => openEditExpense(e)}
-                        className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                      >
-                        Редактировать
-                      </button>
-                      <button
-                        disabled={disableButtons}
-                        onClick={() => deleteExpense(e.id)}
-                        className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                      >
-                        {loadingAction === 'delete-expense' ? 'Удаляю...' : 'Удалить'}
-                      </button>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className={inputBase}
+                        aria-label="Выбрать начальную дату"
+                      />
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className={inputBase}
+                        aria-label="Выбрать конечную дату"
+                      />
                     </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="granularity" className="text-sm text-gray-700">
+                      Графики:
+                    </label>
+                    <select
+                      id="granularity"
+                      value={granularity}
+                      onChange={(e) => setGranularity(e.target.value as Granularity)}
+                      className={selectBase}
+                      aria-label="Выбрать детализацию графиков"
+                    >
+                      <option value="day">По дням</option>
+                      <option value="week">По неделям</option>
+                      <option value="month">По месяцам</option>
+                    </select>
                   </div>
-                ))
-              )}
+                </div>
+
+                <motion.button onClick={exportToCSV} className={btnPrimary} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  Экспортировать в CSV
+                </motion.button>
+              </div>
+
+              <div className={hintText}>Сейчас: {periodLabel}. сравнение идет с предыдущим периодом такой же длины. выручка считается по delivered.</div>
             </div>
           </div>
 
-          {editingExpenseId ? (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-lg">
-                <div className="p-4 border-b flex items-center justify-between">
-                  <div className="text-sm font-semibold">Редактировать расход</div>
-                  <button
-                    disabled={disableButtons}
-                    onClick={() => setEditingExpenseId(null)}
-                    className="text-sm text-gray-500 hover:text-black disabled:opacity-60 focus:outline-none"
-                  >
-                    Закрыть
-                  </button>
+          {/* Ключевые метрики */}
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }}>
+              <div className="text-gray-700 text-sm mb-1">Заказы сегодня</div>
+              <div className="text-2xl font-bold text-gray-900">{todayOrders}</div>
+              <div className="text-xs mt-1 text-gray-600">оперативная метрика (без canceled)</div>
+            </motion.div>
+
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.12 }}>
+              <div className="text-gray-700 text-sm mb-1">Выручка за период</div>
+              <div className="text-2xl font-bold text-gray-900">{formatRub(totalRevenue)}</div>
+              {showDelta(deltaRevenue)}
+            </motion.div>
+
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.19 }}>
+              <div className="text-gray-700 text-sm mb-1">Средний чек</div>
+              <div className="text-2xl font-bold text-gray-900">{formatRub(avgCheck)}</div>
+              {showDelta(deltaAvgCheck)}
+            </motion.div>
+
+            <motion.div
+              className={`p-4 ${glassShell} text-center cursor-pointer hover:bg-white/70 transition`}
+              onClick={() => router.push('/admin/customers')}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.26 }}
+              aria-label="Перейти к списку клиентов"
+            >
+              <div className="text-gray-700 text-sm mb-1">Новые клиенты</div>
+              <div className="text-2xl font-bold text-gray-900">{customerStats.newCustomers}</div>
+              {showDelta(deltaNewCustomers)}
+            </motion.div>
+          </div>
+
+          {/* Клиенты + активность */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Клиенты</h2>
+              <motion.div className={`p-4 ${glassShell}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-700">Выручечные заказы (delivered)</div>
+                    <div className="text-2xl font-bold text-gray-900">{filteredOrdersRevenue.length}</div>
+                    {showDelta(deltaOrders)}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-700">Повторные клиенты</div>
+                    <div className="text-2xl font-bold text-gray-900">{customerStats.repeatCustomers}</div>
+                    <div className="text-xs mt-1 text-gray-600">уникальных: {customerStats.uniqueCustomers}</div>
+                  </div>
                 </div>
 
-                <div className="p-4 grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="text-xs text-gray-500">Дата</label>
-                    <input
-                      type="date"
-                      value={editExpense.date}
-                      onChange={(e) => setEditExpense((p) => ({ ...p, date: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
+                <div className="mt-4 text-sm text-gray-800">
+                  Средний LTV: <span className="font-semibold">{formatRub(customerStats.avgLTV)}</span>
+                </div>
 
+                <div className="mt-2 text-xs text-gray-600">
+                  прошлый период: выручка {formatRub(prevTotalRevenue)}, delivered {prevFilteredOrdersRevenue.length}
+                </div>
+              </motion.div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Активность заказов (delivered)</h2>
+              <div className={`p-4 ${glassShell}`}>
+                {groupedOrders.length === 0 ? (
+                  <p className="text-gray-700 text-center">Нет данных для отображения</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={groupedOrders} aria-label="График активности заказов">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Выручка + бонусы */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Выручка (delivered)</h2>
+              <div className={`p-4 ${glassShell}`}>
+                {groupedOrders.length === 0 ? (
+                  <p className="text-gray-700 text-center">Нет данных для отображения</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={groupedOrders} aria-label="График выручки">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="revenue" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Бонусы</h2>
+              <motion.div className={`p-4 ${glassShell}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <label className="text-xs text-gray-500">Категория</label>
-                    <select
-                      value={editExpense.category}
-                      onChange={(e) => setEditExpense((p) => ({ ...p, category: e.target.value as ExpenseCategory }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    >
-                      {expenseCategories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
+                    <div className="text-sm text-gray-700 mb-1">Начислено</div>
+                    <div className="text-xl font-bold text-gray-900">{formatRub(bonusStats.added)}</div>
+                    <div className="text-xs mt-1 text-gray-600">было: {formatRub(prevBonusStats.added)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-700 mb-1">Списано</div>
+                    <div className="text-xl font-bold text-gray-900">{formatRub(bonusStats.subtracted)}</div>
+                    <div className="text-xs mt-1 text-gray-600">было: {formatRub(prevBonusStats.subtracted)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-600">
+                  это помогает понять, насколько бонусы реально работают как мотивация и скидка
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Топ товаров + промокоды */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-900">🏆 Топ товаров</h2>
+
+              {!initialItems.some((i) => typeof i.order_id !== 'undefined') && (
+                <div className="text-xs text-amber-800 mb-2">
+                  сейчас топ товаров считается за всё время. если в order_items есть order_id - добавь его в select на сервере, и топ станет по выбранному периоду.
+                </div>
+              )}
+
+              <div className={glassShell}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <caption className="sr-only">Список топ-товаров</caption>
+                    <thead>
+                      <tr className="text-gray-800">
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30">Название</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Кол-во</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Выручка</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((p) => (
+                        <motion.tr key={p.product_id} className="border-t border-white/10 hover:bg-white/35 transition" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                          <td className="p-3 text-gray-900">{p.title}</td>
+                          <td className="p-3 text-right text-gray-900">{p.quantity}</td>
+                          <td className="p-3 text-right text-gray-900">{formatRub(p.total)}</td>
+                        </motion.tr>
                       ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Сумма (₽)</label>
-                    <input
-                      inputMode="numeric"
-                      value={editExpense.amount}
-                      onChange={(e) => setEditExpense((p) => ({ ...p, amount: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Поставщик</label>
-                    <input
-                      value={editExpense.supplier}
-                      onChange={(e) => setEditExpense((p) => ({ ...p, supplier: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-gray-500">Комментарий</label>
-                    <input
-                      value={editExpense.comment}
-                      onChange={(e) => setEditExpense((p) => ({ ...p, comment: e.target.value }))}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 border-t flex gap-2 justify-end">
-                  <button
-                    disabled={disableButtons}
-                    onClick={() => setEditingExpenseId(null)}
-                    className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    disabled={disableButtons}
-                    onClick={saveEditExpense}
-                    className="px-4 py-2 text-sm rounded-lg bg-black text-white hover:opacity-90 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    {loadingAction === 'save-expense' ? 'Сохраняю...' : 'Сохранить'}
-                  </button>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
-          ) : null}
-        </section>
-      )}
-    </div>
+
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-900">💸 Топ промокодов</h2>
+              <div className={glassShell}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <caption className="sr-only">Список топ-промокодов</caption>
+                    <thead>
+                      <tr className="text-gray-800">
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30">Промокод</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Использований</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Скидка</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promoStats.map((p) => (
+                        <motion.tr key={p.code} className="border-t border-white/10 hover:bg-white/35 transition" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                          <td className="p-3 text-gray-900">{p.code}</td>
+                          <td className="p-3 text-right text-gray-900">{p.count}</td>
+                          <td className="p-3 text-right text-gray-900">{formatRub(p.totalDiscount)}</td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 mt-3">
+                дальше можно добавить: доля заказов и доля выручки по промокодам, чтобы видеть, не убиваешь ли маржу
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </>
   );
 }
