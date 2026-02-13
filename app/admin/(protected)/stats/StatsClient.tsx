@@ -1,7 +1,8 @@
+// ✅ Путь: app/admin/(protected)/stats/StatsClient.tsx
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, differenceInCalendarDays, startOfDay, endOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { useRouter } from 'next/navigation';
 import toast, { Toaster } from 'react-hot-toast';
@@ -12,9 +13,6 @@ import {
   Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -24,13 +22,15 @@ import {
 
 type Order = {
   id: string;
-  total: number;
+  total: number | string | null; // ✅ numeric может прийти строкой
   created_at: string;
   phone: string;
-  promo_code: string | null; // Изменяем undefined на null
+  promo_code: string | null;
+  promo_discount?: number | string | null; // ✅ используем для корректной статистики промо
 };
 
 type OrderItem = {
+  order_id?: string | null;
   product_id: number;
   quantity: number;
   price: number;
@@ -63,6 +63,56 @@ interface Props {
   initialPromoCodes: PromoCode[];
 }
 
+type Granularity = 'day' | 'week' | 'month';
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function percentDelta(current: number, prev: number) {
+  if (prev === 0 && current === 0) return 0;
+  if (prev === 0) return 100;
+  return ((current - prev) / prev) * 100;
+}
+
+function formatDelta(deltaPct: number) {
+  const sign = deltaPct > 0 ? '+' : '';
+  return `${sign}${Math.round(deltaPct)}%`;
+}
+
+// ✅ только целые рубли, любые входные значения
+function toIntRub(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n);
+}
+
+function formatRub(n: number) {
+  return `${Math.round(n).toLocaleString('ru-RU')} ₽`;
+}
+
+// ✅ "сегодня" по Москве, независимо от того где открыт админ
+function mskStartEndOfToday(): { start: Date; end: Date } {
+  const now = new Date();
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+  const y = get('year');
+  const m = get('month');
+  const d = get('day');
+
+  const start = new Date(`${y}-${m}-${d}T00:00:00+03:00`);
+  const end = new Date(`${y}-${m}-${d}T23:59:59.999+03:00`);
+  return { start, end };
+}
+
 export default function StatsClient({
   initialOrders,
   initialItems,
@@ -70,181 +120,293 @@ export default function StatsClient({
   initialBonusHistory,
   initialPromoCodes,
 }: Props) {
-  const [period, setPeriod] = useState<number>(30);
-  const [customStartDate, setCustomStartDate] = useState<string>(
-    format(subDays(new Date(), 30), 'yyyy-MM-dd')
-  );
-  const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [useCustomRange, setUseCustomRange] = useState(false);
   const router = useRouter();
 
-  // Сохранение выбранного периода в localStorage
+  const [period, setPeriod] = useState<number>(30);
+  const [customStartDate, setCustomStartDate] = useState<string>(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [useCustomRange, setUseCustomRange] = useState(false);
+
+  const [granularity, setGranularity] = useState<Granularity>('day');
+
   useEffect(() => {
-    const savedPeriod = localStorage.getItem('statsPeriod');
-    if (savedPeriod) {
-      setPeriod(Number(savedPeriod));
-    }
+    const saved = localStorage.getItem('statsPeriod');
+    if (saved) setPeriod(Number(saved));
+    const savedGran = localStorage.getItem('statsGranularity') as Granularity | null;
+    if (savedGran) setGranularity(savedGran);
   }, []);
 
   useEffect(() => {
     localStorage.setItem('statsPeriod', String(period));
   }, [period]);
 
-  // Фильтрация заказов по периоду
+  useEffect(() => {
+    localStorage.setItem('statsGranularity', granularity);
+  }, [granularity]);
+
+  const glassShell =
+    'rounded-3xl border border-white/20 bg-white/60 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+  const glassHeader =
+    'rounded-3xl border border-white/20 bg-white/55 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+  const inputBase =
+    'border border-white/25 bg-white/60 backdrop-blur-xl rounded-full px-3 py-2 text-sm outline-none shadow-sm focus:ring-2 focus:ring-black/10 focus:border-white/40';
+  const selectBase =
+    'border border-white/25 bg-white/60 backdrop-blur-xl rounded-full px-3 py-2 text-sm outline-none shadow-sm focus:ring-2 focus:ring-black/10 focus:border-white/40';
+  const btnPrimary =
+    'inline-flex items-center justify-center rounded-full bg-black/90 text-white px-4 py-2 text-sm font-semibold hover:bg-black transition shadow-sm';
+  const hintText = 'text-xs text-gray-600';
+
+  const dateRange = useMemo(() => {
+    let startDate: Date;
+    let endDate: Date = new Date();
+
+    if (useCustomRange) {
+      startDate = startOfDay(new Date(customStartDate));
+      endDate = endOfDay(new Date(customEndDate));
+    } else {
+      startDate = period === 9999 ? new Date(0) : subDays(new Date(), period);
+      startDate = startOfDay(startDate);
+      endDate = endOfDay(endDate);
+    }
+
+    return { startDate, endDate };
+  }, [period, useCustomRange, customStartDate, customEndDate]);
+
+  const prevDateRange = useMemo(() => {
+    const { startDate, endDate } = dateRange;
+
+    const daysLen = clamp(differenceInCalendarDays(endDate, startDate) + 1, 1, 3650);
+    const prevEnd = endOfDay(subDays(startDate, 1));
+    const prevStart = startOfDay(subDays(prevEnd, daysLen - 1));
+
+    return { startDate: prevStart, endDate: prevEnd, daysLen };
+  }, [dateRange]);
+
   const filteredOrders = useMemo(() => {
-    let startDate: Date;
-    let endDate: Date = new Date();
+    const { startDate, endDate } = dateRange;
 
-    if (useCustomRange) {
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-    } else {
-      startDate = period === 9999 ? new Date(0) : subDays(new Date(), period);
-    }
+    return initialOrders
+      .filter((o) => {
+        if (!o.created_at) return false;
+        const d = new Date(o.created_at);
+        return d >= startDate && d <= endDate;
+      })
+      .map((o) => ({
+        ...o,
+        total: toIntRub(o.total),
+        promo_discount: toIntRub(o.promo_discount),
+      }));
+  }, [initialOrders, dateRange]);
 
-    return initialOrders.filter(
-      (o) =>
-        o.created_at &&
-        new Date(o.created_at) >= startDate &&
-        new Date(o.created_at) <= endDate
-    );
-  }, [initialOrders, period, useCustomRange, customStartDate, customEndDate]);
+  const prevFilteredOrders = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
 
-  // Фильтрация клиентов по периоду
+    return initialOrders
+      .filter((o) => {
+        if (!o.created_at) return false;
+        const d = new Date(o.created_at);
+        return d >= startDate && d <= endDate;
+      })
+      .map((o) => ({
+        ...o,
+        total: toIntRub(o.total),
+        promo_discount: toIntRub(o.promo_discount),
+      }));
+  }, [initialOrders, prevDateRange]);
+
   const filteredCustomers = useMemo(() => {
-    let startDate: Date;
-    let endDate: Date = new Date();
+    const { startDate, endDate } = dateRange;
 
-    if (useCustomRange) {
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-    } else {
-      startDate = period === 9999 ? new Date(0) : subDays(new Date(), period);
-    }
+    return initialCustomers.filter((c) => {
+      const d = new Date(c.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialCustomers, dateRange]);
 
-    return initialCustomers.filter(
-      (c) =>
-        new Date(c.created_at) >= startDate &&
-        new Date(c.created_at) <= endDate
-    );
-  }, [initialCustomers, period, useCustomRange, customStartDate, customEndDate]);
+  const prevFilteredCustomers = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
 
-  // Фильтрация бонусов по периоду
+    return initialCustomers.filter((c) => {
+      const d = new Date(c.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialCustomers, prevDateRange]);
+
   const filteredBonusHistory = useMemo(() => {
-    let startDate: Date;
-    let endDate: Date = new Date();
+    const { startDate, endDate } = dateRange;
 
-    if (useCustomRange) {
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-    } else {
-      startDate = period === 9999 ? new Date(0) : subDays(new Date(), period);
-    }
+    return initialBonusHistory.filter((b) => {
+      const d = new Date(b.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialBonusHistory, dateRange]);
 
-    return initialBonusHistory.filter(
-      (b) =>
-        new Date(b.created_at) >= startDate &&
-        new Date(b.created_at) <= endDate
-    );
-  }, [initialBonusHistory, period, useCustomRange, customStartDate, customEndDate]);
+  const prevFilteredBonusHistory = useMemo(() => {
+    const { startDate, endDate } = prevDateRange;
 
-  // Группировка заказов по дате
+    return initialBonusHistory.filter((b) => {
+      const d = new Date(b.created_at);
+      return d >= startDate && d <= endDate;
+    });
+  }, [initialBonusHistory, prevDateRange]);
+
   const groupedOrders = useMemo(() => {
-    const map = new Map<string, { date: string; count: number; revenue: number }>();
+    const map = new Map<string, { date: string; count: number; revenue: number; sortKey: number }>();
+
+    const getBucket = (dt: Date) => {
+      if (granularity === 'month') {
+        const key = format(dt, 'MM.yyyy', { locale: ru });
+        const sortKey = Number(format(dt, 'yyyyMM'));
+        return { label: key, sortKey };
+      }
+
+      if (granularity === 'week') {
+        const day = dt.getDay();
+        const diffToMon = (day + 6) % 7;
+        const monday = subDays(startOfDay(dt), diffToMon);
+        const label = format(monday, 'dd.MM.yy', { locale: ru });
+        const sortKey = monday.getTime();
+        return { label, sortKey };
+      }
+
+      const label = format(dt, 'dd.MM.yy', { locale: ru });
+      const sortKey = startOfDay(dt).getTime();
+      return { label, sortKey };
+    };
+
     filteredOrders.forEach((o) => {
       if (!o.created_at) return;
-      const d = format(new Date(o.created_at), 'dd.MM.yy', { locale: ru });
-      const cur = map.get(d) ?? { date: d, count: 0, revenue: 0 };
-      cur.count += 1;
-      cur.revenue += o.total ?? 0;
-      map.set(d, cur);
-    });
-    const result = Array.from(map.values());
-    process.env.NODE_ENV !== "production" && console.log('Grouped Orders:', result); // Отладка
-    return result;
-  }, [filteredOrders]);
+      const dt = new Date(o.created_at);
+      const bucket = getBucket(dt);
+      const cur = map.get(bucket.label) ?? { date: bucket.label, count: 0, revenue: 0, sortKey: bucket.sortKey };
 
-  // Топ-товары
+      cur.count += 1;
+      cur.revenue += toIntRub(o.total);
+      map.set(bucket.label, cur);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey);
+  }, [filteredOrders, granularity]);
+
   const topProducts = useMemo(() => {
+    const hasOrderId = initialItems.some((i) => typeof i.order_id !== 'undefined');
+    const orderIdsInRange = new Set(filteredOrders.map((o) => o.id));
+
+    const itemsScoped = hasOrderId
+      ? initialItems.filter((i) => i.order_id && orderIdsInRange.has(i.order_id))
+      : initialItems;
+
     const m = new Map<number, { product_id: number; quantity: number; total: number; title: string }>();
-    initialItems.forEach((i) => {
+
+    itemsScoped.forEach((i) => {
       const entry = m.get(i.product_id) ?? { product_id: i.product_id, quantity: 0, total: 0, title: i.title };
       entry.quantity += i.quantity;
       entry.total += i.quantity * i.price;
       m.set(i.product_id, entry);
     });
-    return Array.from(m.values())
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-  }, [initialItems]);
 
-  // Анализ клиентов
+    return Array.from(m.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+  }, [initialItems, filteredOrders]);
+
   const customerStats = useMemo(() => {
     const phoneOrderCount = new Map<string, number>();
+
     filteredOrders.forEach((o) => {
-      if (o.phone) {
-        phoneOrderCount.set(o.phone, (phoneOrderCount.get(o.phone) || 0) + 1);
-      }
+      if (!o.phone) return;
+      phoneOrderCount.set(o.phone, (phoneOrderCount.get(o.phone) || 0) + 1);
     });
 
-    const repeatCustomers = Array.from(phoneOrderCount.entries()).filter(
-      ([_, count]) => count > 1
-    ).length;
+    const repeatCustomers = Array.from(phoneOrderCount.values()).filter((c) => c > 1).length;
 
-    const totalLTV = filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalLTV = filteredOrders.reduce((sum, o) => sum + toIntRub(o.total), 0);
     const avgLTV = phoneOrderCount.size > 0 ? totalLTV / phoneOrderCount.size : 0;
 
     return {
       newCustomers: filteredCustomers.length,
       repeatCustomers,
       avgLTV,
+      uniqueCustomers: phoneOrderCount.size,
     };
   }, [filteredOrders, filteredCustomers]);
 
-  // Анализ бонусов
-  const bonusStats = useMemo(() => {
-    const added = filteredBonusHistory
-      .filter((b) => b.amount > 0)
-      .reduce((sum, b) => sum + b.amount, 0);
-    const subtracted = filteredBonusHistory
-      .filter((b) => b.amount < 0)
-      .reduce((sum, b) => sum + -b.amount, 0);
+  const prevCustomerStats = useMemo(() => {
+    const phoneOrderCount = new Map<string, number>();
 
+    prevFilteredOrders.forEach((o) => {
+      if (!o.phone) return;
+      phoneOrderCount.set(o.phone, (phoneOrderCount.get(o.phone) || 0) + 1);
+    });
+
+    const repeatCustomers = Array.from(phoneOrderCount.values()).filter((c) => c > 1).length;
+
+    const totalLTV = prevFilteredOrders.reduce((sum, o) => sum + toIntRub(o.total), 0);
+    const avgLTV = phoneOrderCount.size > 0 ? totalLTV / phoneOrderCount.size : 0;
+
+    return {
+      newCustomers: prevFilteredCustomers.length,
+      repeatCustomers,
+      avgLTV,
+      uniqueCustomers: phoneOrderCount.size,
+    };
+  }, [prevFilteredOrders, prevFilteredCustomers]);
+
+  const bonusStats = useMemo(() => {
+    const added = filteredBonusHistory.filter((b) => b.amount > 0).reduce((sum, b) => sum + b.amount, 0);
+    const subtracted = filteredBonusHistory.filter((b) => b.amount < 0).reduce((sum, b) => sum + -b.amount, 0);
     return { added, subtracted };
   }, [filteredBonusHistory]);
 
-  // Анализ промокодов
+  const prevBonusStats = useMemo(() => {
+    const added = prevFilteredBonusHistory.filter((b) => b.amount > 0).reduce((sum, b) => sum + b.amount, 0);
+    const subtracted = prevFilteredBonusHistory.filter((b) => b.amount < 0).reduce((sum, b) => sum + -b.amount, 0);
+    return { added, subtracted };
+  }, [prevFilteredBonusHistory]);
+
   const promoStats = useMemo(() => {
     const promoUsage = new Map<string, { code: string; count: number; totalDiscount: number }>();
+
     filteredOrders.forEach((o) => {
-      if (o.promo_code) {
-        const promo = initialPromoCodes.find((p) => p.code === o.promo_code);
-        if (promo) {
-          const cur = promoUsage.get(o.promo_code) ?? { code: o.promo_code, count: 0, totalDiscount: 0 };
-          cur.count += 1;
-          // Поскольку discount_type отсутствует, предполагаем фиксированную скидку
-          cur.totalDiscount += promo.discount;
-          promoUsage.set(o.promo_code, cur);
-        }
-      }
+      if (!o.promo_code) return;
+      const promo = initialPromoCodes.find((p) => p.code === o.promo_code);
+      if (!promo) return;
+
+      const cur = promoUsage.get(o.promo_code) ?? { code: o.promo_code, count: 0, totalDiscount: 0 };
+      cur.count += 1;
+
+      // ✅ ВАЖНО: суммируем фактическую скидку заказа, а не "discount из promo_codes"
+      cur.totalDiscount += toIntRub((o as any).promo_discount);
+
+      promoUsage.set(o.promo_code, cur);
     });
-    return Array.from(promoUsage.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+
+    return Array.from(promoUsage.values()).sort((a, b) => b.count - a.count).slice(0, 5);
   }, [filteredOrders, initialPromoCodes]);
 
-  const totalRevenue = filteredOrders.reduce((sum, o) => sum + (o.total ?? 0), 0);
-  const avgCheck = filteredOrders.length > 0 ? Math.round(totalRevenue / filteredOrders.length) : 0;
+  const totalRevenue = useMemo(() => filteredOrders.reduce((sum, o) => sum + toIntRub(o.total), 0), [filteredOrders]);
+  const prevTotalRevenue = useMemo(() => prevFilteredOrders.reduce((sum, o) => sum + toIntRub(o.total), 0), [prevFilteredOrders]);
 
-  // Ключевые метрики для быстрого обзора
-  const todayOrders = filteredOrders.filter(
-    (o) => new Date(o.created_at) >= new Date(new Date().setHours(0, 0, 0, 0))
-  ).length;
-  const weekRevenue = filteredOrders
-    .filter((o) => new Date(o.created_at) >= subDays(new Date(), 7))
-    .reduce((sum, o) => sum + (o.total || 0), 0);
+  const avgCheck = useMemo(
+    () => (filteredOrders.length > 0 ? Math.round(totalRevenue / filteredOrders.length) : 0),
+    [filteredOrders.length, totalRevenue],
+  );
+  const prevAvgCheck = useMemo(
+    () => (prevFilteredOrders.length > 0 ? Math.round(prevTotalRevenue / prevFilteredOrders.length) : 0),
+    [prevFilteredOrders.length, prevTotalRevenue],
+  );
 
-  // Экранирование для CSV
+  const todayOrders = useMemo(() => {
+    const { start, end } = mskStartEndOfToday();
+    return initialOrders.filter((o) => {
+      const d = new Date(o.created_at);
+      return d >= start && d <= end;
+    }).length;
+  }, [initialOrders]);
+
+  const deltaRevenue = useMemo(() => percentDelta(totalRevenue, prevTotalRevenue), [totalRevenue, prevTotalRevenue]);
+  const deltaOrders = useMemo(() => percentDelta(filteredOrders.length, prevFilteredOrders.length), [filteredOrders.length, prevFilteredOrders.length]);
+  const deltaAvgCheck = useMemo(() => percentDelta(avgCheck, prevAvgCheck), [avgCheck, prevAvgCheck]);
+  const deltaNewCustomers = useMemo(() => percentDelta(customerStats.newCustomers, prevCustomerStats.newCustomers), [customerStats.newCustomers, prevCustomerStats.newCustomers]);
+
   const escapeCSV = (value: any) => {
     if (value == null) return '';
     const str = String(value);
@@ -254,295 +416,359 @@ export default function StatsClient({
     return str;
   };
 
-  // Экспорт данных в CSV
   const exportToCSV = () => {
-    const headers = ["Метрика", "Значение"];
+    const headers = ['Метрика', 'Значение'];
     const summaryRows = [
-      ["Всего заказов", filteredOrders.length],
-      ["Общая выручка", totalRevenue.toLocaleString() + " ₽"],
-      ["Средний чек", avgCheck.toLocaleString() + " ₽"],
-      ["Новые клиенты", customerStats.newCustomers],
-      ["Повторные клиенты", customerStats.repeatCustomers],
-      ["Средний LTV", customerStats.avgLTV.toLocaleString() + " ₽"],
-      ["Начислено бонусов", bonusStats.added.toLocaleString() + " ₽"],
-      ["Списано бонусов", bonusStats.subtracted.toLocaleString() + " ₽"],
+      ['Период', useCustomRange ? `${customStartDate} - ${customEndDate}` : `${period} дней`],
+      ['Всего заказов', filteredOrders.length],
+      ['Общая выручка', formatRub(totalRevenue)],
+      ['Средний чек', formatRub(avgCheck)],
+      ['Новые клиенты', customerStats.newCustomers],
+      ['Повторные клиенты', customerStats.repeatCustomers],
+      ['Уникальные клиенты', customerStats.uniqueCustomers],
+      ['Средний LTV', formatRub(customerStats.avgLTV)],
+      ['Начислено бонусов', formatRub(bonusStats.added)],
+      ['Списано бонусов', formatRub(bonusStats.subtracted)],
+      ['Сравнение с предыдущим периодом', ''],
+      ['Заказы (дельта)', formatDelta(deltaOrders)],
+      ['Выручка (дельта)', formatDelta(deltaRevenue)],
+      ['Средний чек (дельта)', formatDelta(deltaAvgCheck)],
+      ['Новые клиенты (дельта)', formatDelta(deltaNewCustomers)],
     ];
 
-    const ordersHeader = ["Дата", "Кол-во заказов", "Выручка"];
-    const ordersRows = groupedOrders.map((g) => [g.date, g.count, g.revenue]);
+    const ordersHeader = ['Период', 'Кол-во заказов', 'Выручка'];
+    const ordersRows = groupedOrders.map((g) => [g.date, g.count, Math.round(g.revenue)]);
 
-    const topProductsHeader = ["Название", "Кол-во", "Выручка"];
-    const topProductsRows = topProducts.map((p) => [escapeCSV(p.title), p.quantity, p.total]);
+    const topProductsHeader = ['Название', 'Кол-во', 'Выручка'];
+    const topProductsRows = topProducts.map((p) => [escapeCSV(p.title), p.quantity, Math.round(p.total)]);
 
-    const promoHeader = ["Промокод", "Кол-во использований", "Общая скидка"];
-    const promoRows = promoStats.map((p) => [p.code, p.count, p.totalDiscount]);
+    const promoHeader = ['Промокод', 'Кол-во использований', 'Общая скидка'];
+    const promoRows = promoStats.map((p) => [p.code, p.count, Math.round(p.totalDiscount)]);
 
     const csv = [
-      headers.join(","),
-      ...summaryRows.map((row) => row.map(escapeCSV).join(",")),
-      "",
-      "Заказы по датам",
-      ordersHeader.join(","),
-      ...ordersRows.map((row) => row.map(escapeCSV).join(",")),
-      "",
-      "Топ товаров",
-      topProductsHeader.join(","),
-      ...topProductsRows.map((row) => row.map(escapeCSV).join(",")),
-      "",
-      "Топ промокодов",
-      promoHeader.join(","),
-      ...promoRows.map((row) => row.map(escapeCSV).join(",")),
-    ].join("\n");
+      headers.join(','),
+      ...summaryRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Заказы по периодам',
+      ordersHeader.join(','),
+      ...ordersRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Топ товаров',
+      topProductsHeader.join(','),
+      ...topProductsRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Топ промокодов',
+      promoHeader.join(','),
+      ...promoRows.map((row) => row.map(escapeCSV).join(',')),
+    ].join('\n');
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "stats.csv";
+    a.download = 'stats.csv';
     a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('CSV выгружен');
   };
+
+  const periodLabel = useMemo(() => {
+    if (useCustomRange) return `${customStartDate} - ${customEndDate}`;
+    if (period === 7) return '7 дней';
+    if (period === 30) return '30 дней';
+    if (period === 90) return '90 дней';
+    if (period === 365) return 'год';
+    if (period === 9999) return 'всё время';
+    return `${period} дней`;
+  }, [useCustomRange, customStartDate, customEndDate, period]);
+
+  const showDelta = (deltaPct: number) => {
+    const isUp = deltaPct >= 0;
+    return <div className={`text-xs mt-1 ${isUp ? 'text-emerald-700' : 'text-rose-700'}`}>{formatDelta(deltaPct)} к прошлому периоду</div>;
+  };
+
+  const pageBg =
+    'min-h-screen bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(255,255,255,0.55),transparent),radial-gradient(900px_500px_at_90%_0%,rgba(255,255,255,0.35),transparent)] bg-gray-100';
 
   return (
     <>
       <Toaster position="top-center" />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        {/* Фильтры */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <label htmlFor="period-select" className="text-sm text-gray-600">
-              Период:
-            </label>
-            <select
-              id="period-select"
-              value={useCustomRange ? "custom" : period}
-              onChange={(e) => {
-                if (e.target.value === "custom") {
-                  setUseCustomRange(true);
-                } else {
-                  setUseCustomRange(false);
-                  setPeriod(Number(e.target.value));
-                }
-              }}
-              className="border p-2 rounded text-sm"
-              aria-label="Выбрать период статистики"
-            >
-              <option value={7}>7 дней</option>
-              <option value={30}>30 дней</option>
-              <option value={90}>90 дней</option>
-              <option value={365}>Год</option>
-              <option value={9999}>Всё время</option>
-              <option value="custom">Свой диапазон</option>
-            </select>
-          </div>
-          {useCustomRange && (
-            <div className="flex gap-2">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="border p-2 rounded text-sm"
-                aria-label="Выбрать начальную дату"
-              />
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="border p-2 rounded text-sm"
-                aria-label="Выбрать конечную дату"
-              />
-            </div>
-          )}
-          <motion.button
-            onClick={exportToCSV}
-            className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            aria-label="Экспортировать статистику в CSV"
-          >
-            Экспортировать в CSV
-          </motion.button>
-        </div>
+      <div className={pageBg}>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          {/* Фильтры */}
+          <div className={`mb-6 p-4 ${glassHeader}`}>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="period-select" className="text-sm text-gray-700">
+                      Период:
+                    </label>
+                    <select
+                      id="period-select"
+                      value={useCustomRange ? 'custom' : period}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setUseCustomRange(true);
+                        } else {
+                          setUseCustomRange(false);
+                          setPeriod(Number(e.target.value));
+                        }
+                      }}
+                      className={selectBase}
+                      aria-label="Выбрать период статистики"
+                    >
+                      <option value={7}>7 дней</option>
+                      <option value={30}>30 дней</option>
+                      <option value={90}>90 дней</option>
+                      <option value={365}>Год</option>
+                      <option value={9999}>Всё время</option>
+                      <option value="custom">Свой диапазон</option>
+                    </select>
+                  </div>
 
-        {/* Ключевые метрики */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <motion.div
-            className="p-4 bg-white rounded-xl shadow text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <div className="text-gray-500 text-sm mb-1">Заказы сегодня</div>
-            <div className="text-2xl font-bold">{todayOrders}</div>
-          </motion.div>
-          <motion.div
-            className="p-4 bg-white rounded-xl shadow text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <div className="text-gray-500 text-sm mb-1">Выручка за неделю</div>
-            <div className="text-2xl font-bold">{weekRevenue.toLocaleString()} ₽</div>
-          </motion.div>
-          <motion.div
-            className="p-4 bg-white rounded-xl shadow text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-          >
-            <div className="text-gray-500 text-sm mb-1">Средний чек</div>
-            <div className="text-2xl font-bold">{avgCheck.toLocaleString()} ₽</div>
-          </motion.div>
-          <motion.div
-            className="p-4 bg-white rounded-xl shadow text-center cursor-pointer hover:bg-gray-50"
-            onClick={() => router.push('/admin/customers')}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-            aria-label="Перейти к списку новых клиентов"
-          >
-            <div className="text-gray-500 text-sm mb-1">Новые клиенты</div>
-            <div className="text-2xl font-bold">{customerStats.newCustomers}</div>
-          </motion.div>
-        </div>
+                  {useCustomRange && (
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className={inputBase}
+                        aria-label="Выбрать начальную дату"
+                      />
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className={inputBase}
+                        aria-label="Выбрать конечную дату"
+                      />
+                    </div>
+                  )}
 
-        {/* Статистика клиентов */}
-        <div className="grid md:grid-cols-2 gap-8 mb-10">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Повторные клиенты</h2>
-            <motion.div
-              className="p-4 bg-white rounded-xl shadow text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="text-2xl font-bold">{customerStats.repeatCustomers}</div>
-              <div className="text-gray-500 text-sm mt-1">
-                Средний LTV: {customerStats.avgLTV.toLocaleString()} ₽
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="granularity" className="text-sm text-gray-700">
+                      Графики:
+                    </label>
+                    <select
+                      id="granularity"
+                      value={granularity}
+                      onChange={(e) => setGranularity(e.target.value as Granularity)}
+                      className={selectBase}
+                      aria-label="Выбрать детализацию графиков"
+                    >
+                      <option value="day">По дням</option>
+                      <option value="week">По неделям</option>
+                      <option value="month">По месяцам</option>
+                    </select>
+                  </div>
+                </div>
+
+                <motion.button onClick={exportToCSV} className={btnPrimary} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  Экспортировать в CSV
+                </motion.button>
               </div>
+
+              <div className={hintText}>Сейчас: {periodLabel}. сравнение идет с предыдущим периодом такой же длины.</div>
+            </div>
+          </div>
+
+          {/* Ключевые метрики */}
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.05 }}>
+              <div className="text-gray-700 text-sm mb-1">Заказы сегодня</div>
+              <div className="text-2xl font-bold text-gray-900">{todayOrders}</div>
+              <div className="text-xs mt-1 text-gray-600">по Москве</div>
+            </motion.div>
+
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.12 }}>
+              <div className="text-gray-700 text-sm mb-1">Выручка за период</div>
+              <div className="text-2xl font-bold text-gray-900">{formatRub(totalRevenue)}</div>
+              {showDelta(deltaRevenue)}
+            </motion.div>
+
+            <motion.div className={`p-4 ${glassShell} text-center`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.19 }}>
+              <div className="text-gray-700 text-sm mb-1">Средний чек</div>
+              <div className="text-2xl font-bold text-gray-900">{formatRub(avgCheck)}</div>
+              {showDelta(deltaAvgCheck)}
+            </motion.div>
+
+            <motion.div
+              className={`p-4 ${glassShell} text-center cursor-pointer hover:bg-white/70 transition`}
+              onClick={() => router.push('/admin/customers')}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.26 }}
+              aria-label="Перейти к списку клиентов"
+            >
+              <div className="text-gray-700 text-sm mb-1">Новые клиенты</div>
+              <div className="text-2xl font-bold text-gray-900">{customerStats.newCustomers}</div>
+              {showDelta(deltaNewCustomers)}
             </motion.div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Активность заказов</h2>
-            {groupedOrders.length === 0 ? (
-              <p className="text-gray-500 text-center">Нет данных для отображения</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={groupedOrders} aria-label="График активности заказов">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
 
-        {/* Выручка и бонусы */}
-        <div className="grid md:grid-cols-2 gap-8 mb-10">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Выручка</h2>
-            {groupedOrders.length === 0 ? (
-              <p className="text-gray-500 text-center">Нет данных для отображения</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={groupedOrders} aria-label="График выручки">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="revenue" stroke="#82ca9d" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Бонусы</h2>
-            <motion.div
-              className="p-4 bg-white rounded-xl shadow"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="text-sm text-gray-500 mb-2">
-                Начислено: {bonusStats.added.toLocaleString()} ₽
-              </div>
-              <div className="text-sm text-gray-500">
-                Списано: {bonusStats.subtracted.toLocaleString()} ₽
-              </div>
-            </motion.div>
-          </div>
-        </div>
+          {/* Клиенты + активность */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Клиенты</h2>
+              <motion.div className={`p-4 ${glassShell}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-700">Заказы за период</div>
+                    <div className="text-2xl font-bold text-gray-900">{filteredOrders.length}</div>
+                    {showDelta(deltaOrders)}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-700">Повторные клиенты</div>
+                    <div className="text-2xl font-bold text-gray-900">{customerStats.repeatCustomers}</div>
+                    <div className="text-xs mt-1 text-gray-600">уникальных: {customerStats.uniqueCustomers}</div>
+                  </div>
+                </div>
 
-        {/* Топ товаров и промокоды */}
-        <div className="grid md:grid-cols-2 gap-8 mb-10">
-          <div>
-            <h2 className="text-xl font-bold mb-4">🏆 Топ товаров</h2>
-            <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
-              <table className="w-full text-sm text-left border-collapse">
-                <caption className="sr-only">Список топ-товаров</caption>
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th scope="col" className="p-2">Название</th>
-                    <th scope="col" className="p-2 text-right">Кол-во</th>
-                    <th scope="col" className="p-2 text-right">Выручка</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topProducts.map((p) => (
-                    <motion.tr
-                      key={p.product_id}
-                      className="border-t hover:bg-gray-50"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <td className="p-2">{p.title}</td>
-                      <td className="p-2 text-right">{p.quantity}</td>
-                      <td className="p-2 text-right">{p.total.toLocaleString()} ₽</td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                <div className="mt-4 text-sm text-gray-800">
+                  Средний LTV: <span className="font-semibold">{formatRub(customerStats.avgLTV)}</span>
+                </div>
+
+                <div className="mt-2 text-xs text-gray-600">
+                  прошлый период: выручка {formatRub(prevTotalRevenue)}, заказов {prevFilteredOrders.length}
+                </div>
+              </motion.div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Активность заказов</h2>
+              <div className={`p-4 ${glassShell}`}>
+                {groupedOrders.length === 0 ? (
+                  <p className="text-gray-700 text-center">Нет данных для отображения</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={groupedOrders} aria-label="График активности заказов">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold mb-4">💸 Топ промокодов</h2>
-            <div className="overflow-x-auto bg-white rounded-xl shadow-sm">
-              <table className="w-full text-sm text-left border-collapse">
-                <caption className="sr-only">Список топ-промокодов</caption>
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th scope="col" className="p-2">Промокод</th>
-                    <th scope="col" className="p-2 text-right">Использований</th>
-                    <th scope="col" className="p-2 text-right">Скидка</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {promoStats.map((p) => (
-                    <motion.tr
-                      key={p.code}
-                      className="border-t hover:bg-gray-50"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <td className="p-2">{p.code}</td>
-                      <td className="p-2 text-right">{p.count}</td>
-                      <td className="p-2 text-right">{p.totalDiscount.toLocaleString()} ₽</td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+
+          {/* Выручка + бонусы */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Выручка</h2>
+              <div className={`p-4 ${glassShell}`}>
+                {groupedOrders.length === 0 ? (
+                  <p className="text-gray-700 text-center">Нет данных для отображения</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={groupedOrders} aria-label="График выручки">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="revenue" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-gray-900">Бонусы</h2>
+              <motion.div className={`p-4 ${glassShell}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-700 mb-1">Начислено</div>
+                    <div className="text-xl font-bold text-gray-900">{formatRub(bonusStats.added)}</div>
+                    <div className="text-xs mt-1 text-gray-600">было: {formatRub(prevBonusStats.added)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-700 mb-1">Списано</div>
+                    <div className="text-xl font-bold text-gray-900">{formatRub(bonusStats.subtracted)}</div>
+                    <div className="text-xs mt-1 text-gray-600">было: {formatRub(prevBonusStats.subtracted)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-600">
+                  это помогает понять, насколько бонусы реально работают как мотивация и скидка
+                </div>
+              </motion.div>
             </div>
           </div>
-        </div>
-      </motion.div>
+
+          {/* Топ товаров + промокоды */}
+          <div className="grid md:grid-cols-2 gap-8 mb-10">
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-900">🏆 Топ товаров</h2>
+
+              {!initialItems.some((i) => typeof i.order_id !== 'undefined') && (
+                <div className="text-xs text-amber-800 mb-2">
+                  сейчас топ товаров считается за всё время. если в order_items есть order_id - добавь его в select на сервере, и топ станет по выбранному периоду.
+                </div>
+              )}
+
+              <div className={glassShell}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <caption className="sr-only">Список топ-товаров</caption>
+                    <thead>
+                      <tr className="text-gray-800">
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30">Название</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Кол-во</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Выручка</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((p) => (
+                        <motion.tr key={p.product_id} className="border-t border-white/10 hover:bg-white/35 transition" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                          <td className="p-3 text-gray-900">{p.title}</td>
+                          <td className="p-3 text-right text-gray-900">{p.quantity}</td>
+                          <td className="p-3 text-right text-gray-900">{formatRub(p.total)}</td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-900">💸 Топ промокодов</h2>
+              <div className={glassShell}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <caption className="sr-only">Список топ-промокодов</caption>
+                    <thead>
+                      <tr className="text-gray-800">
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30">Промокод</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Использований</th>
+                        <th scope="col" className="p-3 border-b border-white/15 bg-white/30 text-right">Скидка</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promoStats.map((p) => (
+                        <motion.tr key={p.code} className="border-t border-white/10 hover:bg-white/35 transition" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                          <td className="p-3 text-gray-900">{p.code}</td>
+                          <td className="p-3 text-right text-gray-900">{p.count}</td>
+                          <td className="p-3 text-right text-gray-900">{formatRub(p.totalDiscount)}</td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 mt-3">
+                для онбординга дальше можно добавить: “промокоды - доля заказов и доля выручки”, чтобы видеть, не убиваешь ли ты маржу
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </>
   );
 }
