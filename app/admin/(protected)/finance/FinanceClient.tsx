@@ -3,7 +3,15 @@
 
 import { useMemo, useState } from 'react';
 
-const sources = ['flowwow', 'whatsapp', 'telegram', 'offline'] as const;
+const sources = [
+  'flowwow',
+  'whatsapp',
+  'telegram',
+  'offline',
+  'instagram',
+  'yandex_maps',
+  '2gis',
+] as const;
 type Source = (typeof sources)[number];
 
 const expenseCategories = [
@@ -14,6 +22,8 @@ const expenseCategories = [
   'Доставка/такси',
   'Аренда',
   'Реклама',
+  'Бизнес подписки',
+  'Налоги',
   'Прочее',
 ] as const;
 type ExpenseCategory = (typeof expenseCategories)[number];
@@ -46,7 +56,6 @@ type SiteOrderRow = {
   order_number: number | null;
   status: string | null;
 
-  // ✅ пришло с сервера
   cost_total: number; // int рубли
   has_costs: boolean;
 };
@@ -59,8 +68,23 @@ type Props = {
 
 type Tab = 'income' | 'expenses';
 
+type PeriodPreset = 'all' | '7d' | '30d' | 'this_month' | 'custom';
+
 function todayISO() {
   const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfThisMonthISO() {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysAgoISO(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -98,11 +122,43 @@ function isRevenueStatus(status: string | null): boolean {
   return s === 'delivered' || s === 'processing';
 }
 
+function inDateRange(isoDate: string, from?: string, to?: string) {
+  if (!isoDate) return false;
+  if (from && isoDate < from) return false;
+  if (to && isoDate > to) return false;
+  return true;
+}
+
+function sourceLabel(s: Source) {
+  switch (s) {
+    case 'flowwow':
+      return 'Flowwow';
+    case 'whatsapp':
+      return 'WhatsApp';
+    case 'telegram':
+      return 'Telegram';
+    case 'offline':
+      return 'Оффлайн';
+    case 'instagram':
+      return 'Instagram';
+    case 'yandex_maps':
+      return 'Яндекс карты';
+    case '2gis':
+      return '2ГИС';
+    default:
+      return s;
+  }
+}
+
 export default function FinanceClient({ initialManualRevenue, initialExpenses, initialSiteOrders }: Props) {
   const [tab, setTab] = useState<Tab>('income');
 
   const [manualRevenue, setManualRevenue] = useState<ManualRevenueRow[]>(initialManualRevenue);
   const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
+
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('this_month');
+  const [fromDate, setFromDate] = useState<string>(startOfThisMonthISO());
+  const [toDate, setToDate] = useState<string>(todayISO());
 
   const [newIncome, setNewIncome] = useState<{ date: string; source: Source; amount: string; comment: string }>({
     date: todayISO(),
@@ -152,25 +208,89 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const revenueOrders = useMemo(() => {
-    // только те, что идут в выручку и прибыль
-    return initialSiteOrders.filter((o) => isRevenueStatus(o.status));
-  }, [initialSiteOrders]);
+  const range = useMemo(() => {
+    if (periodPreset === 'all') return { from: undefined as string | undefined, to: undefined as string | undefined };
+
+    if (periodPreset === '7d') return { from: daysAgoISO(7), to: todayISO() };
+    if (periodPreset === '30d') return { from: daysAgoISO(30), to: todayISO() };
+    if (periodPreset === 'this_month') return { from: startOfThisMonthISO(), to: todayISO() };
+
+    return {
+      from: fromDate || undefined,
+      to: toDate || undefined,
+    };
+  }, [periodPreset, fromDate, toDate]);
+
+  const revenueOrdersAll = useMemo(() => initialSiteOrders.filter((o) => isRevenueStatus(o.status)), [initialSiteOrders]);
+
+  const filteredRevenueOrders = useMemo(() => {
+    const { from, to } = range;
+    return revenueOrdersAll.filter((o) => inDateRange(getOrderDateISO(o), from, to));
+  }, [revenueOrdersAll, range]);
+
+  const filteredManualRevenue = useMemo(() => {
+    const { from, to } = range;
+    return manualRevenue.filter((r) => inDateRange(r.date, from, to));
+  }, [manualRevenue, range]);
+
+  const filteredExpenses = useMemo(() => {
+    const { from, to } = range;
+    return expenses.filter((e) => inDateRange(e.date, from, to));
+  }, [expenses, range]);
 
   const totals = useMemo(() => {
-    const siteRevenue = revenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
-    const siteCosts = revenueOrders.reduce((sum, o) => sum + Math.max(0, Math.round(o.cost_total || 0)), 0);
+    const siteRevenue = filteredRevenueOrders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+    const siteCosts = filteredRevenueOrders.reduce((sum, o) => sum + Math.max(0, Math.round(o.cost_total || 0)), 0);
 
-    const manual = manualRevenue.reduce((a, r) => a + (r.amount || 0), 0);
-    const exp = expenses.reduce((a, e) => a + (e.amount || 0), 0);
+    const manual = filteredManualRevenue.reduce((a, r) => a + (r.amount || 0), 0);
+    const exp = filteredExpenses.reduce((a, e) => a + (e.amount || 0), 0);
 
     const profit = siteRevenue + manual - exp - siteCosts;
 
-    const ordersCount = revenueOrders.length;
-    const costsFilled = revenueOrders.filter((o) => o.has_costs).length;
+    const ordersCount = filteredRevenueOrders.length;
+    const costsFilled = filteredRevenueOrders.filter((o) => o.has_costs).length;
 
     return { siteRevenue, siteCosts, manualRevenue: manual, expenses: exp, profit, ordersCount, costsFilled };
-  }, [revenueOrders, manualRevenue, expenses]);
+  }, [filteredRevenueOrders, filteredManualRevenue, filteredExpenses]);
+
+  const expensesByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of filteredExpenses) {
+      const key = e.category || 'Прочее';
+      map.set(key, (map.get(key) || 0) + (e.amount || 0));
+    }
+    const rows = Array.from(map.entries())
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const total = rows.reduce((s, r) => s + r.amount, 0);
+    return { rows, total };
+  }, [filteredExpenses]);
+
+  function applyPreset(p: PeriodPreset) {
+    setPeriodPreset(p);
+    if (p === 'custom') return;
+
+    if (p === '7d') {
+      setFromDate(daysAgoISO(7));
+      setToDate(todayISO());
+      return;
+    }
+    if (p === '30d') {
+      setFromDate(daysAgoISO(30));
+      setToDate(todayISO());
+      return;
+    }
+    if (p === 'this_month') {
+      setFromDate(startOfThisMonthISO());
+      setToDate(todayISO());
+      return;
+    }
+    if (p === 'all') {
+      setFromDate('');
+      setToDate('');
+    }
+  }
 
   async function addManualRevenue() {
     setErrorText(null);
@@ -396,30 +516,98 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
 
   return (
     <div className="p-6 bg-white min-h-screen">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Финансы</h1>
           <p className="text-sm text-gray-500 mt-1">Доходы и расходы, прибыль с учётом себестоимости</p>
           <p className="text-xs text-gray-400 mt-1">Выручка сайта: delivered, processing. Отменённые и pending не считаем.</p>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setTab('income')}
-            className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
-              tab === 'income' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
-            }`}
-          >
-            Доходы
-          </button>
-          <button
-            onClick={() => setTab('expenses')}
-            className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
-              tab === 'expenses' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
-            }`}
-          >
-            Расходы
-          </button>
+        <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
+          {/* Период */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-xs text-gray-500">Период:</div>
+
+            <button
+              onClick={() => applyPreset('this_month')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                periodPreset === 'this_month' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Этот месяц
+            </button>
+            <button
+              onClick={() => applyPreset('7d')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                periodPreset === '7d' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              7 дней
+            </button>
+            <button
+              onClick={() => applyPreset('30d')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                periodPreset === '30d' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              30 дней
+            </button>
+            <button
+              onClick={() => applyPreset('all')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                periodPreset === 'all' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Всё время
+            </button>
+
+            <button
+              onClick={() => applyPreset('custom')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                periodPreset === 'custom' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Свой
+            </button>
+
+            {periodPreset === 'custom' ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-[150px] border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                />
+                <div className="text-xs text-gray-400">-</div>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-[150px] border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {/* Вкладки */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTab('income')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                tab === 'income' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Доходы
+            </button>
+            <button
+              onClick={() => setTab('expenses')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                tab === 'expenses' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Расходы
+            </button>
+          </div>
         </div>
       </div>
 
@@ -459,8 +647,6 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
         </div>
       </div>
 
-      {/* UI вкладок дальше оставляю как у тебя, без изменений по верстке, только логика денег уже int */}
-      {/* Ниже твой UI 1:1, я не трогаю оформление, только disabled/loading/error */}
       {tab === 'income' ? (
         <section className="mt-8">
           <h2 className="text-lg font-semibold">Доходы</h2>
@@ -489,6 +675,9 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                   <option value="flowwow">Flowwow</option>
                   <option value="whatsapp">WhatsApp</option>
                   <option value="telegram">Telegram</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="yandex_maps">Яндекс карты</option>
+                  <option value="2gis">2ГИС</option>
                   <option value="offline">Оффлайн</option>
                 </select>
               </div>
@@ -525,17 +714,18 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
           </div>
 
           <div className="mt-6 border rounded-xl overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История ручной выручки</div>
+            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История ручной выручки (по выбранному периоду)</div>
 
             <div className="divide-y">
-              {manualRevenue.length === 0 ? (
+              {filteredManualRevenue.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">Пока пусто</div>
               ) : (
-                manualRevenue.map((r) => (
+                filteredManualRevenue.map((r) => (
                   <div key={r.id} className="p-4 flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <div className="text-sm font-medium">
-                        {r.date} - {r.source} - {formatRub(r.amount)}
+                        {r.date} - {sourceLabel((sources.includes(r.source as any) ? (r.source as Source) : 'offline') as Source)} -{' '}
+                        {formatRub(r.amount)}
                       </div>
                       {r.comment ? <div className="text-xs text-gray-500 mt-1">{r.comment}</div> : null}
                     </div>
@@ -597,6 +787,9 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                       <option value="flowwow">Flowwow</option>
                       <option value="whatsapp">WhatsApp</option>
                       <option value="telegram">Telegram</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="yandex_maps">Яндекс карты</option>
+                      <option value="2gis">2ГИС</option>
                       <option value="offline">Оффлайн</option>
                     </select>
                   </div>
@@ -643,9 +836,69 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
         </section>
       ) : (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold">Расходы</h2>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="text-lg font-semibold">Расходы</h2>
 
-          <div className="mt-4 border rounded-xl p-4">
+            <div className="text-xs text-gray-500">
+              Визуалка показывает, на что уходит больше всего за выбранный период
+            </div>
+          </div>
+
+          {/* Аналитика расходов */}
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="border rounded-xl p-4">
+              <div className="text-sm font-medium">Структура расходов (топ категорий)</div>
+              <div className="text-xs text-gray-500 mt-1">Доля и сумма по категориям</div>
+
+              {expensesByCategory.total <= 0 ? (
+                <div className="mt-4 text-sm text-gray-500">Пока нет расходов в выбранном периоде</div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {expensesByCategory.rows.slice(0, 10).map((r) => {
+                    const pct = Math.round((r.amount / expensesByCategory.total) * 100);
+                    return (
+                      <div key={r.category} className="space-y-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-medium truncate">{r.category}</div>
+                          <div className="text-sm text-gray-700 whitespace-nowrap">
+                            {formatRub(r.amount)} <span className="text-gray-400">({pct}%)</span>
+                          </div>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-2 bg-black" style={{ width: `${Math.max(1, pct)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border rounded-xl p-4">
+              <div className="text-sm font-medium">Быстрый вывод</div>
+              <div className="text-xs text-gray-500 mt-1">Самые “тяжёлые” статьи</div>
+
+              {expensesByCategory.total <= 0 ? (
+                <div className="mt-4 text-sm text-gray-500">Пока нет данных</div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {expensesByCategory.rows.slice(0, 3).map((r, idx) => (
+                    <div key={r.category} className="border rounded-xl p-3">
+                      <div className="text-xs text-gray-500">#{idx + 1} по расходам</div>
+                      <div className="text-sm font-semibold mt-1">{r.category}</div>
+                      <div className="text-sm text-gray-700 mt-1">{formatRub(r.amount)}</div>
+                    </div>
+                  ))}
+
+                  <div className="text-xs text-gray-500 pt-1">
+                    если хочешь, добавим “цель” по категории и предупреждение, когда категория выходит за лимит
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 border rounded-xl p-4">
             <div className="text-sm font-medium">Добавить расход</div>
 
             <div className="grid gap-3 mt-3 md:grid-cols-5">
@@ -716,13 +969,13 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
           </div>
 
           <div className="mt-6 border rounded-xl overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История расходов</div>
+            <div className="p-4 border-b bg-gray-50 text-sm font-medium">История расходов (по выбранному периоду)</div>
 
             <div className="divide-y">
-              {expenses.length === 0 ? (
+              {filteredExpenses.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">Пока пусто</div>
               ) : (
-                expenses.map((e) => (
+                filteredExpenses.map((e) => (
                   <div key={e.id} className="p-4 flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <div className="text-sm font-medium">

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { ChevronLeft, ChevronRight, Share2, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Share2, Star, Minus, Plus } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -158,7 +158,17 @@ export default function ProductPageClient({
   product: Product;
   combos: ComboItem[];
 }) {
-  const { addItem } = useCart();
+  // ✅ Cart API (подстраховка под разные реализации)
+  const cart: any = useCart();
+  const addItem = cart?.addItem;
+
+  const cartItems = (cart?.items ?? cart?.cartItems ?? cart?.cart ?? []) as any[];
+
+  // часто встречающиеся имена методов (если их нет - степпер будет только показывать qty, а минус не сломает)
+  const setQuantity =
+    cart?.setQuantity ?? cart?.updateQuantity ?? cart?.changeQuantity ?? cart?.setItemQuantity ?? null;
+  const removeItem =
+    cart?.removeItem ?? cart?.deleteItem ?? cart?.removeFromCart ?? cart?.remove ?? null;
 
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -239,6 +249,15 @@ export default function ProductPageClient({
     'bg-white text-black border border-black/15 hover:border-black/30 hover:bg-black/[0.02]';
   const iconBtn = 'bg-white border border-black/10 hover:border-black/20 hover:bg-black/[0.02]';
 
+  // ✅ qty текущего товара в корзине (для нижней плашки)
+  const productQty = useMemo(() => {
+    const idStr = String(product.id);
+    const row =
+      cartItems?.find((x: any) => String(x?.id) === idStr || String(x?.productId) === idStr) ?? null;
+    const q = Number(row?.quantity ?? row?.qty ?? 0);
+    return Number.isFinite(q) ? q : 0;
+  }, [cartItems, product.id]);
+
   useEffect(() => {
     setMounted(true);
     return () => {
@@ -289,7 +308,11 @@ export default function ProductPageClient({
             WebkitBackfaceVisibility: 'hidden',
           }}
           initial={false}
-          animate={showToast ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' } : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }}
+          animate={
+            showToast
+              ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }
+              : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }
+          }
           transition={{ duration: 0.18, ease: 'easeOut' }}
           aria-live="polite"
         >
@@ -319,7 +342,7 @@ export default function ProductPageClient({
       productionTime: number | null,
       isCombo = false,
     ) => {
-      addItem({
+      addItem?.({
         id: String(id),
         title,
         price,
@@ -348,6 +371,48 @@ export default function ProductPageClient({
     },
     [addItem, showAddedToast],
   );
+
+  // ✅ stepper для нижней плашки
+  const handleIncCurrent = useCallback(() => {
+    handleAdd(
+      product.id,
+      product.title,
+      discountedPrice,
+      images[0] || null,
+      product.production_time ?? null,
+    );
+  }, [handleAdd, product.id, product.title, discountedPrice, images, product.production_time]);
+
+  const handleDecCurrent = useCallback(() => {
+    const idStr = String(product.id);
+    const nextQty = Math.max(0, productQty - 1);
+
+    if (setQuantity) {
+      try {
+        // чаще всего сигнатура (id, qty)
+        setQuantity(idStr, nextQty);
+        return;
+      } catch {
+        // если у тебя сигнатура другая - поправь здесь
+        try {
+          setQuantity({ id: idStr, quantity: nextQty });
+          return;
+        } catch {}
+      }
+    }
+
+    if (nextQty === 0 && removeItem) {
+      try {
+        removeItem(idStr);
+        return;
+      } catch {
+        try {
+          removeItem({ id: idStr });
+          return;
+        } catch {}
+      }
+    }
+  }, [product.id, productQty, setQuantity, removeItem]);
 
   const handleShare = () => {
     if (typeof window === 'undefined') return;
@@ -1571,26 +1636,61 @@ export default function ProductPageClient({
             </div>
 
             <div className="flex-1 flex gap-2">
-              <motion.button
-                onClick={() =>
-                  handleAdd(
-                    product.id,
-                    product.title,
-                    discountedPrice,
-                    images[0] || null,
-                    product.production_time ?? null,
-                  )
-                }
-                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Добавить в корзину"
-                rel="nofollow"
-              >
-                В корзину
-              </motion.button>
+              {/* ✅ вместо статичной "В корзину" - кнопка или степпер */}
+              {productQty <= 0 ? (
+                <motion.button
+                  onClick={handleIncCurrent}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Добавить в корзину"
+                  rel="nofollow"
+                >
+                  В корзину
+                </motion.button>
+              ) : (
+                <div
+  className={[
+    'flex-1',
+    'h-[48px]',
+    'rounded-2xl',
+    'border border-black/10',
+    'bg-white',
+    'shadow-[0_10px_25px_rgba(0,0,0,0.06)]',
+    'flex items-center justify-between',
+    'px-2',
+  ].join(' ')}
+  aria-label="Количество товара в корзине"
+>
+  <button
+    type="button"
+    onClick={handleDecCurrent}
+    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+    aria-label="Уменьшить количество"
+  >
+    <Minus className="w-4 h-4" />
+  </button>
+
+  {/* 🔥 РОВНО ПО ЦЕНТРУ */}
+  <div className="flex-1 flex items-center justify-center">
+    <span className="text-base font-semibold leading-none">
+      {productQty}
+    </span>
+  </div>
+
+  <button
+    type="button"
+    onClick={handleIncCurrent}
+    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+    aria-label="Увеличить количество"
+  >
+    <Plus className="w-4 h-4" />
+  </button>
+</div>
+
+              )}
 
               <motion.button
                 onClick={openCombo}
