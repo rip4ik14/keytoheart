@@ -628,10 +628,13 @@
     display: none;
   }
 
-  .swiper-wrapper,
-  .swiper-slide {
-    overflow: visible !important;
-  }
+  /* НЕ делаем глобально visible - это ломает iOS.
+   Если нужно overflow visible - даём его только конкретному блоку. */
+.customSwiper .swiper-wrapper,
+.customSwiper .swiper-slide {
+  overflow: visible;
+}
+
 
   /* globals.css */
   .font-marquee {
@@ -717,4 +720,25 @@
   select {
     font-size: 16px;
   }
+}
+
+/* iOS: убираем микросдвиг страницы по X */
+html,
+body {
+  overflow-x: clip;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.overscroll-x-contain {
+  overscroll-behavior-x: contain;
 }

@@ -156,7 +156,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
   }, [sortOpen]);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-4 pb-8 sm:pt-6" aria-label={`Товары ${h1}`}>
+    <section className="mx-auto max-w-7xl px-4 pt-4 pb-8 sm:pt-6 touch-pan-y" aria-label={`Товары ${h1}`}>
       <h1 className="mt-2 text-[28px] leading-[32px] sm:text-3xl sm:leading-tight font-sans font-semibold tracking-tight">
         {h1}
       </h1>
@@ -170,6 +170,7 @@ export default function CategoryPageClient({ products, h1, slug, subcategories, 
               className={[
                 '-mx-4 px-4 pr-12',
                 'flex gap-2 overflow-x-auto no-scrollbar',
+                'overscroll-x-contain',
                 'pb-2',
                 'snap-x snap-mandatory',
                 'scroll-px-4',
