@@ -77,6 +77,33 @@
     @apply bg-white text-black;
   }
 
+  /* Glass surfaces for mobile sticky UI */
+  .kth-glass {
+    background: rgba(255, 255, 255, 0.82);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .kth-glass-highlight {
+    background:
+      radial-gradient(180px 90px at 20% 10%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%),
+      radial-gradient(200px 110px at 85% 85%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 70%);
+  }
+
+  html.kth-android .kth-glass {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+  }
+
+  .kth-sticky-surface {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    isolation: isolate;
+  }
+
 
 
   /* Контейнер */
