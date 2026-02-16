@@ -1,9 +1,11 @@
+// ✅ Путь: components/CatalogFilterModal.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import UiButton from '@/components/ui/UiButton';
 
 type Subcategory = { id: number; name: string; slug: string; is_visible?: boolean };
@@ -54,6 +56,10 @@ export default function CatalogFilterModal({
   const pathname = usePathname() || '/';
   const searchParams = useSearchParams();
 
+  // ✅ важно - чтобы не было SSR/CSR конфликтов
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // ВАЖНО: если модалка открыта не в каталоге - применять нужно на /catalog
   const targetPath = '/catalog';
 
@@ -92,23 +98,19 @@ export default function CatalogFilterModal({
     setSubIds(applied.subs);
   }, [open, applied]);
 
-  // ✅ ПАТЧ: пока фильтр открыт, поднимаем FAB "Чат" выше фиксированного футера с кнопками
+  // ✅ ПАТЧ: пока фильтр открыт, поднимаем FAB "Чат" выше фиксированного футера
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const root = document.documentElement;
-
-    // запоминаем текущее значение, чтобы корректно вернуть обратно
     const prev = root.style.getPropertyValue('--kth-bottom-ui-h');
 
     const apply = () => {
       if (!open) return;
 
-      // только для мобилки, чтобы на десктопе не прыгало
       const isMobile = !window.matchMedia('(min-width: 1024px)').matches; // lg
       if (!isMobile) return;
 
-      // футер с кнопками примерно 80-90px + запас под safe-area
       root.style.setProperty('--kth-bottom-ui-h', '80px');
     };
 
@@ -120,7 +122,6 @@ export default function CatalogFilterModal({
     return () => {
       window.removeEventListener('resize', apply);
 
-      // возвращаем как было (если было пусто - очищаем)
       if (prev && prev.trim().length > 0) {
         root.style.setProperty('--kth-bottom-ui-h', prev);
       } else {
@@ -162,13 +163,11 @@ export default function CatalogFilterModal({
     const params = buildParams();
     const qs = params.toString();
 
-    // ВСЕГДА уводим в каталог
     router.push(qs ? `${targetPath}?${qs}` : targetPath, { scroll: true });
     onClose();
   }
 
   function reset() {
-    // сброс тоже уводим в каталог (логично, если фильтр запускали с главной)
     router.push(targetPath, { scroll: true });
 
     setMinPrice(null);
@@ -177,7 +176,6 @@ export default function CatalogFilterModal({
     setSubIds([]);
   }
 
-  // двойной range
   const minValue = minPrice ?? minLimit;
   const maxValue = maxPrice ?? maxLimit;
 
@@ -201,17 +199,24 @@ export default function CatalogFilterModal({
   const sectionCardCls =
     'mt-3 rounded-3xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
 
-  return (
+  const modal = (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[10000] bg-black/40"
+          className="fixed inset-0 z-[25000]"
           variants={overlayVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
-          onClick={onClose}
         >
+          {/* overlay */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+
+          {/* panel */}
           <motion.div
             className="
               absolute right-0 top-0 h-full w-[92%] max-w-[420px]
@@ -230,9 +235,7 @@ export default function CatalogFilterModal({
             <div className="px-5 pt-5 pb-4 border-b border-black/10">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[22px] font-semibold tracking-tight leading-tight">
-                    Фильтр
-                  </div>
+                  <div className="text-[22px] font-semibold tracking-tight leading-tight">Фильтр</div>
                   {selectedCount > 0 && (
                     <div className="mt-1 text-xs text-black/50">Выбрано: {selectedCount}</div>
                   )}
@@ -253,11 +256,12 @@ export default function CatalogFilterModal({
               {/* PRICE */}
               <section>
                 <button
+                  type="button"
                   className="w-full flex items-center justify-between text-left"
                   onClick={() => setSectionsOpen((s) => ({ ...s, price: !s.price }))}
                 >
                   <div className={sectionTitleCls}>Цена</div>
-                  <div className="text-black/40 text-sm">{sectionsOpen.price ? '−' : '+'}</div>
+                  <div className="text-black/40 text-sm">{sectionsOpen.price ? '-' : '+'}</div>
                 </button>
 
                 {sectionsOpen.price && (
@@ -327,11 +331,12 @@ export default function CatalogFilterModal({
               {/* CATEGORIES */}
               <section>
                 <button
+                  type="button"
                   className="w-full flex items-center justify-between text-left"
                   onClick={() => setSectionsOpen((s) => ({ ...s, categories: !s.categories }))}
                 >
                   <div className={sectionTitleCls}>Разделы</div>
-                  <div className="text-black/40 text-sm">{sectionsOpen.categories ? '−' : '+'}</div>
+                  <div className="text-black/40 text-sm">{sectionsOpen.categories ? '-' : '+'}</div>
                 </button>
 
                 {sectionsOpen.categories && (
@@ -342,10 +347,7 @@ export default function CatalogFilterModal({
                         const checked = catIds.includes(id);
 
                         return (
-                          <label
-                            key={c.id}
-                            className="flex items-center gap-3 text-sm text-black/75"
-                          >
+                          <label key={c.id} className="flex items-center gap-3 text-sm text-black/75">
                             <input
                               type="checkbox"
                               checked={checked}
@@ -368,15 +370,12 @@ export default function CatalogFilterModal({
               {/* SUBCATEGORIES */}
               <section>
                 <button
+                  type="button"
                   className="w-full flex items-center justify-between text-left"
-                  onClick={() =>
-                    setSectionsOpen((s) => ({ ...s, subcategories: !s.subcategories }))
-                  }
+                  onClick={() => setSectionsOpen((s) => ({ ...s, subcategories: !s.subcategories }))}
                 >
                   <div className={sectionTitleCls}>Подкатегории</div>
-                  <div className="text-black/40 text-sm">
-                    {sectionsOpen.subcategories ? '−' : '+'}
-                  </div>
+                  <div className="text-black/40 text-sm">{sectionsOpen.subcategories ? '-' : '+'}</div>
                 </button>
 
                 {sectionsOpen.subcategories && (
@@ -384,18 +383,15 @@ export default function CatalogFilterModal({
                     <div className="space-y-6">
                       {currentCategory ? (
                         <div>
-                          <div className="text-sm font-semibold text-black mb-3">
-                            {currentCategory.name}
-                          </div>
+                          <div className="text-sm font-semibold text-black mb-3">{currentCategory.name}</div>
+
                           <div className="space-y-3">
                             {(currentCategory.subcategories || []).map((s) => {
                               const id = String(s.id);
                               const checked = subIds.includes(id);
+
                               return (
-                                <label
-                                  key={s.id}
-                                  className="flex items-center gap-3 text-sm text-black/75"
-                                >
+                                <label key={s.id} className="flex items-center gap-3 text-sm text-black/75">
                                   <input
                                     type="checkbox"
                                     checked={checked}
@@ -406,10 +402,9 @@ export default function CatalogFilterModal({
                                 </label>
                               );
                             })}
+
                             {(currentCategory.subcategories || []).length === 0 && (
-                              <div className="text-sm text-black/50">
-                                Подкатегории не найдены
-                              </div>
+                              <div className="text-sm text-black/50">Подкатегории не найдены</div>
                             )}
                           </div>
                         </div>
@@ -427,10 +422,7 @@ export default function CatalogFilterModal({
                                   const checked = subIds.includes(id);
 
                                   return (
-                                    <label
-                                      key={s.id}
-                                      className="flex items-center gap-3 text-sm text-black/75"
-                                    >
+                                    <label key={s.id} className="flex items-center gap-3 text-sm text-black/75">
                                       <input
                                         type="checkbox"
                                         checked={checked}
@@ -479,4 +471,8 @@ export default function CatalogFilterModal({
       )}
     </AnimatePresence>
   );
+
+  // ✅ ключевой фикс - портал в body, чтобы хедер ничего не клипал
+  if (!mounted) return null;
+  return createPortal(modal, document.body);
 }

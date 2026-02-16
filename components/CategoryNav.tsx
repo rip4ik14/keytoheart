@@ -11,7 +11,7 @@ import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
 
 import CatalogFilterModal from '@components/CatalogFilterModal';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
 
 let categoryCache: Category[] | null = null;
 
@@ -63,7 +63,6 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-// ✅ ВАЖНО: нормализация slug (обрежем пробелы, приведём к lower-case)
 const normalizeSlug = (v: any) =>
   String(v ?? '')
     .trim()
@@ -74,6 +73,10 @@ type CategoryNavProps = {
   showMobileFilter?: boolean;
 };
 
+function cls(...a: Array<string | false | null | undefined>) {
+  return a.filter(Boolean).join(' ');
+}
+
 export default function CategoryNav({ initialCategories, showMobileFilter = false }: CategoryNavProps) {
   const pathname = usePathname() || '/';
   const [categories, setCategories] = useState<Category[]>([]);
@@ -81,8 +84,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const chipRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [filterOpen, setFilterOpen] = useState(false);
+
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const currentCategorySlug = useMemo(() => {
     const parts = pathname.split('/').filter(Boolean);
@@ -201,12 +206,13 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
   };
 
+  // центрируем активную вкладку как в телеге
   useEffect(() => {
     const wrap = scrollRef.current;
     if (!wrap) return;
 
-    const activeKey = currentCategorySlug ? `cat:${currentCategorySlug}` : '';
-    const el = activeKey ? chipRefs.current[activeKey] : null;
+    const activeKey = currentCategorySlug ? `cat:${currentCategorySlug}` : 'all';
+    const el = tabRefs.current[activeKey];
     if (!el) return;
 
     const wrapRect = wrap.getBoundingClientRect();
@@ -219,54 +225,160 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     wrap.scrollBy({ left: delta, behavior: 'smooth' });
   }, [currentCategorySlug, categories.length]);
 
+  // индикатор "можно скроллить вправо"
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const calc = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      const right = el.scrollLeft < max - 2;
+      setCanScrollRight(right);
+    };
+
+    calc();
+    el.addEventListener('scroll', calc, { passive: true });
+    window.addEventListener('resize', calc);
+
+    return () => {
+      el.removeEventListener('scroll', calc);
+      window.removeEventListener('resize', calc);
+    };
+  }, [categories.length, loading, showMobileFilter]);
+
+  const nudgeRight = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: 180, behavior: 'smooth' });
+  };
+
+ 
+
+  const MobileTab = ({
+    href,
+    label,
+    active,
+    tabKey,
+    onClick,
+  }: {
+    href: string;
+    label: string;
+    active: boolean;
+    tabKey: string;
+    onClick?: () => void;
+  }) => (
+    <Link
+      href={href}
+      ref={(el) => {
+        tabRefs.current[tabKey] = el;
+      }}
+      className={cls(
+        'shrink-0',
+        'h-9',
+        'px-4',
+        'rounded-full',
+        'inline-flex items-center',
+        'border',
+        'backdrop-blur-xl',
+        'transition-all duration-200',
+        active
+          ? 'bg-white/90 border-black/10 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]'
+          : 'bg-white/40 border-black/10 text-black/70 active:bg-white/55',
+      )}
+      aria-current={active ? 'page' : undefined}
+      onClick={onClick}
+      style={{ maxWidth: 220 }}
+    >
+      <span className="truncate text-[13px] font-semibold leading-none">{label}</span>
+    </Link>
+  );
+
   return (
-    <nav className="bg-white border-b text-black font-sans" aria-label="Навигация по категориям">
-      {/* mobile */}
+    <nav className="bg-transparent text-black font-sans" aria-label="Навигация по категориям">
+      {/* mobile - tabs как Telegram */}
       <div className="sm:hidden">
         <div className="relative">
+          {/* right fade + chevron */}
           <div
-            className={[
-              '-mx-4 px-4 pr-12',
+            className={cls(
+              'pointer-events-none absolute top-0 right-0 h-full w-12',
+              'transition-opacity duration-200',
+              canScrollRight ? 'opacity-100' : 'opacity-0',
+            )}
+            aria-hidden="true"
+            style={{
+              background: 'linear-gradient(to left, rgba(255,255,255,0.90), rgba(255,255,255,0))',
+            }}
+          />
+          <button
+            type="button"
+            onClick={nudgeRight}
+            className={cls(
+              'absolute right-1 top-1/2 -translate-y-1/2',
+              'w-8 h-8 rounded-full',
+              'bg-white/75 backdrop-blur-xl',
+              'border border-black/10',
+              'shadow-[0_10px_26px_rgba(0,0,0,0.10)]',
+              'flex items-center justify-center',
+              'transition-opacity duration-200',
+              canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none',
+            )}
+            aria-label="Показать еще категории"
+          >
+            <ChevronRight className="w-4 h-4 text-black/70" />
+          </button>
+
+          <div
+            ref={scrollRef}
+            className={cls(
+              'px-2 pr-12',
               'overflow-x-auto no-scrollbar',
               '[-webkit-overflow-scrolling:touch]',
               'snap-x snap-mandatory',
-              'scroll-px-4',
-            ].join(' ')}
-            ref={scrollRef}
-            aria-label="Категории (свайп)"
+              'scroll-px-2',
+            )}
+            aria-label="Категории (tabs)"
           >
-            <ul className="flex gap-2 py-3">
+            <div className="flex gap-2 py-2">
+             
+
+              {/* Фильтр (если нужно на этих страницах) */}
               {showMobileFilter && (
-                <li className="shrink-0 snap-start">
-                  <button
-                    onClick={() => setFilterOpen(true)}
-                    className={[
-                      'inline-flex items-center whitespace-nowrap',
-                      'h-9 px-4',
-                      'rounded-full',
-                      'border border-neutral-200',
-                      'bg-white text-black',
-                      'text-[13px] font-medium',
-                      'hover:border-neutral-300 hover:bg-neutral-50',
-                      'transition',
-                      'focus:ring-2 focus:ring-black/20 focus:outline-none',
-                    ].join(' ')}
-                    aria-label="Открыть фильтр"
-                  >
-                    Фильтр
-                  </button>
-                </li>
+                <motion.button
+                  type="button"
+                  className={cls(
+                    'shrink-0 snap-start',
+                    'h-9 px-3',
+                    'rounded-full',
+                    'inline-flex items-center gap-2',
+                    'border border-black/10',
+                    'bg-white/40 backdrop-blur-xl',
+                    'text-black/80',
+                    'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
+                    'active:bg-white/55',
+                    'transition',
+                    'focus:ring-2 focus:ring-black/20 focus:outline-none',
+                  )}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.18, delay: 0.03 }}
+                  aria-label="Открыть фильтр"
+                  onClick={() => setFilterOpen(true)}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="text-[13px] font-semibold leading-none">Фильтр</span>
+                </motion.button>
               )}
 
               {loading
-                ? Array.from({ length: 7 }).map((_, i) => (
-                    <li key={i} className="shrink-0 snap-start">
-                      <div className="h-9 w-24 rounded-full bg-neutral-200 animate-pulse" />
-                    </li>
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="shrink-0 snap-start">
+                      <div className="h-9 w-24 rounded-full bg-black/10 animate-pulse" />
+                    </div>
                   ))
                 : categories.length === 0
                   ? (
-                    <li className="text-center text-neutral-500 w-full text-[13px]">Категории отсутствуют</li>
+                    <div className="text-center text-black/50 w-full text-[13px] py-2">Категории отсутствуют</div>
                   )
                   : categories.map((cat, idx) => {
                       const href = `/category/${cat.slug}`;
@@ -277,44 +389,30 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                       const active = isActiveCategory || Boolean(isActiveSubcategory);
 
                       return (
-                        <motion.li
+                        <motion.div
                           key={cat.id}
                           className="shrink-0 snap-start"
                           initial={{ opacity: 0, x: -6 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2, delay: Math.min(idx, 8) * 0.03 }}
+                          transition={{ duration: 0.18, delay: Math.min(idx, 10) * 0.03 }}
                         >
-                          <Link
+                          <MobileTab
                             href={href}
-                            ref={(el) => {
-                              chipRefs.current[`cat:${cat.slug}`] = el;
-                            }}
-                            className={[
-                              'inline-flex items-center whitespace-nowrap',
-                              'h-9 px-4',
-                              'rounded-full',
-                              'border',
-                              active ? 'bg-black text-white border-black' : 'bg-white text-black border-neutral-200',
-                              'text-[13px] font-medium',
-                              active ? '' : 'hover:border-neutral-300 hover:bg-neutral-50',
-                              'transition',
-                              'focus:ring-2 focus:ring-black/20 focus:outline-none',
-                            ].join(' ')}
-                            aria-current={active ? 'page' : undefined}
+                            label={cat.name}
+                            active={active}
+                            tabKey={`cat:${cat.slug}`}
                             onClick={() => trackCategory(cat.name)}
-                          >
-                            {cat.name}
-                          </Link>
-                        </motion.li>
+                          />
+                        </motion.div>
                       );
                     })}
-            </ul>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* desktop */}
-      <ul className="hidden sm:flex px-4 py-4 justify-center relative">
+      {/* desktop - как было */}
+      <ul className="hidden sm:flex px-4 py-4 justify-center relative bg-white border-b">
         {loading
           ? Array.from({ length: 6 }).map((_, i) => (
               <li key={i}>

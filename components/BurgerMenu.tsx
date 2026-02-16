@@ -1,37 +1,49 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function BurgerMenu() {
-  const [isOpen, setIsOpen] = useState(false);
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  hideButton?: boolean;
+};
+
+const NAV_H_VAR = '--kth-bottom-nav-h';
+
+export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const navLinks = [
-    { name: 'Каталог', href: '/#catalog' },
-    { name: 'О нас', href: '/about' },
-    { name: 'Доставка', href: '/dostavka' },
-    { name: 'Часто задаваемые вопросы', href: '/faq' },
-    { name: 'Оплата', href: '/payment' },
-    { name: 'Программа лояльности', href: '/loyalty' },
-    { name: 'Корпоративным клиентам', href: '/corporate' },
-    { name: 'Новости', href: '/news' },
-    { name: 'Статьи', href: '/articles' },
-    { name: 'Праздники', href: '/occasions' },
-    { name: 'Контакты', href: '/contacts' },
-  ];
+  const navLinks = useMemo(
+    () => [
+      { name: 'Каталог', href: '/#catalog' },
+      { name: 'О нас', href: '/about' },
+      { name: 'Доставка', href: '/dostavka' },
+      { name: 'Часто задаваемые вопросы', href: '/faq' },
+      { name: 'Оплата', href: '/payment' },
+      { name: 'Программа лояльности', href: '/loyalty' },
+      { name: 'Корпоративным клиентам', href: '/corporate' },
+      { name: 'Новости', href: '/news' },
+      { name: 'Статьи', href: '/articles' },
+      { name: 'Праздники', href: '/occasions' },
+      { name: 'Контакты', href: '/contacts' },
+    ],
+    [],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
+      if (e.key === 'Escape') onOpenChange(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [onOpenChange]);
 
+  // свайп влево закрывает
   useEffect(() => {
     let startX = 0;
     const menu = menuRef.current;
@@ -40,9 +52,7 @@ export default function BurgerMenu() {
       startX = e.touches[0].clientX;
     };
     const onTouchEnd = (e: TouchEvent) => {
-      if (startX - e.changedTouches[0].clientX > 50) {
-        setIsOpen(false);
-      }
+      if (startX - e.changedTouches[0].clientX > 50) onOpenChange(false);
     };
 
     if (menu) {
@@ -55,75 +65,83 @@ export default function BurgerMenu() {
         menu.removeEventListener('touchend', onTouchEnd);
       }
     };
-  }, []);
+  }, [onOpenChange]);
+
+  const trackOpen = () => {
+    window.gtag?.('event', 'open_burger_menu', { event_category: 'navigation' });
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'open_burger_menu');
+  };
+
+  const trackLink = (name: string) => {
+    window.gtag?.('event', 'burger_menu_link', { event_category: 'navigation', link: name });
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'burger_menu_link', { link: name });
+  };
 
   return (
     <>
-      <button
-        onClick={() => {
-          setIsOpen(true);
-          window.gtag?.('event', 'open_burger_menu', { event_category: 'navigation' });
-          if (YM_ID !== undefined) {
-            callYm(YM_ID, 'reachGoal', 'open_burger_menu');
-          }
-        }}
-        className="p-2 hover:bg-gray-100 rounded"
-        aria-label="Открыть меню навигации"
-      >
-        <svg
-          className="w-6 h-6 text-black"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
+      {!hideButton && (
+        <button
+          onClick={() => {
+            const next = !open;
+            onOpenChange(next);
+            if (next) trackOpen();
+          }}
+          className="p-2 hover:bg-gray-100 rounded"
+          aria-label="Открыть меню навигации"
         >
-          <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+          <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
 
+      {/* overlay - НЕ перекрывает нижнее меню */}
+      {open && (
+        <button
+          type="button"
+          aria-label="Закрыть меню"
+          onClick={() => onOpenChange(false)}
+          className="fixed left-0 right-0 top-0 z-[1090] bg-black/40"
+          style={{
+            bottom: `var(${NAV_H_VAR}, 0px)`,
+          }}
+        />
+      )}
+
+      {/* drawer - НЕ перекрывает нижнее меню */}
       <div
         ref={menuRef}
         className={`
-          fixed top-0 left-0 z-[1000] h-full w-72 bg-white shadow-xl
+          fixed top-0 left-0 z-[1100] w-72 bg-white shadow-xl
           transform transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
+        style={{
+          height: `calc(100dvh - var(${NAV_H_VAR}, 0px))`,
+          bottom: `var(${NAV_H_VAR}, 0px)`,
+        }}
         role="dialog"
         aria-label="Меню навигации"
+        aria-hidden={!open}
       >
         <div className="flex items-center justify-between p-4 border-b">
           <span className="text-sm font-semibold">Меню</span>
-          <button
-            onClick={() => setIsOpen(false)}
-            aria-label="Закрыть меню навигации"
-          >
+          <button onClick={() => onOpenChange(false)} aria-label="Закрыть меню навигации">
             <Image src="/icons/times.svg" alt="Close" width={20} height={20} />
           </button>
         </div>
 
-        <nav
-          className="p-4 space-y-1"
-          aria-label="Основная навигация"
-          aria-hidden={!isOpen}
-        >
+        <nav className="p-4 space-y-1" aria-label="Основная навигация">
           {navLinks.map((link, idx) => (
             <Link
               key={idx}
               href={link.href}
               onClick={() => {
-                setIsOpen(false);
-                window.gtag?.('event', 'burger_menu_link', {
-                  event_category: 'navigation',
-                  link: link.name,
-                });
-                if (YM_ID !== undefined) {
-                  callYm(YM_ID, 'reachGoal', 'burger_menu_link', {
-                    link: link.name,
-                  });
-                }
+                onOpenChange(false);
+                trackLink(link.name);
               }}
               className="block py-2 text-black hover:bg-gray-100 transition-colors"
-              tabIndex={isOpen ? 0 : -1}
+              tabIndex={open ? 0 : -1}
             >
               {link.name}
             </Link>
@@ -160,14 +178,6 @@ export default function BurgerMenu() {
           </a>
         </div>
       </div>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-40 z-[999]"
-          onClick={() => setIsOpen(false)}
-          aria-hidden="true"
-        />
-      )}
     </>
   );
 }

@@ -13,7 +13,7 @@ import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schem
 import LayoutClient from '@components/LayoutClient';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
-import type { Category } from '../types/category';
+import type { Category } from '@/types/category';
 import { YM_ID } from '@utils/ym'; // Яндекс.Метрика
 
 /* --------------------------- шрифты через localFont ----------------------- */
@@ -148,8 +148,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
       {
         headers: { apikey: supabaseKey },
-        // в layout у тебя стоит force-no-store, так что кеш реально не будет работать
-        // но оставляю revalidate как "на будущее", если отключишь force-no-store
         next: { revalidate: 3600 },
         signal: controller.signal,
       },

@@ -454,7 +454,7 @@ export default function MobileContactFab() {
             transition={{ duration: 0.16 }}
             className="fixed right-4 z-[20000]"
             style={{
-              bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px))`,
+              bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px) + var(--kth-bottom-nav-h, 0px))`,
             }}
           >
             <div className="relative">
