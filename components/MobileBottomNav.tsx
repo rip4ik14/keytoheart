@@ -138,7 +138,7 @@ export default function MobileBottomNav({
           'max-w-[520px]',
           'rounded-[26px]',
           // ✅ тот же “телега-стекло”, что в StickyHeader
-          'bg-white/82 backdrop-blur-xl',
+          'kth-glass kth-sticky-surface',
           'border border-black/10',
           'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
           'overflow-hidden',
@@ -146,12 +146,8 @@ export default function MobileBottomNav({
       >
         {/* ✅ подсветка стекла - 1в1 как в StickyHeader */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-70"
+          className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight"
           aria-hidden="true"
-          style={{
-            background:
-              'radial-gradient(120px 60px at 20% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%), radial-gradient(140px 80px at 90% 100%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 72%)',
-          }}
         />
 
         <div className="relative px-2 py-2">
