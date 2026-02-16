@@ -138,7 +138,7 @@ export default function MobileBottomNav({
           'max-w-[520px]',
           'rounded-[26px]',
           // ✅ тот же “телега-стекло”, что в StickyHeader
-          'kth-glass kth-sticky-surface kth-mobile-stable',
+          'kth-glass kth-sticky-surface',
           'border border-black/10',
           'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
           'overflow-hidden',

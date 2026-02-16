@@ -213,7 +213,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               'w-full',
               'max-w-[520px]',
               'rounded-[28px]',
-              'kth-glass kth-sticky-surface kth-mobile-stable',
+              'kth-glass kth-sticky-surface',
               'border border-black/10',
               'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
               'overflow-hidden',
@@ -246,7 +246,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
             {/* categories pill (как 2-я строка в Telegram) */}
             <div className="px-2 pb-2">
-              <div className="relative rounded-[22px] border border-black/10 shadow-[0_10px_26px_rgba(0,0,0,0.06)] overflow-hidden kth-glass kth-sticky-surface kth-mobile-stable">
+              <div className="relative rounded-[22px] border border-black/10 shadow-[0_10px_26px_rgba(0,0,0,0.06)] overflow-hidden kth-glass kth-sticky-surface">
                 {/* лёгкая “стеклянная” подсветка */}
                 <div className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight" aria-hidden="true" />
 
