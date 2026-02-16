@@ -198,7 +198,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       <header
         ref={headerRef}
         data-sticky-header="true"
-        className="sticky top-0 z-50 bg-transparent sm:bg-white sm:border-b border-black/10 shadow-none sm:shadow-sm"
+        className="sticky top-0 z-50 bg-transparent sm:bg-white sm:border-b border-black/10 shadow-none sm:shadow-sm kth-sticky-surface"
         aria-label="Основная навигация"
         itemScope
         itemType="https://schema.org/SiteNavigationElement"

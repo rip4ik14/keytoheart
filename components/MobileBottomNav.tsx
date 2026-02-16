@@ -117,7 +117,7 @@ export default function MobileBottomNav({
     <nav
       // @ts-expect-error - мы используем стабильный объект под ref
       ref={(node) => (navRef.current = node)}
-      className={cls('sm:hidden', 'fixed left-0 right-0 bottom-0 z-[1200]', 'px-3')}
+      className={cls('sm:hidden', 'fixed left-0 right-0 bottom-0 z-[1200] kth-sticky-surface', 'px-3')}
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom), 10px)',
       }}
