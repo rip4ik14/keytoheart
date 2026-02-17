@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { ChevronLeft, ChevronRight, Share2, Star, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Share2, Star, Minus, Plus, X } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,14 +24,8 @@ import 'swiper/css/thumbs';
 
 import type { Product, ComboItem } from './types';
 
-import ComboBuilderModal, {
-  type ComboPickerType,
-  type SelectableProduct,
-} from './ComboBuilderModal';
-import {
-  fetchStoreSettingsCached,
-  type StoreSettings,
-} from '@/lib/store-settings-client';
+import ComboBuilderModal, { type ComboPickerType, type SelectableProduct } from './ComboBuilderModal';
+import { fetchStoreSettingsCached, type StoreSettings } from '@/lib/store-settings-client';
 
 // blur placeholder
 const BLUR_PLACEHOLDER =
@@ -58,8 +52,7 @@ function formatProductionTime(minutes: number | null): string | null {
   const mins = minutes % 60;
   let result = '';
   if (hours > 0) result += `${hours} ${declineWord(hours, ['час', 'часа', 'часов'])}`;
-  if (mins > 0)
-    result += `${result ? ' ' : ''}${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
+  if (mins > 0) result += `${result ? ' ' : ''}${mins} ${declineWord(mins, ['минута', 'минуты', 'минут'])}`;
   return result || 'Мгновенно';
 }
 
@@ -151,13 +144,7 @@ const SUB_CARDS_ID = 171; // Открытки
 // ✅ CSS var from StickyHeader.tsx (как в ProductCard)
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
 
-export default function ProductPageClient({
-  product,
-  combos,
-}: {
-  product: Product;
-  combos: ComboItem[];
-}) {
+export default function ProductPageClient({ product, combos }: { product: Product; combos: ComboItem[] }) {
   // ✅ Cart API (подстраховка под разные реализации)
   const cart: any = useCart();
   const addItem = cart?.addItem;
@@ -165,10 +152,8 @@ export default function ProductPageClient({
   const cartItems = (cart?.items ?? cart?.cartItems ?? cart?.cart ?? []) as any[];
 
   // часто встречающиеся имена методов (если их нет - степпер будет только показывать qty, а минус не сломает)
-  const setQuantity =
-    cart?.setQuantity ?? cart?.updateQuantity ?? cart?.changeQuantity ?? cart?.setItemQuantity ?? null;
-  const removeItem =
-    cart?.removeItem ?? cart?.deleteItem ?? cart?.removeFromCart ?? cart?.remove ?? null;
+  const setQuantity = cart?.setQuantity ?? cart?.updateQuantity ?? cart?.changeQuantity ?? cart?.setItemQuantity ?? null;
+  const removeItem = cart?.removeItem ?? cart?.deleteItem ?? cart?.removeFromCart ?? cart?.remove ?? null;
 
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -204,17 +189,13 @@ export default function ProductPageClient({
   const mainSwiperRef = useRef<any>(null);
 
   const discountPercent = product.discount_percent ?? 0;
-  const discountedPrice =
-    discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+  const discountedPrice = discountPercent > 0 ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
 
   const bonus = (discountedPrice * bonusPercent).toFixed(2).replace('.', ',');
 
   const images = useMemo(() => (Array.isArray(product.images) ? product.images : []), [product]);
 
-  const { title: uiTitle, subtitle: uiSubtitle } = useMemo(
-    () => splitTitle(product.title),
-    [product.title],
-  );
+  const { title: uiTitle, subtitle: uiSubtitle } = useMemo(() => splitTitle(product.title), [product.title]);
 
   // определяем тип товара без description, чтобы цветы не ловили клубнику из текста
   const textBlob = useMemo(() => {
@@ -239,21 +220,16 @@ export default function ProductPageClient({
   const similarLoop = similarItems.length > 4;
 
   // стили кнопок
-  const primaryBtnMain =
-    'bg-rose-600 text-white hover:bg-rose-700 shadow-[0_10px_25px_rgba(225,29,72,0.25)]';
-  const cardBtnHoverRed =
-    'bg-[#141414] text-white hover:bg-rose-600 focus-visible:bg-rose-600 shadow-none';
-  const primaryBtnSoft =
-    'bg-rose-600/10 text-rose-700 hover:bg-rose-600/15 border border-rose-600/20';
-  const secondaryBtn =
-    'bg-white text-black border border-black/15 hover:border-black/30 hover:bg-black/[0.02]';
+  const primaryBtnMain = 'bg-rose-600 text-white hover:bg-rose-700 shadow-[0_10px_25px_rgba(225,29,72,0.25)]';
+  const cardBtnHoverRed = 'bg-[#141414] text-white hover:bg-rose-600 focus-visible:bg-rose-600 shadow-none';
+  const primaryBtnSoft = 'bg-rose-600/10 text-rose-700 hover:bg-rose-600/15 border border-rose-600/20';
+  const secondaryBtn = 'bg-white text-black border border-black/15 hover:border-black/30 hover:bg-black/[0.02]';
   const iconBtn = 'bg-white border border-black/10 hover:border-black/20 hover:bg-black/[0.02]';
 
   // ✅ qty текущего товара в корзине (для нижней плашки)
   const productQty = useMemo(() => {
     const idStr = String(product.id);
-    const row =
-      cartItems?.find((x: any) => String(x?.id) === idStr || String(x?.productId) === idStr) ?? null;
+    const row = cartItems?.find((x: any) => String(x?.id) === idStr || String(x?.productId) === idStr) ?? null;
     const q = Number(row?.quantity ?? row?.qty ?? 0);
     return Number.isFinite(q) ? q : 0;
   }, [cartItems, product.id]);
@@ -265,11 +241,10 @@ export default function ProductPageClient({
     };
   }, []);
 
-  // ✅ тост "как в ProductCard": фиксируем top при показе (iOS), без кнопки "в корзину"
+  // ✅ тост "как в ProductCard": фиксируем top при показе (iOS)
   const showAddedToast = useCallback(() => {
     if (typeof window !== 'undefined') {
-      const headerH =
-        getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
+      const headerH = getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
       const safeTop = 'max(env(safe-area-inset-top), 12px)';
       toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
     }
@@ -324,8 +299,6 @@ export default function ProductPageClient({
             <p className="text-sm font-semibold">добавлено в корзину</p>
             <p className="text-xs text-black/60 break-words">{title}</p>
           </div>
-
-          {/* ✅ кнопки нет */}
         </motion.div>,
         document.body,
       );
@@ -334,14 +307,7 @@ export default function ProductPageClient({
   );
 
   const handleAdd = useCallback(
-    (
-      id: number,
-      title: string,
-      price: number,
-      img: string | null,
-      productionTime: number | null,
-      isCombo = false,
-    ) => {
+    (id: number, title: string, price: number, img: string | null, productionTime: number | null, isCombo = false) => {
       addItem?.({
         id: String(id),
         title,
@@ -351,10 +317,8 @@ export default function ProductPageClient({
         production_time: productionTime,
       });
 
-      // ✅ единый тост как в карточках (для обычного товара и для комбо-айтемов)
       showAddedToast();
 
-      // ✅ если хочешь оставить "микро-нотиф" для комбо-списка (как было) - оставляем, но он ни на что не влияет
       if (isCombo) {
         setComboNotifications((p) => ({ ...p, [id]: true }));
         setTimeout(() => setComboNotifications((p) => ({ ...p, [id]: false })), 1400);
@@ -374,13 +338,7 @@ export default function ProductPageClient({
 
   // ✅ stepper для нижней плашки
   const handleIncCurrent = useCallback(() => {
-    handleAdd(
-      product.id,
-      product.title,
-      discountedPrice,
-      images[0] || null,
-      product.production_time ?? null,
-    );
+    handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null);
   }, [handleAdd, product.id, product.title, discountedPrice, images, product.production_time]);
 
   const handleDecCurrent = useCallback(() => {
@@ -389,11 +347,9 @@ export default function ProductPageClient({
 
     if (setQuantity) {
       try {
-        // чаще всего сигнатура (id, qty)
         setQuantity(idStr, nextQty);
         return;
       } catch {
-        // если у тебя сигнатура другая - поправь здесь
         try {
           setQuantity({ id: idStr, quantity: nextQty });
           return;
@@ -439,10 +395,68 @@ export default function ProductPageClient({
     if (typeof window !== 'undefined') window.history.back();
   };
 
+  /* -------------------------- MOBILE: фиксируем "крестик" при скролле -------------------------- */
+  const galleryRef = useRef<HTMLDivElement | null>(null);
+  const stickyHeaderPxRef = useRef<number>(72);
+  const [showFloatingControls, setShowFloatingControls] = useState(false);
+
+  const readStickyHeaderPx = useCallback(() => {
+    if (typeof window === 'undefined') return 72;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim();
+    const v = parseFloat(raw || '72');
+    return Number.isFinite(v) && v > 0 ? v : 72;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const update = () => {
+      stickyHeaderPxRef.current = readStickyHeaderPx();
+    };
+
+    update();
+
+    window.addEventListener('resize', update, { passive: true });
+    return () => window.removeEventListener('resize', update);
+  }, [readStickyHeaderPx]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let ticking = false;
+
+    const calc = () => {
+      const el = galleryRef.current;
+      const headerPx = stickyHeaderPxRef.current;
+
+      if (!el) {
+        setShowFloatingControls(window.scrollY > 80);
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+      // когда галерея "уехала" вверх за шапку - показываем фикс-кнопки
+      const threshold = headerPx + 8;
+      setShowFloatingControls(rect.bottom <= threshold);
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        calc();
+      });
+    };
+
+    calc();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   /* -------------------------- CATEGORY LABEL -------------------------- */
   useEffect(() => {
-    const fromProduct = String((product as any)?.category_name || (product as any)?.categoryName || '')
-      .trim();
+    const fromProduct = String((product as any)?.category_name || (product as any)?.categoryName || '').trim();
     if (fromProduct) {
       setCategoryLabel(fromProduct);
       return;
@@ -536,9 +550,7 @@ export default function ProductPageClient({
         const subIds = [SUB_CARDS_ID, SUB_BALLOONS_ID];
         const resArr = await Promise.all(
           subIds.map(async (sub) => {
-            const r = await fetch(
-              `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${sub}`,
-            );
+            const r = await fetch(`/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${sub}`);
             if (!r.ok) return [];
             const { success, data } = await r.json();
             return success ? data : [];
@@ -753,9 +765,7 @@ export default function ProductPageClient({
         const j = await r.json();
         if (!r.ok || !j?.success) throw new Error(j?.error || 'Не удалось загрузить товары');
 
-        const items = (j.data || [])
-          .map((it: any) => toSelectable(it, type))
-          .filter(Boolean) as SelectableProduct[];
+        const items = (j.data || []).map((it: any) => toSelectable(it, type)).filter(Boolean) as SelectableProduct[];
 
         // не даём выбрать тот же товар, что открыт сейчас
         const filtered = items.filter((it) => it.id !== product.id);
@@ -813,9 +823,7 @@ export default function ProductPageClient({
   const comboItemsForCalc = useMemo(() => {
     // скидка применяется к "основе + второй базе + шарам"
     // открытка отдельная (без скидки)
-    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [
-      { it: baseSelectable, discounted: comboDiscountPercent > 0 },
-    ];
+    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [{ it: baseSelectable, discounted: comboDiscountPercent > 0 }];
     if (selSecondBase) items.push({ it: selSecondBase, discounted: comboDiscountPercent > 0 });
     if (selBalloons) items.push({ it: selBalloons, discounted: comboDiscountPercent > 0 });
     if (selCard) items.push({ it: selCard, discounted: false });
@@ -880,47 +888,56 @@ export default function ProductPageClient({
   const toastImageUrl = useMemo(() => images[0] || '/placeholder.jpg', [images]);
   const toastTitle = useMemo(() => product.title || 'Товар', [product.title]);
 
+  // ✅ единые моб-кнопки в карточках "похожие/допы": фикс-размер, цена не режется
+  const mobileMiniBtnClass =
+    'h-9 px-4 rounded-full text-[11px] font-bold whitespace-nowrap transition active:scale-[0.98] ' + cardBtnHoverRed;
+
   /* -------------------------- RENDER -------------------------- */
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
-      {/* ✅ единый тост (как ProductCard): появляется сверху, не мерцает, без кнопки */}
+      {/* ✅ единый тост (как ProductCard) */}
       <MobileToast imageUrl={toastImageUrl} title={toastTitle} />
 
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-10">
-        {/* mobile top bar */}
-        <div className="flex items-center justify-between mb-3 lg:hidden">
+      {/* ✅ Mobile: фикс-кнопки (крестик не исчезает при скролле) */}
+      <div
+        className={['lg:hidden fixed z-[60] transition-opacity duration-200', showFloatingControls ? 'opacity-100' : 'opacity-0 pointer-events-none'].join(
+          ' ',
+        )}
+        style={{
+          top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 10px + env(safe-area-inset-top))`,
+          left: `calc(12px + env(safe-area-inset-left))`,
+          right: `calc(12px + env(safe-area-inset-right))`,
+        }}
+        aria-hidden={!showFloatingControls}
+      >
+        <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-sm hover:bg-black/[0.02]"
-            aria-label="Назад"
+            aria-label="Закрыть"
+            className="w-11 h-11 rounded-full border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.14)] flex items-center justify-center active:scale-[0.98] transition"
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Назад</span>
+            <X className="w-5 h-5" />
           </button>
 
           <button
             type="button"
             onClick={handleShare}
-            className="rounded-full border border-black/10 bg-white p-2 hover:bg-black/[0.02]"
             aria-label="Поделиться"
+            className="w-11 h-11 rounded-full border border-black/10 bg-white/85 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.14)] flex items-center justify-center active:scale-[0.98] transition"
           >
             <Share2 className="w-5 h-5" />
           </button>
         </div>
+      </div>
 
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-10">
         {/* (оставил comboNotifications как было - но теперь основной UX тост единый сверху) */}
         <AnimatePresence>
           {Object.entries(comboNotifications).map(
             ([id, visible]) =>
               visible && (
-                <motion.div
-                  key={id}
-                  className="hidden"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0 }}
-                  exit={{ opacity: 0 }}
-                />
+                <motion.div key={id} className="hidden" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />
               ),
           )}
         </AnimatePresence>
@@ -928,7 +945,43 @@ export default function ProductPageClient({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-8 lg:gap-12 items-start">
           {/* GALLERY */}
           <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
-            <div className="relative rounded-3xl border border-black/10 overflow-hidden bg-gray-50">
+            <div
+              ref={galleryRef}
+              className="relative overflow-hidden bg-gray-50 border border-black/10 rounded-none sm:rounded-3xl"
+            >
+              {/* ✅ Mobile overlay controls (X + Share) - только пока галерея вверху (как в референсе) */}
+              {!showFloatingControls && (
+                <div
+                  className="lg:hidden absolute inset-x-0 top-0 z-30"
+                  style={{
+                    paddingTop: `calc(env(safe-area-inset-top) + 10px)`,
+                    paddingLeft: `calc(env(safe-area-inset-left) + 12px)`,
+                    paddingRight: `calc(env(safe-area-inset-right) + 12px)`,
+                    paddingBottom: 10,
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      aria-label="Закрыть"
+                      className="w-11 h-11 rounded-full border border-black/10 bg-white/70 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.14)] flex items-center justify-center active:scale-[0.98] transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      aria-label="Поделиться"
+                      className="w-11 h-11 rounded-full border border-black/10 bg-white/70 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.14)] flex items-center justify-center active:scale-[0.98] transition"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <Swiper
                 onSwiper={(s) => (mainSwiperRef.current = s)}
                 onSlideChange={(s) => setActiveIndex(s.activeIndex)}
@@ -946,7 +999,8 @@ export default function ProductPageClient({
                 {images.length ? (
                   images.map((src, i) => (
                     <SwiperSlide key={i}>
-                      <div className="relative aspect-[4/5] sm:aspect-[4/3] w-full bg-gray-100">
+                      {/* ✅ Мобайл: почти фуллскрин по высоте, sm+: обычное соотношение */}
+                      <div className="relative w-full bg-gray-100 h-[62vh] sm:h-auto sm:aspect-[4/3]">
                         <Image
                           src={src}
                           alt={`${product.title} - фото ${i + 1}`}
@@ -963,7 +1017,7 @@ export default function ProductPageClient({
                   ))
                 ) : (
                   <SwiperSlide>
-                    <div className="relative aspect-[4/5] sm:aspect-[4/3] w-full bg-gray-100">
+                    <div className="relative w-full bg-gray-100 h-[62vh] sm:h-auto sm:aspect-[4/3]">
                       <Image
                         src="/placeholder.jpg"
                         alt="Изображение отсутствует"
@@ -1055,13 +1109,7 @@ export default function ProductPageClient({
               ) : similarItems.length === 0 ? (
                 <p className="text-gray-500">Пока нет похожих товаров</p>
               ) : (
-                <Swiper
-                  navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }}
-                  loop={similarLoop}
-                  modules={[Navigation]}
-                  spaceBetween={14}
-                  slidesPerView={2}
-                >
+                <Swiper navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }} loop={similarLoop} modules={[Navigation]} spaceBetween={14} slidesPerView={2}>
                   {similarItems.slice(0, 8).map((it) => (
                     <SwiperSlide key={it.id}>
                       <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
@@ -1081,12 +1129,10 @@ export default function ProductPageClient({
 
                         <div className="p-4">
                           <Link href={`/product/${it.id}`} className="block">
-                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
-                              {it.title}
-                            </p>
+                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{it.title}</p>
                           </Link>
                           <div className="mt-3 flex items-center justify-between gap-2">
-                            <span className="font-semibold">{money(it.price)} ₽</span>
+                            <span className="font-semibold whitespace-nowrap tabular-nums">{money(it.price)} ₽</span>
                             <button
                               onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
                               className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
@@ -1128,13 +1174,7 @@ export default function ProductPageClient({
               ) : recommendedItems.length === 0 ? (
                 <p className="text-gray-500">Пока нет допов</p>
               ) : (
-                <Swiper
-                  navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }}
-                  loop={recommendLoop}
-                  modules={[Navigation]}
-                  spaceBetween={14}
-                  slidesPerView={2}
-                >
+                <Swiper navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }} loop={recommendLoop} modules={[Navigation]} spaceBetween={14} slidesPerView={2}>
                   {recommendedItems.slice(0, 10).map((combo) => (
                     <SwiperSlide key={combo.id}>
                       <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
@@ -1154,12 +1194,10 @@ export default function ProductPageClient({
 
                         <div className="p-4">
                           <Link href={`/product/${combo.id}`} className="block">
-                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">
-                              {combo.title}
-                            </p>
+                            <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{combo.title}</p>
                           </Link>
                           <div className="mt-3 flex items-center justify-between gap-2">
-                            <span className="font-semibold">{money(combo.price)} ₽</span>
+                            <span className="font-semibold whitespace-nowrap tabular-nums">{money(combo.price)} ₽</span>
                             <button
                               onClick={() => handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)}
                               className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
@@ -1178,62 +1216,41 @@ export default function ProductPageClient({
           </motion.div>
 
           {/* RIGHT COLUMN */}
-          <motion.div
-            className="flex flex-col space-y-4 sm:space-y-6"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          <motion.div className="flex flex-col space-y-4 sm:space-y-6" variants={containerVariants} initial="hidden" animate="visible">
             {/* purchase card */}
             <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_14px_40px_rgba(0,0,0,0.08)]">
               {/* badges */}
               <div className="flex flex-wrap items-center gap-2">
                 {discountPercent > 0 && (
                   <>
-                    <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-black text-white">
-                      Скидка -{discountPercent}%
-                    </span>
-                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
-                      Акция
-                    </span>
+                    <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-black text-white">Скидка -{discountPercent}%</span>
+                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">Акция</span>
                   </>
                 )}
 
                 {!!categoryLabel && (
-                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
-                    {categoryLabel}
-                  </span>
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">{categoryLabel}</span>
                 )}
 
                 {!categoryLabel && isCategoryLoading && (
-                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10 text-black/50">
-                    Загрузка…
-                  </span>
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10 text-black/50">Загрузка…</span>
                 )}
               </div>
 
               {/* title */}
               <div className="mt-4">
-                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-semibold tracking-tight leading-tight">
-                  {uiTitle}
-                </h1>
-                {uiSubtitle && (
-                  <p className="mt-2 text-sm sm:text-base text-black/60 leading-relaxed">{uiSubtitle}</p>
-                )}
+                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-semibold tracking-tight leading-tight">{uiTitle}</h1>
+                {uiSubtitle && <p className="mt-2 text-sm sm:text-base text-black/60 leading-relaxed">{uiSubtitle}</p>}
               </div>
 
               {/* price */}
               <div className="mt-5">
                 <div className="flex items-end gap-3">
-                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                    {money(discountedPrice)} ₽
-                  </span>
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight">{money(discountedPrice)} ₽</span>
 
                   {discountPercent > 0 && (
                     <div className="flex items-center gap-2 pb-1">
-                      <span className="text-sm sm:text-base text-black/45 line-through">
-                        {money(product.price)} ₽
-                      </span>
+                      <span className="text-sm sm:text-base text-black/45 line-through">{money(product.price)} ₽</span>
                       <span className="px-2 py-1 text-[11px] font-semibold rounded-full bg-rose-600/10 text-rose-700 border border-rose-600/20">
                         -{money(product.price - discountedPrice)} ₽
                       </span>
@@ -1282,15 +1299,7 @@ export default function ProductPageClient({
               {/* actions */}
               <div className="mt-6 hidden lg:flex gap-3">
                 <motion.button
-                  onClick={() =>
-                    handleAdd(
-                      product.id,
-                      product.title,
-                      discountedPrice,
-                      images[0] || null,
-                      product.production_time ?? null,
-                    )
-                  }
+                  onClick={() => handleAdd(product.id, product.title, discountedPrice, images[0] || null, product.production_time ?? null)}
                   className={`flex-1 py-3.5 rounded-2xl font-bold tracking-tight transition ${primaryBtnMain}`}
                   variants={buttonVariants}
                   initial="rest"
@@ -1328,42 +1337,7 @@ export default function ProductPageClient({
                 </motion.button>
               </div>
 
-              {/* mobile quick actions */}
-              <div className="mt-6 lg:hidden grid grid-cols-2 gap-2">
-                <motion.button
-                  onClick={() =>
-                    handleAdd(
-                      product.id,
-                      product.title,
-                      discountedPrice,
-                      images[0] || null,
-                      product.production_time ?? null,
-                    )
-                  }
-                  className={`py-3 rounded-2xl font-bold text-sm transition ${primaryBtnMain}`}
-                  variants={buttonVariants}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  aria-label="Добавить в корзину"
-                  rel="nofollow"
-                >
-                  В корзину
-                </motion.button>
-
-                <motion.button
-                  onClick={openCombo}
-                  className={`py-3 rounded-2xl font-bold text-sm transition ${secondaryBtn}`}
-                  variants={buttonVariants}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  aria-label="Собрать комбо"
-                  rel="nofollow"
-                >
-                  Комбо -10%
-                </motion.button>
-              </div>
+              {/* ✅ MOBILE quick actions УБРАЛИ (оставляем только липучую нижнюю плашку) */}
             </div>
 
             {/* content blocks */}
@@ -1382,9 +1356,7 @@ export default function ProductPageClient({
                         {product.description}
                       </p>
 
-                      {!showFullDesc && (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
-                      )}
+                      {!showFullDesc && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1466,12 +1438,7 @@ export default function ProductPageClient({
         </div>
 
         {/* MOBILE - Similar */}
-        <motion.section
-          className="lg:hidden mt-8 pt-8 border-t border-black/10"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section className="lg:hidden mt-8 pt-8 border-t border-black/10" variants={containerVariants} initial="hidden" animate="visible">
           <h2 className="text-xl font-semibold mb-4 tracking-tight">Похожие товары</h2>
 
           {isLoadingSimilar ? (
@@ -1509,15 +1476,20 @@ export default function ProductPageClient({
                         />
                       </div>
                     </Link>
+
                     <div className="p-4">
                       <Link href={`/product/${it.id}`} className="block">
                         <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{it.title}</p>
                       </Link>
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="font-semibold">{money(it.price)} ₽</span>
+
+                      {/* ✅ фикс-верстка: цена не режется, кнопка одинаковая */}
+                      <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-2">
+                        <span className="font-semibold whitespace-nowrap tabular-nums text-[13px] sm:text-sm">
+                          {money(it.price)} ₽
+                        </span>
                         <button
                           onClick={() => handleAdd(it.id, it.title, it.price, it.image, null, true)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
+                          className={mobileMiniBtnClass}
                           rel="nofollow"
                         >
                           В корзину
@@ -1545,12 +1517,7 @@ export default function ProductPageClient({
         </motion.section>
 
         {/* MOBILE - Upsell */}
-        <motion.section
-          className="lg:hidden mt-8 pt-8 border-t border-black/10"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.section className="lg:hidden mt-8 pt-8 border-t border-black/10" variants={containerVariants} initial="hidden" animate="visible">
           <h2 className="text-xl font-semibold mb-4 tracking-tight">Добавьте к заказу</h2>
 
           {isLoadingRecommended ? (
@@ -1595,11 +1562,14 @@ export default function ProductPageClient({
                           <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{combo.title}</p>
                         </Link>
 
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <span className="font-semibold">{money(combo.price)} ₽</span>
+                        {/* ✅ фикс-верстка: цена не режется, кнопка одинаковая */}
+                        <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-2">
+                          <span className="font-semibold whitespace-nowrap tabular-nums text-[13px] sm:text-sm">
+                            {money(combo.price)} ₽
+                          </span>
                           <button
                             onClick={() => handleAdd(combo.id, combo.title, combo.price, combo.image, null, true)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold transition ${cardBtnHoverRed}`}
+                            className={mobileMiniBtnClass}
                             rel="nofollow"
                           >
                             В корзину
@@ -1628,7 +1598,14 @@ export default function ProductPageClient({
         </motion.section>
 
         {/* mobile bottom bar */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur px-3 py-3 lg:hidden shadow-[0_-8px_22px_rgba(0,0,0,0.10)]">
+        <div
+          className="fixed inset-x-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur px-3 pt-3 lg:hidden shadow-[0_-8px_22px_rgba(0,0,0,0.10)]"
+          style={{
+            // ✅ поднимаем плашку выше MobileBottomNav
+            bottom: `calc(var(--kth-bottom-nav-h, 0px) + env(safe-area-inset-bottom))`,
+            paddingBottom: `calc(12px + env(safe-area-inset-bottom))`,
+          }}
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
               <span className="text-lg font-semibold leading-none">{money(discountedPrice)} ₽</span>
@@ -1652,44 +1629,40 @@ export default function ProductPageClient({
                 </motion.button>
               ) : (
                 <div
-  className={[
-    'flex-1',
-    'h-[48px]',
-    'rounded-2xl',
-    'border border-black/10',
-    'bg-white',
-    'shadow-[0_10px_25px_rgba(0,0,0,0.06)]',
-    'flex items-center justify-between',
-    'px-2',
-  ].join(' ')}
-  aria-label="Количество товара в корзине"
->
-  <button
-    type="button"
-    onClick={handleDecCurrent}
-    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
-    aria-label="Уменьшить количество"
-  >
-    <Minus className="w-4 h-4" />
-  </button>
+                  className={[
+                    'flex-1',
+                    'h-[48px]',
+                    'rounded-2xl',
+                    'border border-black/10',
+                    'bg-white',
+                    'shadow-[0_10px_25px_rgba(0,0,0,0.06)]',
+                    'flex items-center justify-between',
+                    'px-2',
+                  ].join(' ')}
+                  aria-label="Количество товара в корзине"
+                >
+                  <button
+                    type="button"
+                    onClick={handleDecCurrent}
+                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+                    aria-label="Уменьшить количество"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
 
-  {/* 🔥 РОВНО ПО ЦЕНТРУ */}
-  <div className="flex-1 flex items-center justify-center">
-    <span className="text-base font-semibold leading-none">
-      {productQty}
-    </span>
-  </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-base font-semibold leading-none">{productQty}</span>
+                  </div>
 
-  <button
-    type="button"
-    onClick={handleIncCurrent}
-    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
-    aria-label="Увеличить количество"
-  >
-    <Plus className="w-4 h-4" />
-  </button>
-</div>
-
+                  <button
+                    type="button"
+                    onClick={handleIncCurrent}
+                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+                    aria-label="Увеличить количество"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               )}
 
               <motion.button
@@ -1726,9 +1699,7 @@ export default function ProductPageClient({
           onPickSecondBase={() => startPick(isBerryProduct ? 'flowers' : 'berries')}
           onPickBalloons={() => startPick('balloons')}
           onPickCards={() => startPick('cards')}
-          onReplaceSecondBase={() =>
-            startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))
-          }
+          onReplaceSecondBase={() => startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))}
           onReplaceBalloons={() => startPick('balloons')}
           onReplaceCards={() => startPick('cards')}
           onRemoveSecondBase={() => removeSelection(isBerryProduct ? 'flowers' : 'berries')}

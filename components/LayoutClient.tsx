@@ -56,19 +56,26 @@ export default function LayoutClient({
     return false;
   }, [pathname]);
 
-  // ✅ Android compositor fallback: ставим флаг на <html> (глобально)
+  // ✅ Железобетонно определяем страницу товара
+  // ловит /product, /product/123, /product/123/anything
+  const isProductPage = useMemo(() => {
+    if (!pathname) return false;
+    return /^\/product(\/|$)/.test(pathname);
+  }, [pathname]);
+
+  // ✅ Класс на html, чтобы можно было скрывать UI через CSS, если нужно
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    try {
-      const ua = navigator.userAgent || '';
-      const isAndroid = /Android/i.test(ua);
+    const root = document.documentElement;
 
-      const root = document.documentElement;
-      if (isAndroid) root.classList.add('kth-android');
-      else root.classList.remove('kth-android');
-    } catch {}
-  }, []);
+    if (isProductPage) root.classList.add('kth-product-page');
+    else root.classList.remove('kth-product-page');
+
+    return () => {
+      root.classList.remove('kth-product-page');
+    };
+  }, [isProductPage]);
 
   // ✅ Поднимаем FAB над нижней фиксированной панелью товара
   useEffect(() => {
@@ -77,7 +84,6 @@ export default function LayoutClient({
     const root = document.documentElement;
 
     const apply = () => {
-      const isProductPage = !!pathname && pathname.startsWith('/product/');
       const isMobile = !window.matchMedia('(min-width: 1024px)').matches; // lg
       root.style.setProperty('--kth-bottom-ui-h', isProductPage && isMobile ? '60px' : '0px');
     };
@@ -89,7 +95,19 @@ export default function LayoutClient({
       window.removeEventListener('resize', apply);
       root.style.setProperty('--kth-bottom-ui-h', '0px');
     };
-  }, [pathname]);
+  }, [isProductPage]);
+
+  // ✅ Если нижнее меню скрыто на товаре, сбрасываем переменную его высоты,
+  // иначе после перехода с другой страницы может остаться лишний отступ снизу.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const root = document.documentElement;
+
+    if (isProductPage) {
+      root.style.setProperty('--kth-bottom-nav-h', '0px');
+    }
+  }, [isProductPage]);
 
   // ✅ Mobile drawer menu controlled from LayoutClient
   const [menuOpen, setMenuOpen] = useState(false);
@@ -186,10 +204,13 @@ export default function LayoutClient({
             {!isGiftPage && <TopBar />}
             {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
+            {/* ✅ Хлебные крошки: показываем только на desktop (sm+) */}
             {!isGiftPage && (
-              <Suspense fallback={null}>
-                <ClientBreadcrumbs />
-              </Suspense>
+              <div className="hidden sm:block">
+                <Suspense fallback={null}>
+                  <ClientBreadcrumbs />
+                </Suspense>
+              </div>
             )}
 
             <main
@@ -215,8 +236,10 @@ export default function LayoutClient({
 
             {!isGiftPage && !menuOpen && <MobileContactFab />}
 
-            {/* ✅ FIX: правильные пропсы */}
-            {!isGiftPage && <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />}
+            {/* ✅ Нижнее меню скрываем на странице товара */}
+            {!isGiftPage && !isProductPage && (
+              <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />
+            )}
 
             {/* ✅ Mobile Drawer Menu */}
             {!isGiftPage && (

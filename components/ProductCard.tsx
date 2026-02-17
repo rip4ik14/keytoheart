@@ -42,8 +42,23 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
+// ✅ компактно для бейджа: 1 ч 20 м
+function formatProductionCompact(minutes: number | null): string | null {
+  if (minutes == null || minutes <= 0) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+
+  if (h > 0 && m > 0) return `${h} ч ${m} м`;
+  if (h > 0) return `${h} ч`;
+  return `${m} м`;
+}
+
 // CSS var from StickyHeader.tsx
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
+function isRemoteUrl(src: string) {
+  return /^https?:\/\//i.test(src);
+}
 
 export default function ProductCard({
   product,
@@ -117,6 +132,11 @@ export default function ProductCard({
     [product.production_time],
   );
 
+  const productionCompact = useMemo(
+    () => formatProductionCompact(product.production_time ?? null),
+    [product.production_time],
+  );
+
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -174,12 +194,11 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  const MOBILE_TITLE_H = 'h-[96px]';
-  const MOBILE_BOTTOM_H = 'h-[112px]';
-
   // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> меньше артефактов
   const MobileToast = () => {
     if (!mounted) return null;
+
+    const unoptThumb = isRemoteUrl(imageUrl);
 
     return createPortal(
       <motion.div
@@ -215,45 +234,50 @@ export default function ProductCard({
         aria-live="polite"
       >
         <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-          <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+          <Image
+            src={imageUrl}
+            alt={title}
+            width={48}
+            height={48}
+            className="object-cover w-full h-full"
+            unoptimized={unoptThumb}
+          />
         </div>
 
         <div className="flex flex-col flex-1 min-w-0">
           <p className="text-sm font-semibold">добавлено в корзину</p>
           <p className="text-xs text-black/60 break-words">{title}</p>
         </div>
-
-        {/* ✅ кнопку убрали по твоей просьбе */}
       </motion.div>,
       document.body,
     );
   };
 
   if (isMobile) {
+    const unopt = isRemoteUrl(imageUrl);
+
     return (
       <>
         <motion.div
           ref={cardRef}
           className={[
-            'relative w-full max-w-[220px] mx-auto',
-            'rounded-[22px]',
+            'relative w-full',
+            'rounded-[18px]',
             'border border-black/10',
-            'bg-white/70 backdrop-blur-xl',
-            'shadow-[0_12px_40px_rgba(0,0,0,0.08)]',
+            'bg-white',
+            'shadow-[0_10px_28px_rgba(0,0,0,0.06)]',
             'overflow-hidden',
-            'transition',
-            'active:scale-[0.99]',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
             'flex flex-col',
           ].join(' ')}
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{ duration: 0.22 }}
           onKeyDown={handleKeyDown}
           role="article"
           aria-labelledby={`product-${product.id}-title`}
           tabIndex={0}
         >
+          {/* schema.org оставляем как было в твоем первом файле */}
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
@@ -271,9 +295,7 @@ export default function ProductCard({
                   url: `/product/${product.id}`,
                   priceCurrency: 'RUB',
                   price: discountedPrice.toString(),
-                  priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                    .toISOString()
-                    .split('T')[0],
+                  priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                   availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                   itemCondition: 'https://schema.org/NewCondition',
                 },
@@ -281,107 +303,108 @@ export default function ProductCard({
             }}
           />
 
-          <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
-            <div className="flex flex-col items-end gap-2">
-              {isPopular && (
-                <motion.div
-                  className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-2.5 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <Star size={14} className="text-yellow-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-tight">популярно</span>
-                </motion.div>
-              )}
-
-              {bonus > 0 && (
-                <motion.div
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-2.5 py-1 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <Gift size={14} className="text-black/70" />
-                  <span className="text-[11px] font-semibold text-black/80">+{bonus}</span>
-                </motion.div>
-              )}
-            </div>
-          </div>
-
           <Link
             href={`/product/${product.id}`}
-            className="block relative w-full aspect-[3/4] overflow-hidden"
+            className="block relative w-full aspect-[1/1] overflow-hidden bg-black/[0.04]"
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
           >
-            <div className="absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
             <Image
               src={imageUrl}
               alt={title}
               fill
               fetchPriority={stablePriority ? 'high' : 'auto'}
-              sizes="(max-width: 640px) 100vw, 220px"
-              className="object-cover w-full h-full transition-transform duration-300 active:scale-[1.02]"
+              sizes="(max-width: 640px) 70vw, 220px"
+              className="object-cover w-full h-full"
               loading={stablePriority ? 'eager' : 'lazy'}
               priority={stablePriority}
+              unoptimized={unopt}
             />
-          </Link>
 
-          <div className="flex flex-col px-3 pt-2 pb-3">
-            <div className={[MOBILE_TITLE_H, 'flex items-center justify-center'].join(' ')}>
-              <h3
-                id={`product-${product.id}-title`}
-                className="text-sm font-medium text-black text-center leading-tight break-words"
-                title={title}
-              >
-                {title}
-              </h3>
+            {/* ✅ нижний скрим - читаемость на любых фото */}
+            <div className="absolute inset-x-0 bottom-0 h-[72px] z-[10] pointer-events-none bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
+
+            {/* ✅ бонус (компактный) */}
+            <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+              {bonus > 0 && (
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
+                  <Gift size={12} className="text-black/70" />
+                  <span className="text-[10px] font-semibold text-black/80">+{bonus}</span>
+                </div>
+              )}
             </div>
 
-            <div className={[MOBILE_BOTTOM_H, 'flex flex-col justify-end'].join(' ')}>
-              <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2">
-                  {(discountAmount > 0 || originalPrice > product.price) && (
-                    <span className="text-xs text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
-                  )}
-                  {discountAmount > 0 && (
-                    <span className="text-xs font-bold text-red-500">-{formatRuble(discountAmount)} ₽</span>
-                  )}
-                  <span className="text-lg font-bold tracking-normal text-black">{priceText}</span>
+            {/* ✅ популярно - только звезда */}
+            <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
+              {isPopular && (
+                <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                  <Star size={14} className="text-yellow-400" />
                 </div>
+              )}
+            </div>
 
-                <div className="mt-1 h-[18px] flex items-center justify-center">
-                  {productionText ? (
-                    <div className="inline-flex items-center gap-1.5 text-xs text-black/55 leading-snug">
-                      <Clock className="h-3.5 w-3.5 text-black/45" />
-                      <span>Изготовление: {productionText}</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-transparent select-none">.</span>
-                  )}
+            {/* ✅ время изготовления - контрастная плашка */}
+            <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                <Clock size={12} className="text-white/80" />
+                <span className="text-[10px] font-semibold text-white">
+                  {productionCompact || (productionText ? productionText : '-')}
+                </span>
+              </div>
+            </div>
+
+            {/* ✅ скидка - снизу справа (если есть) */}
+            {discountAmount > 0 && (
+              <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-none">
+                <div className="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                  <span className="text-[10px] font-bold text-white">-{formatRuble(discountAmount)} ₽</span>
                 </div>
+              </div>
+            )}
+          </Link>
+
+          {/* ✅ низ карточки - название 2 строки + кнопка-цена */}
+          <div className="px-3 pt-3 pb-3">
+            <h3
+              id={`product-${product.id}-title`}
+              className="text-[13px] font-medium text-black leading-[1.25] break-words"
+              title={title}
+              style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {title}
+            </h3>
+
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                {(discountAmount > 0 || originalPrice > product.price) && (
+                  <div className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</div>
+                )}
               </div>
 
               <button
                 ref={buttonRef}
+                type="button"
                 onClick={handleAddToCart}
                 className={[
-                  'mt-3 w-full',
+                  'shrink-0',
                   'inline-flex items-center justify-center gap-2',
-                  'h-[44px] px-4 rounded-full',
-                  'bg-white/70 backdrop-blur-xl',
-                  'border border-black/15',
+                  'h-[36px] px-3 rounded-[14px]',
+                  'bg-black/[0.04]',
+                  'border border-black/10',
                   'text-black',
-                  'text-[12px] font-bold tracking-tight',
-                  'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
-                  'active:scale-[0.98]',
+                  'shadow-[0_10px_20px_rgba(0,0,0,0.06)]',
+                  'active:scale-[0.99]',
                   'transition',
                 ].join(' ')}
                 aria-label={`Добавить ${title} в корзину`}
               >
-                <ShoppingCart size={18} className="text-black/75" />
-                В корзину
+                <ShoppingCart size={16} className="text-black/70" />
+                <span className="text-[14px] font-bold">{priceText}</span>
               </button>
             </div>
           </div>
@@ -392,6 +415,9 @@ export default function ProductCard({
     );
   }
 
+  // =========================
+  // ✅ DESKTOP - ВОЗВРАЩЕНО 1:1 КАК У ТЕБЯ (НЕ ТРОГАЕМ)
+  // =========================
   const useInternalShadow = shadowMode !== 'none';
   const DESKTOP_TITLE_H = 'h-[50px]';
   const DESKTOP_META_H = 'h-[36px]';
@@ -442,6 +468,7 @@ export default function ProductCard({
               className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
               loading={stablePriority ? 'eager' : 'lazy'}
               priority={stablePriority}
+              unoptimized={isRemoteUrl(imageUrl)}
             />
 
             <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -501,9 +528,7 @@ export default function ProductCard({
 
                 <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
                   {productionText ? (
-                    <div className="text-[11px] text-black/55 leading-snug break-words">
-                      Изготовление: {productionText}
-                    </div>
+                    <div className="text-[11px] text-black/55 leading-snug break-words">Изготовление: {productionText}</div>
                   ) : (
                     <span className="text-[11px] text-transparent select-none">.</span>
                   )}
@@ -560,15 +585,20 @@ export default function ProductCard({
             aria-live="polite"
           >
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-              <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+              <Image
+                src={imageUrl}
+                alt={title}
+                width={48}
+                height={48}
+                className="object-cover w-full h-full"
+                unoptimized={isRemoteUrl(imageUrl)}
+              />
             </div>
 
             <div className="flex flex-col flex-1 min-w-0">
               <p className="text-sm font-semibold">добавлено в корзину</p>
               <p className="text-xs text-black/60 break-words">{title}</p>
             </div>
-
-            {/* ✅ кнопку убрали по твоей просьбе */}
           </motion.div>
         )}
       </AnimatePresence>

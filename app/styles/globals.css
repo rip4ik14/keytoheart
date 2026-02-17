@@ -834,3 +834,7 @@ html.kth-android .kth-sticky-surface {
   transition: none !important;
 }
 
+/* ✅ На странице товара скрываем нижнее меню даже если оно смонтировалось */
+html.kth-product-page nav[aria-label="Нижняя навигация"] {
+  display: none !important;
+}
