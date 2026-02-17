@@ -1,4 +1,3 @@
-// ✅ Путь: components/MobileBottomNav.tsx
 'use client';
 
 import Link from 'next/link';
@@ -27,14 +26,13 @@ export default function MobileBottomNav({
   const totalItems = useMemo(() => items.reduce((s, i) => s + (i.quantity || 0), 0), [items]);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
-  const [navH, setNavH] = useState<number>(0);
   const navRef = useRef<HTMLElement | null>(null);
   const lastHRef = useRef<number>(0);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // baseline var (на 1 кадр), потом ResizeObserver уточнит
+  // baseline var на 1 кадр (до измерений)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const baseline = 'calc(84px + max(env(safe-area-inset-bottom), 10px))';
@@ -50,7 +48,11 @@ export default function MobileBottomNav({
   }, []);
 
   // измеряем высоту и пишем в css var
+  // ВАЖНО: iOS pinch-zoom может триггерить resize-спам -> НЕ слушаем window.resize.
+  // Для точной высоты достаточно ResizeObserver по самому навбару.
   useEffect(() => {
+    if (!mounted) return;
+
     const el = navRef.current;
     if (!el) return;
 
@@ -60,7 +62,6 @@ export default function MobileBottomNav({
       if (lastHRef.current === h) return;
 
       lastHRef.current = h;
-      setNavH(h);
       document.documentElement.style.setProperty(NAV_H_VAR, `${h}px`);
     };
 
@@ -72,12 +73,13 @@ export default function MobileBottomNav({
       ro.observe(el);
     }
 
-    window.addEventListener('resize', apply);
-    const t = window.setTimeout(apply, 200);
+    // доп. подстраховка: через кадр и чуть позже (после гидрации/шрифтов)
+    const r1 = window.requestAnimationFrame(apply);
+    const t = window.setTimeout(apply, 250);
 
     return () => {
-      window.removeEventListener('resize', apply);
       if (ro) ro.disconnect();
+      window.cancelAnimationFrame(r1);
       window.clearTimeout(t);
       document.documentElement.style.setProperty(NAV_H_VAR, '0px');
     };
@@ -136,7 +138,6 @@ export default function MobileBottomNav({
     </Link>
   );
 
-  // ✅ при открытом меню: блокируем клики по навбару, но оставляем кликабельной только кнопку "Меню"
   const navDisabled = isMenuOpen;
 
   const navNode = (
@@ -155,17 +156,12 @@ export default function MobileBottomNav({
       )}
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom), 10px)',
-        // чуть “успокаиваем” бар, когда открыт бургер
         opacity: navDisabled ? 0.92 : 1,
       }}
       aria-label="Нижняя навигация"
     >
       {/* fallback var на первый кадр */}
-      <style>
-        {`:root{${NAV_H_VAR}: ${
-          navH > 0 ? `${navH}px` : 'calc(84px + max(env(safe-area-inset-bottom), 10px))'
-        };}`}
-      </style>
+      <style>{`:root{${NAV_H_VAR}: calc(84px + max(env(safe-area-inset-bottom), 10px));}`}</style>
 
       <div
         className={cls(
@@ -196,7 +192,6 @@ export default function MobileBottomNav({
             />
             <Item href="/account" label="Кабинет" icon="/icons/user.svg" active={isActive('/account')} />
 
-            {/* ✅ кнопка меню кликабельна даже когда всё остальное отключено */}
             <button
               type="button"
               onClick={onToggleMenu}
@@ -215,12 +210,7 @@ export default function MobileBottomNav({
               aria-pressed={isMenuOpen}
             >
               <Image src="/icons/menu.svg" alt="" width={22} height={22} className="w-[22px] h-[22px]" />
-              <span
-                className={cls(
-                  'mt-1 text-[10px] font-semibold leading-none',
-                  isMenuOpen ? 'text-black' : 'text-black/60',
-                )}
-              >
+              <span className={cls('mt-1 text-[10px] font-semibold leading-none', isMenuOpen ? 'text-black' : 'text-black/60')}>
                 Меню
               </span>
             </button>

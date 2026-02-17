@@ -1,4 +1,3 @@
-// ✅ Путь: components/LayoutClient.tsx
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
@@ -57,7 +56,6 @@ export default function LayoutClient({
   }, [pathname]);
 
   // ✅ Железобетонно определяем страницу товара
-  // ловит /product, /product/123, /product/123/anything
   const isProductPage = useMemo(() => {
     if (!pathname) return false;
     return /^\/product(\/|$)/.test(pathname);
@@ -78,21 +76,30 @@ export default function LayoutClient({
   }, [isProductPage]);
 
   // ✅ Поднимаем FAB над нижней фиксированной панелью товара
+  // ВАЖНО: iOS pinch-zoom часто триггерит resize, поэтому НЕ слушаем window.resize.
+  // Нам нужна только смена брейкпоинта lg -> используем matchMedia change.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const root = document.documentElement;
+    const mql = window.matchMedia('(min-width: 1024px)'); // lg
 
     const apply = () => {
-      const isMobile = !window.matchMedia('(min-width: 1024px)').matches; // lg
+      const isMobile = !mql.matches;
       root.style.setProperty('--kth-bottom-ui-h', isProductPage && isMobile ? '60px' : '0px');
     };
 
     apply();
-    window.addEventListener('resize', apply);
+
+    const onChange = () => apply();
+
+    if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onChange);
+    else mql.addListener(onChange);
 
     return () => {
-      window.removeEventListener('resize', apply);
+      if (typeof mql.removeEventListener === 'function') mql.removeEventListener('change', onChange);
+      else mql.removeListener(onChange);
+
       root.style.setProperty('--kth-bottom-ui-h', '0px');
     };
   }, [isProductPage]);
@@ -103,10 +110,7 @@ export default function LayoutClient({
     if (typeof window === 'undefined') return;
 
     const root = document.documentElement;
-
-    if (isProductPage) {
-      root.style.setProperty('--kth-bottom-nav-h', '0px');
-    }
+    if (isProductPage) root.style.setProperty('--kth-bottom-nav-h', '0px');
   }, [isProductPage]);
 
   // ✅ Mobile drawer menu controlled from LayoutClient
@@ -204,7 +208,6 @@ export default function LayoutClient({
             {!isGiftPage && <TopBar />}
             {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
-            {/* ✅ Хлебные крошки: показываем только на desktop (sm+) */}
             {!isGiftPage && (
               <div className="hidden sm:block">
                 <Suspense fallback={null}>
@@ -236,12 +239,10 @@ export default function LayoutClient({
 
             {!isGiftPage && !menuOpen && <MobileContactFab />}
 
-            {/* ✅ Нижнее меню скрываем на странице товара */}
             {!isGiftPage && !isProductPage && (
               <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />
             )}
 
-            {/* ✅ Mobile Drawer Menu */}
             {!isGiftPage && (
               <>
                 <div

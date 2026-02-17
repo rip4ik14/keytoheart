@@ -254,18 +254,21 @@ export async function addSubcategory(formData: FormData) {
   return { success: true, subcategory: data };
 }
 
+/**
+ * ✅ ФИКС:
+ * Не используем formData.has('home_*'), потому что в server actions это может не сработать.
+ * Используем formData.get(...) !== null.
+ */
 export async function updateSubcategory(formData: FormData) {
   const id = Number(formData.get('id'));
-  const name = String(formData.get('name') ?? '').trim();
-  let slug = String(formData.get('slug') ?? '').trim();
-
   if (!id) throw new Error('ID обязателен');
-  if (!name) throw new Error('Название обязательно');
 
-  // ✅ Берём category_id из базы, чтобы корректно обеспечивать уникальность slug
+  // тянем текущую запись - чтобы иметь category_id и дефолты
   const { data: existing, error: exErr } = await supabase
     .from('subcategories')
-    .select('category_id')
+    .select(
+      'category_id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex,home_is_featured,home_sort,home_icon_url,home_title',
+    )
     .eq('id', id)
     .single();
 
@@ -274,38 +277,57 @@ export async function updateSubcategory(formData: FormData) {
   const category_id = Number((existing as any).category_id);
   if (!category_id) throw new Error('Не удалось определить category_id подкатегории');
 
+  // name обязателен, берем из formData либо из базы
+  const nameRaw = formData.get('name');
+  const name = String((nameRaw ?? (existing as any).name) ?? '').trim();
+  if (!name) throw new Error('Название обязательно');
+
+  // slug: если пришел - пересобираем, если нет - оставляем текущий
+  const slugRaw = formData.get('slug');
+  let slug =
+    slugRaw !== null ? String(slugRaw ?? '').trim() : String((existing as any).slug ?? '').trim();
+
   slug = generateSlug(slug || name);
   slug = await ensureUniqueSubSlug(category_id, slug, id);
 
-  const payload: any = {
-    name,
-    slug,
-    is_visible: cleanBool(formData.get('is_visible'), true),
+  const payload: any = { name, slug };
 
-    seo_h1: cleanText(formData.get('seo_h1')),
-    seo_title: cleanText(formData.get('seo_title')),
-    seo_description: cleanText(formData.get('seo_description')),
-    seo_text: cleanText(formData.get('seo_text')),
-    og_image: cleanText(formData.get('og_image')),
-    seo_noindex: cleanBool(formData.get('seo_noindex'), false),
-  };
+  // is_visible / seo_* обновляем только если ключ пришел
+  const vIsVisible = formData.get('is_visible');
+  if (vIsVisible !== null) payload.is_visible = cleanBool(vIsVisible, true);
 
-  // ✅ home_* меняем только если ключ реально пришёл в formData
-  if (formData.has('home_is_featured')) {
-    payload.home_is_featured = cleanBool(formData.get('home_is_featured'), false);
-  }
+  const vSeoH1 = formData.get('seo_h1');
+  if (vSeoH1 !== null) payload.seo_h1 = cleanText(vSeoH1);
 
-  if (formData.has('home_sort')) {
-    payload.home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
-  }
+  const vSeoTitle = formData.get('seo_title');
+  if (vSeoTitle !== null) payload.seo_title = cleanText(vSeoTitle);
 
-  if (formData.has('home_title')) {
-    payload.home_title = cleanText(formData.get('home_title'));
-  }
+  const vSeoDesc = formData.get('seo_description');
+  if (vSeoDesc !== null) payload.seo_description = cleanText(vSeoDesc);
 
-  if (formData.has('home_icon_url')) {
-    // ✅ фикс: пустая строка = удалить иконку (null), а не падать с 500
-    payload.home_icon_url = cleanText(formData.get('home_icon_url'));
+  const vSeoText = formData.get('seo_text');
+  if (vSeoText !== null) payload.seo_text = cleanText(vSeoText);
+
+  const vOg = formData.get('og_image');
+  if (vOg !== null) payload.og_image = cleanText(vOg);
+
+  const vNoindex = formData.get('seo_noindex');
+  if (vNoindex !== null) payload.seo_noindex = cleanBool(vNoindex, false);
+
+  // home_* - ключевой фикс
+  const vHomeFeatured = formData.get('home_is_featured');
+  if (vHomeFeatured !== null) payload.home_is_featured = cleanBool(vHomeFeatured, false);
+
+  const vHomeSort = formData.get('home_sort');
+  if (vHomeSort !== null) payload.home_sort = Math.max(0, cleanInt(vHomeSort, 0));
+
+  const vHomeTitle = formData.get('home_title');
+  if (vHomeTitle !== null) payload.home_title = cleanText(vHomeTitle);
+
+  const vHomeIcon = formData.get('home_icon_url');
+  if (vHomeIcon !== null) {
+    // пустая строка -> null (удалить)
+    payload.home_icon_url = cleanText(vHomeIcon);
   }
 
   const { error } = await supabase.from('subcategories').update(payload).eq('id', id);
@@ -313,6 +335,7 @@ export async function updateSubcategory(formData: FormData) {
 
   revalidatePath('/admin/categories');
   revalidatePath('/');
+  revalidatePath('/category/povod');
 
   return { success: true };
 }
