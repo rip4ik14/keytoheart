@@ -69,7 +69,7 @@ export default function ReviewsPage() {
                 </p>
 
                 <div className="mt-3 text-xs text-gray-500">
-                  Источник: <Link className="underline" href="https://flowwow.com/shop/key-to-heart/" target="_blank">Flowwow</Link>
+                  Источник: <Link className="underline" href="https://flowwow.com/shop/key-to-heart/" target="_blank" rel="noopener noreferrer">Flowwow</Link>
                 </div>
               </article>
             ))}
