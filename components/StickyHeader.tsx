@@ -1,4 +1,3 @@
-// ✅ Путь: components/StickyHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -10,14 +9,13 @@ import { AnimatePresence, motion, useAnimation } from 'framer-motion';
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
 import SearchModal from '@components/SearchModal';
-import CookieBanner from '@components/CookieBanner';
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
+import { useAuth } from '@context/AuthContext';
 
 import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
-import { useAuth } from '@context/AuthContext';
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
@@ -60,10 +58,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [previousTotalItems, setPreviousTotalItems] = useState(0);
 
-  // burger menu state (нужно для новой версии BurgerMenu)
+  // burger menu state (нужно для BurgerMenu)
   const [isBurgerOpen, setIsBurgerOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
+  // Next/Image ref может быть не "идеально" типизирован, но в практике ок
   const cartIconRef = useRef<HTMLImageElement>(null);
 
   const cartControls = useAnimation();
@@ -93,7 +92,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // expose sticky header height as CSS var (без лишних записей)
+  // expose sticky header height as CSS var (без iOS zoom resize-спама)
   const lastHeaderHRef = useRef<number>(0);
   useEffect(() => {
     const el = headerRef.current;
@@ -101,6 +100,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     const apply = () => {
       const h = Math.ceil(el.getBoundingClientRect().height);
+      if (!h) return;
       if (lastHeaderHRef.current === h) return;
       lastHeaderHRef.current = h;
       document.documentElement.style.setProperty(STICKY_HEADER_VAR, `${h}px`);
@@ -114,12 +114,12 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       ro.observe(el);
     }
 
-    window.addEventListener('resize', apply);
-    const t = window.setTimeout(apply, 200);
+    const r1 = window.requestAnimationFrame(apply);
+    const t = window.setTimeout(apply, 250);
 
     return () => {
-      window.removeEventListener('resize', apply);
       if (ro) ro.disconnect();
+      window.cancelAnimationFrame(r1);
       window.clearTimeout(t);
     };
   }, []);
@@ -138,9 +138,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   // ✅ важно: не дергать глобальный state на каждом scroll
   // обновляем позицию иконки корзины только когда реально идет "полет"
   useEffect(() => {
+    // если не анимируем - один раз обновили и всё
     if (!animationState.isAnimating) {
       const el = cartIconRef.current;
       if (!el) return;
+
       const rect = el.getBoundingClientRect();
       setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
       return;
@@ -163,12 +165,27 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
 
     schedule();
-    window.addEventListener('resize', schedule);
+
+    // scroll оставляем - он реально нужен
     window.addEventListener('scroll', schedule, { passive: true });
 
+    // вместо resize (который дергается при pinch-zoom на iOS) слушаем смену брейкпоинта
+    const mql = window.matchMedia('(min-width: 640px)'); // sm
+    const onChange = () => schedule();
+
+    if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onChange);
+    else mql.addListener(onChange);
+
+    // безопасно для поворота экрана
+    window.addEventListener('orientationchange', schedule);
+
     return () => {
-      window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule);
+      window.removeEventListener('orientationchange', schedule);
+
+      if (typeof mql.removeEventListener === 'function') mql.removeEventListener('change', onChange);
+      else mql.removeListener(onChange);
+
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [animationState.isAnimating, setCartIconPosition]);
@@ -265,7 +282,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         itemType="https://schema.org/SiteNavigationElement"
       >
         {/* ========================= */}
-        {/* ✅ MOBILE (оставляем как есть) */}
+        {/* ✅ MOBILE */}
         {/* ========================= */}
         <div className="sm:hidden px-3 pt-2 pb-2 bg-transparent">
           <div
@@ -280,7 +297,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               'kth-glass kth-sticky-surface',
             )}
           >
-            {/* top pill row (logo + actions) */}
             <div className="transition-all duration-200">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="w-10 h-10" aria-hidden="true" />
@@ -304,7 +320,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               </div>
             </div>
 
-            {/* categories pill */}
             <div className="px-2 pb-2">
               <div
                 className={cls(
@@ -325,13 +340,12 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         </div>
 
         {/* ===================== */}
-        {/* ✅ DESKTOP (вернули как в старом коде) */}
+        {/* ✅ DESKTOP */}
         {/* ===================== */}
         <div className="hidden sm:block">
           <div className={['border-b border-black/0', 'transition-all duration-200', 'opacity-100'].join(' ')}>
             <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
               <div className="flex items-center gap-2 md:gap-4 min-w-0">
-                {/* ✅ burger button + drawer (как в новой реализации, но отображаем на десктопе как раньше) */}
                 <BurgerMenu open={isBurgerOpen} onOpenChange={setIsBurgerOpen} />
 
                 <Link
@@ -365,7 +379,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                     <span className="text-xs text-gray-600">с 09:00 до 21:00</span>
                   </div>
 
-                  {/* ✅ вернули иконки мессенджеров (desktop only) */}
                   <div className="flex items-center gap-2">
                     <a
                       href="https://wa.me/79886033821"
@@ -484,7 +497,8 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   >
                     <motion.div animate={cartControls} className="relative">
                       <Image
-                        ref={cartIconRef}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ref={cartIconRef as any}
                         src="/icons/shopping-cart.svg"
                         alt="Корзина"
                         width={20}
@@ -534,9 +548,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 initial={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
                 animate={isAndroid ? { opacity: 1, y: 0 } : { scale: 1, opacity: 1 }}
                 exit={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
-                transition={
-                  isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }
-                }
+                transition={isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }}
               >
                 <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
               </motion.div>
@@ -556,8 +568,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <CookieBanner />
     </>
   );
 }

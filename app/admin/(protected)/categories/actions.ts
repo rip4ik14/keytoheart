@@ -239,6 +239,9 @@ export async function addSubcategory(formData: FormData) {
     og_image: cleanText(formData.get('og_image')),
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
 
+    // ✅ универсальная картинка/иконка подкатегории
+    image_url: cleanText(formData.get('image_url')),
+
     home_is_featured: cleanBool(formData.get('home_is_featured'), false),
     home_sort: Math.max(0, cleanInt(formData.get('home_sort'), 0)),
     home_icon_url: cleanText(formData.get('home_icon_url')),
@@ -267,7 +270,7 @@ export async function updateSubcategory(formData: FormData) {
   const { data: existing, error: exErr } = await supabase
     .from('subcategories')
     .select(
-      'category_id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex,home_is_featured,home_sort,home_icon_url,home_title',
+      'category_id,name,slug,is_visible,image_url,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex,home_is_featured,home_sort,home_icon_url,home_title',
     )
     .eq('id', id)
     .single();
@@ -314,6 +317,10 @@ export async function updateSubcategory(formData: FormData) {
   const vNoindex = formData.get('seo_noindex');
   if (vNoindex !== null) payload.seo_noindex = cleanBool(vNoindex, false);
 
+  // ✅ image_url
+  const vImageUrl = formData.get('image_url');
+  if (vImageUrl !== null) payload.image_url = cleanText(vImageUrl);
+
   // home_* - ключевой фикс
   const vHomeFeatured = formData.get('home_is_featured');
   if (vHomeFeatured !== null) payload.home_is_featured = cleanBool(vHomeFeatured, false);
@@ -325,10 +332,7 @@ export async function updateSubcategory(formData: FormData) {
   if (vHomeTitle !== null) payload.home_title = cleanText(vHomeTitle);
 
   const vHomeIcon = formData.get('home_icon_url');
-  if (vHomeIcon !== null) {
-    // пустая строка -> null (удалить)
-    payload.home_icon_url = cleanText(vHomeIcon);
-  }
+  if (vHomeIcon !== null) payload.home_icon_url = cleanText(vHomeIcon);
 
   const { error } = await supabase.from('subcategories').update(payload).eq('id', id);
   if (error) throw new Error(error.message);

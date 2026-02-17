@@ -1,3 +1,4 @@
+// ✅ Путь: components/LayoutClient.tsx
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
@@ -74,6 +75,49 @@ export default function LayoutClient({
       root.classList.remove('kth-product-page');
     };
   }, [isProductPage]);
+
+  // ✅ Pinch-zoom на iOS спамит resize/viewport события и может "убивать" производительность из-за blur/анимаций.
+  // Мы НЕ запрещаем зум, а только облегчаем UI, пока zoom активен.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const root = document.documentElement;
+    const vv = (window as any).visualViewport as VisualViewport | undefined;
+
+    if (!vv) return;
+
+    let raf = 0;
+    let lastZooming = false;
+
+    const apply = () => {
+      raf = 0;
+
+      const scale = vv.scale || 1;
+      const zooming = scale > 1.01;
+
+      if (zooming === lastZooming) return;
+      lastZooming = zooming;
+
+      // класс используем в globals.css - отключаем blur/анимации/transition только во время zoom
+      root.classList.toggle('kth-zooming', zooming);
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(apply);
+    };
+
+    apply();
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+
+    return () => {
+      vv.removeEventListener('resize', schedule);
+      vv.removeEventListener('scroll', schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+      root.classList.remove('kth-zooming');
+    };
+  }, []);
 
   // ✅ Поднимаем FAB над нижней фиксированной панелью товара
   // ВАЖНО: iOS pinch-zoom часто триггерит resize, поэтому НЕ слушаем window.resize.
@@ -220,9 +264,7 @@ export default function LayoutClient({
               id="main-content"
               tabIndex={-1}
               className={
-                isGiftPage
-                  ? ''
-                  : 'pt-12 sm:pt-14 pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]'
+                isGiftPage ? '' : 'pt-12 sm:pt-14 pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]'
               }
             >
               {children}
@@ -239,9 +281,7 @@ export default function LayoutClient({
 
             {!isGiftPage && !menuOpen && <MobileContactFab />}
 
-            {!isGiftPage && !isProductPage && (
-              <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />
-            )}
+            {!isGiftPage && !isProductPage && <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />}
 
             {!isGiftPage && (
               <>

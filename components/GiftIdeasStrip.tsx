@@ -6,7 +6,11 @@ export type GiftIdeaItem = {
   id: number;
   name: string;
   slug: string;
+
+  // ✅ теперь поддерживаем и то и то
+  image_url?: string | null;
   home_icon_url?: string | null;
+
   home_title?: string | null;
 };
 
@@ -33,7 +37,6 @@ export default function GiftIdeasStrip({
     <section className="mt-6 sm:mt-8">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex items-center justify-between gap-3">
-          {/* ✅ Заголовок как у остальных секций/категорий */}
           <h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight text-black">
             {title}
           </h2>
@@ -60,9 +63,10 @@ export default function GiftIdeasStrip({
           <div className="flex gap-4 sm:gap-5 min-w-max">
             {items.map((it) => {
               const label = (it.home_title || it.name || '').trim();
-
-              // ✅ Новый роут: /category/povod/[subslug]
               const href = `/category/${encodeURIComponent(parentSlug)}/${encodeURIComponent(it.slug)}`;
+
+              // ✅ вот тут рисуется иконка на фронте
+              const icon = (it.image_url || it.home_icon_url || '').trim();
 
               return (
                 <Link
@@ -72,14 +76,14 @@ export default function GiftIdeasStrip({
                   aria-label={label}
                 >
                   <div className="relative h-[66px] w-[66px] sm:h-[72px] sm:w-[72px] rounded-full bg-white border border-black/10 shadow-[0_14px_40px_rgba(0,0,0,0.08)] overflow-hidden">
-                    {it.home_icon_url ? (
+                    {icon ? (
                       <Image
-                        src={it.home_icon_url}
+                        src={icon}
                         alt={label}
                         fill
                         sizes="72px"
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={/^https?:\/\//i.test(it.home_icon_url)}
+                        unoptimized={/^https?:\/\//i.test(icon)}
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-black/70 font-bold">

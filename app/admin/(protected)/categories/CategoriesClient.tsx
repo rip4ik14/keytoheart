@@ -38,6 +38,9 @@ interface Subcategory extends SeoFields, HomeFields {
   category_id: number | null;
   slug: string;
   is_visible: boolean;
+
+  // ✅ универсальная картинка/иконка (то, что ты хочешь)
+  image_url?: string | null;
 }
 
 interface Category extends SeoFields {
@@ -150,6 +153,10 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     fd.set('home_title', String(home.home_title ?? ''));
   };
 
+  const appendImageToFormData = (fd: FormData, imageUrl?: string | null) => {
+    fd.set('image_url', String(imageUrl ?? ''));
+  };
+
   /* ------------------------------ Storage (иконки) ------------------------------ */
 
   const supabase = createClient();
@@ -187,7 +194,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   }
 
   async function removeHomeIconIfAny(sub: Subcategory) {
-    const url = (sub.home_icon_url || '').trim();
+    const url = ((sub.image_url || sub.home_icon_url) || '').trim();
     if (!url) return;
 
     const path = storagePathFromPublicUrl(url);
@@ -197,36 +204,36 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   }
 
   const handleUploadSubHomeIcon = async (sub: Subcategory, file: File) => {
-  try {
-    const publicUrl = await uploadHomeIcon(file, sub);
+    try {
+      const publicUrl = await uploadHomeIcon(file, sub);
 
-    const formData = new FormData();
-    formData.set('id', sub.id.toString());
-    formData.set('name', sub.name);
-    formData.set('slug', generateSlug(sub.slug || sub.name));
-    formData.set('is_visible', String(!!sub.is_visible));
-    appendSeoToFormData(formData, sub);
+      const formData = new FormData();
+      formData.set('id', sub.id.toString());
+      formData.set('name', sub.name);
+      formData.set('slug', generateSlug(sub.slug || sub.name));
+      formData.set('is_visible', String(!!sub.is_visible));
+      appendSeoToFormData(formData, sub);
 
-    appendHomeToFormData(formData, {
-      ...sub,
-      home_is_featured: !!sub.home_is_featured,
-      home_sort: safeInt(sub.home_sort ?? 0, 0),
-      home_icon_url: publicUrl,
-      home_title: sub.home_title ?? '',
-    });
+      appendHomeToFormData(formData, {
+        ...sub,
+        home_is_featured: !!sub.home_is_featured,
+        home_sort: safeInt(sub.home_sort ?? 0, 0),
+        home_icon_url: publicUrl,
+        home_title: sub.home_title ?? '',
+      });
 
-    // ✅ гарантия, что именно свежий url улетит в server action
-    formData.set('home_icon_url', publicUrl);
+      // ✅ пишем и туда и туда
+      formData.set('home_icon_url', publicUrl);
+      appendImageToFormData(formData, publicUrl);
 
-    await updateSubcategory(formData);
+      await updateSubcategory(formData);
 
-    toast.success('Иконка загружена');
-    location.reload();
-  } catch (e: any) {
-    toast.error(e?.message || 'Не удалось загрузить иконку');
-  }
-};
-
+      toast.success('Иконка загружена');
+      location.reload();
+    } catch (e: any) {
+      toast.error(e?.message || 'Не удалось загрузить иконку');
+    }
+  };
 
   const handleRemoveSubHomeIcon = async (sub: Subcategory) => {
     try {
@@ -247,8 +254,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
         home_title: sub.home_title ?? '',
       });
 
-        formData.set('home_icon_url', '');
-
+      // ✅ чистим и там и там
+      formData.set('home_icon_url', '');
+      appendImageToFormData(formData, '');
 
       await updateSubcategory(formData);
 
@@ -366,6 +374,8 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       home_title: '',
     });
 
+    appendImageToFormData(formData, '');
+
     try {
       await addSubcategory(formData);
       toast.success('Подкатегория добавлена');
@@ -378,6 +388,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   const handleEditSubcategory = (sub: Subcategory) =>
     setEditingSub({
       ...sub,
+      image_url: sub.image_url ?? '',
       home_is_featured: !!sub.home_is_featured,
       home_sort: safeInt(sub.home_sort ?? 0, 0),
       home_icon_url: sub.home_icon_url ?? '',
@@ -390,6 +401,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
         formData.set('is_visible', String(!!editingSub.is_visible));
         appendSeoToFormData(formData, editingSub);
         appendHomeToFormData(formData, editingSub);
+        appendImageToFormData(formData, editingSub.image_url ?? '');
 
         const name = String(formData.get('name') ?? editingSub.name);
         const slugRaw = String(formData.get('slug') ?? editingSub.slug);
@@ -434,6 +446,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     formData.set('is_visible', String(!sub.is_visible));
     appendSeoToFormData(formData, sub);
     appendHomeToFormData(formData, sub);
+    appendImageToFormData(formData, sub.image_url ?? '');
 
     try {
       await updateSubcategory(formData);
@@ -471,6 +484,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       home_icon_url: sub.home_icon_url ?? '',
       home_title: sub.home_title ?? '',
     });
+    appendImageToFormData(formData, sub.image_url ?? '');
 
     try {
       await updateSubcategory(formData);
@@ -511,6 +525,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       home_icon_url: sub.home_icon_url ?? '',
       home_title: sub.home_title ?? '',
     });
+    appendImageToFormData(formData, sub.image_url ?? '');
 
     try {
       await updateSubcategory(formData);
@@ -844,7 +859,10 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                     <input type="hidden" name="id" value={cat.id} />
 
                     <div className="flex items-center gap-3">
-                      <button type="submit" className="text-green-600 hover:underline text-sm whitespace-nowrap">
+                      <button
+                        type="submit"
+                        className="text-green-600 hover:underline text-sm whitespace-nowrap"
+                      >
                         💾 Сохранить
                       </button>
                       <button
@@ -859,14 +877,19 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 ) : (
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
                     <div>
-                      <h3 className={`font-bold text-lg ${cat.is_visible ? 'text-black' : 'text-gray-400'}`}>
+                      <h3
+                        className={`font-bold text-lg ${cat.is_visible ? 'text-black' : 'text-gray-400'}`}
+                      >
                         {cat.name} {cat.is_visible ? '' : '(Скрыта)'}
                       </h3>
                       <p className="text-sm text-gray-500">/{cat.slug}</p>
                     </div>
 
                     <div className="flex gap-2 mt-2 sm:mt-0">
-                      <button onClick={() => setEditingCategory(cat)} className="text-blue-600 hover:underline text-sm">
+                      <button
+                        onClick={() => setEditingCategory(cat)}
+                        className="text-blue-600 hover:underline text-sm"
+                      >
                         ✏️
                       </button>
                       <button
@@ -910,6 +933,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                 formData.set('is_visible', String(!!editingSub.is_visible));
                                 appendSeoToFormData(formData, editingSub);
                                 appendHomeToFormData(formData, editingSub);
+                                appendImageToFormData(formData, editingSub.image_url ?? '');
 
                                 formData.set(
                                   'slug',
@@ -926,7 +950,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                 <input
                                   name="name"
                                   value={editingSub.name}
-                                  onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
+                                  onChange={(e) =>
+                                    setEditingSub({ ...editingSub, name: e.target.value })
+                                  }
                                   className="border border-gray-300 px-2 py-1 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                                   required
                                 />
@@ -935,7 +961,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                   <input
                                     type="checkbox"
                                     checked={editingSub.is_visible}
-                                    onChange={(e) => setEditingSub({ ...editingSub, is_visible: e.target.checked })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, is_visible: e.target.checked })
+                                    }
                                     className="mr-2"
                                   />
                                   Видима
@@ -943,10 +971,21 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
                                 <input type="hidden" name="id" value={sub.id} />
                                 <input type="hidden" name="slug" value={editingSub.slug} />
-                                <input type="hidden" name="is_visible" value={String(!!editingSub.is_visible)} />
-                                <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
+                                <input
+                                  type="hidden"
+                                  name="is_visible"
+                                  value={String(!!editingSub.is_visible)}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="seo_noindex"
+                                  value={String(!!editingSub.seo_noindex)}
+                                />
 
-                                <button type="submit" className="text-green-600 hover:underline text-sm whitespace-nowrap">
+                                <button
+                                  type="submit"
+                                  className="text-green-600 hover:underline text-sm whitespace-nowrap"
+                                >
                                   💾
                                 </button>
                                 <button
@@ -994,7 +1033,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
                                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
-                                    <div className="text-xs text-gray-600 mb-1">Иконка (загрузка файла)</div>
+                                    <div className="text-xs text-gray-600 mb-1">
+                                      Иконка (загрузка файла)
+                                    </div>
 
                                     <div className="flex items-center gap-3">
                                       <label className="inline-flex items-center justify-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm cursor-pointer hover:bg-gray-50 transition">
@@ -1012,7 +1053,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                         />
                                       </label>
 
-                                      {!!(editingSub.home_icon_url || '').trim() && (
+                                      {!!((editingSub.image_url || editingSub.home_icon_url) || '').trim() && (
                                         <button
                                           type="button"
                                           onClick={() => handleRemoveSubHomeIcon(editingSub)}
@@ -1029,7 +1070,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                   </div>
 
                                   <div>
-                                    <div className="text-xs text-gray-600 mb-1">Короткая подпись (опционально)</div>
+                                    <div className="text-xs text-gray-600 mb-1">
+                                      Короткая подпись (опционально)
+                                    </div>
                                     <input
                                       type="text"
                                       value={editingSub.home_title ?? ''}
@@ -1045,57 +1088,93 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                   </div>
                                 </div>
 
-                                {!!editingSub.home_icon_url && (
+                                {!!(editingSub.image_url || editingSub.home_icon_url) && (
                                   <div className="mt-3 flex items-center gap-3">
                                     <div className="h-[52px] w-[52px] rounded-full overflow-hidden border border-black/10 bg-white relative">
                                       <Image
-                                        src={editingSub.home_icon_url}
+                                        src={(editingSub.image_url || editingSub.home_icon_url) as string}
                                         alt="preview"
                                         fill
                                         className="object-cover"
-                                        unoptimized={/^https?:\/\//i.test(editingSub.home_icon_url || '')}
+                                        unoptimized={/^https?:\/\//i.test((editingSub.image_url || editingSub.home_icon_url) || '')}
                                       />
                                     </div>
                                     <div className="text-xs text-gray-600">Превью на главной (круг)</div>
                                   </div>
                                 )}
 
-                                <input type="hidden" name="home_is_featured" value={String(!!editingSub.home_is_featured)} />
-                                <input type="hidden" name="home_sort" value={String(safeInt(editingSub.home_sort ?? 0, 0))} />
-                                <input type="hidden" name="home_icon_url" value={String(editingSub.home_icon_url ?? '')} />
-                                <input type="hidden" name="home_title" value={String(editingSub.home_title ?? '')} />
+                                <input
+                                  type="hidden"
+                                  name="home_is_featured"
+                                  value={String(!!editingSub.home_is_featured)}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="home_sort"
+                                  value={String(safeInt(editingSub.home_sort ?? 0, 0))}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="home_icon_url"
+                                  value={String(editingSub.home_icon_url ?? '')}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="home_title"
+                                  value={String(editingSub.home_title ?? '')}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="image_url"
+                                  value={String(editingSub.image_url ?? '')}
+                                />
                               </div>
 
                               <details>
-                                <summary className="cursor-pointer text-xs text-gray-700 select-none">SEO подкатегории</summary>
+                                <summary className="cursor-pointer text-xs text-gray-700 select-none">
+                                  SEO подкатегории
+                                </summary>
                                 <div className="mt-2 grid grid-cols-1 gap-2">
                                   <input
                                     value={editingSub.seo_h1 ?? ''}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_h1: e.target.value })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, seo_h1: e.target.value })
+                                    }
                                     className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
                                     placeholder="SEO H1"
                                   />
                                   <input
                                     value={editingSub.seo_title ?? ''}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_title: e.target.value })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, seo_title: e.target.value })
+                                    }
                                     className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
                                     placeholder="SEO Title"
                                   />
                                   <textarea
                                     value={editingSub.seo_description ?? ''}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_description: e.target.value })}
+                                    onChange={(e) =>
+                                      setEditingSub({
+                                        ...editingSub,
+                                        seo_description: e.target.value,
+                                      })
+                                    }
                                     className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[60px]"
                                     placeholder="SEO Description"
                                   />
                                   <input
                                     value={editingSub.og_image ?? ''}
-                                    onChange={(e) => setEditingSub({ ...editingSub, og_image: e.target.value })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, og_image: e.target.value })
+                                    }
                                     className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
                                     placeholder="OG image URL"
                                   />
                                   <textarea
                                     value={editingSub.seo_text ?? ''}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_text: e.target.value })}
+                                    onChange={(e) =>
+                                      setEditingSub({ ...editingSub, seo_text: e.target.value })
+                                    }
                                     className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[100px]"
                                     placeholder="SEO текст"
                                   />
@@ -1103,12 +1182,21 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                                     <input
                                       type="checkbox"
                                       checked={!!editingSub.seo_noindex}
-                                      onChange={(e) => setEditingSub({ ...editingSub, seo_noindex: e.target.checked })}
+                                      onChange={(e) =>
+                                        setEditingSub({
+                                          ...editingSub,
+                                          seo_noindex: e.target.checked,
+                                        })
+                                      }
                                     />
                                     noindex
                                   </label>
 
-                                  <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
+                                  <input
+                                    type="hidden"
+                                    name="seo_noindex"
+                                    value={String(!!editingSub.seo_noindex)}
+                                  />
                                 </div>
                               </details>
                             </form>
@@ -1116,7 +1204,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                             <>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className={sub.is_visible ? 'text-gray-800 font-semibold' : 'text-gray-400 font-semibold'}>
+                                  <span
+                                    className={
+                                      sub.is_visible
+                                        ? 'text-gray-800 font-semibold'
+                                        : 'text-gray-400 font-semibold'
+                                    }
+                                  >
                                     {sub.name} {sub.is_visible ? '' : '(Скрыта)'}
                                   </span>
 
@@ -1201,11 +1295,15 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       type="text"
                       placeholder="Название подкатегории (например, Друзьям)"
                       value={newSubByCat[cat.id] || ''}
-                      onChange={(e) => setNewSubByCat((prev) => ({ ...prev, [cat.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setNewSubByCat((prev) => ({ ...prev, [cat.id]: e.target.value }))
+                      }
                       className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                       aria-label="Название подкатегории"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Slug будет создан автоматически (латиница)</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Slug будет создан автоматически (латиница)
+                    </p>
                   </div>
                   <button
                     type="submit"

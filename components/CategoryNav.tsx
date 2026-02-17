@@ -88,12 +88,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   const [filterOpen, setFilterOpen] = useState(false);
 
   const [canScrollRight, setCanScrollRight] = useState(false);
-
   const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // StickyHeader уже ставит html.kth-android, но на всякий случай продублируем
     const byClass = document.documentElement.classList.contains('kth-android');
     const byUa = /Android/i.test(navigator.userAgent || '');
     setIsAndroid(byClass || byUa);
@@ -213,7 +211,8 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       type: 'subcategory',
     });
 
-    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
+    if (YM_ID !== undefined)
+      callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
   };
 
   // центрируем активную вкладку
@@ -235,7 +234,8 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     wrap.scrollBy({ left: delta, behavior: 'smooth' });
   }, [currentCategorySlug, categories.length]);
 
-  // индикатор "можно скроллить вправо" - rAF и только по изменению значения
+  // индикатор "можно скроллить вправо"
+  // без window.resize (iOS pinch-zoom спамит resize)
   const lastCanRightRef = useRef<boolean>(false);
   useEffect(() => {
     const el = scrollRef.current;
@@ -261,11 +261,31 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
 
     calc();
     el.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => schedule());
+      ro.observe(el);
+    }
+
+    // смена брейкпоинта тоже может менять ширину
+    const mql = window.matchMedia('(min-width: 640px)');
+    const onChange = () => schedule();
+    if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onChange);
+    else mql.addListener(onChange);
+
+    // безопасно для поворота экрана
+    window.addEventListener('orientationchange', schedule);
 
     return () => {
       el.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
+      if (ro) ro.disconnect();
+
+      if (typeof mql.removeEventListener === 'function') mql.removeEventListener('change', onChange);
+      else mql.removeListener(onChange);
+
+      window.removeEventListener('orientationchange', schedule);
+
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [categories.length, loading, showMobileFilter]);
@@ -303,9 +323,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
         'border border-black/10',
         'transition-all duration-200',
         isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/40 backdrop-blur-xl',
-        active
-          ? 'bg-white/90 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]'
-          : 'text-black/70 active:bg-white/55',
+        active ? 'bg-white/90 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]' : 'text-black/70 active:bg-white/55',
       )}
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
@@ -315,11 +333,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     </Link>
   );
 
-  const FilterBtn = ({
-    onClick,
-  }: {
-    onClick: () => void;
-  }) => {
+  const FilterBtn = ({ onClick }: { onClick: () => void }) => {
     const baseClass = cls(
       'shrink-0 snap-start',
       'h-9 px-3',
@@ -364,7 +378,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       {/* mobile - tabs */}
       <div className="sm:hidden">
         <div className="relative">
-          {/* right fade + chevron */}
           <div
             className={cls(
               'pointer-events-none absolute top-0 right-0 h-full w-12',
@@ -407,154 +420,152 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
             aria-label="Категории (tabs)"
           >
             <div className="flex gap-2 py-2">
-              {/* Фильтр */}
               {showMobileFilter && <FilterBtn onClick={() => setFilterOpen(true)} />}
 
-              {loading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="shrink-0 snap-start">
-                      <div className="h-9 w-24 rounded-full bg-black/10 animate-pulse" />
-                    </div>
-                  ))
-                : categories.length === 0
-                  ? (
-                    <div className="text-center text-black/50 w-full text-[13px] py-2">Категории отсутствуют</div>
-                  )
-                  : categories.map((cat, idx) => {
-                      const href = `/category/${cat.slug}`;
-                      const isActiveCategory = pathname.startsWith(href);
-                      const isActiveSubcategory = cat.subcategories?.some((sub) =>
-                        pathname.includes(`/category/${cat.slug}/${sub.slug}`),
-                      );
-                      const active = isActiveCategory || Boolean(isActiveSubcategory);
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="shrink-0 snap-start">
+                    <div className="h-9 w-24 rounded-full bg-black/10 animate-pulse" />
+                  </div>
+                ))
+              ) : categories.length === 0 ? (
+                <div className="text-center text-black/50 w-full text-[13px] py-2">Категории отсутствуют</div>
+              ) : (
+                categories.map((cat, idx) => {
+                  const href = `/category/${cat.slug}`;
+                  const isActiveCategory = pathname.startsWith(href);
+                  const isActiveSubcategory = cat.subcategories?.some((sub) =>
+                    pathname.includes(`/category/${cat.slug}/${sub.slug}`),
+                  );
+                  const active = isActiveCategory || Boolean(isActiveSubcategory);
 
-                      const content = (
-                        <MobileTab
-                          href={href}
-                          label={cat.name}
-                          active={active}
-                          tabKey={`cat:${cat.slug}`}
-                          onClick={() => trackCategory(cat.name)}
-                        />
-                      );
+                  const content = (
+                    <MobileTab
+                      href={href}
+                      label={cat.name}
+                      active={active}
+                      tabKey={`cat:${cat.slug}`}
+                      onClick={() => trackCategory(cat.name)}
+                    />
+                  );
 
-                      // на Android убираем motion-обертку (лишняя нагрузка)
-                      if (isAndroid) {
-                        return (
-                          <div key={cat.id} className="shrink-0 snap-start">
-                            {content}
-                          </div>
-                        );
-                      }
+                  if (isAndroid) {
+                    return (
+                      <div key={cat.id} className="shrink-0 snap-start">
+                        {content}
+                      </div>
+                    );
+                  }
 
-                      return (
-                        <motion.div
-                          key={cat.id}
-                          className="shrink-0 snap-start"
-                          initial={{ opacity: 0, x: -6 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.18, delay: Math.min(idx, 10) * 0.03 }}
-                        >
-                          {content}
-                        </motion.div>
-                      );
-                    })}
+                  return (
+                    <motion.div
+                      key={cat.id}
+                      className="shrink-0 snap-start"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.18, delay: Math.min(idx, 10) * 0.03 }}
+                    >
+                      {content}
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* desktop - как было */}
+      {/* desktop */}
       <ul className="hidden sm:flex px-4 py-4 justify-center relative bg-white border-b">
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <li key={i}>
-                <div className="h-6 w-20 rounded bg-neutral-200 animate-pulse" />
-              </li>
-            ))
-          : categories.length === 0
-            ? (
-              <li className="text-center text-neutral-500">Категории отсутствуют</li>
-            )
-            : categories.map((cat, idx) => {
-                const href = `/category/${cat.slug}`;
-                const isActive = pathname.startsWith(href);
-                const hasDropdown = (cat.subcategories?.length ?? 0) > 0;
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <li key={i}>
+              <div className="h-6 w-20 rounded bg-neutral-200 animate-pulse" />
+            </li>
+          ))
+        ) : categories.length === 0 ? (
+          <li className="text-center text-neutral-500">Категории отсутствуют</li>
+        ) : (
+          categories.map((cat, idx) => {
+            const href = `/category/${cat.slug}`;
+            const isActive = pathname.startsWith(href);
+            const hasDropdown = (cat.subcategories?.length ?? 0) > 0;
 
-                return (
-                  <li key={cat.id} className="flex items-center">
-                    <div className="relative group inline-block">
-                      <Link
-                        href={href}
-                        className={[
-                          'inline-flex items-center gap-1.5',
-                          'px-2 py-1',
-                          'text-sm font-medium transition-colors',
-                          isActive ? 'text-black underline' : 'text-neutral-500 hover:text-black hover:underline',
-                          'focus:ring-2 focus:ring-black/20 focus:outline-none',
-                        ].join(' ')}
-                        onClick={() => trackCategory(cat.name)}
-                        aria-current={isActive ? 'page' : undefined}
-                      >
-                        <span className="whitespace-nowrap">{cat.name}</span>
+            return (
+              <li key={cat.id} className="flex items-center">
+                <div className="relative group inline-block">
+                  <Link
+                    href={href}
+                    className={[
+                      'inline-flex items-center gap-1.5',
+                      'px-2 py-1',
+                      'text-sm font-medium transition-colors',
+                      isActive ? 'text-black underline' : 'text-neutral-500 hover:text-black hover:underline',
+                      'focus:ring-2 focus:ring-black/20 focus:outline-none',
+                    ].join(' ')}
+                    onClick={() => trackCategory(cat.name)}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <span className="whitespace-nowrap">{cat.name}</span>
 
-                        {hasDropdown && (
-                          <ChevronDown
-                            className="h-4 w-4 text-neutral-400 transition-transform duration-200 group-hover:rotate-180"
-                            aria-hidden="true"
-                          />
-                        )}
-                      </Link>
-
-                      {hasDropdown && (
-                        <div
-                          className="
-                            absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64
-                            bg-white border rounded-xl shadow-xl z-50
-                            opacity-0 invisible translate-y-1 scale-[0.98]
-                            group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:scale-100
-                            transition-all duration-200 ease-out
-                            py-2
-                            before:absolute before:-top-4 before:left-0 before:w-full before:h-4
-                            before:content-[''] before:block
-                          "
-                          role="menu"
-                          aria-label={`Подкатегории для ${cat.name}`}
-                          tabIndex={-1}
-                        >
-                          <div
-                            className="
-                              absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
-                              w-3 h-3 rotate-45 bg-white border-l border-t border-neutral-200
-                              z-[-1]
-                            "
-                            aria-hidden="true"
-                          />
-
-                          {cat.subcategories.map((sub) => (
-                            <Link
-                              key={sub.id}
-                              href={`/category/${cat.slug}/${sub.slug}`}
-                              className="block px-4 py-2 text-sm text-black hover:bg-neutral-100 focus:bg-neutral-100 outline-none"
-                              role="menuitem"
-                              tabIndex={0}
-                              onClick={() => trackSubcategory(sub.name)}
-                            >
-                              {sub.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {idx < categories.length - 1 && (
-                      <span aria-hidden="true" className="mx-4 text-neutral-300 select-none font-bold text-lg">
-                        ·
-                      </span>
+                    {hasDropdown && (
+                      <ChevronDown
+                        className="h-4 w-4 text-neutral-400 transition-transform duration-200 group-hover:rotate-180"
+                        aria-hidden="true"
+                      />
                     )}
-                  </li>
-                );
-              })}
+                  </Link>
+
+                  {hasDropdown && (
+                    <div
+                      className="
+                        absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64
+                        bg-white border rounded-xl shadow-xl z-50
+                        opacity-0 invisible translate-y-1 scale-[0.98]
+                        group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:scale-100
+                        transition-all duration-200 ease-out
+                        py-2
+                        before:absolute before:-top-4 before:left-0 before:w-full before:h-4
+                        before:content-[''] before:block
+                      "
+                      role="menu"
+                      aria-label={`Подкатегории для ${cat.name}`}
+                      tabIndex={-1}
+                    >
+                      <div
+                        className="
+                          absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
+                          w-3 h-3 rotate-45 bg-white border-l border-t border-neutral-200
+                          z-[-1]
+                        "
+                        aria-hidden="true"
+                      />
+
+                      {cat.subcategories.map((sub) => (
+                        <Link
+                          key={sub.id}
+                          href={`/category/${cat.slug}/${sub.slug}`}
+                          className="block px-4 py-2 text-sm text-black hover:bg-neutral-100 focus:bg-neutral-100 outline-none"
+                          role="menuitem"
+                          tabIndex={0}
+                          onClick={() => trackSubcategory(sub.name)}
+                        >
+                          {sub.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {idx < categories.length - 1 && (
+                  <span aria-hidden="true" className="mx-4 text-neutral-300 select-none font-bold text-lg">
+                    ·
+                  </span>
+                )}
+              </li>
+            );
+          })
+        )}
       </ul>
 
       {error && (
