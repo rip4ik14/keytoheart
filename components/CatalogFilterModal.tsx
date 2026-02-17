@@ -1,4 +1,3 @@
-// ✅ Путь: components/CatalogFilterModal.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -59,7 +58,7 @@ export default function CatalogFilterModal({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // ✅ Android mode (чтобы не грузить motion)
+  // ✅ Android mode (меньше GPU-дерганий)
   const [isAndroid, setIsAndroid] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -104,34 +103,7 @@ export default function CatalogFilterModal({
     setSubIds(applied.subs);
   }, [open, applied]);
 
-  // ✅ пока фильтр открыт - поднимаем FAB выше нижнего UI
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const root = document.documentElement;
-    const prev = root.style.getPropertyValue('--kth-bottom-ui-h');
-
-    const apply = () => {
-      if (!open) return;
-      const isMobile = !window.matchMedia('(min-width: 1024px)').matches;
-      if (!isMobile) return;
-      root.style.setProperty('--kth-bottom-ui-h', '80px');
-    };
-
-    if (open) {
-      apply();
-      window.addEventListener('resize', apply);
-    }
-
-    return () => {
-      window.removeEventListener('resize', apply);
-
-      if (prev && prev.trim().length > 0) root.style.setProperty('--kth-bottom-ui-h', prev);
-      else root.style.removeProperty('--kth-bottom-ui-h');
-    };
-  }, [open]);
-
-  // ✅ lock body scroll when open (особенно важно на Android)
+  // ✅ lock body scroll when open
   useEffect(() => {
     if (!open) return;
     if (typeof document === 'undefined') return;
@@ -213,21 +185,26 @@ export default function CatalogFilterModal({
   const sectionCardCls =
     'mt-3 rounded-3xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
 
+  // ✅ ВАЖНО: выше StickyHeader/CategoryNav/MobileBottomNav
+  const Z_INDEX = 40000;
+
   const Overlay = ({ children }: { children: React.ReactNode }) => {
-    // Android: без motion, меньше GPU-дерганий
+    // Главный фикс: z-index только через style, НЕ через динамический Tailwind класс
     if (isAndroid) {
       return (
-        <div className="fixed inset-0 z-[25000]">
+        <div className="fixed inset-0" style={{ zIndex: Z_INDEX }}>
           {children}
         </div>
       );
     }
 
+    // Здесь AnimatePresence не критичен, но оставим как было
     return (
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-[25000]"
+            className="fixed inset-0"
+            style={{ zIndex: Z_INDEX }}
             variants={overlayVariants}
             initial="hidden"
             animate="visible"
@@ -288,7 +265,9 @@ export default function CatalogFilterModal({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[22px] font-semibold tracking-tight leading-tight">Фильтр</div>
-              {selectedCount > 0 && <div className="mt-1 text-xs text-black/50">Выбрано: {selectedCount}</div>}
+              {selectedCount > 0 && (
+                <div className="mt-1 text-xs text-black/50">Выбрано: {selectedCount}</div>
+              )}
             </div>
 
             <button
@@ -410,7 +389,9 @@ export default function CatalogFilterModal({
                     );
                   })}
 
-                  {categories.length === 0 && <div className="text-sm text-black/50">Категории не найдены</div>}
+                  {categories.length === 0 && (
+                    <div className="text-sm text-black/50">Категории не найдены</div>
+                  )}
                 </div>
               </div>
             )}
@@ -432,7 +413,9 @@ export default function CatalogFilterModal({
                 <div className="space-y-6">
                   {currentCategory ? (
                     <div>
-                      <div className="text-sm font-semibold text-black mb-3">{currentCategory.name}</div>
+                      <div className="text-sm font-semibold text-black mb-3">
+                        {currentCategory.name}
+                      </div>
 
                       <div className="space-y-3">
                         {(currentCategory.subcategories || []).map((s) => {
@@ -496,11 +479,21 @@ export default function CatalogFilterModal({
         {/* footer buttons */}
         <div className="border-t border-black/10 px-5 py-4 bg-white">
           <div className="grid grid-cols-2 gap-3">
-            <UiButton onClick={reset} variant="brandOutline" className="w-full rounded-2xl py-3" aria-label="Сбросить фильтры">
+            <UiButton
+              onClick={reset}
+              variant="brandOutline"
+              className="w-full rounded-2xl py-3"
+              aria-label="Сбросить фильтры"
+            >
               Сбросить
             </UiButton>
 
-            <UiButton onClick={apply} variant="cartRed" className="w-full rounded-2xl py-3" aria-label="Применить фильтры">
+            <UiButton
+              onClick={apply}
+              variant="cartRed"
+              className="w-full rounded-2xl py-3"
+              aria-label="Применить фильтры"
+            >
               Применить
             </UiButton>
           </div>
@@ -512,6 +505,5 @@ export default function CatalogFilterModal({
   if (!mounted) return null;
   if (!open) return null;
 
-  // ✅ портал в body
   return createPortal(<Overlay>{content}</Overlay>, document.body);
 }

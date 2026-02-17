@@ -262,7 +262,7 @@ export async function updateSubcategory(formData: FormData) {
   if (!id) throw new Error('ID обязателен');
   if (!name) throw new Error('Название обязательно');
 
-  // ✅ Берём только category_id - чтобы не было TS ошибки из-за устаревших типов
+  // ✅ Берём category_id из базы, чтобы корректно обеспечивать уникальность slug
   const { data: existing, error: exErr } = await supabase
     .from('subcategories')
     .select('category_id')
@@ -277,7 +277,6 @@ export async function updateSubcategory(formData: FormData) {
   slug = generateSlug(slug || name);
   slug = await ensureUniqueSubSlug(category_id, slug, id);
 
-  // ✅ Основной payload без home_* (их добавляем только если пришли)
   const payload: any = {
     name,
     slug,
@@ -291,7 +290,7 @@ export async function updateSubcategory(formData: FormData) {
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
   };
 
-  // ✅ ВАЖНО: home_* меняем только если ключ реально пришёл в formData
+  // ✅ home_* меняем только если ключ реально пришёл в formData
   if (formData.has('home_is_featured')) {
     payload.home_is_featured = cleanBool(formData.get('home_is_featured'), false);
   }
@@ -305,9 +304,8 @@ export async function updateSubcategory(formData: FormData) {
   }
 
   if (formData.has('home_icon_url')) {
-    const url = cleanText(formData.get('home_icon_url'));
-    if (!url) throw new Error('home_icon_url не пришёл в updateSubcategory (пустое значение)');
-    payload.home_icon_url = url;
+    // ✅ фикс: пустая строка = удалить иконку (null), а не падать с 500
+    payload.home_icon_url = cleanText(formData.get('home_icon_url'));
   }
 
   const { error } = await supabase.from('subcategories').update(payload).eq('id', id);

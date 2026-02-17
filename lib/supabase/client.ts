@@ -2,7 +2,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-// Публичный клиент для браузера (единый инстанс)
+// ✅ Публичный Supabase-клиент для браузера (единый инстанс на весь фронт)
 export const supabasePublic = createSupabaseClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -16,8 +16,8 @@ export const supabasePublic = createSupabaseClient<Database>(
 );
 
 /**
- * Совместимость с кодом, где ожидается createClient()
- * Возвращаем тот же инстанс, чтобы не плодить клиентов.
+ * ✅ Совместимость с кодом, где ожидается createClient()
+ * Возвращаем тот же инстанс, чтобы не плодить GoTrueClient.
  */
 export function createClient() {
   return supabasePublic;

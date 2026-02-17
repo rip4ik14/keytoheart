@@ -838,3 +838,17 @@ html.kth-android .kth-sticky-surface {
 html.kth-product-page nav[aria-label="Нижняя навигация"] {
   display: none !important;
 }
+
+/* ✅ Когда открыта любая модалка - прячем нижнюю навигацию полностью */
+html[data-kth-modal-open='1'] nav[data-kth-bottom-nav='true'] {
+  transform: translateY(130%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+/* Чтобы и без модалки навбар оставался плавным */
+nav[data-kth-bottom-nav='true'] {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+

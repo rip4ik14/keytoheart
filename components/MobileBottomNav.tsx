@@ -1,3 +1,4 @@
+// ✅ Путь: components/MobileBottomNav.tsx
 'use client';
 
 import Link from 'next/link';
@@ -140,13 +141,14 @@ export default function MobileBottomNav({
 
   const navNode = (
     <nav
+      data-kth-bottom-nav="true"
       ref={(node) => {
         navRef.current = node;
       }}
       className={cls(
         'sm:hidden',
         'fixed left-0 right-0 bottom-0',
-        'z-[30000]',
+        'z-[20000]',
         'px-3',
         'kth-sticky-surface',
         navDisabled && 'pointer-events-none',
