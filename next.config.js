@@ -118,6 +118,10 @@ const nextConfig = {
         source,
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       })),
+      {
+        source: '/_next/image',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
       ...['/', '/about', '/policy'].map((source) => ({
         source,
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
