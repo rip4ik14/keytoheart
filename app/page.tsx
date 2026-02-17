@@ -2,25 +2,19 @@
 /*  Главная страница (SEO boost + Edge runtime + FAQ)                         */
 /* -------------------------------------------------------------------------- */
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import type { Metadata } from 'next';
 import { JsonLd } from 'react-schemaorg';
-import type {
-  ItemList,
-  FAQPage,
-  WebPage,
-  BreadcrumbList,
-  Organization,
-} from 'schema-dts';
+import type { ItemList, FAQPage, WebPage, BreadcrumbList, Organization } from 'schema-dts';
 
 import PromoGridServer from '@components/PromoGridServer';
-/*import PopularProductsServer from '@components/PopularProductsServer'; */
 import CategoryPreviewServer from '@components/CategoryPreviewServer';
 import SkeletonCard from '@components/ProductCardSkeleton';
 import AdvantagesClient from '@components/AdvantagesClient';
 import YandexReviewsWidget from '@components/YandexReviewsWidget';
 import FAQSectionWrapper from '@components/FAQSectionWrapper';
 import FlowwowReviewsWidget from '@components/FlowwowReviewsWidget';
+import GiftIdeasStrip from '@components/GiftIdeasStrip';
 
 import { createServerClient } from '@supabase/ssr';
 import { cookies as getCookies } from 'next/headers';
@@ -92,13 +86,20 @@ interface CategoryMeta {
   count: number;
 }
 
+type GiftIdeaItem = {
+  id: number;
+  name: string;
+  slug: string;
+  home_icon_url?: string | null;
+  home_title?: string | null;
+};
+
 /* -------------------------- ISR / Edge flags ---------------------------- */
 export const revalidate = 300;
 
 /* --------------------------- Метаданные -------------------------------- */
 export const metadata: Metadata = {
-  title:
-    'Клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
+  title: 'Клубника в шоколаде, цветы и комбо-наборы с доставкой в Краснодаре',
   description:
     'Клубника в шоколаде, клубничные букеты, цветы и комбо-наборы с доставкой по Краснодару и до 20 км за 30 минут. Свежие ягоды, бельгийский шоколад, фото заказа перед отправкой, бесплатная открытка и удобная оплата онлайн.',
   openGraph: {
@@ -189,8 +190,6 @@ function buildLdGraph(
     mainEntity: faqEntities,
   };
 
-  // Важно: рейтинг привязываем к внешнему источнику через sameAs (Flowwow).
-  // Это честно и не выглядит как "отзывы на нашем сайте".
   const org: Organization = {
     '@type': 'Organization',
     name: 'КЛЮЧ К СЕРДЦУ',
@@ -201,7 +200,6 @@ function buildLdGraph(
       ratingValue: 4.93,
       bestRating: 5,
       worstRating: 1,
-      // lower bound: "более 2800" -> в JSON-LD используем 2800
       ratingCount: 2800,
     },
   };
@@ -228,6 +226,47 @@ export default async function Home() {
       },
     },
   );
+
+  /* -------------------- Ищу подарок (иконки) -------------------- */
+  let giftIdeas: GiftIdeaItem[] = [];
+
+  try {
+    // 1) находим категорию "Повод" по slug
+    const { data: povodCat, error: povodErr } = await withTimeout(
+      supabase.from('categories').select('id,slug').eq('slug', 'povod').maybeSingle(),
+    );
+
+    if (povodErr) throw new Error(povodErr.message);
+
+    if (povodCat?.id) {
+      // 2) тянем ТОЛЬКО подкатегории этой категории
+      const { data, error } = await withTimeout(
+        supabase
+          .from('subcategories')
+          .select('id,name,slug,home_icon_url,home_title,home_sort,is_visible,home_is_featured,category_id')
+          .eq('category_id', povodCat.id)
+          .eq('home_is_featured', true)
+          .eq('is_visible', true)
+          .order('home_sort', { ascending: true })
+          .limit(24),
+      );
+
+      if (error) throw new Error(error.message);
+
+      giftIdeas = (data ?? []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        home_icon_url: s.home_icon_url ?? null,
+        home_title: s.home_title ?? null,
+      }));
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[home] gift ideas fetch failed ->', e);
+    }
+  }
+
 
   /* ---------- Параллельные запросы: продукты + связи ---------- */
   let pcSafe: { product_id: number; category_id: number }[] = [];
@@ -379,7 +418,14 @@ export default async function Home() {
         <PromoGridServer />
       </section>
 
-  
+            {/* ✅ Ищу подарок (ТОЛЬКО мобилка, категория "povod") */}
+      {giftIdeas.length > 0 && (
+        <div className="block lg:hidden">
+          <GiftIdeasStrip title="Ищу подарок" items={giftIdeas} seeAllHref="/category/povod" />
+        </div>
+      )}
+
+
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>
         {products.length === 0 ? (

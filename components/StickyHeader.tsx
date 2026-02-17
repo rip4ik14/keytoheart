@@ -3,12 +3,14 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimation } from 'framer-motion';
 
+import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
 import SearchModal from '@components/SearchModal';
+import CookieBanner from '@components/CookieBanner';
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
@@ -17,10 +19,17 @@ import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
 import { useAuth } from '@context/AuthContext';
 
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
+
 type StickyHeaderProps = {
   initialCategories: Category[];
 };
 
+const MAX_LINK =
+  'https://max.ru/u/f9LHodD0cOI-9oT8wIMLqNgL9blgVvmWzHwla0t-q1TLriNRDUJsOEIedDk';
+
+// CSS var for other UI (toasts, fabs etc.)
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
 
 function cls(...a: Array<string | false | null | undefined>) {
@@ -29,6 +38,7 @@ function cls(...a: Array<string | false | null | undefined>) {
 
 export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const pathname = usePathname() || '/';
+  const router = useRouter();
 
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -49,6 +59,9 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [previousTotalItems, setPreviousTotalItems] = useState(0);
+
+  // burger menu state (нужно для новой версии BurgerMenu)
+  const [isBurgerOpen, setIsBurgerOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const cartIconRef = useRef<HTMLImageElement>(null);
@@ -80,7 +93,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // ✅ высота sticky header в CSS var (без лишних записей)
+  // expose sticky header height as CSS var (без лишних записей)
   const lastHeaderHRef = useRef<number>(0);
   useEffect(() => {
     const el = headerRef.current;
@@ -122,11 +135,10 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     setPreviousTotalItems(totalItems);
   }, [totalItems, cartControls, previousTotalItems]);
 
-  // ✅ очень важно: не дергать глобальный state на каждом scroll
+  // ✅ важно: не дергать глобальный state на каждом scroll
   // обновляем позицию иконки корзины только когда реально идет "полет"
   useEffect(() => {
     if (!animationState.isAnimating) {
-      // разовый замер на всякий случай
       const el = cartIconRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
@@ -176,6 +188,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // закрываем бургер при смене маршрута (чтобы не зависало)
+  useEffect(() => {
+    setIsBurgerOpen(false);
+  }, [pathname]);
+
   const handleSignOut = async () => {
     try {
       const response = await fetch('/api/auth/logout', {
@@ -191,6 +208,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       toast.success('Вы вышли из аккаунта');
 
       window.dispatchEvent(new Event('authChange'));
+      router.refresh();
     } catch (error) {
       process.env.NODE_ENV !== 'production' && console.error('StickyHeader: Error signing out', error);
       toast.error('Не удалось выйти из аккаунта');
@@ -221,6 +239,21 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
   const overlayClass = isAndroid ? 'absolute inset-0 bg-black/70' : 'absolute inset-0 bg-black/70 backdrop-blur-sm';
 
+  const trackContact = (kind: 'whatsapp' | 'telegram' | 'max') => {
+    const eventName =
+      kind === 'whatsapp' ? 'contact_whatsapp' : kind === 'telegram' ? 'contact_telegram' : 'contact_max';
+
+    window.gtag?.('event', eventName, {
+      event_category: 'header',
+      event_label: `StickyHeader: ${kind}`,
+      value: 1,
+    });
+
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', eventName, { source: 'sticky_header' });
+    }
+  };
+
   return (
     <>
       <header
@@ -232,7 +265,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         itemType="https://schema.org/SiteNavigationElement"
       >
         {/* ========================= */}
-        {/* ✅ MOBILE (Telegram-glass) */}
+        {/* ✅ MOBILE (оставляем как есть) */}
         {/* ========================= */}
         <div className="sm:hidden px-3 pt-2 pb-2 bg-transparent">
           <div
@@ -247,7 +280,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               'kth-glass kth-sticky-surface',
             )}
           >
-            {/* top pill row (logo + actions). всегда видимая на mobile */}
+            {/* top pill row (logo + actions) */}
             <div className="transition-all duration-200">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="w-10 h-10" aria-hidden="true" />
@@ -271,7 +304,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               </div>
             </div>
 
-            {/* categories pill (как 2-я строка в Telegram) */}
+            {/* categories pill */}
             <div className="px-2 pb-2">
               <div
                 className={cls(
@@ -292,12 +325,15 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         </div>
 
         {/* ===================== */}
-        {/* ✅ DESKTOP (как было) */}
+        {/* ✅ DESKTOP (вернули как в старом коде) */}
         {/* ===================== */}
         <div className="hidden sm:block">
           <div className={['border-b border-black/0', 'transition-all duration-200', 'opacity-100'].join(' ')}>
             <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
               <div className="flex items-center gap-2 md:gap-4 min-w-0">
+                {/* ✅ burger button + drawer (как в новой реализации, но отображаем на десктопе как раньше) */}
+                <BurgerMenu open={isBurgerOpen} onOpenChange={setIsBurgerOpen} />
+
                 <Link
                   href="/"
                   className={[
@@ -327,6 +363,45 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                       +7 (988) 603-38-21
                     </a>
                     <span className="text-xs text-gray-600">с 09:00 до 21:00</span>
+                  </div>
+
+                  {/* ✅ вернули иконки мессенджеров (desktop only) */}
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="https://wa.me/79886033821"
+                      className="border rounded-full p-2 hover:bg-gray-100"
+                      title="WhatsApp"
+                      aria-label="Перейти в WhatsApp"
+                      rel="nofollow"
+                      target="_blank"
+                      onClick={() => trackContact('whatsapp')}
+                    >
+                      <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
+                    </a>
+
+                    <a
+                      href="https://t.me/keytomyheart"
+                      className="border rounded-full p-2 hover:bg-gray-100"
+                      title="Telegram"
+                      aria-label="Перейти в Telegram"
+                      rel="nofollow"
+                      target="_blank"
+                      onClick={() => trackContact('telegram')}
+                    >
+                      <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
+                    </a>
+
+                    <a
+                      href={MAX_LINK}
+                      className="border rounded-full p-2 hover:bg-gray-100"
+                      title="MAX"
+                      aria-label="Перейти в MAX"
+                      rel="nofollow"
+                      target="_blank"
+                      onClick={() => trackContact('max')}
+                    >
+                      <Image src="/icons/max.svg" alt="MAX" width={16} height={16} />
+                    </a>
                   </div>
                 </div>
               </div>
@@ -371,7 +446,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                             className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
                           >
                             <div className="py-1">
-                              <Link href="/account" className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none">
+                              <Link
+                                href="/account"
+                                className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
+                                onClick={() => setOpenProfile(false)}
+                              >
                                 Личный кабинет
                               </Link>
 
@@ -447,11 +526,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
           >
-            <motion.div
-              className={overlayClass}
-              onClick={() => setIsSearchOpen(false)}
-              aria-hidden="true"
-            />
+            <motion.div className={overlayClass} onClick={() => setIsSearchOpen(false)} aria-hidden="true" />
 
             <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
@@ -459,7 +534,9 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 initial={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
                 animate={isAndroid ? { opacity: 1, y: 0 } : { scale: 1, opacity: 1 }}
                 exit={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
-                transition={isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }}
+                transition={
+                  isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }
+                }
               >
                 <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
               </motion.div>
@@ -479,6 +556,8 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <CookieBanner />
     </>
   );
 }

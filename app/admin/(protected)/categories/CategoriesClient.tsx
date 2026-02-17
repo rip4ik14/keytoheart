@@ -1,8 +1,12 @@
+// ✅ Путь: app/admin/(protected)/categories/CategoriesClient.tsx
 'use client';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
+
 import {
   addCategory,
   updateCategory,
@@ -21,7 +25,14 @@ type SeoFields = {
   seo_noindex?: boolean | null;
 };
 
-interface Subcategory extends SeoFields {
+type HomeFields = {
+  home_is_featured?: boolean | null;
+  home_sort?: number | null;
+  home_icon_url?: string | null;
+  home_title?: string | null;
+};
+
+interface Subcategory extends SeoFields, HomeFields {
   id: number;
   name: string;
   category_id: number | null;
@@ -95,6 +106,11 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
+function safeInt(v: any, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
+
 /* ================= COMPONENT ================= */
 
 export default function CategoriesClient({ categories: initialCategories }: Props) {
@@ -127,6 +143,115 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     fd.set('seo_noindex', String(!!seo.seo_noindex));
   };
 
+  const appendHomeToFormData = (fd: FormData, home: HomeFields) => {
+    fd.set('home_is_featured', String(!!home.home_is_featured));
+    fd.set('home_sort', String(safeInt(home.home_sort ?? 0, 0)));
+    fd.set('home_icon_url', String(home.home_icon_url ?? ''));
+    fd.set('home_title', String(home.home_title ?? ''));
+  };
+
+  /* ------------------------------ Storage (иконки) ------------------------------ */
+
+  const supabase = createClient();
+  const ICON_BUCKET = 'category-icons';
+
+  function extFromFileName(name: string) {
+    const m = name.toLowerCase().match(/\.([a-z0-9]+)$/i);
+    return m?.[1] ?? 'jpg';
+  }
+
+  function buildPublicUrl(bucket: string, path: string) {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    return `${base}/storage/v1/object/public/${bucket}/${path}`;
+  }
+
+  function storagePathFromPublicUrl(url: string) {
+    const marker = `/storage/v1/object/public/${ICON_BUCKET}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return url.slice(idx + marker.length);
+  }
+
+  async function uploadHomeIcon(file: File, sub: Subcategory) {
+    const ext = extFromFileName(file.name);
+    const path = `category/${sub.category_id ?? 'unknown'}/sub/${sub.id}/${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage.from(ICON_BUCKET).upload(path, file, {
+      cacheControl: '31536000',
+      upsert: true,
+    });
+
+    if (upErr) throw new Error(upErr.message);
+
+    return buildPublicUrl(ICON_BUCKET, path);
+  }
+
+  async function removeHomeIconIfAny(sub: Subcategory) {
+    const url = (sub.home_icon_url || '').trim();
+    if (!url) return;
+
+    const path = storagePathFromPublicUrl(url);
+    if (!path) return;
+
+    await supabase.storage.from(ICON_BUCKET).remove([path]).catch(() => null);
+  }
+
+  const handleUploadSubHomeIcon = async (sub: Subcategory, file: File) => {
+    try {
+      const publicUrl = await uploadHomeIcon(file, sub);
+
+      const formData = new FormData();
+      formData.set('id', sub.id.toString());
+      formData.set('name', sub.name);
+      formData.set('slug', generateSlug(sub.slug || sub.name));
+      formData.set('is_visible', String(!!sub.is_visible));
+      appendSeoToFormData(formData, sub);
+
+      appendHomeToFormData(formData, {
+        ...sub,
+        home_is_featured: !!sub.home_is_featured,
+        home_sort: safeInt(sub.home_sort ?? 0, 0),
+        home_icon_url: publicUrl,
+        home_title: sub.home_title ?? '',
+      });
+
+      await updateSubcategory(formData);
+
+      toast.success('Иконка загружена');
+      location.reload();
+    } catch (e: any) {
+      toast.error(e?.message || 'Не удалось загрузить иконку');
+    }
+  };
+
+  const handleRemoveSubHomeIcon = async (sub: Subcategory) => {
+    try {
+      await removeHomeIconIfAny(sub);
+
+      const formData = new FormData();
+      formData.set('id', sub.id.toString());
+      formData.set('name', sub.name);
+      formData.set('slug', generateSlug(sub.slug || sub.name));
+      formData.set('is_visible', String(!!sub.is_visible));
+      appendSeoToFormData(formData, sub);
+
+      appendHomeToFormData(formData, {
+        ...sub,
+        home_is_featured: !!sub.home_is_featured,
+        home_sort: safeInt(sub.home_sort ?? 0, 0),
+        home_icon_url: '',
+        home_title: sub.home_title ?? '',
+      });
+
+      await updateSubcategory(formData);
+
+      toast.success('Иконка удалена');
+      location.reload();
+    } catch (e: any) {
+      toast.error(e?.message || 'Не удалось удалить иконку');
+    }
+  };
+
   /* ------------------------------ Категории ------------------------------ */
 
   const handleAddCategory = async (formData: FormData) => {
@@ -134,7 +259,6 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       formData.set('is_visible', String(newCategory.is_visible));
       formData.set('seo_noindex', String(newCategory.seo_noindex));
 
-      // финально нормализуем slug, даже если руками ввели
       const name = String(formData.get('name') ?? '');
       const slugRaw = String(formData.get('slug') ?? '');
       formData.set('slug', generateSlug(slugRaw || name));
@@ -154,7 +278,6 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
         formData.set('is_visible', String(!!editingCategory.is_visible));
         appendSeoToFormData(formData, editingCategory);
 
-        // нормализуем slug
         const name = String(formData.get('name') ?? editingCategory.name);
         const slugRaw = String(formData.get('slug') ?? editingCategory.slug);
         formData.set('slug', generateSlug(slugRaw || name));
@@ -194,7 +317,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
     try {
       await updateCategory(formData);
-      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c)));
+      setCategories((prev) =>
+        prev.map((c) => (c.id === cat.id ? { ...c, is_visible: !cat.is_visible } : c)),
+      );
       toast.success(cat.is_visible ? 'Категория скрыта' : 'Категория отображается');
     } catch (error: any) {
       toast.error(error.message);
@@ -227,6 +352,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
       seo_noindex: false,
     });
 
+    appendHomeToFormData(formData, {
+      home_is_featured: false,
+      home_sort: 0,
+      home_icon_url: '',
+      home_title: '',
+    });
+
     try {
       await addSubcategory(formData);
       toast.success('Подкатегория добавлена');
@@ -236,13 +368,21 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     }
   };
 
-  const handleEditSubcategory = (sub: Subcategory) => setEditingSub({ ...sub });
+  const handleEditSubcategory = (sub: Subcategory) =>
+    setEditingSub({
+      ...sub,
+      home_is_featured: !!sub.home_is_featured,
+      home_sort: safeInt(sub.home_sort ?? 0, 0),
+      home_icon_url: sub.home_icon_url ?? '',
+      home_title: sub.home_title ?? '',
+    });
 
   const handleUpdateSubcategory = async (formData: FormData) => {
     try {
       if (editingSub) {
         formData.set('is_visible', String(!!editingSub.is_visible));
         appendSeoToFormData(formData, editingSub);
+        appendHomeToFormData(formData, editingSub);
 
         const name = String(formData.get('name') ?? editingSub.name);
         const slugRaw = String(formData.get('slug') ?? editingSub.slug);
@@ -267,7 +407,11 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     try {
       await deleteSubcategory(formData);
       setCategories((prev) =>
-        prev.map((cat) => (cat.id === catId ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) } : cat))
+        prev.map((cat) =>
+          cat.id === catId
+            ? { ...cat, subcategories: cat.subcategories.filter((sub) => sub.id !== id) }
+            : cat,
+        ),
       );
       toast.success('Подкатегория удалена');
     } catch (error: any) {
@@ -282,19 +426,104 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
     formData.set('slug', generateSlug(sub.slug || sub.name));
     formData.set('is_visible', String(!sub.is_visible));
     appendSeoToFormData(formData, sub);
+    appendHomeToFormData(formData, sub);
 
     try {
       await updateSubcategory(formData);
       setCategories((prev) =>
         prev.map((cat) =>
           cat.id === catId
-            ? { ...cat, subcategories: cat.subcategories.map((s) => (s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s)) }
-            : cat
-        )
+            ? {
+                ...cat,
+                subcategories: cat.subcategories.map((s) =>
+                  s.id === sub.id ? { ...s, is_visible: !sub.is_visible } : s,
+                ),
+              }
+            : cat,
+        ),
       );
       toast.success(sub.is_visible ? 'Подкатегория скрыта' : 'Подкатегория отображается');
     } catch (error: any) {
       toast.error(error.message);
+    }
+  };
+
+  const handleToggleHomeFeatured = async (sub: Subcategory, catId: number) => {
+    const next = !sub.home_is_featured;
+
+    const formData = new FormData();
+    formData.set('id', sub.id.toString());
+    formData.set('name', sub.name);
+    formData.set('slug', generateSlug(sub.slug || sub.name));
+    formData.set('is_visible', String(!!sub.is_visible));
+    appendSeoToFormData(formData, sub);
+    appendHomeToFormData(formData, {
+      ...sub,
+      home_is_featured: next,
+      home_sort: safeInt(sub.home_sort ?? 0, 0),
+      home_icon_url: sub.home_icon_url ?? '',
+      home_title: sub.home_title ?? '',
+    });
+
+    try {
+      await updateSubcategory(formData);
+
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === catId
+            ? {
+                ...cat,
+                subcategories: cat.subcategories.map((s) =>
+                  s.id === sub.id ? { ...s, home_is_featured: next } : s,
+                ),
+              }
+            : cat,
+        ),
+      );
+
+      toast.success(next ? 'Добавлено на главную' : 'Убрано с главной');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleMoveHomeSort = async (sub: Subcategory, catId: number, delta: number) => {
+    const current = safeInt(sub.home_sort ?? 0, 0);
+    const nextOrder = Math.max(0, current + delta);
+
+    const formData = new FormData();
+    formData.set('id', sub.id.toString());
+    formData.set('name', sub.name);
+    formData.set('slug', generateSlug(sub.slug || sub.name));
+    formData.set('is_visible', String(!!sub.is_visible));
+    appendSeoToFormData(formData, sub);
+    appendHomeToFormData(formData, {
+      ...sub,
+      home_is_featured: !!sub.home_is_featured,
+      home_sort: nextOrder,
+      home_icon_url: sub.home_icon_url ?? '',
+      home_title: sub.home_title ?? '',
+    });
+
+    try {
+      await updateSubcategory(formData);
+
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === catId
+            ? {
+                ...cat,
+                subcategories: cat.subcategories.map((s) =>
+                  s.id === sub.id ? { ...s, home_sort: nextOrder } : s,
+                ),
+              }
+            : cat,
+        ),
+      );
+
+      toast.success('Порядок обновлён');
+    } catch (e: any) {
+      toast.error(e.message);
     }
   };
 
@@ -315,9 +544,12 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
             formData.set('is_visible', String(newCategory.is_visible));
             formData.set('seo_noindex', String(newCategory.seo_noindex));
-
-            // нормализация slug перед отправкой
-            formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
+            formData.set(
+              'slug',
+              generateSlug(
+                String(formData.get('slug') ?? '') || String(formData.get('name') ?? ''),
+              ),
+            );
 
             handleAddCategory(formData);
           }}
@@ -370,7 +602,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
           {/* SEO блок */}
           <details className="mt-2">
-            <summary className="cursor-pointer text-sm text-gray-700 select-none">SEO поля (необязательно, но очень желательно)</summary>
+            <summary className="cursor-pointer text-sm text-gray-700 select-none">
+              SEO поля (необязательно, но очень желательно)
+            </summary>
 
             <div className="mt-3 grid grid-cols-1 gap-3">
               <input
@@ -394,7 +628,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
               <textarea
                 name="seo_description"
                 value={newCategory.seo_description}
-                onChange={(e) => setNewCategory((p) => ({ ...p, seo_description: e.target.value }))}
+                onChange={(e) =>
+                  setNewCategory((p) => ({ ...p, seo_description: e.target.value }))
+                }
                 placeholder="SEO Description (до 140-160 символов)"
                 className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black min-h-[70px]"
               />
@@ -420,7 +656,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 <input
                   type="checkbox"
                   checked={newCategory.seo_noindex}
-                  onChange={(e) => setNewCategory((p) => ({ ...p, seo_noindex: e.target.checked }))}
+                  onChange={(e) =>
+                    setNewCategory((p) => ({ ...p, seo_noindex: e.target.checked }))
+                  }
                 />
                 noindex (не индексировать страницу)
               </label>
@@ -464,9 +702,13 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
 
                       formData.set('is_visible', String(!!editingCategory.is_visible));
                       appendSeoToFormData(formData, editingCategory);
-
-                      // нормализация slug
-                      formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
+                      formData.set(
+                        'slug',
+                        generateSlug(
+                          String(formData.get('slug') ?? '') ||
+                            String(formData.get('name') ?? ''),
+                        ),
+                      );
 
                       handleUpdateCategory(formData);
                     }}
@@ -480,7 +722,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                           setEditingCategory({
                             ...editingCategory,
                             name: e.target.value,
-                            slug: editingCategory.slug ? editingCategory.slug : generateSlug(e.target.value),
+                            slug: editingCategory.slug
+                              ? editingCategory.slug
+                              : generateSlug(e.target.value),
                           })
                         }
                         className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
@@ -507,42 +751,59 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       <input
                         type="checkbox"
                         checked={editingCategory.is_visible}
-                        onChange={(e) => setEditingCategory({ ...editingCategory, is_visible: e.target.checked })}
+                        onChange={(e) =>
+                          setEditingCategory({ ...editingCategory, is_visible: e.target.checked })
+                        }
                         className="mr-2"
                       />
                       Видима
                     </label>
 
                     <details>
-                      <summary className="cursor-pointer text-sm text-gray-700 select-none">SEO категории</summary>
+                      <summary className="cursor-pointer text-sm text-gray-700 select-none">
+                        SEO категории
+                      </summary>
                       <div className="mt-3 grid grid-cols-1 gap-3">
                         <input
                           value={editingCategory.seo_h1 ?? ''}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, seo_h1: e.target.value })}
+                          onChange={(e) =>
+                            setEditingCategory({ ...editingCategory, seo_h1: e.target.value })
+                          }
                           className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                           placeholder="SEO H1"
                         />
                         <input
                           value={editingCategory.seo_title ?? ''}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, seo_title: e.target.value })}
+                          onChange={(e) =>
+                            setEditingCategory({ ...editingCategory, seo_title: e.target.value })
+                          }
                           className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                           placeholder="SEO Title"
                         />
                         <textarea
                           value={editingCategory.seo_description ?? ''}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, seo_description: e.target.value })}
+                          onChange={(e) =>
+                            setEditingCategory({
+                              ...editingCategory,
+                              seo_description: e.target.value,
+                            })
+                          }
                           className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black min-h-[70px]"
                           placeholder="SEO Description"
                         />
                         <input
                           value={editingCategory.og_image ?? ''}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, og_image: e.target.value })}
+                          onChange={(e) =>
+                            setEditingCategory({ ...editingCategory, og_image: e.target.value })
+                          }
                           className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
                           placeholder="OG image URL"
                         />
                         <textarea
                           value={editingCategory.seo_text ?? ''}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, seo_text: e.target.value })}
+                          onChange={(e) =>
+                            setEditingCategory({ ...editingCategory, seo_text: e.target.value })
+                          }
                           className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black min-h-[120px]"
                           placeholder="SEO текст"
                         />
@@ -550,13 +811,26 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                           <input
                             type="checkbox"
                             checked={!!editingCategory.seo_noindex}
-                            onChange={(e) => setEditingCategory({ ...editingCategory, seo_noindex: e.target.checked })}
+                            onChange={(e) =>
+                              setEditingCategory({
+                                ...editingCategory,
+                                seo_noindex: e.target.checked,
+                              })
+                            }
                           />
                           noindex
                         </label>
 
-                        <input type="hidden" name="seo_noindex" value={String(!!editingCategory.seo_noindex)} />
-                        <input type="hidden" name="is_visible" value={String(!!editingCategory.is_visible)} />
+                        <input
+                          type="hidden"
+                          name="seo_noindex"
+                          value={String(!!editingCategory.seo_noindex)}
+                        />
+                        <input
+                          type="hidden"
+                          name="is_visible"
+                          value={String(!!editingCategory.is_visible)}
+                        />
                       </div>
                     </details>
 
@@ -607,148 +881,305 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                 {/* --- Подкатегории --- */}
                 <ul className="mt-3 space-y-2 text-sm text-gray-800">
                   <AnimatePresence>
-                    {cat.subcategories?.map((sub) => (
-                      <motion.li
-                        key={sub.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex justify-between items-center"
-                      >
-                        {editingSub && editingSub.id === sub.id ? (
-                          <form
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              const formData = new FormData(e.currentTarget);
+                    {cat.subcategories?.map((sub) => {
+                      const featured = !!sub.home_is_featured;
+                      const order = safeInt(sub.home_sort ?? 0, 0);
 
-                              formData.set('is_visible', String(!!editingSub.is_visible));
-                              appendSeoToFormData(formData, editingSub);
+                      return (
+                        <motion.li
+                          key={sub.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex justify-between items-start gap-3"
+                        >
+                          {editingSub && editingSub.id === sub.id ? (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
 
-                              // slug нормализуем
-                              formData.set('slug', generateSlug(String(formData.get('slug') ?? '') || String(formData.get('name') ?? '')));
+                                formData.set('is_visible', String(!!editingSub.is_visible));
+                                appendSeoToFormData(formData, editingSub);
+                                appendHomeToFormData(formData, editingSub);
 
-                              handleUpdateSubcategory(formData);
-                            }}
-                            className="flex flex-col gap-2 w-full"
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <input
-                                name="name"
-                                value={editingSub.name}
-                                onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
-                                className="border border-gray-300 px-2 py-1 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
-                                required
-                              />
-
-                              <label className="flex items-center text-sm whitespace-nowrap">
+                                formData.set(
+                                  'slug',
+                                  generateSlug(
+                                    String(formData.get('slug') ?? '') ||
+                                      String(formData.get('name') ?? ''),
+                                  ),
+                                );
+                                handleUpdateSubcategory(formData);
+                              }}
+                              className="flex flex-col gap-2 w-full"
+                            >
+                              <div className="flex items-center gap-2 w-full">
                                 <input
-                                  type="checkbox"
-                                  checked={editingSub.is_visible}
-                                  onChange={(e) => setEditingSub({ ...editingSub, is_visible: e.target.checked })}
-                                  className="mr-2"
+                                  name="name"
+                                  value={editingSub.name}
+                                  onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
+                                  className="border border-gray-300 px-2 py-1 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
+                                  required
                                 />
-                                Видима
-                              </label>
 
-                              <input type="hidden" name="id" value={sub.id} />
-                              <input type="hidden" name="slug" value={editingSub.slug} />
-                              <input type="hidden" name="is_visible" value={String(!!editingSub.is_visible)} />
-                              <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
-
-                              <button type="submit" className="text-green-600 hover:underline text-sm whitespace-nowrap">
-                                💾
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingSub(null)}
-                                className="text-gray-500 hover:underline text-sm whitespace-nowrap"
-                              >
-                                Отмена
-                              </button>
-                            </div>
-
-                            <details>
-                              <summary className="cursor-pointer text-xs text-gray-700 select-none">SEO подкатегории</summary>
-                              <div className="mt-2 grid grid-cols-1 gap-2">
-                                <input
-                                  value={editingSub.seo_h1 ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, seo_h1: e.target.value })}
-                                  className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
-                                  placeholder="SEO H1"
-                                />
-                                <input
-                                  value={editingSub.seo_title ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, seo_title: e.target.value })}
-                                  className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
-                                  placeholder="SEO Title"
-                                />
-                                <textarea
-                                  value={editingSub.seo_description ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, seo_description: e.target.value })}
-                                  className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[60px]"
-                                  placeholder="SEO Description"
-                                />
-                                <input
-                                  value={editingSub.og_image ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, og_image: e.target.value })}
-                                  className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
-                                  placeholder="OG image URL"
-                                />
-                                <textarea
-                                  value={editingSub.seo_text ?? ''}
-                                  onChange={(e) => setEditingSub({ ...editingSub, seo_text: e.target.value })}
-                                  className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[100px]"
-                                  placeholder="SEO текст"
-                                />
-                                <label className="flex items-center text-xs text-gray-700 gap-2">
+                                <label className="flex items-center text-sm whitespace-nowrap">
                                   <input
                                     type="checkbox"
-                                    checked={!!editingSub.seo_noindex}
-                                    onChange={(e) => setEditingSub({ ...editingSub, seo_noindex: e.target.checked })}
+                                    checked={editingSub.is_visible}
+                                    onChange={(e) => setEditingSub({ ...editingSub, is_visible: e.target.checked })}
+                                    className="mr-2"
                                   />
-                                  noindex
+                                  Видима
                                 </label>
 
+                                <input type="hidden" name="id" value={sub.id} />
+                                <input type="hidden" name="slug" value={editingSub.slug} />
+                                <input type="hidden" name="is_visible" value={String(!!editingSub.is_visible)} />
                                 <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
+
+                                <button type="submit" className="text-green-600 hover:underline text-sm whitespace-nowrap">
+                                  💾
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSub(null)}
+                                  className="text-gray-500 hover:underline text-sm whitespace-nowrap"
+                                >
+                                  Отмена
+                                </button>
                               </div>
-                            </details>
-                          </form>
-                        ) : (
-                          <>
-                            <span className={sub.is_visible ? 'text-gray-800' : 'text-gray-400'}>
-                              {sub.name} {sub.is_visible ? '' : '(Скрыта)'}
-                            </span>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEditSubcategory(sub)}
-                                className="text-blue-600 hover:underline"
-                                aria-label={`Редактировать подкатегорию ${sub.name}`}
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={() => handleToggleSub(sub, cat.id)}
-                                className={`text-sm ${sub.is_visible ? 'text-yellow-600' : 'text-gray-400'} hover:underline`}
-                              >
-                                {sub.is_visible ? '👁️ Скрыть' : '👁️ Показать'}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteSubcategory(sub.id, sub.name, cat.id)}
-                                className="text-red-600 hover:underline"
-                                aria-label={`Удалить подкатегорию ${sub.name}`}
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </motion.li>
-                    ))}
+
+                              {/* ✅ Блок главной */}
+                              <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <label className="flex items-center gap-2 text-sm font-semibold text-black">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!editingSub.home_is_featured}
+                                      onChange={(e) =>
+                                        setEditingSub({
+                                          ...editingSub,
+                                          home_is_featured: e.target.checked,
+                                        })
+                                      }
+                                    />
+                                    Показывать в блоке "Ищу подарок" на главной
+                                  </label>
+
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">Порядок</span>
+                                    <input
+                                      type="number"
+                                      value={safeInt(editingSub.home_sort ?? 0, 0)}
+                                      onChange={(e) =>
+                                        setEditingSub({
+                                          ...editingSub,
+                                          home_sort: safeInt(e.target.value, 0),
+                                        })
+                                      }
+                                      className="w-[92px] border border-gray-300 rounded-md px-2 py-1 text-sm"
+                                      min={0}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <div className="text-xs text-gray-600 mb-1">Иконка (загрузка файла)</div>
+
+                                    <div className="flex items-center gap-3">
+                                      <label className="inline-flex items-center justify-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm cursor-pointer hover:bg-gray-50 transition">
+                                        Загрузить
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (!f) return;
+                                            handleUploadSubHomeIcon(editingSub, f);
+                                            e.currentTarget.value = '';
+                                          }}
+                                        />
+                                      </label>
+
+                                      {!!(editingSub.home_icon_url || '').trim() && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSubHomeIcon(editingSub)}
+                                          className="px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50 transition"
+                                        >
+                                          Удалить
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="text-[11px] text-gray-500 mt-1">
+                                      Лучше квадрат 200x200+ (будет обрезка в круг)
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-gray-600 mb-1">Короткая подпись (опционально)</div>
+                                    <input
+                                      type="text"
+                                      value={editingSub.home_title ?? ''}
+                                      onChange={(e) =>
+                                        setEditingSub({
+                                          ...editingSub,
+                                          home_title: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Например: Друзьям"
+                                      className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"
+                                    />
+                                  </div>
+                                </div>
+
+                                {!!editingSub.home_icon_url && (
+                                  <div className="mt-3 flex items-center gap-3">
+                                    <div className="h-[52px] w-[52px] rounded-full overflow-hidden border border-black/10 bg-white relative">
+                                      <Image
+                                        src={editingSub.home_icon_url}
+                                        alt="preview"
+                                        fill
+                                        className="object-cover"
+                                        unoptimized={/^https?:\/\//i.test(editingSub.home_icon_url || '')}
+                                      />
+                                    </div>
+                                    <div className="text-xs text-gray-600">Превью на главной (круг)</div>
+                                  </div>
+                                )}
+
+                                <input type="hidden" name="home_is_featured" value={String(!!editingSub.home_is_featured)} />
+                                <input type="hidden" name="home_sort" value={String(safeInt(editingSub.home_sort ?? 0, 0))} />
+                                <input type="hidden" name="home_icon_url" value={String(editingSub.home_icon_url ?? '')} />
+                                <input type="hidden" name="home_title" value={String(editingSub.home_title ?? '')} />
+                              </div>
+
+                              <details>
+                                <summary className="cursor-pointer text-xs text-gray-700 select-none">SEO подкатегории</summary>
+                                <div className="mt-2 grid grid-cols-1 gap-2">
+                                  <input
+                                    value={editingSub.seo_h1 ?? ''}
+                                    onChange={(e) => setEditingSub({ ...editingSub, seo_h1: e.target.value })}
+                                    className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
+                                    placeholder="SEO H1"
+                                  />
+                                  <input
+                                    value={editingSub.seo_title ?? ''}
+                                    onChange={(e) => setEditingSub({ ...editingSub, seo_title: e.target.value })}
+                                    className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
+                                    placeholder="SEO Title"
+                                  />
+                                  <textarea
+                                    value={editingSub.seo_description ?? ''}
+                                    onChange={(e) => setEditingSub({ ...editingSub, seo_description: e.target.value })}
+                                    className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[60px]"
+                                    placeholder="SEO Description"
+                                  />
+                                  <input
+                                    value={editingSub.og_image ?? ''}
+                                    onChange={(e) => setEditingSub({ ...editingSub, og_image: e.target.value })}
+                                    className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black"
+                                    placeholder="OG image URL"
+                                  />
+                                  <textarea
+                                    value={editingSub.seo_text ?? ''}
+                                    onChange={(e) => setEditingSub({ ...editingSub, seo_text: e.target.value })}
+                                    className="border border-gray-300 p-2 rounded-md w-full text-xs focus:ring-2 focus:ring-black min-h-[100px]"
+                                    placeholder="SEO текст"
+                                  />
+                                  <label className="flex items-center text-xs text-gray-700 gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!editingSub.seo_noindex}
+                                      onChange={(e) => setEditingSub({ ...editingSub, seo_noindex: e.target.checked })}
+                                    />
+                                    noindex
+                                  </label>
+
+                                  <input type="hidden" name="seo_noindex" value={String(!!editingSub.seo_noindex)} />
+                                </div>
+                              </details>
+                            </form>
+                          ) : (
+                            <>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={sub.is_visible ? 'text-gray-800 font-semibold' : 'text-gray-400 font-semibold'}>
+                                    {sub.name} {sub.is_visible ? '' : '(Скрыта)'}
+                                  </span>
+
+                                  {featured && (
+                                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-black text-white">
+                                      🏠 {order}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="text-xs text-gray-500 break-all">/{sub.slug}</div>
+                              </div>
+
+                              <div className="flex gap-2 items-center shrink-0">
+                                <button
+                                  onClick={() => handleToggleHomeFeatured(sub, cat.id)}
+                                  className={`text-sm hover:underline ${featured ? 'text-black' : 'text-gray-400'}`}
+                                  title={featured ? 'Убрать с главной' : 'Показать на главной'}
+                                >
+                                  🏠
+                                </button>
+
+                                {featured && (
+                                  <>
+                                    <button
+                                      onClick={() => handleMoveHomeSort(sub, cat.id, -1)}
+                                      className="text-sm text-gray-600 hover:underline"
+                                      title="Выше"
+                                    >
+                                      ▲
+                                    </button>
+                                    <button
+                                      onClick={() => handleMoveHomeSort(sub, cat.id, +1)}
+                                      className="text-sm text-gray-600 hover:underline"
+                                      title="Ниже"
+                                    >
+                                      ▼
+                                    </button>
+                                  </>
+                                )}
+
+                                <button
+                                  onClick={() => handleEditSubcategory(sub)}
+                                  className="text-blue-600 hover:underline"
+                                  aria-label={`Редактировать подкатегорию ${sub.name}`}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleToggleSub(sub, cat.id)}
+                                  className={`text-sm ${sub.is_visible ? 'text-yellow-600' : 'text-gray-400'} hover:underline`}
+                                >
+                                  {sub.is_visible ? '👁️ Скрыть' : '👁️ Показать'}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubcategory(sub.id, sub.name, cat.id)}
+                                  className="text-red-600 hover:underline"
+                                  aria-label={`Удалить подкатегорию ${sub.name}`}
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </motion.li>
+                      );
+                    })}
                   </AnimatePresence>
                 </ul>
 
-                {/* Добавить подкатегорию */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -761,7 +1192,7 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
                       id={`add-subcategory-${cat.id}`}
                       name="name"
                       type="text"
-                      placeholder="Название подкатегории (например, Белый шоколад)"
+                      placeholder="Название подкатегории (например, Друзьям)"
                       value={newSubByCat[cat.id] || ''}
                       onChange={(e) => setNewSubByCat((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                       className="border border-gray-300 p-2 rounded-md w-full text-sm focus:ring-2 focus:ring-black"

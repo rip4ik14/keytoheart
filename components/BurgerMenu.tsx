@@ -1,9 +1,10 @@
+// ✅ Путь: components/BurgerMenu.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -23,6 +24,12 @@ const NAV_H_VAR = '--kth-bottom-nav-h';
 export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ важно для гидрации: портал начинаем рендерить только после маунта
+  const [mounted, setMounted] = useState(false);
+
+  // ✅ чтобы был плавный slide-out, держим drawer в DOM чуть-чуть после закрытия
+  const [shouldRenderLayer, setShouldRenderLayer] = useState(false);
+
   const navLinks = useMemo(
     () => [
       { name: 'Каталог', href: '/#catalog' },
@@ -41,6 +48,27 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
   );
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // управляем "присутствием" слоя, чтобы:
+  // - при первом рендере на клиенте не появлялся лишний DOM (иначе hydration mismatch)
+  // - при закрытии была анимация
+  useEffect(() => {
+    if (!mounted) return;
+
+    if (open) {
+      setShouldRenderLayer(true);
+      return;
+    }
+
+    if (!open && shouldRenderLayer) {
+      const t = window.setTimeout(() => setShouldRenderLayer(false), 280);
+      return () => window.clearTimeout(t);
+    }
+  }, [open, mounted, shouldRenderLayer]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onOpenChange(false);
     };
@@ -50,6 +78,8 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
 
   // свайп влево закрывает
   useEffect(() => {
+    if (!open) return;
+
     let startX = 0;
     const menu = menuRef.current;
 
@@ -92,6 +122,10 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'burger_menu_link', { link: name });
   };
 
+  // ✅ ключ: если не mounted - вообще не рендерим портал (совпадет с SSR)
+  // ✅ если меню закрыто и анимация уже закончилась - тоже не рендерим слой
+  const canRenderPortal = mounted && shouldRenderLayer;
+
   const layer = (
     <>
       {/* overlay - до нижней панели */}
@@ -117,11 +151,8 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{
-          // КЛЮЧ: меню не может занять место нижней навигации
           bottom: `var(${NAV_H_VAR}, 0px)`,
           zIndex: 21000,
-
-          // чтобы белый блок не "заливал" низ
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -157,28 +188,13 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
         </div>
 
         <div className="p-4 flex gap-4 text-xl text-black border-t">
-          <a
-            href="https://vk.com/key_to_heart_store"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Перейти в ВКонтакте"
-          >
+          <a href="https://vk.com/key_to_heart_store" target="_blank" rel="noopener noreferrer" aria-label="Перейти в ВКонтакте">
             <Image src="/icons/vk.svg" alt="VK" width={24} height={24} />
           </a>
-          <a
-            href="https://t.me/keytomyheart"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Перейти в Telegram"
-          >
+          <a href="https://t.me/keytomyheart" target="_blank" rel="noopener noreferrer" aria-label="Перейти в Telegram">
             <Image src="/icons/telegram.svg" alt="Telegram" width={24} height={24} />
           </a>
-          <a
-            href="https://wa.me/79886033821"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Перейти в WhatsApp"
-          >
+          <a href="https://wa.me/79886033821" target="_blank" rel="noopener noreferrer" aria-label="Перейти в WhatsApp">
             <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={24} height={24} />
           </a>
         </div>
@@ -204,7 +220,7 @@ export default function BurgerMenu({ open, onOpenChange, hideButton }: Props) {
         </button>
       )}
 
-      {typeof document !== 'undefined' ? createPortal(layer, document.body) : null}
+      {canRenderPortal ? createPortal(layer, document.body) : null}
     </>
   );
 }

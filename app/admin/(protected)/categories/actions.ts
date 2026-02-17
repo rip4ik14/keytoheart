@@ -21,6 +21,11 @@ const cleanBool = (v: unknown, fallback = false) => {
   return fallback;
 };
 
+const cleanInt = (v: unknown, fallback = 0) => {
+  const n = Number(String(v ?? '').trim());
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+};
+
 /* ------------------------------ SLUG ------------------------------ */
 
 const translit = (input: string) => {
@@ -84,7 +89,6 @@ async function ensureUniqueCategorySlug(slug: string, excludeId?: number) {
   let counter = 1;
   let candidate = slug;
 
-  // safety guard
   for (let i = 0; i < 200; i++) {
     const q = supabase.from('categories').select('id').eq('slug', candidate).maybeSingle();
 
@@ -138,7 +142,7 @@ export async function addCategory(formData: FormData) {
   if (!name) throw new Error('Название обязательно');
 
   if (!slug) slug = generateSlug(name);
-  else slug = generateSlug(slug); // чистим вручную введённый slug тоже
+  else slug = generateSlug(slug);
 
   slug = await ensureUniqueCategorySlug(slug);
 
@@ -195,7 +199,6 @@ export async function deleteCategory(formData: FormData) {
   const id = Number(formData.get('id'));
   if (!id) throw new Error('ID обязателен');
 
-  // если в БД нет ON DELETE CASCADE, удаляем подкатегории вручную
   const { error: subErr } = await supabase.from('subcategories').delete().eq('category_id', id);
   if (subErr) throw new Error(subErr.message);
 
@@ -220,18 +223,31 @@ export async function addSubcategory(formData: FormData) {
 
   slug = await ensureUniqueSubSlug(category_id, slug);
 
+  // ✅ новые поля для главной
+  const home_is_featured = cleanBool(formData.get('home_is_featured'), false);
+  const home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
+  const home_icon_url = cleanText(formData.get('home_icon_url'));
+  const home_title = cleanText(formData.get('home_title'));
+
   const payload: TablesInsert<'subcategories'> = {
     category_id,
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
+
     seo_h1: cleanText(formData.get('seo_h1')),
     seo_title: cleanText(formData.get('seo_title')),
     seo_description: cleanText(formData.get('seo_description')),
     seo_text: cleanText(formData.get('seo_text')),
     og_image: cleanText(formData.get('og_image')),
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
-  };
+
+    // ✅ home fields
+    home_is_featured,
+    home_sort,
+    home_icon_url,
+    home_title,
+  } as any;
 
   const { data, error } = await supabase.from('subcategories').insert(payload).select('*').single();
   if (error) throw new Error(error.message);
@@ -247,8 +263,6 @@ export async function updateSubcategory(formData: FormData) {
   if (!id) throw new Error('ID обязателен');
   if (!name) throw new Error('Название обязательно');
 
-  // Чтобы сделать уникальность корректно - надо знать category_id.
-  // Мы его читаем из БД по id.
   const { data: existing, error: exErr } = await supabase
     .from('subcategories')
     .select('category_id')
@@ -265,17 +279,30 @@ export async function updateSubcategory(formData: FormData) {
 
   slug = await ensureUniqueSubSlug(category_id, slug, id);
 
+  // ✅ новые поля для главной
+  const home_is_featured = cleanBool(formData.get('home_is_featured'), false);
+  const home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
+  const home_icon_url = cleanText(formData.get('home_icon_url'));
+  const home_title = cleanText(formData.get('home_title'));
+
   const payload: TablesUpdate<'subcategories'> = {
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
+
     seo_h1: cleanText(formData.get('seo_h1')),
     seo_title: cleanText(formData.get('seo_title')),
     seo_description: cleanText(formData.get('seo_description')),
     seo_text: cleanText(formData.get('seo_text')),
     og_image: cleanText(formData.get('og_image')),
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
-  };
+
+    // ✅ home fields
+    home_is_featured,
+    home_sort,
+    home_icon_url,
+    home_title,
+  } as any;
 
   const { error } = await supabase.from('subcategories').update(payload).eq('id', id);
   if (error) throw new Error(error.message);

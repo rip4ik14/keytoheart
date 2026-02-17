@@ -1,3 +1,4 @@
+// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -149,6 +150,9 @@ export default function PromoGridClient({
                 translate = '-translate-x-full opacity-0 z-0';
               }
 
+              const hasText = !!(b.title || b.subtitle || b.button_text);
+              const shouldOverlay = i === active && hasText;
+
               return (
                 <div
                   key={b.id}
@@ -169,7 +173,16 @@ export default function PromoGridClient({
                         blurDataURL={BLUR_SRC}
                         className="object-cover rounded-[32px] transition-transform duration-500"
                       />
-                      <div className="absolute inset-0 bg-black/30" />
+
+                      {/* ✅ FIX: баннер НЕ темним постоянно - только когда реально нужен контраст под текст */}
+                      {shouldOverlay ? (
+                        <>
+                          {/* лёгкое общее затемнение */}
+                          <div className="absolute inset-0 bg-black/10" />
+                          {/* мягкий градиент под текст */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/10 to-transparent" />
+                        </>
+                      ) : null}
 
                       <div className="absolute inset-0 flex flex-col justify-center items-start px-6 sm:px-9 py-7 sm:py-9 text-white">
                         {i === active && (
