@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { ChevronLeft, ChevronRight, Share2, Star, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Share2, Star, Minus, Plus, X, ShoppingCart } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -155,6 +155,11 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const setQuantity = cart?.setQuantity ?? cart?.updateQuantity ?? cart?.changeQuantity ?? cart?.setItemQuantity ?? null;
   const removeItem = cart?.removeItem ?? cart?.deleteItem ?? cart?.removeFromCart ?? cart?.remove ?? null;
 
+  const totalItems = useMemo(() => {
+    const arr = Array.isArray(cartItems) ? cartItems : [];
+    return arr.reduce((s, i: any) => s + Number(i?.quantity ?? i?.qty ?? 0), 0);
+  }, [cartItems]);
+
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -163,6 +168,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mounted, setMounted] = useState(false);
   const toastTopRef = useRef<string | null>(null);
+
+  // ✅ ВАЖНО: какой товар реально добавили (для тоста)
+  const [lastAdded, setLastAdded] = useState<{ imageUrl: string; title: string }>({
+    imageUrl: (Array.isArray(product.images) && product.images[0]) ? product.images[0] : '/placeholder.jpg',
+    title: product.title || 'Товар',
+  });
 
   const [comboNotifications, setComboNotifications] = useState<Record<number, boolean>>({});
 
@@ -308,6 +319,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
 
   const handleAdd = useCallback(
     (id: number, title: string, price: number, img: string | null, productionTime: number | null, isCombo = false) => {
+      // ✅ фикс: тост должен показывать именно добавленный товар
+      setLastAdded({
+        imageUrl: img || '/placeholder.jpg',
+        title: title || 'Товар',
+      });
+
       addItem?.({
         id: String(id),
         title,
@@ -823,7 +840,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const comboItemsForCalc = useMemo(() => {
     // скидка применяется к "основе + второй базе + шарам"
     // открытка отдельная (без скидки)
-    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [{ it: baseSelectable, discounted: comboDiscountPercent > 0 }];
+    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [
+      { it: baseSelectable, discounted: comboDiscountPercent > 0 },
+    ];
     if (selSecondBase) items.push({ it: selSecondBase, discounted: comboDiscountPercent > 0 });
     if (selBalloons) items.push({ it: selBalloons, discounted: comboDiscountPercent > 0 });
     if (selCard) items.push({ it: selCard, discounted: false });
@@ -885,24 +904,144 @@ export default function ProductPageClient({ product, combos }: { product: Produc
     await fetchPickList(t);
   };
 
-  const toastImageUrl = useMemo(() => images[0] || '/placeholder.jpg', [images]);
-  const toastTitle = useMemo(() => product.title || 'Товар', [product.title]);
-
   // ✅ единые моб-кнопки в карточках "похожие/допы": фикс-размер, цена не режется
   const mobileMiniBtnClass =
     'h-9 px-4 rounded-full text-[11px] font-bold whitespace-nowrap transition active:scale-[0.98] ' + cardBtnHoverRed;
 
+  /* -------------------------- MOBILE BOTTOM BAR (через portal) -------------------------- */
+  const MobileBottomBar = useMemo(() => {
+    if (!mounted || typeof document === 'undefined') return null;
+
+    const node = (
+      <div
+        className="lg:hidden fixed inset-x-0 z-[32000] border-t border-black/10 bg-white/95 backdrop-blur px-3 pt-3 shadow-[0_-8px_22px_rgba(0,0,0,0.10)]"
+        style={{
+          // если где-то еще используется --kth-bottom-nav-h, мы аккуратно поднимем плашку выше него
+          bottom: `calc(var(--kth-bottom-nav-h, 0px))`,
+          paddingBottom: `calc(12px + env(safe-area-inset-bottom))`,
+          paddingLeft: `calc(12px + env(safe-area-inset-left))`,
+          paddingRight: `calc(12px + env(safe-area-inset-right))`,
+        }}
+      >
+        <div className="max-w-[520px] mx-auto">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-lg font-semibold leading-none">{money(discountedPrice)} ₽</span>
+              <span className="text-[11px] text-black/50 leading-none mt-1">+ бонус {bonus} ₽</span>
+            </div>
+
+            <div className="flex-1 flex gap-2">
+              {productQty <= 0 ? (
+                <motion.button
+                  onClick={handleIncCurrent}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
+                  variants={buttonVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  aria-label="Добавить в корзину"
+                  rel="nofollow"
+                >
+                  В корзину
+                </motion.button>
+              ) : (
+                <div
+                  className={[
+                    'flex-1',
+                    'h-[48px]',
+                    'rounded-2xl',
+                    'border border-black/10',
+                    'bg-white',
+                    'shadow-[0_10px_25px_rgba(0,0,0,0.06)]',
+                    'flex items-center justify-between',
+                    'px-2',
+                  ].join(' ')}
+                  aria-label="Количество товара в корзине"
+                >
+                  <button
+                    type="button"
+                    onClick={handleDecCurrent}
+                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+                    aria-label="Уменьшить количество"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-base font-semibold leading-none">{productQty}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleIncCurrent}
+                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
+                    aria-label="Увеличить количество"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <motion.button
+                onClick={openCombo}
+                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${secondaryBtn}`}
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Собрать комбо"
+                rel="nofollow"
+              >
+                Комбо -10%
+              </motion.button>
+
+              <Link
+                href="/cart"
+                className="relative w-[52px] h-[48px] rounded-2xl border border-black/10 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition"
+                aria-label="Перейти в корзину"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                    {totalItems}
+                  </span>
+                )}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    return createPortal(node, document.body);
+  }, [
+    mounted,
+    discountedPrice,
+    bonus,
+    productQty,
+    handleIncCurrent,
+    handleDecCurrent,
+    openCombo,
+    primaryBtnMain,
+    secondaryBtn,
+    totalItems,
+  ]);
+
   /* -------------------------- RENDER -------------------------- */
   return (
     <section className="min-h-screen bg-white text-black" aria-label={`Товар ${product.title}`}>
-      {/* ✅ единый тост (как ProductCard) */}
-      <MobileToast imageUrl={toastImageUrl} title={toastTitle} />
+      {/* ✅ тост теперь показывает именно добавленный товар */}
+      <MobileToast imageUrl={lastAdded.imageUrl} title={lastAdded.title} />
+
+      {/* ✅ нижняя плашка для страницы товара (всегда есть кнопка/степпер/комбо/корзина) */}
+      {MobileBottomBar}
 
       {/* ✅ Mobile: фикс-кнопки (крестик не исчезает при скролле) */}
       <div
-        className={['lg:hidden fixed z-[60] transition-opacity duration-200', showFloatingControls ? 'opacity-100' : 'opacity-0 pointer-events-none'].join(
-          ' ',
-        )}
+        className={[
+          'lg:hidden fixed z-[60] transition-opacity duration-200',
+          showFloatingControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        ].join(' ')}
         style={{
           top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 10px + env(safe-area-inset-top))`,
           left: `calc(12px + env(safe-area-inset-left))`,
@@ -931,7 +1070,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-28 lg:pb-10">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 pb-32 lg:pb-10">
         {/* (оставил comboNotifications как было - но теперь основной UX тост единый сверху) */}
         <AnimatePresence>
           {Object.entries(comboNotifications).map(
@@ -945,10 +1084,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-8 lg:gap-12 items-start">
           {/* GALLERY */}
           <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
-            <div
-              ref={galleryRef}
-              className="relative overflow-hidden bg-gray-50 border border-black/10 rounded-none sm:rounded-3xl"
-            >
+            <div ref={galleryRef} className="relative overflow-hidden bg-gray-50 border border-black/10 rounded-none sm:rounded-3xl">
               {/* ✅ Mobile overlay controls (X + Share) - только пока галерея вверху (как в референсе) */}
               {!showFloatingControls && (
                 <div
@@ -1109,7 +1245,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               ) : similarItems.length === 0 ? (
                 <p className="text-gray-500">Пока нет похожих товаров</p>
               ) : (
-                <Swiper navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }} loop={similarLoop} modules={[Navigation]} spaceBetween={14} slidesPerView={2}>
+                <Swiper
+                  navigation={{ prevEl: '.similarPrevInline', nextEl: '.similarNextInline' }}
+                  loop={similarLoop}
+                  modules={[Navigation]}
+                  spaceBetween={14}
+                  slidesPerView={2}
+                >
                   {similarItems.slice(0, 8).map((it) => (
                     <SwiperSlide key={it.id}>
                       <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
@@ -1174,7 +1316,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               ) : recommendedItems.length === 0 ? (
                 <p className="text-gray-500">Пока нет допов</p>
               ) : (
-                <Swiper navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }} loop={recommendLoop} modules={[Navigation]} spaceBetween={14} slidesPerView={2}>
+                <Swiper
+                  navigation={{ prevEl: '.recommendPrevInline', nextEl: '.recommendNextInline' }}
+                  loop={recommendLoop}
+                  modules={[Navigation]}
+                  spaceBetween={14}
+                  slidesPerView={2}
+                >
                   {recommendedItems.slice(0, 10).map((combo) => (
                     <SwiperSlide key={combo.id}>
                       <div className="group rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition">
@@ -1356,7 +1504,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                         {product.description}
                       </p>
 
-                      {!showFullDesc && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />}
+                      {!showFullDesc && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1482,7 +1632,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                         <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{it.title}</p>
                       </Link>
 
-                      {/* ✅ фикс-верстка: цена не режется, кнопка одинаковая */}
                       <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-2">
                         <span className="font-semibold whitespace-nowrap tabular-nums text-[13px] sm:text-sm">
                           {money(it.price)} ₽
@@ -1562,7 +1711,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                           <p className="text-sm font-semibold line-clamp-2 min-h-[40px]">{combo.title}</p>
                         </Link>
 
-                        {/* ✅ фикс-верстка: цена не режется, кнопка одинаковая */}
                         <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-2">
                           <span className="font-semibold whitespace-nowrap tabular-nums text-[13px] sm:text-sm">
                             {money(combo.price)} ₽
@@ -1596,90 +1744,6 @@ export default function ProductPageClient({ product, combos }: { product: Produc
             </div>
           )}
         </motion.section>
-
-        {/* mobile bottom bar */}
-        <div
-          className="fixed inset-x-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur px-3 pt-3 lg:hidden shadow-[0_-8px_22px_rgba(0,0,0,0.10)]"
-          style={{
-            // ✅ поднимаем плашку выше MobileBottomNav
-            bottom: `calc(var(--kth-bottom-nav-h, 0px) + env(safe-area-inset-bottom))`,
-            paddingBottom: `calc(12px + env(safe-area-inset-bottom))`,
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold leading-none">{money(discountedPrice)} ₽</span>
-              <span className="text-[11px] text-black/50 leading-none mt-1">+ бонус {bonus} ₽</span>
-            </div>
-
-            <div className="flex-1 flex gap-2">
-              {/* ✅ вместо статичной "В корзину" - кнопка или степпер */}
-              {productQty <= 0 ? (
-                <motion.button
-                  onClick={handleIncCurrent}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
-                  variants={buttonVariants}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  aria-label="Добавить в корзину"
-                  rel="nofollow"
-                >
-                  В корзину
-                </motion.button>
-              ) : (
-                <div
-                  className={[
-                    'flex-1',
-                    'h-[48px]',
-                    'rounded-2xl',
-                    'border border-black/10',
-                    'bg-white',
-                    'shadow-[0_10px_25px_rgba(0,0,0,0.06)]',
-                    'flex items-center justify-between',
-                    'px-2',
-                  ].join(' ')}
-                  aria-label="Количество товара в корзине"
-                >
-                  <button
-                    type="button"
-                    onClick={handleDecCurrent}
-                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
-                    aria-label="Уменьшить количество"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex-1 flex items-center justify-center">
-                    <span className="text-base font-semibold leading-none">{productQty}</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleIncCurrent}
-                    className="w-10 h-10 rounded-xl border border-black/10 bg-white hover:bg-black/[0.02] active:scale-[0.98] transition flex items-center justify-center"
-                    aria-label="Увеличить количество"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              <motion.button
-                onClick={openCombo}
-                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${secondaryBtn}`}
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Собрать комбо"
-                rel="nofollow"
-              >
-                Комбо -10%
-              </motion.button>
-            </div>
-          </div>
-        </div>
 
         {/* COMBO MODAL */}
         <ComboBuilderModal
