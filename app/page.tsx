@@ -462,18 +462,18 @@ export default async function Home() {
       </section>
 
       {/* Flowwow (как на Labberry, без картинок) */}
-      <section role="region" aria-label="Отзывы Flowwow" className="mt-8 sm:mt-10">
+      <section role="region" aria-label="Отзывы Flowwow" className="mt-8 sm:mt-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}>
         <h2 className="sr-only">Отзывы на Flowwow</h2>
         <FlowwowReviewsWidget className="" />
       </section>
 
       {/* Яндекс отзывы */}
-      <section role="region" aria-label="Отзывы клиентов" className="mt-8 sm:mt-10">
+      <section role="region" aria-label="Отзывы клиентов" className="mt-8 sm:mt-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
         <h2 className="sr-only">Отзывы клиентов</h2>
         <YandexReviewsWidget />
       </section>
 
-      <section role="region" aria-label="Вопросы и ответы">
+      <section role="region" aria-label="Вопросы и ответы" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
         <h2 className="sr-only">Вопросы и ответы</h2>
         <FAQSectionWrapper />
       </section>

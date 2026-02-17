@@ -4,7 +4,7 @@ import React from 'react';
 export default function YandexReviewsWidget() {
   return (
     <section className="mx-auto max-w-2xl mb-8">
-      <h2 className="text-2xl font-bold text-center mb-4"></h2>
+      <h2 className="sr-only">Отзывы на Яндекс.Картах</h2>
       <div className="rounded-2xl overflow-hidden border shadow">
         <iframe
           src="https://yandex.ru/maps-reviews-widget/81940019159?comments"

@@ -7,6 +7,7 @@ import './styles/globals.css';
 
 import localFont from 'next/font/local';
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
@@ -294,8 +295,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
 
+      </head>
+
+      <body className={`${golosText.className} antialiased`}>
+        <DisableConsoleInProd />
+
         {YM_ID && (
-          <script
+          <Script
+            id="yandex-metrika"
+            strategy="lazyOnload"
             dangerouslySetInnerHTML={{
               __html: `
                 (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -313,10 +321,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }}
           />
         )}
-      </head>
-
-      <body className={`${golosText.className} antialiased`}>
-        <DisableConsoleInProd />
 
         {YM_ID && (
           <noscript>
