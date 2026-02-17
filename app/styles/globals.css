@@ -780,13 +780,14 @@ body {
 }
 
 /* --------------------------------------------- */
-/* KTH glass system - stable + Android fallback  */
+/* KTH glass system - iOS pretty + Android safe  */
 /* --------------------------------------------- */
 
-/* базовое "стекло" (безопасная версия) */
+/* БАЗА: стекло (визуально как раньше) */
 .kth-glass {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.78); /* было легче */
+  border: 1px solid rgba(0, 0, 0, 0.08); /* тоньше */
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.12);
 }
 
 /* blur только на НЕ-Android */
@@ -795,14 +796,14 @@ html:not(.kth-android) .kth-glass {
   backdrop-filter: blur(18px);
 }
 
-/* optional highlight layer */
+/* Легкая “подсветка” как в телеге (по желанию, но она делает стекло богаче) */
 .kth-glass-highlight {
   background:
-    radial-gradient(180px 90px at 20% 10%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%),
-    radial-gradient(200px 110px at 85% 85%, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0) 70%);
+    radial-gradient(180px 90px at 20% 10%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 70%),
+    radial-gradient(200px 110px at 85% 85%, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0) 70%);
 }
 
-/* sticky/fixed поверхности - без агрессии */
+/* sticky/fixed поверхности - безопасно */
 .kth-sticky-surface {
   isolation: isolate;
   transform: none;
@@ -811,7 +812,9 @@ html:not(.kth-android) .kth-glass {
   -webkit-backface-visibility: hidden;
 }
 
-/* Android: вырубаем blur точечно (без селектора *) */
+/* --------------------------- */
+/* Android fallback (не трогаем iOS) */
+/* --------------------------- */
 html.kth-android .kth-glass,
 html.kth-android [class*='backdrop-blur'],
 html.kth-android [style*='backdrop-filter'],
@@ -820,14 +823,14 @@ html.kth-android [style*='-webkit-backdrop-filter'] {
   backdrop-filter: none !important;
 }
 
-/* Android: чуть плотнее фон, чтобы стекло не выглядело "пустым" */
 html.kth-android .kth-glass {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.92) !important; /* плотнее без blur */
+  border-color: rgba(0, 0, 0, 0.10) !important;
 }
 
-/* Android: убираем провоцирующие compositor-артефакты */
 html.kth-android .kth-sticky-surface {
   transform: none !important;
   will-change: auto !important;
   transition: none !important;
 }
+
