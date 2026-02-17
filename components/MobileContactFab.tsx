@@ -107,6 +107,13 @@ export default function MobileContactFab() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (/Android/i.test(navigator.userAgent || '')) {
+      document.documentElement.classList.add('kth-android');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
     const onResize = () => setIsDesktop(window.matchMedia('(min-width: 640px)').matches);
     onResize();
@@ -452,7 +459,7 @@ export default function MobileContactFab() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="fixed right-4 z-[20000]"
+            className="fixed right-4 z-[20000] kth-sticky-surface"
             style={{
               bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px) + var(--kth-bottom-nav-h, 0px))`,
             }}
@@ -468,7 +475,7 @@ export default function MobileContactFab() {
                     className="
                       absolute -top-12 right-0
                       rounded-2xl border border-black/10
-                      bg-white/90 backdrop-blur
+                      bg-white/90 backdrop-blur kth-android-no-blur kth-android-lite-shadow
                       px-3 py-2
                       shadow-[0_10px_30px_rgba(0,0,0,0.10)]
                       text-xs font-medium text-black/80
@@ -490,7 +497,7 @@ export default function MobileContactFab() {
                   h-14
                   rounded-full
                   px-4
-                  bg-white/88 backdrop-blur
+                  bg-white/88 backdrop-blur kth-android-no-blur kth-android-lite-shadow
                   border border-black/10
                   shadow-[0_12px_35px_rgba(0,0,0,0.18)]
                   transition
@@ -499,7 +506,7 @@ export default function MobileContactFab() {
                 <div
                   className="
                     h-10 w-10 rounded-full
-                    bg-white/85 backdrop-blur
+                    bg-white/85 backdrop-blur kth-android-no-blur kth-android-lite-shadow
                     border border-black/10
                     shadow-[0_10px_26px_rgba(0,0,0,0.10)]
                     grid place-items-center

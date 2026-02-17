@@ -77,6 +77,64 @@
     @apply bg-white text-black;
   }
 
+  /* Glass surfaces for mobile sticky UI */
+  .kth-glass {
+    background: rgba(255, 255, 255, 0.82);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .kth-glass-highlight {
+    background:
+      radial-gradient(180px 90px at 20% 10%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%),
+      radial-gradient(200px 110px at 85% 85%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 70%);
+  }
+
+  html.kth-android .kth-glass {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+  }
+
+  .kth-sticky-surface {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    isolation: isolate;
+  }
+
+
+  html.kth-android .kth-glass-highlight {
+    display: none !important;
+  }
+
+  html.kth-android .kth-sticky-surface {
+    transform: translate3d(0, 0, 0);
+    will-change: auto;
+    contain: paint;
+    transition: none !important;
+  }
+
+  html.kth-android .kth-mobile-stable {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  html.kth-android [data-sticky-header='true'] {
+    background: rgba(255, 255, 255, 0.98) !important;
+  }
+
+
+  html.kth-android .kth-android-no-blur {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: rgba(255, 255, 255, 0.94) !important;
+  }
+
+  html.kth-android .kth-android-lite-shadow {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1) !important;
+  }
+
 
 
   /* Контейнер */

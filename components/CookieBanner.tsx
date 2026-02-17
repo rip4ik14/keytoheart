@@ -21,6 +21,13 @@ export default function CookieBanner() {
 
   const rootRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (/Android/i.test(navigator.userAgent || '')) {
+      document.documentElement.classList.add('kth-android');
+    }
+  }, []);
+
   // singleton (чтобы баннер не смонтировался дважды)
   const isPrimaryRef = useRef(true);
 
@@ -142,7 +149,7 @@ export default function CookieBanner() {
             className="
               mx-auto w-full max-w-[520px]
               rounded-3xl
-              bg-white/82 backdrop-blur-xl
+              kth-glass kth-sticky-surface kth-mobile-stable kth-android-no-blur kth-android-lite-shadow
               border border-black/10
               shadow-[0_22px_70px_rgba(0,0,0,0.18)]
               overflow-hidden
@@ -180,7 +187,7 @@ export default function CookieBanner() {
                     w-full
                     h-12
                     rounded-2xl
-                    bg-white/88 backdrop-blur
+                    kth-android-no-blur kth-android-lite-shadow bg-white/88 backdrop-blur
                     border border-black/10
                     shadow-[0_12px_35px_rgba(0,0,0,0.12)]
                     text-sm font-semibold text-black

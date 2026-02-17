@@ -279,7 +279,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
         'rounded-full',
         'inline-flex items-center',
         'border',
-        'backdrop-blur-xl',
+        'backdrop-blur-xl kth-android-no-blur',
         'transition-all duration-200',
         active
           ? 'bg-white/90 border-black/10 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]'
@@ -316,7 +316,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
             className={cls(
               'absolute right-1 top-1/2 -translate-y-1/2',
               'w-8 h-8 rounded-full',
-              'bg-white/75 backdrop-blur-xl',
+              'bg-white/75 backdrop-blur-xl kth-android-no-blur kth-android-lite-shadow',
               'border border-black/10',
               'shadow-[0_10px_26px_rgba(0,0,0,0.10)]',
               'flex items-center justify-center',
@@ -352,7 +352,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                     'rounded-full',
                     'inline-flex items-center gap-2',
                     'border border-black/10',
-                    'bg-white/40 backdrop-blur-xl',
+                    'bg-white/40 backdrop-blur-xl kth-android-no-blur',
                     'text-black/80',
                     'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
                     'active:bg-white/55',
