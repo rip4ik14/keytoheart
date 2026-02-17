@@ -1,3 +1,4 @@
+// ✅ Путь: components/MobileContactFab.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -443,7 +444,7 @@ export default function MobileContactFab() {
 
   return (
     <>
-      {/* ✅ FAB: один единственный (раньше у тебя был дубль) */}
+      {/* ✅ FAB: один единственный */}
       <AnimatePresence>
         {!open && (
           <motion.div
@@ -452,7 +453,7 @@ export default function MobileContactFab() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="fixed right-4 z-[20000]"
+            className="fixed right-4 z-[20000] kth-sticky-surface"
             style={{
               bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px) + var(--kth-bottom-nav-h, 0px))`,
             }}
@@ -468,11 +469,11 @@ export default function MobileContactFab() {
                     className="
                       absolute -top-12 right-0
                       rounded-2xl border border-black/10
-                      bg-white/90 backdrop-blur
                       px-3 py-2
                       shadow-[0_10px_30px_rgba(0,0,0,0.10)]
                       text-xs font-medium text-black/80
                       whitespace-nowrap
+                      kth-glass kth-sticky-surface
                     "
                   >
                     {hintText}
@@ -490,19 +491,19 @@ export default function MobileContactFab() {
                   h-14
                   rounded-full
                   px-4
-                  bg-white/88 backdrop-blur
                   border border-black/10
                   shadow-[0_12px_35px_rgba(0,0,0,0.18)]
                   transition
+                  kth-glass kth-sticky-surface
                 "
               >
                 <div
                   className="
                     h-10 w-10 rounded-full
-                    bg-white/85 backdrop-blur
                     border border-black/10
                     shadow-[0_10px_26px_rgba(0,0,0,0.10)]
                     grid place-items-center
+                    kth-glass kth-sticky-surface
                   "
                   aria-hidden="true"
                 >
@@ -541,6 +542,7 @@ export default function MobileContactFab() {
                 bg-white
                 border-t border-black/10
                 shadow-[0_-18px_60px_rgba(0,0,0,0.18)]
+                kth-sticky-surface
               "
               initial={{ y: 520 }}
               animate={{ y: 0 }}
@@ -592,36 +594,11 @@ export default function MobileContactFab() {
                   </motion.button>
                 </div>
 
-                {/* ✅ было 3 - добавили 4 (включая звонок) */}
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Item
-                    title="Telegram"
-                    subtitle="быстро"
-                    iconSrc="/icons/telegram.svg"
-                    href={links.telegram}
-                    channel="telegram"
-                  />
-                  <Item
-                    title="WhatsApp"
-                    subtitle="удобно"
-                    iconSrc="/icons/whatsapp.svg"
-                    href={links.whatsapp}
-                    channel="whatsapp"
-                  />
-                  <Item
-                    title="MAX"
-                    subtitle="актуально"
-                    iconSrc="/icons/max.svg"
-                    href={links.max}
-                    channel="max"
-                  />
-                  <Item
-                    title="Звонок"
-                    subtitle="с 09:00 до 21:00"
-                    iconSrc="/icons/phone.svg"
-                    href={links.tel}
-                    channel="call"
-                  />
+                  <Item title="Telegram" subtitle="быстро" iconSrc="/icons/telegram.svg" href={links.telegram} channel="telegram" />
+                  <Item title="WhatsApp" subtitle="удобно" iconSrc="/icons/whatsapp.svg" href={links.whatsapp} channel="whatsapp" />
+                  <Item title="MAX" subtitle="актуально" iconSrc="/icons/max.svg" href={links.max} channel="max" />
+                  <Item title="Звонок" subtitle="с 09:00 до 21:00" iconSrc="/icons/phone.svg" href={links.tel} channel="call" />
                 </div>
 
                 <div className="mt-4 text-[11px] leading-4 text-black/45">
@@ -653,6 +630,7 @@ export default function MobileContactFab() {
                 right-4 bottom-20
                 hidden sm:block
                 w-[360px]
+                kth-sticky-surface
               "
               initial={{ opacity: 0, y: 10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -698,34 +676,10 @@ export default function MobileContactFab() {
 
                 <div className="px-5 pb-5">
                   <div className="grid grid-cols-4 gap-2">
-                    <Item
-                      title="Telegram"
-                      subtitle="быстро"
-                      iconSrc="/icons/telegram.svg"
-                      href={links.telegram}
-                      channel="telegram"
-                    />
-                    <Item
-                      title="WhatsApp"
-                      subtitle="удобно"
-                      iconSrc="/icons/whatsapp.svg"
-                      href={links.whatsapp}
-                      channel="whatsapp"
-                    />
-                    <Item
-                      title="MAX"
-                      subtitle="актуально"
-                      iconSrc="/icons/max.svg"
-                      href={links.max}
-                      channel="max"
-                    />
-                    <Item
-                      title="Звонок"
-                      subtitle="с 09:00 до 21:00"
-                      iconSrc="/icons/phone.svg"
-                      href={links.tel}
-                      channel="call"
-                    />
+                    <Item title="Telegram" subtitle="быстро" iconSrc="/icons/telegram.svg" href={links.telegram} channel="telegram" />
+                    <Item title="WhatsApp" subtitle="удобно" iconSrc="/icons/whatsapp.svg" href={links.whatsapp} channel="whatsapp" />
+                    <Item title="MAX" subtitle="актуально" iconSrc="/icons/max.svg" href={links.max} channel="max" />
+                    <Item title="Звонок" subtitle="с 09:00 до 21:00" iconSrc="/icons/phone.svg" href={links.tel} channel="call" />
                   </div>
 
                   <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] px-3 py-2">

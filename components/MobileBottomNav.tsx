@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@context/CartContext';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const NAV_H_VAR = '--kth-bottom-nav-h';
 
@@ -24,19 +24,33 @@ export default function MobileBottomNav({
   const { items } = useCart() as { items: { quantity: number }[] };
 
   const totalItems = useMemo(() => items.reduce((s, i) => s + (i.quantity || 0), 0), [items]);
-
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
-  // ✅ как в StickyHeader - вычисляем реальную высоту нижнего UI и кладём в CSS var
+  // ✅ высота нижней навигации в CSS var
   const [navH, setNavH] = useState<number>(0);
-  const navRef = useMemo(() => ({ current: null as HTMLElement | null }), []);
-  // (без useRef, чтобы не пересоздавать в строгом режиме - тут нам нужен стабильный объект)
+  const navRef = useRef<HTMLElement | null>(null);
+  const lastHRef = useRef<number>(0);
+
+  // ✅ ставим флаг Android (если ты еще не вынес это в LayoutClient)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    if (isAndroid) document.documentElement.classList.add('kth-android');
+  }, []);
+
   useEffect(() => {
     const el = navRef.current;
     if (!el) return;
 
     const apply = () => {
       const h = Math.ceil(el.getBoundingClientRect().height);
+      if (!h) return;
+
+      // не дергаем state и css var, если высота не изменилась
+      if (lastHRef.current === h) return;
+      lastHRef.current = h;
+
       setNavH(h);
       document.documentElement.style.setProperty(NAV_H_VAR, `${h}px`);
     };
@@ -57,7 +71,7 @@ export default function MobileBottomNav({
       if (ro) ro.disconnect();
       window.clearTimeout(t);
     };
-  }, [navRef]);
+  }, []);
 
   const Item = ({
     href,
@@ -115,15 +129,16 @@ export default function MobileBottomNav({
 
   return (
     <nav
-      // @ts-expect-error - мы используем стабильный объект под ref
-      ref={(node) => (navRef.current = node)}
-      className={cls('sm:hidden', 'fixed left-0 right-0 bottom-0 z-[1200]', 'px-3')}
+      ref={(node) => {
+        navRef.current = node;
+      }}
+      className={cls('sm:hidden', 'fixed left-0 right-0 bottom-0 z-[1200]', 'px-3', 'kth-sticky-surface')}
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom), 10px)',
       }}
       aria-label="Нижняя навигация"
     >
-      {/* ✅ fallback var на случай, если ref ещё не измерился (первый кадр) */}
+      {/* ✅ fallback var на первый кадр */}
       <style>
         {`:root{${NAV_H_VAR}: ${
           navH > 0 ? `${navH}px` : 'calc(84px + max(env(safe-area-inset-bottom), 10px))'
@@ -137,28 +152,28 @@ export default function MobileBottomNav({
           'w-full',
           'max-w-[520px]',
           'rounded-[26px]',
-          // ✅ тот же “телега-стекло”, что в StickyHeader
-          'bg-white/82 backdrop-blur-xl',
           'border border-black/10',
           'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
           'overflow-hidden',
+          // ✅ стекло через классы (на Android blur отключится)
+          'kth-glass',
+          'kth-sticky-surface',
         )}
       >
-        {/* ✅ подсветка стекла - 1в1 как в StickyHeader */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-70"
-          aria-hidden="true"
-          style={{
-            background:
-              'radial-gradient(120px 60px at 20% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%), radial-gradient(140px 80px at 90% 100%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 72%)',
-          }}
-        />
+        {/* ✅ подсветка стекла */}
+        <div className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight" aria-hidden="true" />
 
         <div className="relative px-2 py-2">
           <div className="grid grid-cols-5 gap-2">
             <Item href="/" label="Главная" icon="/icons/home.svg" active={isActive('/')} />
             <Item href="/catalog" label="Каталог" icon="/icons/catalog.svg" active={isActive('/catalog')} />
-            <Item href="/cart" label="Корзина" icon="/icons/shopping-cart.svg" active={isActive('/cart')} badge={totalItems} />
+            <Item
+              href="/cart"
+              label="Корзина"
+              icon="/icons/shopping-cart.svg"
+              active={isActive('/cart')}
+              badge={totalItems}
+            />
             <Item href="/account" label="Кабинет" icon="/icons/user.svg" active={isActive('/account')} />
 
             <button

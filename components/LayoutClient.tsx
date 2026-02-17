@@ -56,6 +56,20 @@ export default function LayoutClient({
     return false;
   }, [pathname]);
 
+  // ✅ Android compositor fallback: ставим флаг на <html> (глобально)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const ua = navigator.userAgent || '';
+      const isAndroid = /Android/i.test(ua);
+
+      const root = document.documentElement;
+      if (isAndroid) root.classList.add('kth-android');
+      else root.classList.remove('kth-android');
+    } catch {}
+  }, []);
+
   // ✅ Поднимаем FAB над нижней фиксированной панелью товара
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -202,12 +216,7 @@ export default function LayoutClient({
             {!isGiftPage && !menuOpen && <MobileContactFab />}
 
             {/* ✅ FIX: правильные пропсы */}
-            {!isGiftPage && (
-              <MobileBottomNav
-                isMenuOpen={menuOpen}
-                onToggleMenu={toggleMenu}
-              />
-            )}
+            {!isGiftPage && <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />}
 
             {/* ✅ Mobile Drawer Menu */}
             {!isGiftPage && (

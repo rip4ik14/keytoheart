@@ -1,3 +1,4 @@
+// ✅ Путь: components/CookieBanner.tsx
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -24,13 +25,21 @@ export default function CookieBanner() {
   // singleton (чтобы баннер не смонтировался дважды)
   const isPrimaryRef = useRef(true);
 
+  const lastHeightRef = useRef<number>(0);
+
   const setBannerHeightVar = (px: number) => {
     if (typeof document === 'undefined') return;
-    document.documentElement.style.setProperty(CSS_VAR, `${Math.max(0, px)}px`);
+
+    const v = Math.max(0, Math.round(px));
+    if (lastHeightRef.current === v) return; // ✅ не дергаем лишний раз
+    lastHeightRef.current = v;
+
+    document.documentElement.style.setProperty(CSS_VAR, `${v}px`);
   };
 
   const clearBannerHeightVar = () => {
     if (typeof document === 'undefined') return;
+    lastHeightRef.current = 0;
     document.documentElement.style.setProperty(CSS_VAR, '0px');
   };
 
@@ -89,19 +98,29 @@ export default function CookieBanner() {
     const measure = () => {
       const el = rootRef.current;
       if (!el) return;
-      setBannerHeightVar(el.offsetHeight);
+
+      // ✅ точнее и стабильнее чем offsetHeight при сабпикселе
+      const h = el.getBoundingClientRect().height;
+      setBannerHeightVar(h);
     };
 
     measure();
 
-    const ro = new ResizeObserver(() => measure());
-    if (rootRef.current) ro.observe(rootRef.current);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure());
+      if (rootRef.current) ro.observe(rootRef.current);
+    }
 
     window.addEventListener('resize', measure);
 
+    // небольшой “доп замер” после первого кадра
+    const t = window.setTimeout(measure, 180);
+
     return () => {
-      ro.disconnect();
+      if (ro) ro.disconnect();
       window.removeEventListener('resize', measure);
+      window.clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVisible]);
@@ -123,15 +142,16 @@ export default function CookieBanner() {
       {isVisible && (
         <motion.div
           ref={rootRef}
-          initial={{ opacity: 0, y: 18, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 18, scale: 0.98 }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 18 }}
           transition={{ duration: 0.2 }}
           className="
             fixed left-0 right-0 bottom-0 mx-auto
             z-[10010]
             px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3
             sm:left-auto sm:right-4 sm:bottom-4 sm:px-0 sm:pb-0 sm:pt-0
+            kth-sticky-surface
           "
           role="dialog"
           aria-modal="true"
@@ -142,17 +162,14 @@ export default function CookieBanner() {
             className="
               mx-auto w-full max-w-[520px]
               rounded-3xl
-              bg-white/82 backdrop-blur-xl
               border border-black/10
               shadow-[0_22px_70px_rgba(0,0,0,0.18)]
               overflow-hidden
+              kth-glass kth-sticky-surface
             "
           >
             <div className="px-4 pt-3.5 pb-3">
-              <p
-                id="cookie-banner-desc"
-                className="text-[13px] leading-snug text-black/80 text-center"
-              >
+              <p id="cookie-banner-desc" className="text-[13px] leading-snug text-black/80 text-center">
                 Мы используем{' '}
                 <Link
                   href="/cookie-policy"
@@ -180,12 +197,12 @@ export default function CookieBanner() {
                     w-full
                     h-12
                     rounded-2xl
-                    bg-white/88 backdrop-blur
                     border border-black/10
                     shadow-[0_12px_35px_rgba(0,0,0,0.12)]
                     text-sm font-semibold text-black
                     transition
                     hover:bg-white
+                    kth-glass kth-sticky-surface
                   "
                 >
                   Согласен

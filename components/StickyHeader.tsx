@@ -56,21 +56,40 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const cartControls = useAnimation();
   const [isFlying, setIsFlying] = useState(false);
 
+  const [isAndroid, setIsAndroid] = useState(false);
+
   const showMobileFilter = useMemo(() => {
     return pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/');
   }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const ua = navigator.userAgent || '';
+    const a = /Android/i.test(ua);
+    setIsAndroid(a);
+
+    if (a) document.documentElement.classList.add('kth-android');
+    return () => {
+      document.documentElement.classList.remove('kth-android');
+    };
+  }, []);
 
   useEffect(() => {
     refreshAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // ✅ высота sticky header в CSS var (без лишних записей)
+  const lastHeaderHRef = useRef<number>(0);
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
 
     const apply = () => {
       const h = Math.ceil(el.getBoundingClientRect().height);
+      if (lastHeaderHRef.current === h) return;
+      lastHeaderHRef.current = h;
       document.documentElement.style.setProperty(STICKY_HEADER_VAR, `${h}px`);
     };
 
@@ -95,7 +114,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   useEffect(() => {
     if (totalItems > 0 && previousTotalItems === 0) {
       cartControls.start({
-        scale: [1, 1.3, 1],
+        scale: [1, 1.25, 1],
         rotate: [0, 10, -10, 0],
         transition: { duration: 0.5, ease: 'easeInOut', repeat: 1 },
       });
@@ -103,8 +122,22 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     setPreviousTotalItems(totalItems);
   }, [totalItems, cartControls, previousTotalItems]);
 
+  // ✅ очень важно: не дергать глобальный state на каждом scroll
+  // обновляем позицию иконки корзины только когда реально идет "полет"
   useEffect(() => {
+    if (!animationState.isAnimating) {
+      // разовый замер на всякий случай
+      const el = cartIconRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      return;
+    }
+
+    let raf = 0;
+
     const updatePos = () => {
+      raf = 0;
       const el = cartIconRef.current;
       if (!el) return;
 
@@ -112,19 +145,25 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
     };
 
-    updatePos();
-    window.addEventListener('resize', updatePos);
-    window.addEventListener('scroll', updatePos, { passive: true });
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(updatePos);
+    };
+
+    schedule();
+    window.addEventListener('resize', schedule);
+    window.addEventListener('scroll', schedule, { passive: true });
 
     return () => {
-      window.removeEventListener('resize', updatePos);
-      window.removeEventListener('scroll', updatePos);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('scroll', schedule);
+      if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [setCartIconPosition]);
+  }, [animationState.isAnimating, setCartIconPosition]);
 
   useEffect(() => {
     if (animationState.isAnimating) setIsFlying(true);
-  }, [animationState]);
+  }, [animationState.isAnimating]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -180,6 +219,8 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       </motion.div>
     ) : null;
 
+  const overlayClass = isAndroid ? 'absolute inset-0 bg-black/70' : 'absolute inset-0 bg-black/70 backdrop-blur-sm';
+
   return (
     <>
       <header
@@ -200,16 +241,15 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               'w-full',
               'max-w-[520px]',
               'rounded-[28px]',
-              'bg-white/82 backdrop-blur-xl',
               'border border-black/10',
               'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
               'overflow-hidden',
+              'kth-glass kth-sticky-surface',
             )}
           >
             {/* top pill row (logo + actions). всегда видимая на mobile */}
             <div className="transition-all duration-200">
               <div className="flex items-center justify-between px-3 py-2">
-                {/* слева ничего не показываем - только спейсер, чтобы центр был идеальный */}
                 <div className="w-10 h-10" aria-hidden="true" />
 
                 <Link
@@ -233,17 +273,16 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
             {/* categories pill (как 2-я строка в Telegram) */}
             <div className="px-2 pb-2">
-              <div className="relative rounded-[22px] bg-white/55 backdrop-blur border border-black/10 shadow-[0_10px_26px_rgba(0,0,0,0.06)] overflow-hidden">
-                {/* лёгкая “стеклянная” подсветка */}
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-70"
-                  aria-hidden="true"
-                  style={{
-                    background:
-                      'radial-gradient(120px 60px at 20% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%), radial-gradient(140px 80px at 90% 100%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 72%)',
-                  }}
-                />
-
+              <div
+                className={cls(
+                  'relative rounded-[22px]',
+                  'border border-black/10',
+                  'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
+                  'overflow-hidden',
+                  'kth-glass kth-sticky-surface',
+                )}
+              >
+                <div className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight" aria-hidden="true" />
                 <div className="relative">
                   <CategoryNav initialCategories={initialCategories} showMobileFilter={showMobileFilter} />
                 </div>
@@ -256,7 +295,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         {/* ✅ DESKTOP (как было) */}
         {/* ===================== */}
         <div className="hidden sm:block">
-          {/* TOP ROW (logo + actions) */}
           <div className={['border-b border-black/0', 'transition-all duration-200', 'opacity-100'].join(' ')}>
             <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
               <div className="flex items-center gap-2 md:gap-4 min-w-0">
@@ -277,7 +315,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   КЛЮЧ К СЕРДЦУ
                 </Link>
 
-                {/* desktop info block (оставляем как было) */}
                 <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
                   <span>Краснодар</span>
 
@@ -295,7 +332,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
               </div>
 
               <div className="flex items-center gap-2 md:gap-3 relative">
-                {/* поиск */}
                 <button
                   onClick={() => setIsSearchOpen(true)}
                   className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5"
@@ -305,7 +341,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="w-5 h-5" />
                 </button>
 
-                {/* sm+ actions */}
                 <div className="hidden sm:flex items-center gap-2 md:gap-3">
                   {isAuthenticated ? (
                     <div ref={profileRef} className="relative">
@@ -336,10 +371,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                             className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
                           >
                             <div className="py-1">
-                              <Link
-                                href="/account"
-                                className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
-                              >
+                              <Link href="/account" className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none">
                                 Личный кабинет
                               </Link>
 
@@ -409,21 +441,25 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         {isSearchOpen && (
           <motion.div
             id="search-modal"
-            className="fixed inset-0 z-[9999] flex items-start justify-center"
+            className="fixed inset-0 z-[9999] flex items-start justify-center kth-sticky-surface"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
           >
-            <motion.div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsSearchOpen(false)} aria-hidden="true" />
+            <motion.div
+              className={overlayClass}
+              onClick={() => setIsSearchOpen(false)}
+              aria-hidden="true"
+            />
 
             <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
               <motion.div
                 className="bg-white rounded-2xl z-10"
-                initial={{ scale: 0.96, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.96, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }}
+                initial={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
+                animate={isAndroid ? { opacity: 1, y: 0 } : { scale: 1, opacity: 1 }}
+                exit={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
+                transition={isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }}
               >
                 <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
               </motion.div>

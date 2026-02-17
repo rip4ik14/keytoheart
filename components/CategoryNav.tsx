@@ -89,6 +89,16 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
 
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const [isAndroid, setIsAndroid] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // StickyHeader уже ставит html.kth-android, но на всякий случай продублируем
+    const byClass = document.documentElement.classList.contains('kth-android');
+    const byUa = /Android/i.test(navigator.userAgent || '');
+    setIsAndroid(byClass || byUa);
+  }, []);
+
   const currentCategorySlug = useMemo(() => {
     const parts = pathname.split('/').filter(Boolean);
     if (parts[0] !== 'category') return null;
@@ -206,7 +216,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'subcategory_nav_click', { subcategory: name, type: 'subcategory' });
   };
 
-  // центрируем активную вкладку как в телеге
+  // центрируем активную вкладку
   useEffect(() => {
     const wrap = scrollRef.current;
     if (!wrap) return;
@@ -225,24 +235,38 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     wrap.scrollBy({ left: delta, behavior: 'smooth' });
   }, [currentCategorySlug, categories.length]);
 
-  // индикатор "можно скроллить вправо"
+  // индикатор "можно скроллить вправо" - rAF и только по изменению значения
+  const lastCanRightRef = useRef<boolean>(false);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
+    let raf = 0;
+
     const calc = () => {
+      raf = 0;
       const max = el.scrollWidth - el.clientWidth;
       const right = el.scrollLeft < max - 2;
-      setCanScrollRight(right);
+
+      if (lastCanRightRef.current !== right) {
+        lastCanRightRef.current = right;
+        setCanScrollRight(right);
+      }
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(calc);
     };
 
     calc();
-    el.addEventListener('scroll', calc, { passive: true });
-    window.addEventListener('resize', calc);
+    el.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
 
     return () => {
-      el.removeEventListener('scroll', calc);
-      window.removeEventListener('resize', calc);
+      el.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (raf) window.cancelAnimationFrame(raf);
     };
   }, [categories.length, loading, showMobileFilter]);
 
@@ -251,8 +275,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     if (!el) return;
     el.scrollBy({ left: 180, behavior: 'smooth' });
   };
-
- 
 
   const MobileTab = ({
     href,
@@ -278,12 +300,12 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
         'px-4',
         'rounded-full',
         'inline-flex items-center',
-        'border',
-        'backdrop-blur-xl',
+        'border border-black/10',
         'transition-all duration-200',
+        isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/40 backdrop-blur-xl',
         active
-          ? 'bg-white/90 border-black/10 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]'
-          : 'bg-white/40 border-black/10 text-black/70 active:bg-white/55',
+          ? 'bg-white/90 text-black shadow-[0_10px_26px_rgba(0,0,0,0.10)]'
+          : 'text-black/70 active:bg-white/55',
       )}
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
@@ -293,9 +315,53 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
     </Link>
   );
 
+  const FilterBtn = ({
+    onClick,
+  }: {
+    onClick: () => void;
+  }) => {
+    const baseClass = cls(
+      'shrink-0 snap-start',
+      'h-9 px-3',
+      'rounded-full',
+      'inline-flex items-center gap-2',
+      'border border-black/10',
+      'text-black/80',
+      'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
+      'active:bg-white/55',
+      'transition',
+      'focus:ring-2 focus:ring-black/20 focus:outline-none',
+      isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/40 backdrop-blur-xl',
+    );
+
+    if (isAndroid) {
+      return (
+        <button type="button" className={baseClass} aria-label="Открыть фильтр" onClick={onClick}>
+          <SlidersHorizontal className="w-4 h-4" />
+          <span className="text-[13px] font-semibold leading-none">Фильтр</span>
+        </button>
+      );
+    }
+
+    return (
+      <motion.button
+        type="button"
+        className={baseClass}
+        initial={{ opacity: 0, x: -6 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.18, delay: 0.03 }}
+        aria-label="Открыть фильтр"
+        onClick={onClick}
+      >
+        <SlidersHorizontal className="w-4 h-4" />
+        <span className="text-[13px] font-semibold leading-none">Фильтр</span>
+      </motion.button>
+    );
+  };
+
   return (
     <nav className="bg-transparent text-black font-sans" aria-label="Навигация по категориям">
-      {/* mobile - tabs как Telegram */}
+      {/* mobile - tabs */}
       <div className="sm:hidden">
         <div className="relative">
           {/* right fade + chevron */}
@@ -310,17 +376,18 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
               background: 'linear-gradient(to left, rgba(255,255,255,0.90), rgba(255,255,255,0))',
             }}
           />
+
           <button
             type="button"
             onClick={nudgeRight}
             className={cls(
               'absolute right-1 top-1/2 -translate-y-1/2',
               'w-8 h-8 rounded-full',
-              'bg-white/75 backdrop-blur-xl',
               'border border-black/10',
               'shadow-[0_10px_26px_rgba(0,0,0,0.10)]',
               'flex items-center justify-center',
               'transition-opacity duration-200',
+              isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/75 backdrop-blur-xl',
               canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none',
             )}
             aria-label="Показать еще категории"
@@ -340,35 +407,8 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
             aria-label="Категории (tabs)"
           >
             <div className="flex gap-2 py-2">
-             
-
-              {/* Фильтр (если нужно на этих страницах) */}
-              {showMobileFilter && (
-                <motion.button
-                  type="button"
-                  className={cls(
-                    'shrink-0 snap-start',
-                    'h-9 px-3',
-                    'rounded-full',
-                    'inline-flex items-center gap-2',
-                    'border border-black/10',
-                    'bg-white/40 backdrop-blur-xl',
-                    'text-black/80',
-                    'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
-                    'active:bg-white/55',
-                    'transition',
-                    'focus:ring-2 focus:ring-black/20 focus:outline-none',
-                  )}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.18, delay: 0.03 }}
-                  aria-label="Открыть фильтр"
-                  onClick={() => setFilterOpen(true)}
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span className="text-[13px] font-semibold leading-none">Фильтр</span>
-                </motion.button>
-              )}
+              {/* Фильтр */}
+              {showMobileFilter && <FilterBtn onClick={() => setFilterOpen(true)} />}
 
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
@@ -388,6 +428,25 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                       );
                       const active = isActiveCategory || Boolean(isActiveSubcategory);
 
+                      const content = (
+                        <MobileTab
+                          href={href}
+                          label={cat.name}
+                          active={active}
+                          tabKey={`cat:${cat.slug}`}
+                          onClick={() => trackCategory(cat.name)}
+                        />
+                      );
+
+                      // на Android убираем motion-обертку (лишняя нагрузка)
+                      if (isAndroid) {
+                        return (
+                          <div key={cat.id} className="shrink-0 snap-start">
+                            {content}
+                          </div>
+                        );
+                      }
+
                       return (
                         <motion.div
                           key={cat.id}
@@ -396,13 +455,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ duration: 0.18, delay: Math.min(idx, 10) * 0.03 }}
                         >
-                          <MobileTab
-                            href={href}
-                            label={cat.name}
-                            active={active}
-                            tabKey={`cat:${cat.slug}`}
-                            onClick={() => trackCategory(cat.name)}
-                          />
+                          {content}
                         </motion.div>
                       );
                     })}
