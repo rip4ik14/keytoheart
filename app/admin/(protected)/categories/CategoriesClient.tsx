@@ -197,32 +197,36 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
   }
 
   const handleUploadSubHomeIcon = async (sub: Subcategory, file: File) => {
-    try {
-      const publicUrl = await uploadHomeIcon(file, sub);
+  try {
+    const publicUrl = await uploadHomeIcon(file, sub);
 
-      const formData = new FormData();
-      formData.set('id', sub.id.toString());
-      formData.set('name', sub.name);
-      formData.set('slug', generateSlug(sub.slug || sub.name));
-      formData.set('is_visible', String(!!sub.is_visible));
-      appendSeoToFormData(formData, sub);
+    const formData = new FormData();
+    formData.set('id', sub.id.toString());
+    formData.set('name', sub.name);
+    formData.set('slug', generateSlug(sub.slug || sub.name));
+    formData.set('is_visible', String(!!sub.is_visible));
+    appendSeoToFormData(formData, sub);
 
-      appendHomeToFormData(formData, {
-        ...sub,
-        home_is_featured: !!sub.home_is_featured,
-        home_sort: safeInt(sub.home_sort ?? 0, 0),
-        home_icon_url: publicUrl,
-        home_title: sub.home_title ?? '',
-      });
+    appendHomeToFormData(formData, {
+      ...sub,
+      home_is_featured: !!sub.home_is_featured,
+      home_sort: safeInt(sub.home_sort ?? 0, 0),
+      home_icon_url: publicUrl,
+      home_title: sub.home_title ?? '',
+    });
 
-      await updateSubcategory(formData);
+    // ✅ гарантия, что именно свежий url улетит в server action
+    formData.set('home_icon_url', publicUrl);
 
-      toast.success('Иконка загружена');
-      location.reload();
-    } catch (e: any) {
-      toast.error(e?.message || 'Не удалось загрузить иконку');
-    }
-  };
+    await updateSubcategory(formData);
+
+    toast.success('Иконка загружена');
+    location.reload();
+  } catch (e: any) {
+    toast.error(e?.message || 'Не удалось загрузить иконку');
+  }
+};
+
 
   const handleRemoveSubHomeIcon = async (sub: Subcategory) => {
     try {
@@ -242,6 +246,9 @@ export default function CategoriesClient({ categories: initialCategories }: Prop
         home_icon_url: '',
         home_title: sub.home_title ?? '',
       });
+
+        formData.set('home_icon_url', '');
+
 
       await updateSubcategory(formData);
 

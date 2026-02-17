@@ -1,13 +1,17 @@
+// ✅ Путь: app/admin/(protected)/categories/actions.ts
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { revalidatePath } from 'next/cache';
 import type { Database, TablesInsert, TablesUpdate } from '@/lib/supabase/types_new';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  { auth: { autoRefreshToken: false, persistSession: false } },
 );
+
+/* ------------------------------ helpers ------------------------------ */
 
 const cleanText = (v: unknown) => {
   const s = String(v ?? '').trim();
@@ -26,7 +30,7 @@ const cleanInt = (v: unknown, fallback = 0) => {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 };
 
-/* ------------------------------ SLUG ------------------------------ */
+/* ------------------------------ slug ------------------------------ */
 
 const translit = (input: string) => {
   const map: Record<string, string> = {
@@ -80,23 +84,22 @@ const generateSlug = (name: string) =>
     .replace(/(^-|-$)/g, '')
     .replace(/-+/g, '-');
 
-/**
- * Уникальный slug для categories.
- * excludeId - чтобы при update не ловить коллизию на самой себе.
- */
 async function ensureUniqueCategorySlug(slug: string, excludeId?: number) {
   const base = slug;
   let counter = 1;
   let candidate = slug;
 
   for (let i = 0; i < 200; i++) {
-    const q = supabase.from('categories').select('id').eq('slug', candidate).maybeSingle();
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('slug', candidate)
+      .maybeSingle();
 
-    const { data, error } = await q;
     if (error) throw new Error(error.message);
 
     if (!data) return candidate;
-    if (excludeId && Number(data.id) === excludeId) return candidate;
+    if (excludeId && Number((data as any).id) === excludeId) return candidate;
 
     candidate = `${base}-${counter++}`;
   }
@@ -104,10 +107,6 @@ async function ensureUniqueCategorySlug(slug: string, excludeId?: number) {
   throw new Error('Не удалось подобрать уникальный slug (categories)');
 }
 
-/**
- * Уникальный slug для subcategories внутри одной категории.
- * excludeId - чтобы при update не ловить коллизию на самой себе.
- */
 async function ensureUniqueSubSlug(category_id: number, slug: string, excludeId?: number) {
   const base = slug;
   let counter = 1;
@@ -124,7 +123,7 @@ async function ensureUniqueSubSlug(category_id: number, slug: string, excludeId?
     if (error) throw new Error(error.message);
 
     if (!data) return candidate;
-    if (excludeId && Number(data.id) === excludeId) return candidate;
+    if (excludeId && Number((data as any).id) === excludeId) return candidate;
 
     candidate = `${base}-${counter++}`;
   }
@@ -137,19 +136,17 @@ async function ensureUniqueSubSlug(category_id: number, slug: string, excludeId?
 export async function addCategory(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim();
   let slug = String(formData.get('slug') ?? '').trim();
-  const is_visible = cleanBool(formData.get('is_visible'), true);
 
   if (!name) throw new Error('Название обязательно');
 
-  if (!slug) slug = generateSlug(name);
-  else slug = generateSlug(slug);
-
+  slug = generateSlug(slug || name);
   slug = await ensureUniqueCategorySlug(slug);
 
   const payload: TablesInsert<'categories'> = {
     name,
     slug,
-    is_visible,
+    is_visible: cleanBool(formData.get('is_visible'), true),
+
     seo_h1: cleanText(formData.get('seo_h1')),
     seo_title: cleanText(formData.get('seo_title')),
     seo_description: cleanText(formData.get('seo_description')),
@@ -160,6 +157,9 @@ export async function addCategory(formData: FormData) {
 
   const { data, error } = await supabase.from('categories').insert(payload).select('*').single();
   if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
 
   return { success: true, category: data };
 }
@@ -172,15 +172,14 @@ export async function updateCategory(formData: FormData) {
   if (!id) throw new Error('ID обязателен');
   if (!name) throw new Error('Название обязательно');
 
-  if (!slug) slug = generateSlug(name);
-  else slug = generateSlug(slug);
-
+  slug = generateSlug(slug || name);
   slug = await ensureUniqueCategorySlug(slug, id);
 
   const payload: TablesUpdate<'categories'> = {
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
+
     seo_h1: cleanText(formData.get('seo_h1')),
     seo_title: cleanText(formData.get('seo_title')),
     seo_description: cleanText(formData.get('seo_description')),
@@ -191,6 +190,9 @@ export async function updateCategory(formData: FormData) {
 
   const { error } = await supabase.from('categories').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
 
   return { success: true };
 }
@@ -205,6 +207,9 @@ export async function deleteCategory(formData: FormData) {
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) throw new Error(error.message);
 
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
+
   return { success: true };
 }
 
@@ -218,18 +223,10 @@ export async function addSubcategory(formData: FormData) {
   if (!category_id) throw new Error('Категория обязательна');
   if (!name) throw new Error('Название обязательно');
 
-  if (!slug) slug = generateSlug(name);
-  else slug = generateSlug(slug);
-
+  slug = generateSlug(slug || name);
   slug = await ensureUniqueSubSlug(category_id, slug);
 
-  // ✅ новые поля для главной
-  const home_is_featured = cleanBool(formData.get('home_is_featured'), false);
-  const home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
-  const home_icon_url = cleanText(formData.get('home_icon_url'));
-  const home_title = cleanText(formData.get('home_title'));
-
-  const payload: TablesInsert<'subcategories'> = {
+  const payload: any = {
     category_id,
     name,
     slug,
@@ -242,15 +239,17 @@ export async function addSubcategory(formData: FormData) {
     og_image: cleanText(formData.get('og_image')),
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
 
-    // ✅ home fields
-    home_is_featured,
-    home_sort,
-    home_icon_url,
-    home_title,
-  } as any;
+    home_is_featured: cleanBool(formData.get('home_is_featured'), false),
+    home_sort: Math.max(0, cleanInt(formData.get('home_sort'), 0)),
+    home_icon_url: cleanText(formData.get('home_icon_url')),
+    home_title: cleanText(formData.get('home_title')),
+  };
 
   const { data, error } = await supabase.from('subcategories').insert(payload).select('*').single();
   if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
 
   return { success: true, subcategory: data };
 }
@@ -263,6 +262,7 @@ export async function updateSubcategory(formData: FormData) {
   if (!id) throw new Error('ID обязателен');
   if (!name) throw new Error('Название обязательно');
 
+  // ✅ Берём только category_id - чтобы не было TS ошибки из-за устаревших типов
   const { data: existing, error: exErr } = await supabase
     .from('subcategories')
     .select('category_id')
@@ -271,21 +271,14 @@ export async function updateSubcategory(formData: FormData) {
 
   if (exErr) throw new Error(exErr.message);
 
-  const category_id = Number(existing.category_id);
+  const category_id = Number((existing as any).category_id);
   if (!category_id) throw new Error('Не удалось определить category_id подкатегории');
 
-  if (!slug) slug = generateSlug(name);
-  else slug = generateSlug(slug);
-
+  slug = generateSlug(slug || name);
   slug = await ensureUniqueSubSlug(category_id, slug, id);
 
-  // ✅ новые поля для главной
-  const home_is_featured = cleanBool(formData.get('home_is_featured'), false);
-  const home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
-  const home_icon_url = cleanText(formData.get('home_icon_url'));
-  const home_title = cleanText(formData.get('home_title'));
-
-  const payload: TablesUpdate<'subcategories'> = {
+  // ✅ Основной payload без home_* (их добавляем только если пришли)
+  const payload: any = {
     name,
     slug,
     is_visible: cleanBool(formData.get('is_visible'), true),
@@ -296,16 +289,32 @@ export async function updateSubcategory(formData: FormData) {
     seo_text: cleanText(formData.get('seo_text')),
     og_image: cleanText(formData.get('og_image')),
     seo_noindex: cleanBool(formData.get('seo_noindex'), false),
+  };
 
-    // ✅ home fields
-    home_is_featured,
-    home_sort,
-    home_icon_url,
-    home_title,
-  } as any;
+  // ✅ ВАЖНО: home_* меняем только если ключ реально пришёл в formData
+  if (formData.has('home_is_featured')) {
+    payload.home_is_featured = cleanBool(formData.get('home_is_featured'), false);
+  }
+
+  if (formData.has('home_sort')) {
+    payload.home_sort = Math.max(0, cleanInt(formData.get('home_sort'), 0));
+  }
+
+  if (formData.has('home_title')) {
+    payload.home_title = cleanText(formData.get('home_title'));
+  }
+
+  if (formData.has('home_icon_url')) {
+    const url = cleanText(formData.get('home_icon_url'));
+    if (!url) throw new Error('home_icon_url не пришёл в updateSubcategory (пустое значение)');
+    payload.home_icon_url = url;
+  }
 
   const { error } = await supabase.from('subcategories').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
 
   return { success: true };
 }
@@ -316,6 +325,9 @@ export async function deleteSubcategory(formData: FormData) {
 
   const { error } = await supabase.from('subcategories').delete().eq('id', id);
   if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/categories');
+  revalidatePath('/');
 
   return { success: true };
 }
