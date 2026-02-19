@@ -19,6 +19,7 @@ interface Customer {
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
+  is_registered: boolean; // ✅ добавили
 }
 
 interface PageProps {
@@ -29,19 +30,15 @@ export default async function CustomerPage({ params }: PageProps) {
   const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
 
-  if (!token) {
-    redirect('/admin/login?error=no-session');
-  }
+  if (!token) redirect('/admin/login?error=no-session');
 
   const isValidToken = await verifyAdminJwt(token);
-  if (!isValidToken) {
-    redirect('/admin/login?error=invalid-session');
-  }
+  if (!isValidToken) redirect('/admin/login?error=invalid-session');
 
-  // Распаковываем params с помощью await
   const { id } = await params;
 
   let customer: Customer | null = null;
+
   try {
     const profile = await prisma.user_profiles.findUnique({
       where: { id },
@@ -49,9 +46,10 @@ export default async function CustomerPage({ params }: PageProps) {
     });
 
     if (profile && profile.phone) {
-      // Важные даты
+      const phone = profile.phone;
+
       const dates = await prisma.important_dates.findMany({
-        where: { phone: profile.phone },
+        where: { phone },
         select: { type: true, date: true, description: true },
       });
 
@@ -62,9 +60,8 @@ export default async function CustomerPage({ params }: PageProps) {
         })
       );
 
-      // Заказы пользователя (обработка Decimal)
       const ordersRaw = await prisma.orders.findMany({
-        where: { phone: profile.phone },
+        where: { phone },
         select: {
           id: true,
           created_at: true,
@@ -92,13 +89,14 @@ export default async function CustomerPage({ params }: PageProps) {
         order_items: order.order_items,
       }));
 
-      // Бонусы
       const bonuses = await prisma.bonuses.findUnique({
-        where: { phone: profile.phone },
+        where: { phone },
         select: { bonus_balance: true, level: true },
       });
 
-      // История бонусов (обработка Decimal)
+      // История бонусов: для зарегистрированных можно вести по phone/bonus_id,
+      // но у тебя в этой странице пока завязано на user_id = profile.id.
+      // Если хочешь, потом переведём на phone, и будет видно историю и гостям.
       const bonusHistoryRaw = await prisma.bonus_history.findMany({
         where: { user_id: profile.id },
         select: { amount: true, reason: true, created_at: true },
@@ -113,7 +111,7 @@ export default async function CustomerPage({ params }: PageProps) {
 
       customer = {
         id: profile.id,
-        phone: profile.phone,
+        phone,
         email: profile.email,
         created_at: profile.created_at ? profile.created_at.toISOString() : null,
         important_dates,
@@ -125,10 +123,11 @@ export default async function CustomerPage({ params }: PageProps) {
             }
           : { bonus_balance: null, level: null },
         bonus_history,
+        is_registered: true, // ✅
       };
     }
   } catch (error: any) {
-    process.env.NODE_ENV !== "production" && console.error('Error fetching customer:', error);
+    process.env.NODE_ENV !== 'production' && console.error('Error fetching customer:', error);
   }
 
   return <CustomerDetailClient customer={customer} />;

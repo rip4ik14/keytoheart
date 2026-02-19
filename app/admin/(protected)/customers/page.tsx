@@ -64,29 +64,44 @@ export default async function CustomersPage() {
   let customers: Customer[] = [];
 
   try {
-    // 1) Зарегистрированные профили
+    // 1) Профили (могут существовать и у гостей - это не признак регистрации)
     const profiles = await prisma.user_profiles.findMany({
       select: { id: true, phone: true, email: true, created_at: true },
     });
 
-    const profilePhones = new Set(
+    const profileByPhone = new Map(
       profiles
-        .map((p) => (p.phone || '').trim())
-        .filter(Boolean)
+        .filter((p) => (p.phone || '').trim())
+        .map((p) => [(p.phone || '').trim(), p])
     );
 
-    // 2) Гости - телефоны из заказов, которых нет в user_profiles
+    // 2) Все телефоны из заказов
     const orderPhonesRaw = await prisma.orders.findMany({
       where: { phone: { not: null } },
       distinct: ['phone'],
       select: { phone: true },
     });
 
-    const guestPhones = orderPhonesRaw
+    const phonesFromOrders = orderPhonesRaw
       .map((x) => (x.phone || '').trim())
-      .filter((phone) => phone && !profilePhones.has(phone));
+      .filter(Boolean);
 
-    // Хелпер - собрать карточку клиента по телефону
+    const allPhones = Array.from(new Set([
+      ...Array.from(profileByPhone.keys()),
+      ...phonesFromOrders,
+    ]));
+
+    // 3) Реальная регистрация = есть auth.users с таким phone
+    const authUsers = await prisma.users.findMany({
+      where: { phone: { in: allPhones } },
+      select: { phone: true },
+    });
+
+    const registeredPhones = new Set(
+      authUsers.map((u) => (u.phone || '').trim()).filter(Boolean)
+    );
+
+    // Хелпер: собрать карточку клиента по телефону
     const buildCustomerByPhone = async ({
       id,
       phone,
@@ -144,22 +159,18 @@ export default async function CustomersPage() {
         select: { bonus_balance: true, level: true },
       });
 
-      let bonus_history: BonusHistoryEntry[] = [];
+      // ✅ Историю читаем по phone (так работает и для гостей)
+      const bonusHistoryRaw = await prisma.bonus_history.findMany({
+        where: { phone },
+        select: { amount: true, reason: true, created_at: true },
+        orderBy: { created_at: 'desc' },
+      });
 
-      // История бонусов есть только если есть реальный user_id
-      if (is_registered) {
-        const bonusHistoryRaw = await prisma.bonus_history.findMany({
-          where: { user_id: id },
-          select: { amount: true, reason: true, created_at: true },
-          orderBy: { created_at: 'desc' },
-        });
-
-        bonus_history = bonusHistoryRaw.map((entry: any) => ({
-          amount: entry.amount ? Number(entry.amount) : 0,
-          reason: entry.reason,
-          created_at: toIso(entry.created_at),
-        }));
-      }
+      const bonus_history: BonusHistoryEntry[] = bonusHistoryRaw.map((entry: any) => ({
+        amount: entry.amount ? Number(entry.amount) : 0,
+        reason: entry.reason,
+        created_at: toIso(entry.created_at),
+      }));
 
       return {
         id,
@@ -170,40 +181,28 @@ export default async function CustomersPage() {
         orders,
         bonuses: bonuses
           ? {
-              bonus_balance: bonuses.bonus_balance ? Number(bonuses.bonus_balance) : null,
+              bonus_balance: bonuses.bonus_balance ?? 0,
               level: bonuses.level,
             }
-          : { bonus_balance: null, level: null },
+          : { bonus_balance: 0, level: null },
         bonus_history,
         is_registered,
       };
     };
 
-    // 3) Собираем список: зарегистрированные
-    for (const profile of profiles) {
-      const phone = (profile.phone || '').trim();
-      if (!phone) continue;
+    // 4) Собираем клиентов по всем телефонам
+    for (const phone of allPhones) {
+      const p = profileByPhone.get(phone);
+
+      const is_registered = registeredPhones.has(phone);
 
       customers.push(
         await buildCustomerByPhone({
-          id: profile.id,
+          id: p?.id ? p.id : `guest:${phone}`,
           phone,
-          email: profile.email || null,
-          created_at: profile.created_at,
-          is_registered: true,
-        })
-      );
-    }
-
-    // 4) Добавляем гостей (id делаем синтетическим, чтобы не конфликтовал с uuid)
-    for (const phone of guestPhones) {
-      customers.push(
-        await buildCustomerByPhone({
-          id: `guest:${phone}`,
-          phone,
-          email: null,
-          created_at: null,
-          is_registered: false,
+          email: p?.email || null,
+          created_at: p?.created_at || null,
+          is_registered,
         })
       );
     }

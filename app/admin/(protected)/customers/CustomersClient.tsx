@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import Image from 'next/image';
-import toast, { Toaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 interface Event {
   type: string;
@@ -22,7 +22,7 @@ interface Customer {
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
-  is_registered: boolean; // ✅ добавили
+  is_registered: boolean;
 }
 
 interface SortConfig {
@@ -47,7 +47,7 @@ function Badge({ registered }: { registered: boolean }) {
           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
           : 'bg-amber-50 text-amber-700 border-amber-200'
       )}
-      title={registered ? 'Есть профиль (авторизован/зарегистрирован)' : 'Заказы есть, профиля нет'}
+      title={registered ? 'Есть запись в auth.users (реальная регистрация)' : 'Оформлял(а) заказ как гость'}
     >
       {registered ? 'Зарегистрирован' : 'Гость'}
     </span>
@@ -64,7 +64,7 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
   const router = useRouter();
 
   const sortedAndFilteredCustomers = useMemo(() => {
-    let filtered = customers.filter(
+    const filtered = customers.filter(
       (customer) =>
         customer.phone.toLowerCase().includes(search.toLowerCase()) ||
         (customer.email && customer.email.toLowerCase().includes(search.toLowerCase()))
@@ -85,9 +85,7 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
         bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
       }
 
-      if (sortConfig.direction === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      }
+      if (sortConfig.direction === 'asc') return aValue > bValue ? 1 : -1;
       return aValue < bValue ? 1 : -1;
     });
 
@@ -121,9 +119,8 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
                 <Th label="Телефон" sortKey="phone" sortConfig={sortConfig} onSort={setSortConfig} />
                 <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Статус</th>
-
                 <Th
-                  label="Дата регистрации"
+                  label="Дата"
                   sortKey="created_at"
                   sortConfig={sortConfig}
                   onSort={setSortConfig}
@@ -146,75 +143,57 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
             </thead>
 
             <tbody>
-              {sortedAndFilteredCustomers.map((customer, i) => {
-                const isClickable = customer.is_registered;
+              {sortedAndFilteredCustomers.map((customer, i) => (
+                <tr
+                  key={customer.id}
+                  className={cls(
+                    'border-t transition-colors cursor-pointer hover:bg-gray-100',
+                    i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  )}
+                  onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                  title="Открыть карточку клиента"
+                >
+                  <td className="p-3 font-mono">{customer.phone}</td>
+                  <td className="p-3">{customer.email || '—'}</td>
+                  <td className="p-3">
+                    <Badge registered={customer.is_registered} />
+                  </td>
 
-                return (
-                  <tr
-                    key={customer.id}
-                    className={cls(
-                      'border-t transition-colors',
-                      i % 2 === 0 ? 'bg-white' : 'bg-gray-50',
-                      isClickable ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default opacity-[0.85]'
+                  <td className="p-3">
+                    {customer.created_at
+                      ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
+                      : '—'}
+                  </td>
+
+                  <td className="p-3">
+                    {customer.important_dates.length > 0 ? (
+                      customer.important_dates.map((event, index) => (
+                        <div key={index} className="truncate" title={event.description ?? ''}>
+                          <span className="font-medium">{event.type}</span>
+                          {event.description && ` (${event.description})`}
+                          {event.date
+                            ? ` (${format(new Date(event.date), 'dd.MM.yyyy', { locale: ru })})`
+                            : ''}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-gray-400">—</span>
                     )}
-                    onClick={() => {
-                      if (!isClickable) {
-                        toast.error('Это гость (заказ без регистрации). Открой заказ по телефону или зарегистрируй клиента.');
-                        return;
-                      }
-                      router.push(`/admin/customers/${customer.id}`);
-                    }}
-                    title={
-                      isClickable
-                        ? 'Открыть карточку клиента'
-                        : 'Гость без регистрации - нет user_id, начисление в историю бонусов недоступно'
-                    }
-                  >
-                    <td className="p-3 font-mono">{customer.phone}</td>
-                    <td className="p-3">{customer.email || '—'}</td>
-                    <td className="p-3">
-                      <Badge registered={customer.is_registered} />
-                    </td>
+                  </td>
 
-                    <td className="p-3">
-                      {customer.created_at
-                        ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
-                        : '—'}
-                    </td>
+                  <td className="p-3">{customer.orders.length}</td>
+                  <td className="p-3">
+                    {customer.orders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString('ru-RU')} ₽
+                  </td>
 
-                    <td className="p-3">
-                      {customer.important_dates.length > 0 ? (
-                        customer.important_dates.map((event, index) => (
-                          <div key={index} className="truncate" title={event.description ?? ''}>
-                            <span className="font-medium">{event.type}</span>
-                            {event.description && ` (${event.description})`}
-                            {event.date
-                              ? ` (${format(new Date(event.date), 'dd.MM.yyyy', { locale: ru })})`
-                              : ''}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-
-                    <td className="p-3">{customer.orders.length}</td>
-                    <td className="p-3">
-                      {customer.orders
-                        .reduce((sum, order) => sum + (order.total || 0), 0)
-                        .toLocaleString('ru-RU')}{' '}
-                      ₽
-                    </td>
-
-                    <td className="p-3">
-                      <span className="font-semibold">{customer.bonuses.bonus_balance ?? 0} ₽</span>
-                      <span className="ml-2 text-gray-500 text-xs">
-                        (Уровень: {customer.bonuses.level ?? '—'})
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                  <td className="p-3">
+                    <span className="font-semibold">{customer.bonuses.bonus_balance ?? 0} ₽</span>
+                    <span className="ml-2 text-gray-500 text-xs">
+                      (Уровень: {customer.bonuses.level ?? '—'})
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

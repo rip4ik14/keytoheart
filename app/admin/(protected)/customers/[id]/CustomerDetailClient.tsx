@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import Link from 'next/link';
-import Image from 'next/image';
 import toast, { Toaster } from 'react-hot-toast';
 import { supabasePublic } from '@/lib/supabase/public';
 
@@ -18,7 +17,7 @@ interface Event {
 interface OrderItem {
   quantity: number;
   price: number;
-  products: { title: string; cover_url: string | null };
+  products: { title: string; cover_url: string | null } | null;
 }
 
 interface Order {
@@ -41,7 +40,28 @@ interface Props {
     orders: Order[];
     bonuses: { bonus_balance: number | null; level: string | null };
     bonus_history: { amount: number; reason: string; created_at: string }[];
+    is_registered?: boolean;
   } | null;
+}
+
+function cls(...a: Array<string | false | null | undefined>) {
+  return a.filter(Boolean).join(' ');
+}
+
+function Badge({ registered }: { registered: boolean }) {
+  return (
+    <span
+      className={cls(
+        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border',
+        registered
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-amber-50 text-amber-700 border-amber-200'
+      )}
+      title={registered ? 'Есть профиль (авторизован/зарегистрирован)' : 'Заказы есть, профиля нет'}
+    >
+      {registered ? 'Зарегистрирован' : 'Гость'}
+    </span>
+  );
 }
 
 // Маппинг уровней для отображения в UI
@@ -53,7 +73,6 @@ const levelDisplayMap: Record<string, { name: string; discount: string }> = {
   premium: { name: 'Премиум', discount: '15%' },
 };
 
-// Список всех уровней для выпадающего списка
 const levelOptions = [
   { value: 'bronze', label: 'Бронзовый (2.5%)' },
   { value: 'silver', label: 'Серебряный (5%)' },
@@ -72,20 +91,11 @@ export default function CustomerDetailClient({ customer }: Props) {
   const [tempLevel, setTempLevel] = useState(customer?.bonuses.level || 'bronze');
   const router = useRouter();
 
-  // Добавление нового события
   const handleAddEvent = () => {
-    setTempDates((prev) => [
-      ...prev,
-      { type: 'День рождения', date: null, description: null },
-    ]);
+    setTempDates((prev) => [...prev, { type: 'День рождения', date: null, description: null }]);
   };
 
-  // Изменение события
-  const handleEventChange = (
-    index: number,
-    field: keyof Event,
-    value: string
-  ) => {
+  const handleEventChange = (index: number, field: keyof Event, value: string) => {
     setTempDates((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
@@ -93,7 +103,6 @@ export default function CustomerDetailClient({ customer }: Props) {
     });
   };
 
-  // Сохранение важных дат
   const handleSaveDates = async () => {
     if (!customer) {
       toast.error('Клиент не найден');
@@ -103,15 +112,10 @@ export default function CustomerDetailClient({ customer }: Props) {
     const sb = supabasePublic as any;
 
     try {
-      const { error: delErr } = await sb
-        .from('important_dates')
-        .delete()
-        .eq('phone', customer.phone);
+      const { error: delErr } = await sb.from('important_dates').delete().eq('phone', customer.phone);
       if (delErr) throw delErr;
 
-      const valid = tempDates.filter(
-        (e) => e.type.trim() !== '' && e.date
-      );
+      const valid = tempDates.filter((e) => e.type.trim() !== '' && e.date);
       if (valid.length > 0) {
         const { error: insErr } = await sb
           .from('important_dates')
@@ -134,15 +138,9 @@ export default function CustomerDetailClient({ customer }: Props) {
     }
   };
 
-  // Управление бонусами
   const handleBonusAction = async () => {
     if (!customer) {
       toast.error('Клиент не найден');
-      return;
-    }
-
-    if (!customer.phone || !customer.id) {
-      toast.error('Недостаточно данных о клиенте');
       return;
     }
 
@@ -165,32 +163,18 @@ export default function CustomerDetailClient({ customer }: Props) {
     }
 
     try {
-      process.env.NODE_ENV !== "production" && console.log('Sending bonus update request:', {
-        phone: customer.phone,
-        delta,
-        reason: bonusReason,
-        user_id: customer.id,
-      });
-
       const response = await fetch('/api/admin/bonuses', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: customer.phone,
           delta,
           reason: bonusReason,
-          user_id: customer.id,
         }),
       });
 
       const result = await response.json();
-      process.env.NODE_ENV !== "production" && console.log('Bonus update response:', result);
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update bonuses');
-      }
+      if (!response.ok) throw new Error(result.error || 'Failed to update bonuses');
 
       toast.success(bonusAction === 'add' ? 'Начислено' : 'Списано');
       setBonusAction(null);
@@ -198,21 +182,17 @@ export default function CustomerDetailClient({ customer }: Props) {
       setBonusReason('');
       router.refresh();
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error('Error updating bonuses:', err);
       toast.error(err.message);
     }
   };
 
-  // Управление уровнем клиента
   const handleLevelChange = async () => {
     if (!customer) return;
 
     try {
       const response = await fetch('/api/admin/update-level', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: customer.phone,
           level: tempLevel,
@@ -220,9 +200,7 @@ export default function CustomerDetailClient({ customer }: Props) {
       });
 
       const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update customer level');
-      }
+      if (!response.ok) throw new Error(result.error || 'Failed to update customer level');
 
       toast.success('Уровень клиента обновлён');
       setEditingLevel(false);
@@ -241,6 +219,7 @@ export default function CustomerDetailClient({ customer }: Props) {
     );
   }
 
+  const isRegistered = customer.is_registered !== false; // по умолчанию true, если поле не пришло
   const currentLevel = customer.bonuses.level || 'bronze';
   const levelDisplay = levelDisplayMap[currentLevel] || levelDisplayMap.bronze;
 
@@ -248,14 +227,33 @@ export default function CustomerDetailClient({ customer }: Props) {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <Toaster position="top-center" />
 
+      {/* Шапка */}
+      <section className="border p-4 rounded">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="text-lg font-semibold">{customer.phone}</div>
+            <div className="text-sm text-gray-600">{customer.email || '-'}</div>
+            {customer.created_at ? (
+              <div className="text-sm text-gray-600">
+                Дата регистрации: {format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600">Дата регистрации: -</div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge registered={isRegistered} />
+          </div>
+        </div>
+      </section>
+
       {/* Важные даты */}
       <section className="border p-4 rounded">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl">Важные даты</h2>
           {!editingDates ? (
-            <button onClick={() => setEditingDates(true)}>
-              Редактировать
-            </button>
+            <button onClick={() => setEditingDates(true)}>Редактировать</button>
           ) : (
             <>
               <button onClick={handleSaveDates}>Сохранить</button>
@@ -270,13 +268,12 @@ export default function CustomerDetailClient({ customer }: Props) {
             </>
           )}
         </div>
+
         {!editingDates ? (
           customer.important_dates.map((e, i) => (
             <div key={i}>
-              <strong>{e.type}</strong> —{' '}
-              {e.date
-                ? format(new Date(e.date), 'dd.MM.yyyy', { locale: ru })
-                : '—'}
+              <strong>{e.type}</strong> -{' '}
+              {e.date ? format(new Date(e.date), 'dd.MM.yyyy', { locale: ru }) : '-'}
               {e.description && ` (${e.description})`}
             </div>
           ))
@@ -285,44 +282,40 @@ export default function CustomerDetailClient({ customer }: Props) {
             <div key={i} className="flex gap-2 mb-2">
               <input
                 value={e.type}
-                onChange={(ev) =>
-                  handleEventChange(i, 'type', ev.target.value)
-                }
+                onChange={(ev) => handleEventChange(i, 'type', ev.target.value)}
                 className="border p-1"
               />
               <input
                 type="date"
                 value={e.date || ''}
-                onChange={(ev) =>
-                  handleEventChange(i, 'date', ev.target.value)
-                }
+                onChange={(ev) => handleEventChange(i, 'date', ev.target.value)}
                 className="border p-1"
               />
               <input
                 value={e.description || ''}
-                onChange={(ev) =>
-                  handleEventChange(i, 'description', ev.target.value)
-                }
+                onChange={(ev) => handleEventChange(i, 'description', ev.target.value)}
                 className="border p-1"
                 placeholder="Описание"
               />
             </div>
           ))
         )}
-        {editingDates && (
-          <button onClick={handleAddEvent}>+ Добавить дату</button>
-        )}
+
+        {editingDates && <button onClick={handleAddEvent}>+ Добавить дату</button>}
       </section>
 
       {/* Бонусы и уровень */}
       <section className="border p-4 rounded space-y-2">
         <h2 className="text-xl">Бонусы и уровень</h2>
-        <div>Баланс: {customer.bonuses.bonus_balance} ₽</div>
+        <div>Баланс: {customer.bonuses.bonus_balance ?? 0} ₽</div>
+
         <div className="flex items-center gap-2">
           <span>Уровень:</span>
           {!editingLevel ? (
             <>
-              <span>{levelDisplay.name} ({levelDisplay.discount})</span>
+              <span>
+                {levelDisplay.name} ({levelDisplay.discount})
+              </span>
               <button onClick={() => setEditingLevel(true)}>Изменить</button>
             </>
           ) : (
@@ -354,9 +347,7 @@ export default function CustomerDetailClient({ customer }: Props) {
         {!bonusAction ? (
           <div className="flex gap-2">
             <button onClick={() => setBonusAction('add')}>Начислить</button>
-            <button onClick={() => setBonusAction('subtract')}>
-              Списать
-            </button>
+            <button onClick={() => setBonusAction('subtract')}>Списать</button>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -387,19 +378,16 @@ export default function CustomerDetailClient({ customer }: Props) {
           <div key={ord.id} className="border-t pt-2">
             <div>
               Заказ #{ord.id} от{' '}
-              {ord.created_at
-                ? format(new Date(ord.created_at), 'dd.MM.yyyy HH:mm', {
-                    locale: ru,
-                  })
-                : '—'}
+              {ord.created_at ? format(new Date(ord.created_at), 'dd.MM.yyyy HH:mm', { locale: ru }) : '-'}
             </div>
             <div>Сумма: {ord.total} ₽</div>
             <div>Статус: {ord.status}</div>
+
             <div>
               Товары:
               {ord.order_items.map((it: OrderItem, idx: number) => (
                 <div key={idx} className="ml-4">
-                  {it.products.title} ×{it.quantity} — {it.price} ₽
+                  {(it.products?.title || 'Товар')} ×{it.quantity} - {it.price} ₽
                 </div>
               ))}
             </div>
