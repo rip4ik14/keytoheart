@@ -384,17 +384,20 @@ model bonus_history {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model bonuses {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  phone         String          @unique(map: "bonuses_phone_idx")
-  total_bonus   Int             @default(0)
-  updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
-  bonus_balance Int?            @default(0)
-  total_spent   Int?            @default(0)
-  level         String?         @default("Бронзовый")
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone                    String    @unique(map: "bonuses_phone_idx")
+  total_bonus              Int       @default(0)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+  bonus_balance            Int?      @default(0)
+  total_spent              Int?      @default(0)
+  level                    String?   @default("Бронзовый")
+  welcome_bonus_awarded_at DateTime? @db.Timestamptz(6) // <- добавили
+
   bonus_history bonus_history[]
 
   @@schema("public")
 }
+
 
 model categories {
   id                 Int                  @id @default(autoincrement())

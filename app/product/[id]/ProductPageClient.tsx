@@ -171,7 +171,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
 
   // ✅ ВАЖНО: какой товар реально добавили (для тоста)
   const [lastAdded, setLastAdded] = useState<{ imageUrl: string; title: string }>({
-    imageUrl: (Array.isArray(product.images) && product.images[0]) ? product.images[0] : '/placeholder.jpg',
+    imageUrl: Array.isArray(product.images) && product.images[0] ? product.images[0] : '/placeholder.jpg',
     title: product.title || 'Товар',
   });
 
@@ -268,6 +268,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const MobileToast = useCallback(
     ({ imageUrl, title }: { imageUrl: string; title: string }) => {
       if (!mounted) return null;
+      if (typeof document === 'undefined') return null;
 
       return createPortal(
         <motion.div
@@ -840,9 +841,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const comboItemsForCalc = useMemo(() => {
     // скидка применяется к "основе + второй базе + шарам"
     // открытка отдельная (без скидки)
-    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [
-      { it: baseSelectable, discounted: comboDiscountPercent > 0 },
-    ];
+    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [{ it: baseSelectable, discounted: comboDiscountPercent > 0 }];
     if (selSecondBase) items.push({ it: selSecondBase, discounted: comboDiscountPercent > 0 });
     if (selBalloons) items.push({ it: selBalloons, discounted: comboDiscountPercent > 0 });
     if (selCard) items.push({ it: selCard, discounted: false });
@@ -910,14 +909,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
 
   /* -------------------------- MOBILE BOTTOM BAR (через portal) -------------------------- */
   const MobileBottomBar = useMemo(() => {
-    if (!mounted || typeof document === 'undefined') return null;
-
     const node = (
       <div
         className="lg:hidden fixed inset-x-0 z-[32000] border-t border-black/10 bg-white/95 backdrop-blur px-3 pt-3 shadow-[0_-8px_22px_rgba(0,0,0,0.10)]"
         style={{
-          // если где-то еще используется --kth-bottom-nav-h, мы аккуратно поднимем плашку выше него
-          bottom: `calc(var(--kth-bottom-nav-h, 0px))`,
+          // ✅ фикс: не ломаемся, даже если переменной нет или она странная
+          bottom: `max(0px, var(--kth-bottom-nav-h, 0px))`,
           paddingBottom: `calc(12px + env(safe-area-inset-bottom))`,
           paddingLeft: `calc(12px + env(safe-area-inset-left))`,
           paddingRight: `calc(12px + env(safe-area-inset-right))`,
@@ -1013,7 +1010,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
       </div>
     );
 
-    return createPortal(node, document.body);
+    // ✅ фикс: не завязываем появление плашки на mounted, чтобы не было кейса "нет кнопки купить"
+    if (typeof document === 'undefined') return node;
+    return mounted ? createPortal(node, document.body) : node;
   }, [
     mounted,
     discountedPrice,
@@ -1033,7 +1032,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
       {/* ✅ тост теперь показывает именно добавленный товар */}
       <MobileToast imageUrl={lastAdded.imageUrl} title={lastAdded.title} />
 
-      {/* ✅ нижняя плашка для страницы товара (всегда есть кнопка/степпер/комбо/корзина) */}
+      {/* ✅ нижняя плашка для страницы товара */}
       {MobileBottomBar}
 
       {/* ✅ Mobile: фикс-кнопки (крестик не исчезает при скролле) */}
@@ -1076,7 +1075,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           {Object.entries(comboNotifications).map(
             ([id, visible]) =>
               visible && (
-                <motion.div key={id} className="hidden" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />
+                <motion.div
+                  key={id}
+                  className="hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                />
               ),
           )}
         </AnimatePresence>
@@ -1085,7 +1090,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           {/* GALLERY */}
           <motion.div className="w-full" variants={containerVariants} initial="hidden" animate="visible">
             <div ref={galleryRef} className="relative overflow-hidden bg-gray-50 border border-black/10 rounded-none sm:rounded-3xl">
-              {/* ✅ Mobile overlay controls (X + Share) - только пока галерея вверху (как в референсе) */}
+              {/* ✅ Mobile overlay controls (X + Share) - только пока галерея вверху */}
               {!showFloatingControls && (
                 <div
                   className="lg:hidden absolute inset-x-0 top-0 z-30"
@@ -1364,7 +1369,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           </motion.div>
 
           {/* RIGHT COLUMN */}
-          <motion.div className="flex flex-col space-y-4 sm:space-y-6" variants={containerVariants} initial="hidden" animate="visible">
+          <motion.div
+            className="flex flex-col space-y-4 sm:space-y-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {/* purchase card */}
             <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_14px_40px_rgba(0,0,0,0.08)]">
               {/* badges */}
@@ -1485,7 +1495,39 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 </motion.button>
               </div>
 
-              {/* ✅ MOBILE quick actions УБРАЛИ (оставляем только липучую нижнюю плашку) */}
+              {/* ✅ MOBILE fallback actions (чтобы купить можно было даже если fixed/portal у клиента глючит) */}
+              <div className="mt-4 lg:hidden grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleIncCurrent}
+                  className={`col-span-2 py-3.5 rounded-2xl font-bold text-sm uppercase tracking-wide transition ${primaryBtnMain}`}
+                  aria-label="Добавить в корзину"
+                  rel="nofollow"
+                >
+                  В корзину
+                </button>
+
+                <button
+                  onClick={openCombo}
+                  className={`py-3.5 rounded-2xl font-bold text-sm uppercase tracking-wide transition ${secondaryBtn}`}
+                  aria-label="Собрать комбо"
+                  rel="nofollow"
+                >
+                  Комбо -10%
+                </button>
+
+                <Link
+                  href="/cart"
+                  className="relative py-3.5 rounded-2xl font-bold text-sm uppercase tracking-wide border border-black/10 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.06)] flex items-center justify-center"
+                  aria-label="Перейти в корзину"
+                >
+                  Корзина
+                  {totalItems > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                      {totalItems}
+                    </span>
+                  )}
+                </Link>
+              </div>
             </div>
 
             {/* content blocks */}

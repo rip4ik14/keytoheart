@@ -22,6 +22,7 @@ interface Customer {
   orders: any[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: any[];
+  is_registered: boolean; // ✅ добавили
 }
 
 interface SortConfig {
@@ -33,8 +34,28 @@ interface Props {
   customers: Customer[];
 }
 
+function cls(...a: Array<string | false | null | undefined>) {
+  return a.filter(Boolean).join(' ');
+}
+
+function Badge({ registered }: { registered: boolean }) {
+  return (
+    <span
+      className={cls(
+        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border',
+        registered
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-amber-50 text-amber-700 border-amber-200'
+      )}
+      title={registered ? 'Есть профиль (авторизован/зарегистрирован)' : 'Заказы есть, профиля нет'}
+    >
+      {registered ? 'Зарегистрирован' : 'Гость'}
+    </span>
+  );
+}
+
 export default function CustomersClient({ customers: initialCustomers }: Props) {
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers] = useState<Customer[]>(initialCustomers);
   const [search, setSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'created_at',
@@ -42,7 +63,6 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
   });
   const router = useRouter();
 
-  // Сортировка и фильтрация клиентов (мемоизировано)
   const sortedAndFilteredCustomers = useMemo(() => {
     let filtered = customers.filter(
       (customer) =>
@@ -74,13 +94,11 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
     return filtered;
   }, [customers, search, sortConfig]);
 
-  // UI
   return (
     <div className="max-w-7xl mx-auto px-2 md:px-4 py-6">
       <Toaster position="top-center" />
       <h1 className="text-3xl font-bold mb-6">Клиенты</h1>
 
-      {/* Поиск и фильтры */}
       <div className="mb-4 flex flex-col sm:flex-row gap-3">
         <input
           type="text"
@@ -91,7 +109,6 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
         />
       </div>
 
-      {/* Таблица клиентов */}
       {sortedAndFilteredCustomers.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-gray-500">Клиенты отсутствуют</p>
@@ -101,13 +118,10 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
           <table className="w-full text-sm text-gray-800">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <Th
-                  label="Телефон"
-                  sortKey="phone"
-                  sortConfig={sortConfig}
-                  onSort={setSortConfig}
-                />
+                <Th label="Телефон" sortKey="phone" sortConfig={sortConfig} onSort={setSortConfig} />
                 <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Статус</th>
+
                 <Th
                   label="Дата регистрации"
                   sortKey="created_at"
@@ -130,27 +144,47 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
                 <th className="p-3 text-left">Бонусы</th>
               </tr>
             </thead>
+
             <tbody>
-              {sortedAndFilteredCustomers.map((customer, i) => (
-                <tr
-                  key={customer.id}
-                  className={
-                    "border-t transition-colors cursor-pointer hover:bg-gray-100 " +
-                    (i % 2 === 0 ? "bg-white" : "bg-gray-50")
-                  }
-                  onClick={() => router.push(`/admin/customers/${customer.id}`)}
-                  title="Открыть карточку клиента"
-                >
-                  <td className="p-3 font-mono">{customer.phone}</td>
-                  <td className="p-3">{customer.email || '—'}</td>
-                  <td className="p-3">
-                    {customer.created_at
-                      ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
-                      : '—'}
-                  </td>
-                  <td className="p-3">
-                    {customer.important_dates.length > 0
-                      ? customer.important_dates.map((event, index) => (
+              {sortedAndFilteredCustomers.map((customer, i) => {
+                const isClickable = customer.is_registered;
+
+                return (
+                  <tr
+                    key={customer.id}
+                    className={cls(
+                      'border-t transition-colors',
+                      i % 2 === 0 ? 'bg-white' : 'bg-gray-50',
+                      isClickable ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default opacity-[0.85]'
+                    )}
+                    onClick={() => {
+                      if (!isClickable) {
+                        toast.error('Это гость (заказ без регистрации). Открой заказ по телефону или зарегистрируй клиента.');
+                        return;
+                      }
+                      router.push(`/admin/customers/${customer.id}`);
+                    }}
+                    title={
+                      isClickable
+                        ? 'Открыть карточку клиента'
+                        : 'Гость без регистрации - нет user_id, начисление в историю бонусов недоступно'
+                    }
+                  >
+                    <td className="p-3 font-mono">{customer.phone}</td>
+                    <td className="p-3">{customer.email || '—'}</td>
+                    <td className="p-3">
+                      <Badge registered={customer.is_registered} />
+                    </td>
+
+                    <td className="p-3">
+                      {customer.created_at
+                        ? format(new Date(customer.created_at), 'dd.MM.yyyy', { locale: ru })
+                        : '—'}
+                    </td>
+
+                    <td className="p-3">
+                      {customer.important_dates.length > 0 ? (
+                        customer.important_dates.map((event, index) => (
                           <div key={index} className="truncate" title={event.description ?? ''}>
                             <span className="font-medium">{event.type}</span>
                             {event.description && ` (${event.description})`}
@@ -159,23 +193,28 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
                               : ''}
                           </div>
                         ))
-                      : <span className="text-gray-400">—</span>}
-                  </td>
-                  <td className="p-3">{customer.orders.length}</td>
-                  <td className="p-3">
-                    {customer.orders
-                      .reduce((sum, order) => sum + (order.total || 0), 0)
-                      .toLocaleString('ru-RU')}{' '}
-                    ₽
-                  </td>
-                  <td className="p-3">
-                    <span className="font-semibold">{customer.bonuses.bonus_balance ?? 0} ₽</span>
-                    <span className="ml-2 text-gray-500 text-xs">
-                      (Уровень: {customer.bonuses.level ?? '—'})
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    <td className="p-3">{customer.orders.length}</td>
+                    <td className="p-3">
+                      {customer.orders
+                        .reduce((sum, order) => sum + (order.total || 0), 0)
+                        .toLocaleString('ru-RU')}{' '}
+                      ₽
+                    </td>
+
+                    <td className="p-3">
+                      <span className="font-semibold">{customer.bonuses.bonus_balance ?? 0} ₽</span>
+                      <span className="ml-2 text-gray-500 text-xs">
+                        (Уровень: {customer.bonuses.level ?? '—'})
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -184,7 +223,6 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
   );
 }
 
-// Компонент сортируемого заголовка столбца
 function Th({
   label,
   sortKey,
@@ -199,7 +237,7 @@ function Th({
   const active = sortConfig.key === sortKey;
   return (
     <th
-      className="p-3 text-left cursor-pointer select-none hover:bg-gray-200 transition rounded-tl-lg"
+      className="p-3 text-left cursor-pointer select-none hover:bg-gray-200 transition"
       onClick={() =>
         onSort({
           key: sortKey,
@@ -223,5 +261,3 @@ function Th({
     </th>
   );
 }
-
-
