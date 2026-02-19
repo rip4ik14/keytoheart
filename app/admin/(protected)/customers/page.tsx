@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminJwt } from '@/lib/auth';
+
 import CustomersClient from './CustomersClient';
 
 interface BonusHistoryEntry {
@@ -37,7 +38,7 @@ interface Event {
 }
 
 interface Customer {
-  id: string;
+  id: string; // uuid профиля или guest:+7...
   phone: string;
   email: string | null;
   created_at: string | null;
@@ -45,7 +46,7 @@ interface Customer {
   orders: Order[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: BonusHistoryEntry[];
-  is_registered: boolean;
+  is_registered: boolean; // реальная регистрация = есть auth.users
 }
 
 function toIso(d: Date | null | undefined) {
@@ -64,7 +65,7 @@ export default async function CustomersPage() {
   let customers: Customer[] = [];
 
   try {
-    // 1) Профили (могут существовать и у гостей - это не признак регистрации)
+    // 1) Профили (user_profiles) - НЕ равно регистрации, это просто карточка
     const profiles = await prisma.user_profiles.findMany({
       select: { id: true, phone: true, email: true, created_at: true },
     });
@@ -86,16 +87,17 @@ export default async function CustomersPage() {
       .map((x) => (x.phone || '').trim())
       .filter(Boolean);
 
-    const allPhones = Array.from(new Set([
-      ...Array.from(profileByPhone.keys()),
-      ...phonesFromOrders,
-    ]));
+    const allPhones = Array.from(
+      new Set([...Array.from(profileByPhone.keys()), ...phonesFromOrders])
+    );
 
     // 3) Реальная регистрация = есть auth.users с таким phone
-    const authUsers = await prisma.users.findMany({
-      where: { phone: { in: allPhones } },
-      select: { phone: true },
-    });
+    const authUsers = allPhones.length
+      ? await prisma.users.findMany({
+          where: { phone: { in: allPhones } },
+          select: { phone: true },
+        })
+      : [];
 
     const registeredPhones = new Set(
       authUsers.map((u) => (u.phone || '').trim()).filter(Boolean)
@@ -159,7 +161,7 @@ export default async function CustomersPage() {
         select: { bonus_balance: true, level: true },
       });
 
-      // ✅ Историю читаем по phone (так работает и для гостей)
+      // ✅ Историю читаем по phone (и для гостей тоже)
       const bonusHistoryRaw = await prisma.bonus_history.findMany({
         where: { phone },
         select: { amount: true, reason: true, created_at: true },
@@ -193,7 +195,6 @@ export default async function CustomersPage() {
     // 4) Собираем клиентов по всем телефонам
     for (const phone of allPhones) {
       const p = profileByPhone.get(phone);
-
       const is_registered = registeredPhones.has(phone);
 
       customers.push(

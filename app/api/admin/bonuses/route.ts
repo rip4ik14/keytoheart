@@ -16,11 +16,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid session token' }, { status: 401 });
     }
 
-    const body = await safeBody<{
-      phone?: string;
-      delta?: number;
-      reason?: string;
-    }>(req, 'ADMIN BONUSES API');
+    const body = await safeBody<{ phone?: string; delta?: number; reason?: string }>(
+      req,
+      'ADMIN BONUSES API'
+    );
     if (body instanceof NextResponse) return body;
 
     const rawPhone = (body.phone || '').trim();
@@ -68,7 +67,6 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       });
 
-      // История: пишем по телефону + bonus_id, user_id НЕ трогаем (FK на auth.users)
       await tx.bonus_history.create({
         data: {
           bonus_id: upserted.id,

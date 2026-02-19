@@ -47,7 +47,11 @@ function Badge({ registered }: { registered: boolean }) {
           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
           : 'bg-amber-50 text-amber-700 border-amber-200'
       )}
-      title={registered ? 'Есть запись в auth.users (реальная регистрация)' : 'Оформлял(а) заказ как гость'}
+      title={
+        registered
+          ? 'Есть запись в auth.users (реальная регистрация)'
+          : 'Оформлял(а) заказ как гость'
+      }
     >
       {registered ? 'Зарегистрирован' : 'Гость'}
     </span>
@@ -119,12 +123,7 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
                 <Th label="Телефон" sortKey="phone" sortConfig={sortConfig} onSort={setSortConfig} />
                 <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Статус</th>
-                <Th
-                  label="Дата"
-                  sortKey="created_at"
-                  sortConfig={sortConfig}
-                  onSort={setSortConfig}
-                />
+                <Th label="Дата" sortKey="created_at" sortConfig={sortConfig} onSort={setSortConfig} />
                 <th className="p-3 text-left">Важные даты</th>
                 <Th
                   label="Кол-во заказов"
@@ -150,7 +149,7 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
                     'border-t transition-colors cursor-pointer hover:bg-gray-100',
                     i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                   )}
-                  onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                  onClick={() => router.push(`/admin/customers/${encodeURIComponent(customer.id)}`)}
                   title="Открыть карточку клиента"
                 >
                   <td className="p-3 font-mono">{customer.phone}</td>
@@ -183,14 +182,15 @@ export default function CustomersClient({ customers: initialCustomers }: Props) 
 
                   <td className="p-3">{customer.orders.length}</td>
                   <td className="p-3">
-                    {customer.orders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString('ru-RU')} ₽
+                    {customer.orders
+                      .reduce((sum, order) => sum + (order.total || 0), 0)
+                      .toLocaleString('ru-RU')}{' '}
+                    ₽
                   </td>
 
                   <td className="p-3">
                     <span className="font-semibold">{customer.bonuses.bonus_balance ?? 0} ₽</span>
-                    <span className="ml-2 text-gray-500 text-xs">
-                      (Уровень: {customer.bonuses.level ?? '—'})
-                    </span>
+                    <span className="ml-2 text-gray-500 text-xs">(Уровень: {customer.bonuses.level ?? '—'})</span>
                   </td>
                 </tr>
               ))}
