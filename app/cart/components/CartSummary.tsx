@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
-import type { CartItemType, UpsellItem } from '@/app/cart/types';
+import type { CartItemType, UpsellItem, CartItem } from '@/app/cart/types';
 import UiButton from '@/components/ui/UiButton';
 
 interface CartSummaryProps {
@@ -15,7 +15,10 @@ interface CartSummaryProps {
   bonusBalance: number;
   bonusAccrual: number;
   finalTotal: number;
+
+  // скидки, которые приходят извне (промокод/акции/логика сервера)
   discountAmount: number;
+
   removeUpsell: (id: string) => void;
   isAuthenticated: boolean;
   useBonuses: boolean;
@@ -31,6 +34,14 @@ interface CartSummaryProps {
 
 function rub(n: number) {
   return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+}
+
+function isUpsellItem(i: CartItemType): i is UpsellItem {
+  return (i as UpsellItem).isUpsell === true;
+}
+
+function asCartItem(i: CartItemType): CartItem | null {
+  return isUpsellItem(i) ? null : (i as CartItem);
 }
 
 export default function CartSummary({
@@ -53,18 +64,34 @@ export default function CartSummary({
   promoError = null,
   onApplyPromo,
 }: CartSummaryProps) {
-  const subtotal = items.reduce((sum: number, i: CartItemType) => sum + i.price * i.quantity, 0);
+  // товары (включая upsell, если ты их тоже кладешь в items)
+  const subtotal = items.reduce((sum: number, i: CartItemType) => sum + (i.price || 0) * (i.quantity || 0), 0);
 
+  // выбранные допы (если ты хранишь их отдельным массивом)
   const upsellTotal = selectedUpsells.reduce(
-    (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
+    (sum: number, i: UpsellItem) => sum + (i.price || 0) * (i.quantity || 0),
     0,
   );
+
+  // ✅ скидка из самих cart items (combo/promo/manual), считаем только по обычным товарам
+  const itemsDiscount = items.reduce((sum: number, it: CartItemType) => {
+    const ci = asCartItem(it);
+    if (!ci) return sum;
+
+    const base = typeof ci.base_price === 'number' && ci.base_price > 0 ? ci.base_price : null;
+    if (!base) return sum;
+
+    const perUnit = Math.max(0, base - (ci.price || 0));
+    return sum + perUnit * (ci.quantity || 0);
+  }, 0);
+
+  // ✅ общая скидка = скидка извне + скидка из товаров
+  const combinedDiscount = Math.round((discountAmount || 0) + itemsDiscount);
 
   const isPickup = deliveryMethod === 'pickup';
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
 
-  const card =
-    'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
+  const card = 'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
   const muted = 'text-black/60';
   const ink = 'text-[#121212]';
 
@@ -105,10 +132,10 @@ export default function CartSummary({
               <span className={`font-semibold ${ink}`}>{isPickup ? '0 ₽' : 'по расчету'}</span>
             </div>
 
-            {discountAmount > 0 ? (
+            {combinedDiscount > 0 ? (
               <div className="mt-2 flex justify-between text-emerald-700">
                 <span>Скидка</span>
-                <span className="font-semibold">-{rub(discountAmount)} ₽</span>
+                <span className="font-semibold">-{rub(combinedDiscount)} ₽</span>
               </div>
             ) : null}
           </div>
@@ -147,9 +174,7 @@ export default function CartSummary({
               </UiButton>
             </div>
 
-            {promoError ? (
-              <p className="mt-2 text-[11px] xs:text-xs text-red-600">{promoError}</p>
-            ) : null}
+            {promoError ? <p className="mt-2 text-[11px] xs:text-xs text-red-600">{promoError}</p> : null}
           </div>
 
           {/* бонусы */}
@@ -178,10 +203,7 @@ export default function CartSummary({
               <p className={`mt-2 text-[11px] xs:text-xs ${muted}`}>
                 {bonusBalance <= 0
                   ? 'Нет доступных бонусов'
-                  : `Доступно: ${Math.min(
-                      bonusBalance,
-                      Math.floor(totalBeforeDiscounts * 0.15),
-                    )} ₽`}
+                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
               </p>
             </div>
           )}
@@ -200,8 +222,6 @@ export default function CartSummary({
                 {rub(finalTotal)} ₽
               </span>
             </div>
-
-            
           </div>
         </div>
       )}

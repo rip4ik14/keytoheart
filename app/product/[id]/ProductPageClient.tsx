@@ -64,6 +64,17 @@ function percentToMultiplier(p: number) {
   return 1 - p / 100;
 }
 
+// ✅ combo helpers
+function makeComboId() {
+  const c: any = typeof crypto !== 'undefined' ? crypto : null;
+  if (c?.randomUUID) return String(c.randomUUID());
+  return `combo_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+function calcFinalPrice(base: number, discountPercent: number) {
+  if (!discountPercent || discountPercent <= 0) return Math.round(base);
+  return Math.round(base * (1 - discountPercent / 100));
+}
+
 // 5% за второй базовый и/или за шары (итого 0/5/10)
 function calcDiscountPercent(opts: { hasSecondBase: boolean; hasBalloons: boolean }) {
   const parts = (opts.hasSecondBase ? 1 : 0) + (opts.hasBalloons ? 1 : 0);
@@ -150,6 +161,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   // ✅ Cart API (подстраховка под разные реализации)
   const cart: any = useCart();
   const addItem = cart?.addItem;
+  const addMultipleItems = cart?.addMultipleItems;
 
   const cartItems = (cart?.items ?? cart?.cartItems ?? cart?.cart ?? []) as any[];
 
@@ -777,7 +789,8 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         // шары и открытки только из ПОДАРКОВ
         if (type === 'balloons')
           url = `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${SUB_BALLOONS_ID}`;
-        if (type === 'cards') url = `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${SUB_CARDS_ID}`;
+        if (type === 'cards')
+          url = `/api/upsell/products?category_id=${CATEGORY_GIFTS_ID}&subcategory_id=${SUB_CARDS_ID}`;
 
         const r = await fetch(url);
         const j = await r.json();
@@ -841,7 +854,9 @@ export default function ProductPageClient({ product, combos }: { product: Produc
   const comboItemsForCalc = useMemo(() => {
     // скидка применяется к "основе + второй базе + шарам"
     // открытка отдельная (без скидки)
-    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [{ it: baseSelectable, discounted: comboDiscountPercent > 0 }];
+    const items: Array<{ it: SelectableProduct; discounted: boolean }> = [
+      { it: baseSelectable, discounted: comboDiscountPercent > 0 },
+    ];
     if (selSecondBase) items.push({ it: selSecondBase, discounted: comboDiscountPercent > 0 });
     if (selBalloons) items.push({ it: selBalloons, discounted: comboDiscountPercent > 0 });
     if (selCard) items.push({ it: selCard, discounted: false });
@@ -861,13 +876,56 @@ export default function ProductPageClient({ product, combos }: { product: Produc
     return { originalSum, discountedSum, discountRub };
   }, [comboItemsForCalc, comboDiscountPercent]);
 
+  // ✅ FIX: кладем комбо в корзину со скидочными полями (base_price, discount_percent, discount_reason, combo_id)
   const addComboToCart = () => {
-    const multiplier = percentToMultiplier(comboDiscountPercent);
+    // если вдруг контекст без addMultipleItems - оставляем фолбэк на старое поведение
+    if (!addMultipleItems) {
+      const multiplier = percentToMultiplier(comboDiscountPercent);
 
-    comboItemsForCalc.forEach(({ it, discounted }) => {
-      const finalPrice = discounted ? Math.round(it.price * multiplier) : it.price;
-      handleAdd(it.id, it.title, finalPrice, it.image || null, it.production_time ?? null, true);
+      comboItemsForCalc.forEach(({ it, discounted }) => {
+        const finalPrice = discounted ? Math.round(it.price * multiplier) : it.price;
+        handleAdd(it.id, it.title, finalPrice, it.image || null, it.production_time ?? null, true);
+      });
+
+      closeCombo();
+      resetCombo();
+      return;
+    }
+
+    const combo_id = makeComboId();
+    const hasComboDiscount = comboDiscountPercent > 0;
+
+    const rows = comboItemsForCalc.map(({ it, discounted }) => {
+      const base_price = Math.round(it.price);
+      const apply = hasComboDiscount && discounted;
+
+      const final_price = apply ? calcFinalPrice(base_price, comboDiscountPercent) : base_price;
+
+      return {
+        id: String(it.id),
+        title: it.title,
+        quantity: 1,
+        imageUrl: it.image || '',
+        production_time: it.production_time ?? null,
+
+        // ✅ ключевые поля скидки
+        base_price: apply ? base_price : null,
+        discount_percent: apply ? comboDiscountPercent : null,
+        discount_reason: apply ? 'combo' : null,
+        combo_id: apply ? combo_id : null,
+
+        // ✅ финальная цена
+        price: final_price,
+      };
     });
+
+    addMultipleItems(rows as any);
+
+    setLastAdded({
+      imageUrl: baseSelectable.image || '/placeholder.jpg',
+      title: 'Комбо добавлено в корзину',
+    });
+    showAddedToast();
 
     closeCombo();
     resetCombo();
@@ -1106,7 +1164,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           {Object.entries(comboNotifications).map(
             ([id, visible]) =>
               visible && (
-                <motion.div key={id} className="hidden" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />
+                <motion.div
+                  key={id}
+                  className="hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                />
               ),
           )}
         </AnimatePresence>
@@ -1394,30 +1458,45 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           </motion.div>
 
           {/* RIGHT COLUMN */}
-          <motion.div className="flex flex-col space-y-4 sm:space-y-6" variants={containerVariants} initial="hidden" animate="visible">
+          <motion.div
+            className="flex flex-col space-y-4 sm:space-y-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {/* purchase card */}
             <div className="rounded-3xl border border-black/10 bg-white p-4 sm:p-5 lg:p-6 shadow-[0_14px_40px_rgba(0,0,0,0.08)]">
               {/* badges */}
               <div className="flex flex-wrap items-center gap-2">
                 {discountPercent > 0 && (
                   <>
-                    <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-black text-white">Скидка -{discountPercent}%</span>
-                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">Акция</span>
+                    <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-black text-white">
+                      Скидка -{discountPercent}%
+                    </span>
+                    <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+                      Акция
+                    </span>
                   </>
                 )}
 
                 {!!categoryLabel && (
-                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">{categoryLabel}</span>
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
+                    {categoryLabel}
+                  </span>
                 )}
 
                 {!categoryLabel && isCategoryLoading && (
-                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10 text-black/50">Загрузка…</span>
+                  <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10 text-black/50">
+                    Загрузка…
+                  </span>
                 )}
               </div>
 
               {/* title */}
               <div className="mt-4">
-                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-semibold tracking-tight leading-tight">{uiTitle}</h1>
+                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-semibold tracking-tight leading-tight">
+                  {uiTitle}
+                </h1>
                 {uiSubtitle && <p className="mt-2 text-sm sm:text-base text-black/60 leading-relaxed">{uiSubtitle}</p>}
               </div>
 
@@ -1618,7 +1697,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         </div>
 
         {/* MOBILE - Similar */}
-        <motion.section className="lg:hidden mt-8 pt-8 border-t border-black/10" variants={containerVariants} initial="hidden" animate="visible">
+        <motion.section
+          className="lg:hidden mt-8 pt-8 border-t border-black/10"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           <h2 className="text-xl font-semibold mb-4 tracking-tight">Похожие товары</h2>
 
           {isLoadingSimilar ? (
@@ -1696,7 +1780,12 @@ export default function ProductPageClient({ product, combos }: { product: Produc
         </motion.section>
 
         {/* MOBILE - Upsell */}
-        <motion.section className="lg:hidden mt-8 pt-8 border-t border-black/10" variants={containerVariants} initial="hidden" animate="visible">
+        <motion.section
+          className="lg:hidden mt-8 pt-8 border-t border-black/10"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           <h2 className="text-xl font-semibold mb-4 tracking-tight">Добавьте к заказу</h2>
 
           {isLoadingRecommended ? (
@@ -1796,7 +1885,8 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           onReplaceSecondBase={() => startPick(selSecondBase?.kind || (isBerryProduct ? 'flowers' : 'berries'))}
           onReplaceBalloons={() => startPick('balloons')}
           onReplaceCards={() => startPick('cards')}
-          onRemoveSecondBase={() => removeSelection(isBerryProduct ? 'flowers' : 'berries')}
+          // ✅ можно оставить как было, но лучше проще:
+          onRemoveSecondBase={() => setSelSecondBase(null)}
           onRemoveBalloons={() => removeSelection('balloons')}
           onRemoveCards={() => removeSelection('cards')}
           pickTitle={pickTitle}

@@ -10,10 +10,27 @@ interface CartItemProps {
   item: CartItemType & {
     isUpsell?: boolean;
     category?: string;
+
     imageUrl?: string;
     image_url?: string;
     image?: string;
     main_image?: string;
+
+    // скидки/комбо (могут прийти с разными именами)
+    base_price?: number | null;
+    basePrice?: number | null;
+
+    discount_percent?: number | null;
+    discountPercent?: number | null;
+
+    discount_reason?: string | null;
+    discountReason?: string | null;
+
+    combo_id?: string | number | null;
+    comboId?: string | number | null;
+
+    combo_group_id?: string | number | null;
+    comboGroupId?: string | number | null;
   };
   removeItem: (id: string) => void;
   updateQuantity?: (id: string, quantity: number) => void;
@@ -21,6 +38,31 @@ interface CartItemProps {
 
 function rub(n: number) {
   return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+}
+
+function getBasePrice(item: any): number | null {
+  const v = item?.base_price ?? item?.basePrice ?? null;
+  const n = v == null ? null : Number(v);
+  return n && Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function getDiscountPercent(item: any): number | null {
+  const v = item?.discount_percent ?? item?.discountPercent ?? null;
+  const n = v == null ? null : Number(v);
+  return n && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+function isComboItem(item: any): boolean {
+  return (
+    item?.discount_reason === 'combo' ||
+    item?.discountReason === 'combo' ||
+    item?.discount_reason === 'COMBO' ||
+    item?.discountReason === 'COMBO' ||
+    !!item?.combo_id ||
+    !!item?.comboId ||
+    !!item?.combo_group_id ||
+    !!item?.comboGroupId
+  );
 }
 
 export default function CartItem({ item, removeItem, updateQuantity }: CartItemProps) {
@@ -36,6 +78,18 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
 
   const ink = 'text-[#121212]';
   const muted = 'text-black/60';
+
+  const basePrice = getBasePrice(item);
+  const discountPercent = getDiscountPercent(item);
+
+  const hasDiscount = basePrice != null && basePrice > item.price;
+
+  const unitDiscountRub = hasDiscount ? Math.max(0, basePrice! - item.price) : 0;
+
+  const lineTotal = item.price * item.quantity;
+  const lineBaseTotal = hasDiscount ? basePrice! * item.quantity : 0;
+
+  const comboBadgeText = isComboItem(item) ? `комбо${discountPercent ? ` -${discountPercent}%` : ''}` : null;
 
   const handleMinus = () => {
     if (!updateQuantity) return;
@@ -64,22 +118,14 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
       <div className="flex items-start gap-3">
         {/* image */}
         <div className="relative flex-shrink-0 w-20 h-20 xs:w-24 xs:h-24 rounded-2xl overflow-hidden border border-black/10 bg-black/[0.02]">
-          <Image
-            src={imageSrc}
-            alt={item.title || 'Фото товара'}
-            fill
-            sizes="96px"
-            className="object-cover"
-          />
+          <Image src={imageSrc} alt={item.title || 'Фото товара'} fill sizes="96px" className="object-cover" />
         </div>
 
         {/* content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className={`text-sm xs:text-base font-semibold leading-snug break-words ${ink}`}>
-                {item.title}
-              </p>
+              <p className={`text-sm xs:text-base font-semibold leading-snug break-words ${ink}`}>{item.title}</p>
 
               {isUpsell ? (
                 <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-black/10 bg-black/[0.02] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-black/70">
@@ -90,10 +136,20 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
             </div>
 
             <div className="text-right">
-              <div className={`text-base xs:text-lg font-semibold leading-none ${ink}`}>
-                {rub(item.price)} ₽
+              <div className="flex flex-col items-end gap-1">
+                <div className={`text-base xs:text-lg font-semibold leading-none ${ink}`}>{rub(item.price)} ₽</div>
+
+                {hasDiscount ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-black/45 line-through tabular-nums">{rub(basePrice!)} ₽</span>
+                    <span className="text-[11px] font-semibold text-emerald-700 tabular-nums">
+                      -{rub(unitDiscountRub)} ₽
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className={`text-[11px] ${muted}`}>за 1 шт</div>
               </div>
-              <div className={`mt-1 text-[11px] ${muted}`}>за 1 шт</div>
             </div>
           </div>
 
@@ -111,9 +167,7 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
                   <Minus size={18} />
                 </motion.button>
 
-                <span className={`px-3 text-sm xs:text-base font-semibold ${ink}`}>
-                  {item.quantity}
-                </span>
+                <span className={`px-3 text-sm xs:text-base font-semibold ${ink}`}>{item.quantity}</span>
 
                 <motion.button
                   type="button"
@@ -130,8 +184,25 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
             )}
 
             <div className="flex items-center gap-2">
-              <div className={`text-sm xs:text-base font-semibold ${ink}`}>
-                {rub(item.price * item.quantity)} ₽
+              <div className="flex flex-col items-end leading-none">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm xs:text-base font-semibold ${ink}`}>{rub(lineTotal)} ₽</span>
+
+                  {comboBadgeText ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black text-white whitespace-nowrap">
+                      {comboBadgeText}
+                    </span>
+                  ) : null}
+                </div>
+
+                {hasDiscount ? (
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[11px] text-black/45 line-through tabular-nums">{rub(lineBaseTotal)} ₽</span>
+                    <span className="text-[11px] font-semibold text-emerald-700 tabular-nums">
+                      -{rub(lineBaseTotal - lineTotal)} ₽
+                    </span>
+                  </div>
+                ) : null}
               </div>
 
               <motion.button

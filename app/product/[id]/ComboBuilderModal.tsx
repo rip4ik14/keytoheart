@@ -33,14 +33,14 @@ function percentToMultiplier(p: number) {
 
 const overlay = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.18 } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
+  visible: { opacity: 1, transition: { duration: 0.16 } },
+  exit: { opacity: 0, transition: { duration: 0.14 } },
 };
 
 const modal = {
-  hidden: { y: 18, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { duration: 0.22 } },
-  exit: { y: 18, opacity: 0, transition: { duration: 0.18 } },
+  hidden: { y: 14, opacity: 0, scale: 0.99 },
+  visible: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.2 } },
+  exit: { y: 14, opacity: 0, scale: 0.99, transition: { duration: 0.16 } },
 };
 
 function tabLabel(t: ComboPickerType, fallback: string) {
@@ -70,7 +70,7 @@ function SlotCard({
 }) {
   return (
     <div className="flex gap-3 items-center border-b border-black/10 py-4">
-      <div className="w-16 h-16 rounded-2xl border border-black/10 bg-white flex items-center justify-center shadow-[0_6px_18px_rgba(0,0,0,0.06)]">
+      <div className="relative w-16 h-16 rounded-2xl border border-black/10 bg-white flex items-center justify-center shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
         {icon}
       </div>
 
@@ -171,7 +171,7 @@ function PickCard({
   onSelect: (it: SelectableProduct) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 overflow-hidden bg-white hover:shadow-[0_14px_40px_rgba(0,0,0,0.10)] transition-shadow">
+    <div className="rounded-3xl border border-black/10 overflow-hidden bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] transition-shadow">
       <div className="relative w-full aspect-[4/3] bg-black/5">
         <Image
           src={item.image || '/placeholder.jpg'}
@@ -195,7 +195,7 @@ function PickCard({
           type="button"
           variant="brandOutline"
           onClick={() => onSelect(item)}
-          className="mt-3 w-full py-2 rounded-xl text-xs font-bold uppercase tracking-wide"
+          className="mt-3 w-full py-2 rounded-2xl text-xs font-bold uppercase tracking-wide"
         >
           Добавить
         </UiButton>
@@ -290,7 +290,6 @@ export default function ComboBuilderModal({
 }) {
   const discounted = comboDiscountPercent > 0;
 
-  // ✅ Лочим скролл страницы, чтобы скроллилась только модалка
   useEffect(() => {
     if (!open) return;
 
@@ -311,7 +310,12 @@ export default function ComboBuilderModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-[2px] flex items-start justify-center p-3 sm:p-6"
+          className="
+            fixed inset-0 z-[20010]
+            flex items-end sm:items-center justify-center
+            p-0 sm:p-6
+            bg-black/60
+          "
           variants={overlay}
           initial="hidden"
           animate="visible"
@@ -321,27 +325,39 @@ export default function ComboBuilderModal({
           }}
         >
           <motion.div
-            className="w-full max-w-[1100px] bg-white rounded-[26px] shadow-[0_30px_90px_rgba(0,0,0,0.25)] overflow-hidden border border-black/10"
+            className="
+              relative w-full
+              sm:max-w-[1100px]
+              rounded-t-[28px] sm:rounded-[32px]
+              bg-white
+              border border-black/10
+              shadow-[0_35px_110px_rgba(0,0,0,0.42)]
+              overflow-hidden
+            "
             variants={modal}
             initial="hidden"
             animate="visible"
             exit="exit"
+            role="dialog"
+            aria-modal="true"
           >
             {/* HEADER */}
-            <div className="px-4 sm:px-6 py-4 border-b border-black/10 flex items-center justify-between gap-4 bg-white">
-              <p className="text-lg sm:text-xl font-bold leading-tight truncate text-black">
-                Собери комбо и получи скидку до 10%
-              </p>
+            <div className="sticky top-0 z-10 bg-white/85 backdrop-blur-md border-b border-black/10">
+              <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+                <p className="text-lg sm:text-xl font-bold leading-tight truncate text-black">
+                  Собери комбо и получи скидку до 10%
+                </p>
 
-              <UiButton
-                type="button"
-                variant="brandOutline"
-                onClick={onClose}
-                className="w-10 h-10 p-0 rounded-full flex items-center justify-center"
-                aria-label="Закрыть"
-              >
-                <X className="w-5 h-5" />
-              </UiButton>
+                <UiButton
+                  type="button"
+                  variant="brandOutline"
+                  onClick={onClose}
+                  className="w-10 h-10 p-0 rounded-full flex items-center justify-center"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-5 h-5" />
+                </UiButton>
+              </div>
             </div>
 
             {/* BODY */}
@@ -349,55 +365,50 @@ export default function ComboBuilderModal({
               {/* DESKTOP */}
               <div className="hidden lg:block h-full">
                 {view === 'pick' ? (
-                  // ✅ PICK VIEW: слева выбор, справа сборка (итог закреплен)
                   <div className="h-full grid grid-cols-[1fr_420px]">
                     {/* LEFT: picker */}
-                    <div className="border-r border-black/10 h-full flex flex-col min-h-0">
+                    <div className="border-r border-black/10 h-full flex flex-col min-h-0 bg-white">
                       <div className="px-6 pt-5 pb-4 border-b border-black/10 bg-white">
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-3">
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={onBackToMain}
+                            className="text-sm underline underline-offset-2 text-black/60 hover:text-black flex items-center gap-1"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            Назад
+                          </button>
+
+                          <p className="mt-3 text-xl font-semibold text-black">Выберите замену</p>
+
+                          <div className="mt-3 flex gap-4 text-sm overflow-x-auto no-scrollbar">
+                            {pickTabs.map((tab) => (
                               <button
+                                key={tab.t}
                                 type="button"
-                                onClick={onBackToMain}
-                                className="text-sm underline underline-offset-2 text-black/60 hover:text-black flex items-center gap-1"
+                                onClick={() => onTabChange(tab.t)}
+                                className={`pb-2 border-b-2 transition whitespace-nowrap ${
+                                  activePick === tab.t
+                                    ? 'border-black text-black font-semibold'
+                                    : 'border-transparent text-black/50 hover:text-black'
+                                }`}
                               >
-                                <ChevronLeft className="w-4 h-4" />
-                                Назад
+                                {tabLabel(tab.t, tab.label)}
                               </button>
-                            </div>
-
-                            <p className="mt-3 text-xl font-semibold text-black">Выберите замену</p>
-
-                            <div className="mt-3 flex gap-4 text-sm overflow-x-auto no-scrollbar">
-                              {pickTabs.map((tab) => (
-                                <button
-                                  key={tab.t}
-                                  type="button"
-                                  onClick={() => onTabChange(tab.t)}
-                                  className={`pb-2 border-b-2 transition whitespace-nowrap ${
-                                    activePick === tab.t
-                                      ? 'border-black text-black font-semibold'
-                                      : 'border-transparent text-black/50 hover:text-black'
-                                  }`}
-                                >
-                                  {tabLabel(tab.t, tab.label)}
-                                </button>
-                              ))}
-                            </div>
+                            ))}
                           </div>
-                        </div>
 
-                        <p className="mt-3 text-sm font-semibold text-black">
-                          {pickTitleForDesktop(activePick)}
-                        </p>
+                          <p className="mt-3 text-sm font-semibold text-black">
+                            {pickTitleForDesktop(activePick)}
+                          </p>
+                        </div>
                       </div>
 
                       <div className="px-6 py-5 flex-1 min-h-0 overflow-y-auto">
                         {loadingPick ? (
                           <p className="text-black/50">Загрузка...</p>
                         ) : pickError ? (
-                          <div className="rounded-2xl border border-black/10 bg-black/5 p-4 text-sm text-black">
+                          <div className="rounded-3xl border border-black/10 bg-black/[0.02] p-4 text-sm text-black">
                             {pickError}
                           </div>
                         ) : pickList.length === 0 ? (
@@ -413,8 +424,7 @@ export default function ComboBuilderModal({
                     </div>
 
                     {/* RIGHT: builder */}
-                    <div className="h-full flex flex-col min-h-0">
-                      {/* ✅ верхняя часть скроллится */}
+                    <div className="h-full flex flex-col min-h-0 bg-white">
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
                         <SelectedRow
                           item={baseItem}
@@ -479,9 +489,8 @@ export default function ComboBuilderModal({
                         <div className="h-4" />
                       </div>
 
-                      {/* ✅ итог всегда видим (закреплен снизу) */}
                       <div className="shrink-0 px-6 pb-6 pt-4 bg-white border-t border-black/10">
-                        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                        <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
                           <div className="flex items-center justify-between text-sm text-black/60">
                             <span>Скидка {comboDiscountPercent}%</span>
                             <span>-{money(totalDiscountRub)} ₽</span>
@@ -496,7 +505,7 @@ export default function ComboBuilderModal({
                             type="button"
                             variant="cartRed"
                             onClick={onAddComboToCart}
-                            className="mt-4 w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wide"
+                            className="mt-4 w-full py-4 rounded-3xl text-sm font-bold uppercase tracking-wide"
                           >
                             Добавить в корзину
                           </UiButton>
@@ -505,9 +514,9 @@ export default function ComboBuilderModal({
                     </div>
                   </div>
                 ) : (
-                  // ✅ MAIN VIEW: только сборка (никаких левых товаров до выбора)
+                  // MAIN
                   <div className="h-full flex">
-                    <div className="w-full max-w-[520px] ml-auto h-full flex flex-col min-h-0 border-l border-black/10">
+                    <div className="w-full max-w-[520px] ml-auto h-full flex flex-col min-h-0 border-l border-black/10 bg-white">
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
                         <SelectedRow
                           item={baseItem}
@@ -573,7 +582,7 @@ export default function ComboBuilderModal({
                       </div>
 
                       <div className="shrink-0 px-6 pb-6 pt-4 bg-white border-t border-black/10">
-                        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                        <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
                           <div className="flex items-center justify-between text-sm text-black/60">
                             <span>Скидка {comboDiscountPercent}%</span>
                             <span>-{money(totalDiscountRub)} ₽</span>
@@ -588,7 +597,7 @@ export default function ComboBuilderModal({
                             type="button"
                             variant="cartRed"
                             onClick={onAddComboToCart}
-                            className="mt-4 w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wide"
+                            className="mt-4 w-full py-4 rounded-3xl text-sm font-bold uppercase tracking-wide"
                           >
                             Добавить в корзину
                           </UiButton>
@@ -600,10 +609,10 @@ export default function ComboBuilderModal({
               </div>
 
               {/* MOBILE */}
-              <div className="lg:hidden h-full overflow-y-auto">
+              <div className="lg:hidden h-full overflow-y-auto bg-white">
                 {view === 'main' && (
                   <div className="px-4 sm:px-6 pb-6">
-                    <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black/5 mt-3 border border-black/10">
+                    <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden bg-black/5 mt-3 border border-black/10 shadow-[0_18px_55px_rgba(0,0,0,0.12)]">
                       <Image
                         src={heroImage || '/placeholder.jpg'}
                         alt={heroTitle}
@@ -676,7 +685,7 @@ export default function ComboBuilderModal({
                       )}
 
                       <div className="py-5">
-                        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                        <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-[0_18px_55px_rgba(0,0,0,0.12)]">
                           <div className="flex items-center justify-between text-sm text-black/60">
                             <span>Скидка {comboDiscountPercent}%</span>
                             <span>-{money(totalDiscountRub)} ₽</span>
@@ -691,7 +700,7 @@ export default function ComboBuilderModal({
                             type="button"
                             variant="cartRed"
                             onClick={onAddComboToCart}
-                            className="mt-4 w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wide"
+                            className="mt-4 w-full py-4 rounded-3xl text-sm font-bold uppercase tracking-wide"
                           >
                             Добавить в корзину
                           </UiButton>
@@ -741,7 +750,7 @@ export default function ComboBuilderModal({
                       {loadingPick ? (
                         <p className="text-black/50">Загрузка...</p>
                       ) : pickError ? (
-                        <div className="rounded-2xl border border-black/10 bg-black/5 p-4 text-sm text-black">
+                        <div className="rounded-3xl border border-black/10 bg-black/[0.02] p-4 text-sm text-black">
                           {pickError}
                         </div>
                       ) : pickList.length === 0 ? (
@@ -759,7 +768,7 @@ export default function ComboBuilderModal({
               </div>
             </div>
 
-            {/* ✅ НИЖНЕГО FOOTER НЕТ (как ты просил) */}
+            {/* ✅ НИЖНЕГО FOOTER НЕТ */}
           </motion.div>
         </motion.div>
       )}
