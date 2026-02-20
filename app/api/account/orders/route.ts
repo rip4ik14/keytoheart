@@ -5,7 +5,10 @@ import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 
 export async function GET() {
   try {
-    const { phone } = requireAuthPhone();
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
+    const { phone } = auth;
     const variants = buildPhoneVariants(phone);
 
     const orders = await prisma.orders.findMany({

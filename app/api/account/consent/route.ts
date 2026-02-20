@@ -1,23 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
-import { normalizePhone } from '@/lib/normalizePhone';
+import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 import sanitizeHtml from 'sanitize-html';
-import { cookies, headers } from 'next/headers';
 
 function cleanText(v: unknown) {
   return sanitizeHtml(String(v ?? ''), { allowedTags: [], allowedAttributes: {} }).trim();
 }
 
-function getIpFromHeaders(h: Headers): string | null {
-  const xf = h.get('x-forwarded-for');
-  if (xf) return xf.split(',')[0]?.trim() || null;
-  const xr = h.get('x-real-ip');
-  return xr?.trim() || null;
-}
-
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
     const body = await safeBody<{
       granted?: boolean;
       source?: string;
@@ -32,18 +27,9 @@ export async function POST(request: Request) {
     const version = cleanText(body?.version) || 'unknown';
     const text = cleanText(body?.text) || '';
 
-    // берем телефон только из куки, чтобы никто не мог обновить чужой номер
-    const cookieStore = await cookies();
-    const rawPhone = cookieStore.get('user_phone')?.value ?? '';
-    const phone = normalizePhone(rawPhone);
-
-    if (!phone || !/^\+7\d{10}$/.test(phone)) {
-      return NextResponse.json({ success: false, error: 'Нет активной сессии' }, { status: 401 });
-    }
-
-    const h = await headers();
-    const ip = getIpFromHeaders(h);
-    const ua = h.get('user-agent')?.slice(0, 400) || null;
+    const phone = auth.phone;
+    const ip = auth.ip;
+    const ua = auth.ua?.slice(0, 400) || null;
 
     const now = new Date();
 
