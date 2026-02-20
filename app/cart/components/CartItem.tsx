@@ -31,9 +31,14 @@ interface CartItemProps {
 
     combo_group_id?: string | number | null;
     comboGroupId?: string | number | null;
+
+    // ✅ ВАЖНО: строковый ключ позиции (для удаления/кол-ва)
+    line_id?: string;
   };
-  removeItem: (id: string) => void;
-  updateQuantity?: (id: string, quantity: number) => void;
+
+  // remove/update в контексте часто работают по line_id
+  removeItem: (idOrLineId: string) => void;
+  updateQuantity?: (idOrLineId: string, quantity: number) => void;
 }
 
 function rub(n: number) {
@@ -91,15 +96,18 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
 
   const comboBadgeText = isComboItem(item) ? `комбо${discountPercent ? ` -${discountPercent}%` : ''}` : null;
 
+  // ✅ Ключ строки в корзине: приоритет line_id
+  const lineKey = (item as any).line_id ? String((item as any).line_id) : String(item.id);
+
   const handleMinus = () => {
     if (!updateQuantity) return;
-    if (item.quantity > 1) updateQuantity(item.id, item.quantity - 1);
-    else removeItem(item.id);
+    if (item.quantity > 1) updateQuantity(lineKey, item.quantity - 1);
+    else removeItem(lineKey);
   };
 
   const handlePlus = () => {
     if (!updateQuantity) return;
-    updateQuantity(item.id, item.quantity + 1);
+    updateQuantity(lineKey, item.quantity + 1);
   };
 
   return (
@@ -207,7 +215,7 @@ export default function CartItem({ item, removeItem, updateQuantity }: CartItemP
 
               <motion.button
                 type="button"
-                onClick={() => removeItem(item.id)}
+                onClick={() => removeItem(lineKey)}
                 className="w-10 h-10 rounded-2xl border border-black/10 bg-white hover:bg-black/[0.02] transition flex items-center justify-center"
                 whileTap={{ scale: 0.96 }}
                 aria-label="Удалить"

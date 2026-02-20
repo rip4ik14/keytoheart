@@ -335,14 +335,31 @@ export default function CartPageClient({
   // ---------------------------
   // Cart validate + sync
   // ---------------------------
-  const baseCartItems = useMemo(() => items.filter((i: CartItemType) => !i.isUpsell), [items]);
+  // ✅ helper: комбо-позиции нельзя синкать, иначе перетрём price на обычную
+const isComboCartItem = (i: any) => {
+  return (
+    i?.discount_reason === 'combo' ||
+    i?.discountReason === 'combo' ||
+    i?.discount_reason === 'COMBO' ||
+    i?.discountReason === 'COMBO' ||
+    !!i?.combo_id ||
+    !!i?.comboId ||
+    !!i?.combo_group_id ||
+    !!i?.comboGroupId
+  );
+};
 
-  useCartValidateAndSync({
-    items: baseCartItems,
-    clearCart,
-    addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
-    enabled: !isApplyingRepeatDraft,
-  });
+// ✅ валидацию делаем только для обычных (не upsell и не combo)
+const itemsForValidateSync = useMemo<CartItemType[]>(() => {
+  return items.filter((i: CartItemType) => !i.isUpsell && !isComboCartItem(i));
+}, [items]);
+
+useCartValidateAndSync({
+  items: itemsForValidateSync,
+  clearCart,
+  addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
+  enabled: !isApplyingRepeatDraft,
+});
 
   // ---------------------------
   // Yandex address suggest
