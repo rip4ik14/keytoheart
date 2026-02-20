@@ -1,33 +1,15 @@
-// ✅ Путь: app/api/account/orders/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import sanitizeHtml from 'sanitize-html';
-import { normalizePhone, buildPhoneVariants } from '@/lib/normalizePhone';
+import { buildPhoneVariants } from '@/lib/normalizePhone';
+import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const phoneParam = searchParams.get('phone');
-
-    const sanitizedInput = sanitizeHtml(phoneParam || '', { allowedTags: [], allowedAttributes: {} });
-    if (!sanitizedInput) {
-      return NextResponse.json({ success: false, error: 'Телефон не указан' }, { status: 400 });
-    }
-
-    const normalizedPhone = normalizePhone(sanitizedInput);
-    if (!/^\+7\d{10}$/.test(normalizedPhone)) {
-      return NextResponse.json(
-        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
-        { status: 400 }
-      );
-    }
-
-    const variants = buildPhoneVariants(normalizedPhone);
+    const { phone } = requireAuthPhone();
+    const variants = buildPhoneVariants(phone);
 
     const orders = await prisma.orders.findMany({
-      where: {
-        OR: variants.map((p) => ({ phone: p })),
-      },
+      where: { OR: variants.map((p) => ({ phone: p })) },
       orderBy: { created_at: 'desc' },
       select: {
         id: true,
@@ -42,32 +24,29 @@ export async function GET(req: Request) {
       },
     });
 
-    if (!orders || orders.length === 0) {
-      return NextResponse.json({ success: true, data: [] }, { status: 200 });
-    }
-
-    const ordersWithItems = orders.map((order: any) => {
+    const normalized = (orders || []).map((order: any) => {
       const items = Array.isArray(order.items)
         ? order.items.map((item: any) => ({
             product_id: item.product_id ?? item.id ?? 0,
             title: item.title || 'Неизвестный товар',
             quantity: item.quantity ?? 1,
             price: item.price ?? 0,
+            imageUrl: item.imageUrl ?? item.cover_url ?? item.coverUrl ?? null,
           }))
         : [];
 
       const upsellDetails = Array.isArray(order.upsell_details)
-        ? order.upsell_details.map((upsell: any) => ({
-            title: upsell.title || 'Неизвестный товар',
-            price: upsell.price || 0,
-            quantity: upsell.quantity || 1,
-            category: upsell.category || 'unknown',
+        ? order.upsell_details.map((u: any) => ({
+            title: u.title || 'Неизвестный товар',
+            price: u.price || 0,
+            quantity: u.quantity || 1,
+            category: u.category || 'unknown',
           }))
         : [];
 
       return {
         id: order.id,
-        created_at: order.created_at ?? '',
+        created_at: order.created_at ? new Date(order.created_at).toISOString() : '',
         total: Number(order.total ?? 0),
         bonuses_used: order.bonuses_used ?? 0,
         payment_method: order.payment_method ?? 'cash',
@@ -79,14 +58,14 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, data: ordersWithItems },
-      { headers: { 'Cache-Control': 'private, no-store' } }
+      { success: true, data: normalized },
+      { headers: { 'Cache-Control': 'private, no-store' } },
     );
-  } catch (error: any) {
-    process.env.NODE_ENV !== 'production' && console.error('[account/orders]', error);
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
-    );
+  } catch (e: any) {
+    if (e?.message === 'unauthorized') {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
+    }
+    process.env.NODE_ENV !== 'production' && console.error('[account/orders]', e);
+    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }

@@ -21,6 +21,10 @@ interface ProfileData {
   receive_offers: boolean | null;
 }
 
+const CONSENT_VERSION = '2026-02-20';
+const CONSENT_TEXT =
+  'Я даю согласие на получение рекламных и информационных материалов (акции, новости, персональные предложения) от KeyToHeart по SMS, мессенджерам и иным каналам связи. Я могу отозвать согласие в любой момент в личном кабинете.';
+
 export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [name, setName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
@@ -29,6 +33,8 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
   const [receiveOffers, setReceiveOffers] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isConsentLoading, setIsConsentLoading] = useState(false);
+
   const [error, setError] = useState<string>('');
   const [isBirthdaySet, setIsBirthdaySet] = useState<boolean>(false);
 
@@ -52,7 +58,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           setEmail(profileData.email || '');
           setBirthday(profileData.birthday || '');
           setIsBirthdaySet(!!profileData.birthday);
-          setReceiveOffers(profileData.receive_offers || false);
+          setReceiveOffers(Boolean(profileData.receive_offers));
         } else {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
         }
@@ -67,6 +73,54 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     fetchUserData();
   }, [phone]);
+
+  const saveConsent = async (granted: boolean) => {
+    setIsConsentLoading(true);
+    try {
+      const res = await fetch('/api/account/consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          granted,
+          source: 'account_personal_form',
+          version: CONSENT_VERSION,
+          text: CONSENT_TEXT,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Не удалось сохранить согласие');
+
+      toast.success(granted ? 'Согласие сохранено' : 'Согласие отозвано');
+
+      window.gtag?.('event', granted ? 'marketing_consent_granted' : 'marketing_consent_revoked', {
+        event_category: 'account',
+      });
+      if (YM_ID !== undefined) {
+        callYm(
+          YM_ID,
+          'reachGoal',
+          granted ? 'marketing_consent_granted' : 'marketing_consent_revoked',
+        );
+      }
+    } finally {
+      setIsConsentLoading(false);
+    }
+  };
+
+  const handleConsentToggle = async (next: boolean) => {
+    const prev = receiveOffers;
+    setReceiveOffers(next);
+
+    try {
+      await saveConsent(next);
+      await onUpdate();
+    } catch (e: any) {
+      setReceiveOffers(prev);
+      toast.error(e?.message || 'Ошибка сохранения согласия');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +160,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     setIsLoading(true);
     try {
+      // профиль сохраняем отдельно от согласия
       const res = await fetch('/api/account/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,7 +170,6 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           last_name: trimmedLastName,
           email: trimmedEmail,
           birthday,
-          receive_offers: receiveOffers,
         }),
       });
 
@@ -151,9 +205,7 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
           <h2 id="personal-form-title" className="text-lg font-semibold tracking-tight">
             Личные данные
           </h2>
-          <p className="text-sm text-black/55 mt-1">
-            Укажите данные, чтобы быстрее оформлять заказы
-          </p>
+          <p className="text-sm text-black/55 mt-1">Укажите данные, чтобы быстрее оформлять заказы</p>
         </div>
 
         <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-black/5 border border-black/10">
@@ -264,29 +316,36 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               "
               disabled={isLoading || isBirthdaySet}
             />
-            <p className="text-xs text-black/45 mt-1">
-              Дата рождения указывается один раз и не может быть изменена.
-            </p>
+            <p className="text-xs text-black/45 mt-1">Дата рождения указывается один раз и не может быть изменена.</p>
           </div>
 
-          <div className="flex items-start gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3">
-            <input
-              id="receiveOffers"
-              type="checkbox"
-              checked={receiveOffers}
-              onChange={(e) => setReceiveOffers(e.target.checked)}
-              className="mt-0.5 h-4 w-4 text-black focus:ring-black border-black/20 rounded"
-              disabled={isLoading}
-            />
-            <label htmlFor="receiveOffers" className="text-sm text-black/70 leading-relaxed">
-              Я согласен получать предложения и новости
-            </label>
+          <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
+            <div className="flex items-start gap-3">
+              <input
+                id="receiveOffers"
+                type="checkbox"
+                checked={receiveOffers}
+                onChange={(e) => handleConsentToggle(e.target.checked)}
+                className="mt-0.5 h-4 w-4 text-black focus:ring-black border-black/20 rounded"
+                disabled={isLoading || isConsentLoading}
+              />
+              <div className="min-w-0">
+                <label htmlFor="receiveOffers" className="text-sm text-black/70 leading-relaxed">
+                  Я согласен получать предложения и новости
+                </label>
+                <p className="text-xs text-black/45 mt-1 leading-relaxed">
+                  {CONSENT_TEXT}
+                  <span className="block mt-1">Версия: {CONSENT_VERSION}</span>
+                </p>
+              </div>
+            </div>
+            {isConsentLoading && (
+              <p className="text-xs text-black/45 mt-2">Сохраняем согласие...</p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">
-            <p className="text-xs text-black/45">
-              Сохраните - и данные будут подставляться при оформлении заказа
-            </p>
+            <p className="text-xs text-black/45">Сохраните - и данные будут подставляться при оформлении заказа</p>
 
             <UiButton
               variant="brand"
