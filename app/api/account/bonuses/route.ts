@@ -9,7 +9,10 @@ const log = (...args: any[]) => {
 
 export async function GET() {
   try {
-    const { phone } = requireAuthPhone();
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
+    const { phone } = auth;
     const variants = buildPhoneVariants(phone);
     const phoneWhere = { OR: variants.map((p) => ({ phone: p })) };
 
@@ -40,7 +43,10 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const { phone } = requireAuthPhone();
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
+    const { phone } = auth;
     const variants = buildPhoneVariants(phone);
     const phoneWhere = { OR: variants.map((p) => ({ phone: p })) };
 

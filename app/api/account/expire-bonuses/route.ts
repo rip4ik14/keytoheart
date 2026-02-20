@@ -1,27 +1,22 @@
 // ✅ Путь: app/api/account/expire-bonuses/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { safeBody } from '@/lib/api/safeBody';
+import { buildPhoneVariants } from '@/lib/normalizePhone';
+import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 
 const BONUS_EXPIRE_DAYS = 180; // 6 месяцев
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    const body = await safeBody<{ phone?: string }>(request, 'ACCOUNT EXPIRE BONUSES API');
-    if (body instanceof NextResponse) {
-      return body;
-    }
-    const { phone } = body;
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
 
-    if (!phone || !/^\+7\d{10}$/.test(phone)) {
-      return NextResponse.json(
-        { success: false, error: 'Некорректный номер телефона' },
-        { status: 400 }
-      );
-    }
+    const { phone } = auth;
+    const variants = buildPhoneVariants(phone);
+    const phoneWhere = { OR: variants.map((p) => ({ phone: p })) };
 
     const bonusRow = await prisma.bonuses.findFirst({
-      where: { phone },
+      where: phoneWhere,
       select: { id: true, bonus_balance: true },
     });
 
@@ -47,7 +42,7 @@ export async function POST(request: Request) {
     });
 
     if (recentActivity) {
-      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== 'production' &&
         console.log(`[${new Date().toISOString()}] Recent activity found for phone ${phone}, skipping expiration`);
       return NextResponse.json({ success: true, expired: 0, new_balance: bonusRow.bonus_balance });
     }
@@ -118,7 +113,7 @@ export async function POST(request: Request) {
           bonus_id: bonusId,
           amount: -toExpire,
           reason: `Сгорание бонусов спустя 6 месяцев`,
-          created_at: new Date().toISOString(),
+          created_at: new Date(),
           // phone: нет такого поля!
         },
       });
@@ -141,7 +136,7 @@ export async function POST(request: Request) {
       where: { id: bonusId },
       data: {
         bonus_balance: newBalance,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date(),
       },
     });
 
@@ -151,9 +146,12 @@ export async function POST(request: Request) {
       new_balance: newBalance,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: 'Ошибка сервера: ' + error.message },
-      { status: 500 }
-    );
+    if (error?.message === 'unauthorized') {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
+    }
+
+    process.env.NODE_ENV !== 'production' &&
+      console.error('[account/expire-bonuses POST]', error);
+    return NextResponse.json({ success: false, error: 'Ошибка сервера' }, { status: 500 });
   }
 }

@@ -16,7 +16,10 @@ function toDateOrNull(v: unknown): Date | null {
 
 export async function GET() {
   try {
-    const { phone } = requireAuthPhone();
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
+    const { phone } = auth;
 
     const data = await prisma.important_dates.findMany({
       where: { phone },
@@ -29,7 +32,7 @@ export async function GET() {
       date: x.date ? x.date.toISOString().slice(0, 10) : null,
     }));
 
-    return NextResponse.json({ success: true, data }, { headers: { 'Cache-Control': 'private, no-store' } });
+    return NextResponse.json({ success: true, data: normalized }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (e: any) {
     if (e?.message === 'unauthorized') {
       return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
@@ -41,7 +44,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { phone } = requireAuthPhone();
+    const auth = await requireAuthPhone();
+    if (!auth.ok) return auth.response;
+
+    const { phone } = auth;
 
     const body = await safeBody<{
       events?: Array<{ type: string; date: string | null; description: string | null }>;
