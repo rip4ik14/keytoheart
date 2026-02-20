@@ -1,3 +1,4 @@
+// ✅ Путь: app/admin/(protected)/customers/page.tsx
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
@@ -42,11 +43,20 @@ interface Customer {
   phone: string;
   email: string | null;
   created_at: string | null;
+
+  // ✅ marketing consent
+  receive_offers: boolean | null;
+  receive_offers_at: string | null;
+  receive_offers_source: string | null;
+  receive_offers_version: string | null;
+  receive_offers_ip: string | null;
+  receive_offers_ua: string | null;
+
   important_dates: Event[];
   orders: Order[];
   bonuses: { bonus_balance: number | null; level: string | null };
   bonus_history: BonusHistoryEntry[];
-  is_registered: boolean; // реальная регистрация = есть auth.users
+  is_registered: boolean;
 }
 
 function toIso(d: Date | null | undefined) {
@@ -65,9 +75,21 @@ export default async function CustomersPage() {
   let customers: Customer[] = [];
 
   try {
-    // 1) Профили (user_profiles) - НЕ равно регистрации, это просто карточка
+    // 1) Профили (user_profiles)
     const profiles = await prisma.user_profiles.findMany({
-      select: { id: true, phone: true, email: true, created_at: true },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        created_at: true,
+
+        receive_offers: true,
+        receive_offers_at: true,
+        receive_offers_source: true,
+        receive_offers_version: true,
+        receive_offers_ip: true,
+        receive_offers_ua: true,
+      },
     });
 
     const profileByPhone = new Map(
@@ -87,9 +109,7 @@ export default async function CustomersPage() {
       .map((x) => (x.phone || '').trim())
       .filter(Boolean);
 
-    const allPhones = Array.from(
-      new Set([...Array.from(profileByPhone.keys()), ...phonesFromOrders])
-    );
+    const allPhones = Array.from(new Set([...Array.from(profileByPhone.keys()), ...phonesFromOrders]));
 
     // 3) Реальная регистрация = есть auth.users с таким phone
     const authUsers = allPhones.length
@@ -99,22 +119,35 @@ export default async function CustomersPage() {
         })
       : [];
 
-    const registeredPhones = new Set(
-      authUsers.map((u) => (u.phone || '').trim()).filter(Boolean)
-    );
+    const registeredPhones = new Set(authUsers.map((u) => (u.phone || '').trim()).filter(Boolean));
 
-    // Хелпер: собрать карточку клиента по телефону
     const buildCustomerByPhone = async ({
       id,
       phone,
       email,
       created_at,
+
+      receive_offers,
+      receive_offers_at,
+      receive_offers_source,
+      receive_offers_version,
+      receive_offers_ip,
+      receive_offers_ua,
+
       is_registered,
     }: {
       id: string;
       phone: string;
       email: string | null;
       created_at: Date | null;
+
+      receive_offers: boolean | null;
+      receive_offers_at: Date | null;
+      receive_offers_source: string | null;
+      receive_offers_version: string | null;
+      receive_offers_ip: string | null;
+      receive_offers_ua: string | null;
+
       is_registered: boolean;
     }): Promise<Customer> => {
       const dates = await prisma.important_dates.findMany({
@@ -161,7 +194,6 @@ export default async function CustomersPage() {
         select: { bonus_balance: true, level: true },
       });
 
-      // ✅ Историю читаем по phone (и для гостей тоже)
       const bonusHistoryRaw = await prisma.bonus_history.findMany({
         where: { phone },
         select: { amount: true, reason: true, created_at: true },
@@ -179,22 +211,26 @@ export default async function CustomersPage() {
         phone,
         email,
         created_at: toIso(created_at),
+
+        receive_offers,
+        receive_offers_at: toIso(receive_offers_at),
+        receive_offers_source,
+        receive_offers_version,
+        receive_offers_ip,
+        receive_offers_ua,
+
         important_dates,
         orders,
         bonuses: bonuses
-          ? {
-              bonus_balance: bonuses.bonus_balance ?? 0,
-              level: bonuses.level,
-            }
+          ? { bonus_balance: bonuses.bonus_balance ?? 0, level: bonuses.level }
           : { bonus_balance: 0, level: null },
         bonus_history,
         is_registered,
       };
     };
 
-    // 4) Собираем клиентов по всем телефонам
     for (const phone of allPhones) {
-      const p = profileByPhone.get(phone);
+      const p: any = profileByPhone.get(phone);
       const is_registered = registeredPhones.has(phone);
 
       customers.push(
@@ -203,6 +239,14 @@ export default async function CustomersPage() {
           phone,
           email: p?.email || null,
           created_at: p?.created_at || null,
+
+          receive_offers: p?.receive_offers ?? false,
+          receive_offers_at: p?.receive_offers_at ?? null,
+          receive_offers_source: p?.receive_offers_source ?? null,
+          receive_offers_version: p?.receive_offers_version ?? null,
+          receive_offers_ip: p?.receive_offers_ip ?? null,
+          receive_offers_ua: p?.receive_offers_ua ?? null,
+
           is_registered,
         })
       );

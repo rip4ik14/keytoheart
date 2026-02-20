@@ -1,3 +1,4 @@
+// ✅ Путь: components/account/PersonalForm.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
@@ -21,7 +22,6 @@ interface ProfileData {
   receive_offers: boolean | null;
 }
 
-const CONSENT_VERSION = '2026-02-20';
 const CONSENT_TEXT =
   'Я даю согласие на получение рекламных и информационных материалов (акции, новости, персональные предложения) от KeyToHeart по SMS, мессенджерам и иным каналам связи. Я могу отозвать согласие в любой момент в личном кабинете.';
 
@@ -48,7 +48,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/account/profile?phone=${encodeURIComponent(phone)}`);
+        const res = await fetch('/api/account/profile', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
         const data = await res.json();
 
         if (data.success && data.data) {
@@ -62,8 +66,8 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
         } else {
           throw new Error(data.error || 'Ошибка загрузки данных профиля');
         }
-      } catch (error) {
-        process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки данных:', error);
+      } catch (e: any) {
+        process.env.NODE_ENV !== 'production' && console.error('Ошибка загрузки данных:', e);
         setError('Не удалось загрузить данные');
         toast.error('Не удалось загрузить данные');
       } finally {
@@ -79,13 +83,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
     try {
       const res = await fetch('/api/account/consent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           granted,
           source: 'account_personal_form',
-          version: CONSENT_VERSION,
-          text: CONSENT_TEXT,
         }),
       });
 
@@ -111,6 +113,8 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
   const handleConsentToggle = async (next: boolean) => {
     const prev = receiveOffers;
+
+    // оптимистично ставим, но если сервер реально не сохранил - откатываем
     setReceiveOffers(next);
 
     try {
@@ -160,12 +164,11 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
     setIsLoading(true);
     try {
-      // профиль сохраняем отдельно от согласия
       const res = await fetch('/api/account/profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          phone,
           name: trimmedName,
           last_name: trimmedLastName,
           email: trimmedEmail,
@@ -183,10 +186,10 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
 
       window.gtag?.('event', 'update_profile', { event_category: 'account', value: trimmedName });
       if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'update_profile', { name: trimmedName });
-    } catch (error: any) {
-      process.env.NODE_ENV !== 'production' && console.error('Ошибка обновления профиля:', error);
-      setError(error.message || 'Ошибка обновления данных');
-      toast.error(error.message || 'Ошибка обновления данных');
+    } catch (e: any) {
+      process.env.NODE_ENV !== 'production' && console.error('Ошибка обновления профиля:', e);
+      setError(e.message || 'Ошибка обновления данных');
+      toast.error(e.message || 'Ошибка обновления данных');
     } finally {
       setIsLoading(false);
     }
@@ -316,7 +319,9 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
               "
               disabled={isLoading || isBirthdaySet}
             />
-            <p className="text-xs text-black/45 mt-1">Дата рождения указывается один раз и не может быть изменена.</p>
+            <p className="text-xs text-black/45 mt-1">
+              Дата рождения указывается один раз и не может быть изменена.
+            </p>
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
@@ -333,15 +338,10 @@ export default function PersonalForm({ onUpdate, phone }: PersonalFormProps) {
                 <label htmlFor="receiveOffers" className="text-sm text-black/70 leading-relaxed">
                   Я согласен получать предложения и новости
                 </label>
-                <p className="text-xs text-black/45 mt-1 leading-relaxed">
-                  {CONSENT_TEXT}
-                  <span className="block mt-1">Версия: {CONSENT_VERSION}</span>
-                </p>
+                <p className="text-xs text-black/45 mt-1 leading-relaxed">{CONSENT_TEXT}</p>
               </div>
             </div>
-            {isConsentLoading && (
-              <p className="text-xs text-black/45 mt-2">Сохраняем согласие...</p>
-            )}
+            {isConsentLoading && <p className="text-xs text-black/45 mt-2">Сохраняем согласие...</p>}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">

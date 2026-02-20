@@ -8,7 +8,7 @@ import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 // Версия и текст согласия - фиксируем для доказательной базы
 const CONSENT_VERSION = 'kth_marketing_v1_2026-02-20';
 const CONSENT_TEXT =
-  'Я согласен(на) получать новости и предложения (рекламные сообщения) от KeyToHeart по указанным контактам (телефон, мессенджеры, e-mail). Согласие можно отозвать в любой момент в личном кабинете.';
+  'Я согласен(на) получать новости и предложения (рекламные сообщения) от Ключ к сердцу по указанным контактам (телефон, мессенджеры, e-mail). Согласие можно отозвать в любой момент в личном кабинете.';
 
 function clean(v: unknown, maxLen = 500): string {
   const s = sanitizeHtml(String(v ?? ''), { allowedTags: [], allowedAttributes: {} }).trim();

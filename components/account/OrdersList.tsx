@@ -40,6 +40,16 @@ interface OrdersListProps {
   orders: Order[] | undefined;
 }
 
+function pickImage(it: any): string {
+  return (
+    it?.imageUrl ??
+    it?.cover_url ??
+    it?.coverUrl ??
+    it?.image_url ??
+    '/no-image.jpg'
+  );
+}
+
 export default function OrdersList({ orders }: OrdersListProps) {
   const router = useRouter();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -84,23 +94,23 @@ export default function OrdersList({ orders }: OrdersListProps) {
       {sorted.map((o, idx) => {
         const isExpanded = expandedOrder === o.id;
 
-        // ✅ повтор заказа - приводим к формату корзины: { id: string, title, price, quantity, isUpsell?, category? }
+        // ✅ repeat draft в формате CartContext
         const draftItems = [
-          ...(o.items || []).map((it) => ({
-            id: String(it.product_id ?? ''),
-            title: it.title,
-            price: it.price,
-            quantity: it.quantity,
-            imageUrl: it.cover_url || null,
+          ...(o.items || []).map((it: any, i: number) => ({
+            id: String(it.product_id ?? it.id ?? `legacy-${o.id}-${i}`),
+            title: it.title || 'Неизвестный товар',
+            price: Number(it.price ?? 0),
+            quantity: Number(it.quantity ?? 1),
+            imageUrl: pickImage(it),
           })),
-          ...(o.upsell_details || []).map((upsell, uidx) => ({
+          ...(o.upsell_details || []).map((upsell: any, uidx: number) => ({
             id: `upsell-${o.id}-${uidx}`,
-            title: upsell.title,
-            price: upsell.price,
-            quantity: upsell.quantity,
+            title: upsell.title || 'Доп. товар',
+            price: Number(upsell.price ?? 0),
+            quantity: Number(upsell.quantity ?? 1),
+            imageUrl: '/no-image.jpg',
             isUpsell: true,
             category: upsell.category,
-            imageUrl: null,
           })),
         ].filter((x) => x.id && x.title);
 
@@ -159,13 +169,22 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     className="rounded-2xl px-4 py-3"
                     onClick={() => {
                       try {
-                        const draft = { items: draftItems };
+                        if (!draftItems.length) {
+                          toast.error('В этом заказе нет товаров для повтора');
+                          return;
+                        }
 
-                        // ✅ пишем в два ключа: если корзина слушает другой - все равно сработает
+                        const draft = {
+                          items: draftItems,
+                          source: 'account',
+                          order_id: o.id,
+                          created_at: new Date().toISOString(),
+                        };
+
+                        // ✅ один основной ключ
                         localStorage.setItem('repeatDraft', JSON.stringify(draft));
-                        localStorage.setItem('cartDraft', JSON.stringify(draft));
 
-                        // ✅ и триггерим событие, если корзина на него подписана
+                        // ✅ событие для CartProvider
                         window.dispatchEvent(new Event('repeatDraft'));
 
                         toast.success('Заказ подготовлен, открываю корзину');
@@ -201,15 +220,15 @@ export default function OrdersList({ orders }: OrdersListProps) {
                     <div className="text-sm font-semibold text-black/80">Товары в заказе</div>
 
                     <div className="mt-3 space-y-2">
-                      {(o.items || []).map((item, i) => (
+                      {(o.items || []).map((item: any, i: number) => (
                         <div
                           key={`item-${i}`}
                           className="rounded-2xl border border-black/10 bg-white px-3 py-3 flex items-center gap-3"
                         >
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0">
                             <Image
-                              src={item.cover_url || '/no-image.jpg'}
-                              alt={item.title}
+                              src={pickImage(item)}
+                              alt={item.title || 'Товар'}
                               fill
                               className="object-cover"
                               sizes="48px"
@@ -228,13 +247,20 @@ export default function OrdersList({ orders }: OrdersListProps) {
                         </div>
                       ))}
 
-                      {(o.upsell_details || []).map((upsell, i) => (
+                      {(o.upsell_details || []).map((upsell: any, i: number) => (
                         <div
                           key={`upsell-${i}`}
                           className="rounded-2xl border border-black/10 bg-white px-3 py-3 flex items-center gap-3"
                         >
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                            <Image src="/no-image.jpg" alt={upsell.title} fill className="object-cover" sizes="48px" unoptimized />
+                            <Image
+                              src="/no-image.jpg"
+                              alt={upsell.title || 'Доп. товар'}
+                              fill
+                              className="object-cover"
+                              sizes="48px"
+                              unoptimized
+                            />
                           </div>
 
                           <div className="min-w-0 flex-1">

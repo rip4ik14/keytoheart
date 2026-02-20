@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -28,7 +29,13 @@ interface FormState {
   deliveryInstructions: string;
 
   anonymous: boolean;
+
+  // обязательная галка (оферта/соглашение/политика) - должна быть true для продолжения
   agreedToTerms: boolean;
+
+  // ✅ NEW: необязательная галка (маркетинг)
+  agreedToMarketing: boolean;
+
   askAddressFromRecipient: boolean;
 
   slotValid: boolean;
@@ -59,7 +66,12 @@ const initialFormState: FormState = {
   deliveryInstructions: '',
 
   anonymous: false,
+
   agreedToTerms: false,
+
+  // ✅ NEW
+  agreedToMarketing: false,
+
   askAddressFromRecipient: false,
 
   slotValid: false,
@@ -134,6 +146,10 @@ export default function useCheckoutForm() {
       ...parsed,
       contactMethod: migratedContactMethod,
 
+      // ✅ NEW: если в localStorage не было поля (старые пользователи)
+      agreedToMarketing:
+        typeof parsed.agreedToMarketing === 'boolean' ? parsed.agreedToMarketing : prev.agreedToMarketing,
+
       slotValid: typeof parsed.slotValid === 'boolean' ? parsed.slotValid : prev.slotValid,
       slotReason: typeof parsed.slotReason === 'string' ? parsed.slotReason : prev.slotReason,
     }));
@@ -166,7 +182,9 @@ export default function useCheckoutForm() {
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
+
       setForm((prev) => ({ ...prev, [name]: checked }));
+
       if (name === 'agreedToTerms' && checked) setAgreedToTermsError('');
       return;
     }
@@ -239,6 +257,7 @@ export default function useCheckoutForm() {
       setAgreedToTermsError('');
     }
 
+    // ✅ agreedToMarketing НЕ валидируем, она необязательная
     return ok;
   };
 
@@ -322,7 +341,8 @@ export default function useCheckoutForm() {
 
     if (!form.slotValid) {
       const msg =
-        form.slotReason || 'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
+        form.slotReason ||
+        'На выбранную дату и время заказ не успеваем выполнить, выберите другую дату.';
       setDateError(msg);
       setTimeError(msg);
       toast.error(msg);

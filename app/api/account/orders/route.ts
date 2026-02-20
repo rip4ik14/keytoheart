@@ -29,13 +29,23 @@ export async function GET() {
 
     const normalized = (orders || []).map((order: any) => {
       const items = Array.isArray(order.items)
-        ? order.items.map((item: any) => ({
-            product_id: item.product_id ?? item.id ?? 0,
-            title: item.title || 'Неизвестный товар',
-            quantity: item.quantity ?? 1,
-            price: item.price ?? 0,
-            imageUrl: item.imageUrl ?? item.cover_url ?? item.coverUrl ?? null,
-          }))
+        ? order.items.map((item: any) => {
+            const img = item.imageUrl ?? item.cover_url ?? item.coverUrl ?? null;
+
+            return {
+              product_id: item.product_id ?? item.id ?? 0,
+              title: item.title || 'Неизвестный товар',
+              quantity: item.quantity ?? 1,
+              price: item.price ?? 0,
+
+              // главное поле для нового фронта
+              imageUrl: img,
+
+              // совместимость со старым фронтом
+              cover_url: img,
+              coverUrl: img,
+            };
+          })
         : [];
 
       const upsellDetails = Array.isArray(order.upsell_details)
@@ -48,10 +58,10 @@ export async function GET() {
         : [];
 
       return {
-        id: order.id,
+        id: String(order.id),
         created_at: order.created_at ? new Date(order.created_at).toISOString() : '',
         total: Number(order.total ?? 0),
-        bonuses_used: order.bonuses_used ?? 0,
+        bonuses_used: Number(order.bonuses_used ?? 0),
         payment_method: order.payment_method ?? 'cash',
         status: order.status ?? '',
         recipient: order.recipient || 'Не указан',

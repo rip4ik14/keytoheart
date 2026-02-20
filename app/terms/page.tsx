@@ -1,40 +1,36 @@
-import { Metadata } from 'next';
+// ✅ Путь: app/terms/page.tsx
+import type { Metadata } from 'next';
+import { JsonLd } from 'react-schemaorg';
+import type { WebPage } from 'schema-dts';
 import TermsPageClient from './TermsPageClient';
 
 export const metadata: Metadata = {
   title: 'Пользовательское соглашение',
   description:
-    'Пользовательское соглашение интернет-магазина КЛЮЧ К СЕРДЦУ. Условия использования сайта, оформления заказов, оплаты, доставки и возврата товаров в соответствии с законодательством РФ.',
-  keywords: [
-    'пользовательское соглашение',
-    'КЛЮЧ К СЕРДЦУ',
-    'условия использования',
-    'Краснодар',
-    'доставка',
-    'возврат товаров',
-  ],
+    'Пользовательское соглашение интернет-магазина «Ключ к сердцу». Условия использования сайта, ответственность, порядок обращения, ссылки на документы.',
+  keywords: ['пользовательское соглашение', 'Ключ к сердцу', 'условия использования', 'документы', 'Краснодар'],
   openGraph: {
-    title: 'Пользовательское соглашение | КЛЮЧ К СЕРДЦУ',
+    title: 'Пользовательское соглашение | Ключ к сердцу',
     description:
-      'Пользовательское соглашение интернет-магазина КЛЮЧ К СЕРДЦУ. Условия использования сайта, оформления заказов, оплаты, доставки и возврата товаров.',
+      'Условия использования сайта, ответственность сторон и ссылки на правовые документы.',
     url: 'https://keytoheart.ru/terms',
-    siteName: 'КЛЮЧ К СЕРДЦУ',
+    siteName: 'Ключ к сердцу',
     images: [
       {
-        url: 'https://keytoheart.ru/og-image-terms.jpg',
+        url: 'https://keytoheart.ru/og-cover.webp',
         width: 1200,
         height: 630,
-        alt: 'Пользовательское соглашение КЛЮЧ К СЕРДЦУ',
+        alt: 'Ключ к сердцу - пользовательское соглашение',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Пользовательское соглашение | КЛЮЧ К СЕРДЦУ',
+    title: 'Пользовательское соглашение | Ключ к сердцу',
     description:
-      'Пользовательское соглашение интернет-магазина КЛЮЧ К СЕРДЦУ. Условия использования сайта, оформления заказов, оплаты, доставки и возврата товаров.',
-    images: ['https://keytoheart.ru/og-image-terms.jpg'],
+      'Условия использования сайта интернет-магазина «Ключ к сердцу».',
+    images: ['https://keytoheart.ru/og-cover.webp'],
   },
   alternates: { canonical: 'https://keytoheart.ru/terms' },
 };
@@ -42,5 +38,29 @@ export const metadata: Metadata = {
 export const revalidate = 86400;
 
 export default function TermsPage() {
-  return <TermsPageClient />;
+  return (
+    <main className="bg-white text-black" aria-label="Пользовательское соглашение">
+      <JsonLd<WebPage>
+        item={{
+          '@type': 'WebPage',
+          name: 'Пользовательское соглашение | Ключ к сердцу',
+          url: 'https://keytoheart.ru/terms',
+          description:
+            'Пользовательское соглашение интернет-магазина «Ключ к сердцу».',
+          mainEntity: {
+            '@type': 'Organization',
+            name: 'Ключ к сердцу',
+            url: 'https://keytoheart.ru',
+            contactPoint: {
+              '@type': 'ContactPoint',
+              email: 'info@keytoheart.ru',
+              telephone: '+7-988-603-38-21',
+              contactType: 'customer service',
+            },
+          },
+        }}
+      />
+      <TermsPageClient />
+    </main>
+  );
 }

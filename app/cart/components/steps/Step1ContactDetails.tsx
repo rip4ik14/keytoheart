@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -9,12 +10,19 @@ interface Props {
   form: {
     phone: string;
     name: string;
+
+    // обязательная галка (оферта/соглашение/политика) - должна быть true для продолжения
     agreedToTerms?: boolean;
+
+    // необязательная галка (маркетинг)
+    agreedToMarketing?: boolean;
+
     contactMethod: 'call' | 'whatsapp' | 'telegram' | 'max';
   };
   phoneError: string;
   nameError: string;
   agreedToTermsError: string;
+
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
   isAuthenticated?: boolean;
@@ -314,8 +322,10 @@ export default function Step1ContactDetails({
           />
         </div>
 
-        <p className="text-[11px] text-[#6f6f6f]">
-          Если выберете мессенджер - напишем туда по номеру телефона из заказа.
+        <p className="text-[11px] text-[#6f6f6f] leading-snug">
+          Если выберете мессенджер - мы напишем туда по номеру телефона из заказа. При выборе
+          мессенджера вы переходите в сторонний сервис, который обрабатывает данные по своим
+          правилам.
         </p>
       </motion.div>
 
@@ -332,7 +342,9 @@ export default function Step1ContactDetails({
 
             {isAuthenticated ? (
               <>
-                <p className="text-[12px] text-[#6f6f6f]">Вы вошли, бонусы начисляются автоматически</p>
+                <p className="text-[12px] text-[#6f6f6f]">
+                  Вы вошли, бонусы начисляются автоматически
+                </p>
                 <p className="text-[12px] text-[#6f6f6f]">
                   Баланс: <span className="font-semibold text-black">{bonusBalance}</span>
                 </p>
@@ -341,7 +353,8 @@ export default function Step1ContactDetails({
               <p className="text-[12px] text-[#6f6f6f]">Проверяем авторизацию...</p>
             ) : (
               <p className="text-[12px] text-[#6f6f6f]">
-                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ можно без входа.
+                Вход по звонку нужен только для бонусов и истории заказов. Оформить заказ можно без
+                входа.
               </p>
             )}
           </div>
@@ -368,6 +381,7 @@ export default function Step1ContactDetails({
         )}
       </motion.div>
 
+      {/* ✅ Обязательная галочка (оферта/соглашение/политика) */}
       <motion.div
         className={`flex items-start gap-3 mt-2 ${
           agreedToTermsError ? 'text-red-500' : 'text-[#2f2f2f]'
@@ -383,7 +397,7 @@ export default function Step1ContactDetails({
           checked={form.agreedToTerms || false}
           onChange={onFormChange}
           className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
-          aria-label="Согласие с офертой и политикой"
+          aria-label="Согласие с документами"
           required
         />
         <span className="text-[12px] leading-snug">
@@ -397,23 +411,66 @@ export default function Step1ContactDetails({
             label="policy"
           >
             политикой обработки персональных данных
-          </TrackedLink>{' '}
-          и{' '}
+          </TrackedLink>
+          ,{' '}
           <TrackedLink
             href="/offer"
             className="underline text-black"
-            ariaLabel="Открыть условия оферты"
+            ariaLabel="Открыть пользовательское соглашение"
             category="checkout"
             action="open_legal"
             label="offer"
           >
             пользовательским соглашением
+          </TrackedLink>{' '}
+          и{' '}
+          <TrackedLink
+            href="/offer"
+            className="underline text-black"
+            ariaLabel="Открыть публичную оферту купли-продажи"
+            category="checkout"
+            action="open_legal"
+            label="public_offer"
+          >
+            публичной офертой
           </TrackedLink>
           .
         </span>
       </motion.div>
 
       {agreedToTermsError && <p className="text-red-500 text-xs">{agreedToTermsError}</p>}
+
+      {/* ✅ Необязательная галочка (маркетинг) */}
+      <motion.div
+        className="flex items-start gap-3 mt-1 text-[#2f2f2f]"
+        initial="hidden"
+        animate="visible"
+        custom={5}
+        variants={containerVariants}
+      >
+        <input
+          type="checkbox"
+          name="agreedToMarketing"
+          checked={form.agreedToMarketing || false}
+          onChange={onFormChange}
+          className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
+          aria-label="Согласие на рекламную рассылку"
+        />
+        <span className="text-[12px] leading-snug">
+          Хочу получать акции и предложения (можно отказаться в любой момент). Условия -{' '}
+          <TrackedLink
+            href="/offer"
+            className="underline text-black"
+            ariaLabel="Открыть согласие на рассылку"
+            category="checkout"
+            action="open_legal"
+            label="marketing_offer"
+          >
+            здесь
+          </TrackedLink>
+          .
+        </span>
+      </motion.div>
     </div>
   );
 }

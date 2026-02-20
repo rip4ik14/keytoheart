@@ -1,8 +1,9 @@
 'use client';
+
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import toast from 'react-hot-toast';
 
 interface CartItem {
@@ -13,6 +14,13 @@ interface CartItem {
   imageUrl: string;
   production_time?: number | null;
 }
+
+type RepeatDraft = {
+  items: CartItem[];
+  source?: string;
+  order_id?: string;
+  created_at?: string;
+};
 
 interface CartContextType {
   items: CartItem[];
@@ -27,22 +35,52 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function safeParseJSON<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeCartItem(x: any): CartItem | null {
+  if (!x) return null;
+
+  const id = String(x.id ?? '');
+  const title = String(x.title ?? '');
+  const price = Number(x.price ?? 0);
+  const quantity = Number(x.quantity ?? 0);
+  const imageUrl = String(x.imageUrl ?? x.cover_url ?? x.coverUrl ?? '/no-image.jpg');
+
+  if (!id || !title || !Number.isFinite(price) || !Number.isFinite(quantity) || quantity <= 0) return null;
+
+  return {
+    id,
+    title,
+    price,
+    quantity,
+    imageUrl,
+    production_time: x.production_time ?? null,
+  };
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const didConsumeRepeatOnce = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('cart');
     if (saved) {
-      try {
-        const parsed: CartItem[] = JSON.parse(saved);
-        setItems(
-          Array.isArray(parsed)
-            ? parsed.map((item) => ({ ...item, id: String(item.id) }))
-            : [],
-        );
-      } catch {
-        localStorage.removeItem('cart');
-      }
+      const parsed = safeParseJSON<CartItem[]>(saved);
+      setItems(
+        Array.isArray(parsed)
+          ? parsed
+              .map((i) => normalizeCartItem(i))
+              .filter(Boolean)
+              .map((i) => i as CartItem)
+          : [],
+      );
     }
   }, []);
 
@@ -57,7 +95,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         const newQuantity = existing.quantity + item.quantity;
 
-        // ✅ ключевой момент: цена должна быть минимальной (чтобы комбо-скидка не терялась)
+        // ✅ цена минимальная, чтобы комбо-скидка не терялась
         const newUnitPrice = Math.min(existing.price, item.price);
 
         const updatedItems = prev.map((i) =>
@@ -99,7 +137,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const updated = [...prev];
 
-      newItems.forEach((newItem) => {
+      newItems.forEach((raw) => {
+        const newItem = normalizeCartItem(raw);
+        if (!newItem) return;
+
         const idx = updated.findIndex((i) => i.id === newItem.id);
 
         if (idx !== -1) {
@@ -190,6 +231,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'clear_cart');
   };
+
+  // ✅ подхват repeatDraft: по событию и при заходе на /cart?repeat=1
+  useEffect(() => {
+    const consumeRepeatDraft = () => {
+      if (didConsumeRepeatOnce.current) return;
+
+      const qs = typeof window !== 'undefined' ? window.location.search : '';
+      const isRepeatUrl = qs.includes('repeat=1');
+
+      const draftRaw = localStorage.getItem('repeatDraft');
+      const draft = safeParseJSON<RepeatDraft>(draftRaw);
+
+      if (!draft?.items?.length) return;
+
+      // если пользователь открыл не /cart - можно не подхватывать автоматически
+      // но по событию repeatDraft подхватываем всегда
+      if (!isRepeatUrl && !draftRaw) return;
+
+      didConsumeRepeatOnce.current = true;
+
+      addMultipleItems(draft.items);
+
+      // очищаем черновик, чтобы не задвоилось после обновления страницы
+      localStorage.removeItem('repeatDraft');
+
+      toast.success('Заказ перенесён в корзину');
+    };
+
+    const onRepeat = () => consumeRepeatDraft();
+
+    window.addEventListener('repeatDraft', onRepeat);
+
+    // если уже на /cart?repeat=1, подхватим сразу
+    consumeRepeatDraft();
+
+    return () => {
+      window.removeEventListener('repeatDraft', onRepeat);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const maxProductionTime =
     items.length > 0 ? Math.max(...items.map((item) => item.production_time ?? 0)) : null;
