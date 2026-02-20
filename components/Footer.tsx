@@ -142,7 +142,7 @@ export default function Footer({ categories }: FooterProps) {
                 </a>
                 <span className="mx-2 text-gray-300">|</span>
                 <a
-                  href="mailto:info@keytoheart.ru"
+                  href="mailto:r.rashevskaya@yandex.ru"
                   className="underline hover:text-gray-500 transition-colors"
                   aria-label="Написать на email"
                   onClick={() => {
@@ -150,7 +150,7 @@ export default function Footer({ categories }: FooterProps) {
                     ymGoal('footer_email_click');
                   }}
                 >
-                  info@keytoheart.ru
+                  r.rashevskaya@yandex.ru
                 </a>
               </div>
             </div>

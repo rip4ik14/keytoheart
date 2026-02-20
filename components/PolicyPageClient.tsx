@@ -183,8 +183,8 @@ export default function PolicyPageClient() {
           <li>
             Направить запрос можно на{' '}
             <ContactLink
-              href="mailto:info@keytoheart.ru"
-              label="info@keytoheart.ru"
+              href="mailto:r.rashevskaya@yandex.ru"
+              label="r.rashevskaya@yandex.ru"
               type="email"
               onClick={() => handleLinkClick('Запрос субъекта', 'email')}
             />
@@ -206,8 +206,8 @@ export default function PolicyPageClient() {
           />
           <br />
           <ContactLink
-            href="mailto:info@keytoheart.ru"
-            label="info@keytoheart.ru"
+            href="mailto:r.rashevskaya@yandex.ru"
+            label="r.rashevskaya@yandex.ru"
             type="email"
             onClick={() => handleLinkClick('Контактный email', 'email')}
           />

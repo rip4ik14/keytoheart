@@ -38,14 +38,14 @@ export default function PublicOfferPageClient() {
             <br />
             Email:{' '}
             <TrackedLink
-              href="mailto:info@keytoheart.ru"
+              href="mailto:r.rashevskaya@yandex.ru"
               ariaLabel="Написать"
               category="Contact"
               action="Click Email"
               label="Public Offer"
               className="underline hover:text-gray-500 transition-colors"
             >
-              info@keytoheart.ru
+              r.rashevskaya@yandex.ru
             </TrackedLink>
             <br />
             Сайт:{' '}

@@ -70,14 +70,14 @@ export default function CookiePolicyPageClient() {
               блокируя или удаляя cookies. Отключение необходимых cookies может повлиять на оформление заказа.
               По вопросам можно написать на{' '}
               <TrackedLink
-                href="mailto:info@keytoheart.ru"
-                ariaLabel="Написать на info@keytoheart.ru"
+                href="mailto:r.rashevskaya@yandex.ru"
+                ariaLabel="Написать на r.rashevskaya@yandex.ru"
                 category="Contact"
                 action="Click Email Link"
                 label="Cookie Policy"
                 className="underline hover:text-gray-500 transition-colors"
               >
-                info@keytoheart.ru
+                r.rashevskaya@yandex.ru
               </TrackedLink>
               .
             </p>
@@ -120,14 +120,14 @@ export default function CookiePolicyPageClient() {
               <br />
               Email:{' '}
               <TrackedLink
-                href="mailto:info@keytoheart.ru"
+                href="mailto:r.rashevskaya@yandex.ru"
                 ariaLabel="Написать"
                 category="Contact"
                 action="Click Email Link"
                 label="Cookie Policy"
                 className="underline hover:text-gray-500 transition-colors"
               >
-                info@keytoheart.ru
+                r.rashevskaya@yandex.ru
               </TrackedLink>
             </p>
           </div>

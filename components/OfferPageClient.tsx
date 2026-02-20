@@ -53,14 +53,14 @@ export default function OfferPageClient() {
             <li>
               Можно отказаться в любой момент, написав на{' '}
               <TrackedLink
-                href="mailto:info@keytoheart.ru"
+                href="mailto:r.rashevskaya@yandex.ru"
                 ariaLabel="Написать на email"
                 category="Contact"
                 action="Click Email"
                 label="Offer"
                 className="underline hover:text-gray-500 transition-colors"
               >
-                info@keytoheart.ru
+                r.rashevskaya@yandex.ru
               </TrackedLink>{' '}
               или позвонив по телефону{' '}
               <TrackedLink
@@ -101,14 +101,14 @@ export default function OfferPageClient() {
             <br />
             Email:{' '}
             <TrackedLink
-              href="mailto:info@keytoheart.ru"
+              href="mailto:r.rashevskaya@yandex.ru"
               ariaLabel="Написать"
               category="Contact"
               action="Click Email"
               label="Offer"
               className="underline hover:text-gray-500 transition-colors"
             >
-              info@keytoheart.ru
+              r.rashevskaya@yandex.ru
             </TrackedLink>
             <br />
             Телефон:{' '}

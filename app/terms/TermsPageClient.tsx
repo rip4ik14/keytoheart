@@ -132,8 +132,8 @@ export default function TermsPageClient() {
           </TrackedLink>
           <br />
           Email:{' '}
-          <TrackedLink href="mailto:info@keytoheart.ru" ariaLabel="Написать" category="Contact" action="Click Email" label="Terms" className="underline hover:text-gray-500 transition-colors">
-            info@keytoheart.ru
+          <TrackedLink href="mailto:r.rashevskaya@yandex.ru" ariaLabel="Написать" category="Contact" action="Click Email" label="Terms" className="underline hover:text-gray-500 transition-colors">
+            r.rashevskaya@yandex.ru
           </TrackedLink>
         </p>
 

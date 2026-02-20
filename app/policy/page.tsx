@@ -61,7 +61,7 @@ const faqSchema: FAQPage = {
       name: 'Как отказаться от рекламной рассылки?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Можно отказаться в любой момент, написав на info@keytoheart.ru или позвонив по телефону +7 (988) 603-38-21. Мы обработаем отказ в срок до 3 рабочих дней.',
+        text: 'Можно отказаться в любой момент, написав на r.rashevskaya@yandex.ru или позвонив по телефону +7 (988) 603-38-21. Мы обработаем отказ в срок до 3 рабочих дней.',
       },
     },
     {
@@ -91,7 +91,7 @@ export default function PolicyPage() {
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',
-              email: 'info@keytoheart.ru',
+              email: 'r.rashevskaya@yandex.ru',
               telephone: '+7-988-603-38-21',
               contactType: 'customer service',
             },

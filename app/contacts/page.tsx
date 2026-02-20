@@ -62,7 +62,7 @@ const contactSchema: ContactPage = {
       },
       {
         '@type': 'ContactPoint',
-        email: 'info@keytoheart.ru',
+        email: 'r.rashevskaya@yandex.ru',
         contactType: 'customer service',
         areaServed: 'RU',
         availableLanguage: 'Russian',
@@ -91,7 +91,7 @@ const faqSchema: FAQPage = {
       name: 'Как связаться с КЛЮЧ К СЕРДЦУ?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Вы можете позвонить по телефону +7 (988) 603-38-21, написать на email info@keytoheart.ru или связаться через WhatsApp/Telegram. Мы работаем с 09:00 до 21:00 ежедневно.',
+        text: 'Вы можете позвонить по телефону +7 (988) 603-38-21, написать на email r.rashevskaya@yandex.ru или связаться через WhatsApp/Telegram. Мы работаем с 09:00 до 21:00 ежедневно.',
       },
     },
     {
