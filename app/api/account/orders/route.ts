@@ -3,6 +3,25 @@ import { prisma } from '@/lib/prisma';
 import { buildPhoneVariants } from '@/lib/normalizePhone';
 import { requireAuthPhone } from '@/lib/api/requireAuthPhone';
 
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+function pickProductImage(p: any): string | null {
+  const firstFromImages =
+    Array.isArray(p?.images) && p.images.length ? String(p.images[0]) : null;
+
+  const cover = p?.cover_url ? String(p.cover_url) : null;
+
+  return firstFromImages || cover || null;
+}
+
 export async function GET() {
   try {
     const auth = await requireAuthPhone();
@@ -27,18 +46,51 @@ export async function GET() {
       },
     });
 
+    // 1) собираем все product_id из items
+    const productIds = new Set<number>();
+    for (const o of orders || []) {
+      const arr = Array.isArray((o as any).items) ? (o as any).items : [];
+      for (const it of arr) {
+        const pid = Number(it?.product_id ?? it?.id ?? 0);
+        if (Number.isFinite(pid) && pid > 0) productIds.add(pid);
+      }
+    }
+
+    // 2) вытаскиваем картинки из Supabase по id
+    const idList = Array.from(productIds);
+    const imageById = new Map<number, string>();
+
+    if (idList.length) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, images, cover_url')
+        .in('id', idList);
+
+      if (!error && Array.isArray(data)) {
+        for (const p of data) {
+          const pid = Number((p as any).id);
+          const img = pickProductImage(p);
+          if (pid > 0 && img) imageById.set(pid, img);
+        }
+      }
+    }
+
+    // 3) нормализуем заказы и подставляем imageUrl (если в items нет)
     const normalized = (orders || []).map((order: any) => {
       const items = Array.isArray(order.items)
         ? order.items.map((item: any) => {
-            const img = item.imageUrl ?? item.cover_url ?? item.coverUrl ?? null;
+            const pid = Number(item.product_id ?? item.id ?? 0);
+            const fromOrder = item.imageUrl ?? item.cover_url ?? item.coverUrl ?? null;
+            const fromProduct = pid > 0 ? imageById.get(pid) ?? null : null;
+            const img = fromOrder || fromProduct || null;
 
             return {
-              product_id: item.product_id ?? item.id ?? 0,
+              product_id: pid,
               title: item.title || 'Неизвестный товар',
               quantity: item.quantity ?? 1,
               price: item.price ?? 0,
 
-              // главное поле для нового фронта
+              // основные поля
               imageUrl: img,
 
               // совместимость со старым фронтом

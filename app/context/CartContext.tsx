@@ -16,7 +16,7 @@ interface CartItem {
 }
 
 type RepeatDraft = {
-  items: CartItem[];
+  items: any[];
   source?: string;
   order_id?: string;
   created_at?: string;
@@ -44,16 +44,29 @@ function safeParseJSON<T>(raw: string | null): T | null {
   }
 }
 
+function normalizeImageUrl(...candidates: any[]): string {
+  for (const v of candidates) {
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (s && s !== 'null' && s !== 'undefined') return s;
+    }
+  }
+  return '/no-image.jpg';
+}
+
 function normalizeCartItem(x: any): CartItem | null {
   if (!x) return null;
 
-  const id = String(x.id ?? '');
-  const title = String(x.title ?? '');
+  const id = typeof x.id === 'number' ? String(x.id) : String(x.id ?? '').trim();
+  const title = String(x.title ?? '').trim();
   const price = Number(x.price ?? 0);
   const quantity = Number(x.quantity ?? 0);
-  const imageUrl = String(x.imageUrl ?? x.cover_url ?? x.coverUrl ?? '/no-image.jpg');
 
-  if (!id || !title || !Number.isFinite(price) || !Number.isFinite(quantity) || quantity <= 0) return null;
+  const imageUrl = normalizeImageUrl(x.imageUrl, x.cover_url, x.coverUrl, x.image_url);
+
+  if (!id || !title) return null;
+  if (!Number.isFinite(price) || price < 0) return null;
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
 
   return {
     id,
@@ -72,7 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem('cart');
     if (saved) {
-      const parsed = safeParseJSON<CartItem[]>(saved);
+      const parsed = safeParseJSON<any[]>(saved);
       setItems(
         Array.isArray(parsed)
           ? parsed
@@ -89,29 +102,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addItem = (item: CartItem) => {
+    const normalized = normalizeCartItem(item);
+    if (!normalized) {
+      toast.error('Не удалось добавить товар в корзину');
+      return;
+    }
+
     setItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.id === normalized.id);
 
       if (existing) {
-        const newQuantity = existing.quantity + item.quantity;
+        const newQuantity = existing.quantity + normalized.quantity;
 
-        // ✅ цена минимальная, чтобы комбо-скидка не терялась
-        const newUnitPrice = Math.min(existing.price, item.price);
+        // цена должна быть минимальной (чтобы комбо-скидка не терялась)
+        const newUnitPrice = Math.min(existing.price, normalized.price);
 
         const updatedItems = prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: newQuantity, price: newUnitPrice } : i,
+          i.id === normalized.id ? { ...i, quantity: newQuantity, price: newUnitPrice } : i,
         );
 
-        toast.success(`${item.title} обновлён в корзине (x${newQuantity})`);
+        toast.success(`${normalized.title} обновлён в корзине (x${newQuantity})`);
 
         window.gtag?.('event', 'update_cart_item', {
           event_category: 'cart',
-          item_id: item.id,
+          item_id: normalized.id,
           quantity: newQuantity,
         });
         if (YM_ID !== undefined) {
           callYm(YM_ID, 'reachGoal', 'update_cart_item', {
-            item_id: item.id,
+            item_id: normalized.id,
             quantity: newQuantity,
           });
         }
@@ -119,21 +138,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return updatedItems;
       }
 
-      toast.success(`${item.title} добавлен в корзину`);
+      toast.success(`${normalized.title} добавлен в корзину`);
 
-      window.gtag?.('event', 'add_to_cart', {
-        event_category: 'cart',
-        item_id: item.id,
-      });
-      if (YM_ID !== undefined) {
-        callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: item.id });
-      }
+      window.gtag?.('event', 'add_to_cart', { event_category: 'cart', item_id: normalized.id });
+      if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: normalized.id });
 
-      return [...prev, { ...item, id: String(item.id) }];
+      return [...prev, normalized];
     });
   };
 
-  const addMultipleItems = (newItems: CartItem[]) => {
+  const addMultipleItems = (newItems: any[]) => {
     setItems((prev) => {
       const updated = [...prev];
 
@@ -146,7 +160,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (idx !== -1) {
           updated[idx].quantity += newItem.quantity;
 
-          // ✅ цена всегда минимальная
+          // цена всегда минимальная
           updated[idx].price = Math.min(updated[idx].price, newItem.price);
 
           toast.success(`${newItem.title} обновлён в корзине (x${updated[idx].quantity})`);
@@ -163,17 +177,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
             });
           }
         } else {
-          updated.push({ ...newItem, id: String(newItem.id) });
+          updated.push(newItem);
 
           toast.success(`${newItem.title} добавлен в корзину`);
 
-          window.gtag?.('event', 'add_to_cart', {
-            event_category: 'cart',
-            item_id: newItem.id,
-          });
-          if (YM_ID !== undefined) {
-            callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
-          }
+          window.gtag?.('event', 'add_to_cart', { event_category: 'cart', item_id: newItem.id });
+          if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'add_to_cart', { item_id: newItem.id });
         }
       });
 
@@ -215,9 +224,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item_id: id,
           quantity,
         });
-        if (YM_ID !== undefined) {
-          callYm(YM_ID, 'reachGoal', 'update_cart_quantity', { item_id: id, quantity });
-        }
+        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'update_cart_quantity', { item_id: id, quantity });
       }
 
       return updatedItems;
@@ -232,7 +239,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'clear_cart');
   };
 
-  // ✅ подхват repeatDraft: по событию и при заходе на /cart?repeat=1
+  // подхват repeatDraft: по событию и при заходе на /cart?repeat=1
   useEffect(() => {
     const consumeRepeatDraft = () => {
       if (didConsumeRepeatOnce.current) return;
@@ -240,20 +247,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const qs = typeof window !== 'undefined' ? window.location.search : '';
       const isRepeatUrl = qs.includes('repeat=1');
 
-      const draftRaw = localStorage.getItem('repeatDraft');
-      const draft = safeParseJSON<RepeatDraft>(draftRaw);
+      const raw = localStorage.getItem('repeatDraft');
+      const draft = safeParseJSON<RepeatDraft>(raw);
 
       if (!draft?.items?.length) return;
 
-      // если пользователь открыл не /cart - можно не подхватывать автоматически
-      // но по событию repeatDraft подхватываем всегда
-      if (!isRepeatUrl && !draftRaw) return;
+      // если пользователь пришел именно по repeat
+      if (!isRepeatUrl) return;
 
       didConsumeRepeatOnce.current = true;
 
       addMultipleItems(draft.items);
 
-      // очищаем черновик, чтобы не задвоилось после обновления страницы
       localStorage.removeItem('repeatDraft');
 
       toast.success('Заказ перенесён в корзину');
@@ -263,7 +268,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('repeatDraft', onRepeat);
 
-    // если уже на /cart?repeat=1, подхватим сразу
+    // если уже на /cart?repeat=1 - подхватим сразу
     consumeRepeatDraft();
 
     return () => {
