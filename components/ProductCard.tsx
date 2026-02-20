@@ -127,10 +127,7 @@ export default function ProductCard({
   const bonus = product.bonus ?? Math.floor(discountedPrice * 0.025);
   const isPopular = !!product.is_popular;
 
-  const productionText = useMemo(
-    () => formatProductionTime(product.production_time ?? null),
-    [product.production_time],
-  );
+  const productionText = useMemo(() => formatProductionTime(product.production_time ?? null), [product.production_time]);
 
   const productionCompact = useMemo(
     () => formatProductionCompact(product.production_time ?? null),
@@ -144,7 +141,12 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
+    // ✅ FIX: line_id обязателен в CartItem (по твоему CartContext.tsx)
+    // обычный товар - стабильный line_id
+    const line_id = `product:${product.id}`;
+
     addItem({
+      line_id,
       id: product.id.toString(),
       title,
       price: discountedPrice,
@@ -528,7 +530,9 @@ export default function ProductCard({
 
                 <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
                   {productionText ? (
-                    <div className="text-[11px] text-black/55 leading-snug break-words">Изготовление: {productionText}</div>
+                    <div className="text-[11px] text-black/55 leading-snug break-words">
+                      Изготовление: {productionText}
+                    </div>
                   ) : (
                     <span className="text-[11px] text-transparent select-none">.</span>
                   )}
