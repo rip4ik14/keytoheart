@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/hooks/useUpsells.ts
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,9 +29,17 @@ function normalizeSubIds(subcategoryIds: number[]) {
   return Array.from(new Set(subcategoryIds.filter(Boolean))).sort((a, b) => a - b);
 }
 
+// ✅ line_id должен быть уникальным на строку корзины
+function makeLineId(upsellId: string) {
+  return `upsell:${String(upsellId)}`;
+}
+
 function toUpsellItem(p: UpsellProduct): UpsellItem {
+  const id = String(p.id);
+
   return {
-    id: String(p.id),
+    line_id: makeLineId(id), // ✅ FIX: обязателен по типу UpsellItem
+    id,
     title: p.title,
     price: Number(p.price) || 0,
     image_url: p.image_url ?? undefined,
@@ -51,38 +60,41 @@ export function useUpsells({ categoryId, subcategoryIds }: UseUpsellsArgs) {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchOne = useCallback(async (subId: number, signal: AbortSignal) => {
-    const key = `${categoryId}:${subId}`;
+  const fetchOne = useCallback(
+    async (subId: number, signal: AbortSignal) => {
+      const key = `${categoryId}:${subId}`;
 
-    const cached = cache.get(key);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      return cached.data;
-    }
+      const cached = cache.get(key);
+      if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+        return cached.data;
+      }
 
-    const res = await fetch(`/api/upsell/products?category_id=${categoryId}&subcategory_id=${subId}`, {
-      method: 'GET',
-      cache: 'no-store',
-      signal,
-    });
+      const res = await fetch(`/api/upsell/products?category_id=${categoryId}&subcategory_id=${subId}`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+      });
 
-    if (!res.ok) {
-      throw new Error(`Upsell fetch failed (${res.status})`);
-    }
+      if (!res.ok) {
+        throw new Error(`Upsell fetch failed (${res.status})`);
+      }
 
-    const json = await res.json();
+      const json = await res.json();
 
-    // поддерживаем пару форматов ответа (на всякий)
-    const raw: UpsellProduct[] =
-      (Array.isArray(json) ? json : null) ??
-      (Array.isArray(json?.data) ? json.data : null) ??
-      (Array.isArray(json?.products) ? json.products : null) ??
-      [];
+      // поддерживаем пару форматов ответа (на всякий)
+      const raw: UpsellProduct[] =
+        (Array.isArray(json) ? json : null) ??
+        (Array.isArray(json?.data) ? json.data : null) ??
+        (Array.isArray(json?.products) ? json.products : null) ??
+        [];
 
-    const items = raw.map(toUpsellItem);
+      const items = raw.map(toUpsellItem);
 
-    cache.set(key, { ts: Date.now(), data: items });
-    return items;
-  }, [categoryId]);
+      cache.set(key, { ts: Date.now(), data: items });
+      return items;
+    },
+    [categoryId],
+  );
 
   // 2) главный эффект: зависит только от categoryId + subKey (строки), а не от массива
   useEffect(() => {
@@ -147,7 +159,13 @@ export function useUpsells({ categoryId, subcategoryIds }: UseUpsellsArgs) {
     setSelectedUpsells((prev) => {
       const exists = prev.find((x) => x.id === item.id);
       if (exists) return prev;
-      return [...prev, { ...item, isUpsell: true, quantity: item.quantity ?? 1 }];
+
+      const safeLineId =
+        (item as any).line_id && String((item as any).line_id).trim().length > 0
+          ? String((item as any).line_id)
+          : makeLineId(String(item.id));
+
+      return [...prev, { ...item, line_id: safeLineId, isUpsell: true, quantity: item.quantity ?? 1 }];
     });
   }, []);
 
