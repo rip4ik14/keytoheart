@@ -14,7 +14,10 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 const ORDER_WEBHOOK_URL = process.env.ORDER_WEBHOOK_URL || '';
 const ORDER_WEBHOOK_SECRET = process.env.ORDER_WEBHOOK_SECRET || '';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
+const BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.BASE_URL ||
+  'https://keytoheart.ru';
 
 const TELEGRAM_TIMEOUT_MS = 8000;
 const ORDER_WEBHOOK_TIMEOUT_MS = 8000;
@@ -118,7 +121,8 @@ function buildTelegramMessageSafe(params: {
     contactMethod,
   } = params;
 
-  const safeLine = (s: string) => sanitizeHtml(s || '', { allowedTags: [], allowedAttributes: {} });
+  const safeLine = (s: string) =>
+    sanitizeHtml(s || '', { allowedTags: [], allowedAttributes: {} });
 
   const regularList = regularItems.length
     ? regularItems
@@ -190,27 +194,36 @@ async function sendTelegramMessageSafe(text: string) {
   const t = setTimeout(() => controller.abort(), TELEGRAM_TIMEOUT_MS);
 
   try {
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      }),
-    });
+    const telegramResponse = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
+      },
+    );
 
     if (!telegramResponse.ok) {
       const body = await telegramResponse.text().catch(() => '');
-      return { ok: false, error: body || `Telegram HTTP ${telegramResponse.status}`, ms: Date.now() - started };
+      return {
+        ok: false,
+        error: body || `Telegram HTTP ${telegramResponse.status}`,
+        ms: Date.now() - started,
+      };
     }
 
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
     const msg =
-      e?.name === 'AbortError' ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms` : e?.message || 'Telegram send failed';
+      e?.name === 'AbortError'
+        ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms`
+        : e?.message || 'Telegram send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
@@ -281,7 +294,9 @@ async function sendOrderWebhookSafe(params: {
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
     const msg =
-      e?.name === 'AbortError' ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms` : e?.message || 'Webhook send failed';
+      e?.name === 'AbortError'
+        ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms`
+        : e?.message || 'Webhook send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
@@ -334,12 +349,12 @@ export async function POST(req: Request) {
       typeof total !== 'number' ||
       Number.isNaN(total)
     ) {
-      return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Отсутствуют обязательные поля', requestId }, { status: 400 });
     }
 
     const finalContactMethod = normalizeContactMethod(contact_method, !!whatsapp);
     if (!CONTACT_METHODS.includes(finalContactMethod)) {
-      return NextResponse.json({ error: 'Некорректный contact_method' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Некорректный contact_method', requestId }, { status: 400 });
     }
 
     const sanitizedPhoneInput = sanitizeHtml(rawPhone, { allowedTags: [], allowedAttributes: {} });
@@ -347,7 +362,11 @@ export async function POST(req: Request) {
 
     if (!/^\+7\d{10}$/.test(sanitizedPhone)) {
       return NextResponse.json(
-        { error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)' },
+        {
+          success: false,
+          error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)',
+          requestId,
+        },
         { status: 400 },
       );
     }
@@ -360,7 +379,11 @@ export async function POST(req: Request) {
 
     if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
       return NextResponse.json(
-        { error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)' },
+        {
+          success: false,
+          error: 'Некорректный формат номера телефона получателя (должен быть +7XXXXXXXXXX)',
+          requestId,
+        },
         { status: 400 },
       );
     }
@@ -370,7 +393,9 @@ export async function POST(req: Request) {
     const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
     const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
 
-    const sanitizedOccasionRaw = occasion ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} }) : '';
+    const sanitizedOccasionRaw = occasion
+      ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} })
+      : '';
     const sanitizedOccasion = sanitizedOccasionRaw.trim() ? sanitizedOccasionRaw.trim() : null;
 
     const sanitizedDeliveryInstructions = delivery_instructions
@@ -381,6 +406,7 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
+    // upsert profile
     const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
       create: {
@@ -406,9 +432,13 @@ export async function POST(req: Request) {
       .filter((id): id is number => id !== null);
 
     if (regularItems.length > 0 && productIds.length !== regularItems.length) {
-      return NextResponse.json({ error: 'Некоторые ID товаров некорректны (не числа)' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Некоторые ID товаров некорректны (не числа)', requestId },
+        { status: 400 },
+      );
     }
 
+    // validate products in supabase
     if (productIds.length > 0) {
       const { data: products, error: productError } = await supabaseAdmin
         .from('products')
@@ -417,7 +447,10 @@ export async function POST(req: Request) {
 
       if (productError) {
         console.error(`[ORDERS][${requestId}] Supabase error fetching products:`, productError);
-        return NextResponse.json({ error: 'Ошибка получения товаров: ' + productError.message }, { status: 500 });
+        return NextResponse.json(
+          { success: false, error: 'Ошибка получения товаров: ' + productError.message, requestId },
+          { status: 500 },
+        );
       }
 
       const invalidItems = regularItems.filter((item) => {
@@ -439,59 +472,91 @@ export async function POST(req: Request) {
           return `Товар с ID ${itemId} недоступен`;
         });
 
-        return NextResponse.json({ error: reasons.join('; ') }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: reasons.join('; '), requestId },
+          { status: 400 },
+        );
       }
     }
 
     const finalDeliveryMethod: 'pickup' | 'delivery' =
       deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
 
-    const totalDecimal = new Prisma.Decimal(String(total));
-    const promoDiscountDecimal = new Prisma.Decimal(String(promo_discount));
+    // ✅ create order отдельно, чтобы увидеть точную prisma-ошибку
+    let order: { id: string; order_number: number | null; items: any; upsell_details: any };
 
-    const order = await prisma.orders.create({
-      data: {
-        user_id,
+    try {
+      order = await prisma.orders.create({
+        data: {
+          user_id,
+          phone: sanitizedPhone,
+          recipient_phone: sanitizedRecipientPhone,
+
+          name: sanitizedName || null,
+          contact_name: sanitizedName || null,
+
+          recipient: sanitizedRecipient,
+          address: sanitizedAddress,
+
+          delivery_method: finalDeliveryMethod,
+          delivery_date: date,
+          delivery_time: time,
+          payment_method: sanitizedPayment,
+
+          total: new Prisma.Decimal(String(total)),
+          bonuses_used: Number.isFinite(bonuses_used) ? bonuses_used : 0,
+          bonus: 0,
+
+          promo_id: promo_id || null,
+          promo_discount: new Prisma.Decimal(String(promo_discount)),
+
+          status: 'pending',
+          delivery_instructions: sanitizedDeliveryInstructions,
+          postcard_text: sanitizedPostcardText,
+          anonymous,
+
+          contact_method: finalContactMethod,
+          whatsapp: finalContactMethod === 'whatsapp',
+
+          occasion: sanitizedOccasion,
+
+          items: regularItems as any,
+          upsell_details: upsellItems as any,
+        },
+        select: { id: true, order_number: true, items: true, upsell_details: true },
+      });
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+
+      console.error(`[ORDERS][${requestId}] prisma.orders.create failed:`, msg);
+      console.error(`[ORDERS][${requestId}] payload summary:`, {
         phone: sanitizedPhone,
         recipient_phone: sanitizedRecipientPhone,
-
-        name: sanitizedName || null,
-        contact_name: sanitizedName || null,
-
-        recipient: sanitizedRecipient,
-        address: sanitizedAddress,
-
         delivery_method: finalDeliveryMethod,
         delivery_date: date,
         delivery_time: time,
         payment_method: sanitizedPayment,
-
-        total: totalDecimal,
-        bonuses_used: Number.isFinite(bonuses_used) ? bonuses_used : 0,
-        bonus: 0,
-
+        total,
+        bonuses_used,
         promo_id: promo_id || null,
-        promo_discount: promoDiscountDecimal,
-
-        status: 'pending',
-        delivery_instructions: sanitizedDeliveryInstructions,
-        postcard_text: sanitizedPostcardText,
-        anonymous,
-
-        // ✅ новое поле
+        promo_discount,
         contact_method: finalContactMethod,
+        items_count: regularItems.length,
+        upsells_count: upsellItems.length,
+      });
 
-        // legacy, оставляем, чтобы старый UI не ломался
-        whatsapp: finalContactMethod === 'whatsapp',
+      return NextResponse.json(
+        {
+          success: false,
+          error: `PRISMA_CREATE_ORDER_FAILED: ${msg}`,
+          requestId,
+          meta: e?.meta || null,
+        },
+        { status: 500 },
+      );
+    }
 
-        occasion: sanitizedOccasion,
-
-        items: regularItems as any,
-        upsell_details: upsellItems as any,
-      },
-      select: { id: true, order_number: true, items: true, upsell_details: true },
-    });
-
+    // order_items createMany (не критично для заказа)
     const orderItems = regularItems
       .map((item) => ({
         order_id: order.id,
@@ -509,17 +574,18 @@ export async function POST(req: Request) {
       }
     }
 
+    // promo usage update (не должен ломать заказ)
     let promoError: string | null = null;
     if (promo_id) {
       try {
         const promoData = await prisma.promo_codes.findUnique({
-          where: { id: promo_id },
+          where: { id: promo_id as any },
           select: { used_count: true },
         });
 
         if (promoData) {
           await prisma.promo_codes.update({
-            where: { id: promo_id },
+            where: { id: promo_id as any },
             data: { used_count: (promoData.used_count || 0) + 1 },
           });
         } else {
@@ -531,6 +597,7 @@ export async function POST(req: Request) {
       }
     }
 
+    // notifications (не должны ломать заказ)
     try {
       const safeNotificationParams = {
         orderNumber: order.order_number ?? null,
@@ -566,7 +633,9 @@ export async function POST(req: Request) {
         }
       } else {
         console.error(
-          `[ORDERS][${requestId}] Telegram unexpected error for order ${order.order_number ?? 'n/a'}: ${telegramRes.reason?.message || telegramRes.reason}`,
+          `[ORDERS][${requestId}] Telegram unexpected error for order ${order.order_number ?? 'n/a'}: ${
+            (telegramRes as any).reason?.message || (telegramRes as any).reason
+          }`,
         );
       }
 
@@ -582,7 +651,9 @@ export async function POST(req: Request) {
         }
       } else {
         console.error(
-          `[ORDERS][${requestId}] Webhook unexpected error for order ${order.order_number ?? 'n/a'}: ${webhookRes.reason?.message || webhookRes.reason}`,
+          `[ORDERS][${requestId}] Webhook unexpected error for order ${order.order_number ?? 'n/a'}: ${
+            (webhookRes as any).reason?.message || (webhookRes as any).reason
+          }`,
         );
       }
     } catch (e: any) {
@@ -598,9 +669,26 @@ export async function POST(req: Request) {
       upsell_details: order.upsell_details,
       tracking_url: `/account/orders/${order.id}`,
       promoError,
+      requestId,
     });
   } catch (error: any) {
-    console.error(`[ORDERS][${requestId}] [ORDER API ERROR]`, error, error?.stack);
-    return NextResponse.json({ error: 'Ошибка сервера: ' + (error?.message || String(error)) }, { status: 500 });
+    const msg = error?.message || String(error);
+    const stack = error?.stack || null;
+
+    console.error(`[ORDERS][${requestId}] [ORDER API ERROR]`, msg);
+    if (stack) console.error(`[ORDERS][${requestId}] [STACK]`, stack);
+
+    const prismaMeta =
+      error && typeof error === 'object' ? (error.meta || error.cause || null) : null;
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: `ORDER_API_ERROR: ${msg}`,
+        requestId,
+        prismaMeta,
+      },
+      { status: 500 },
+    );
   }
 }
