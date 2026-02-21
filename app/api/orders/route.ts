@@ -43,6 +43,9 @@ interface OrderRequest {
     quantity: number;
     isUpsell?: boolean;
     category?: string;
+
+    // допускаем любые доп поля (combo_id, base_price, discount_reason и т.д.)
+    [key: string]: any;
   }>;
 
   total: number;
@@ -204,19 +207,13 @@ async function sendTelegramMessageSafe(text: string) {
 
     if (!telegramResponse.ok) {
       const body = await telegramResponse.text().catch(() => '');
-      return {
-        ok: false,
-        error: body || `Telegram HTTP ${telegramResponse.status}`,
-        ms: Date.now() - started,
-      };
+      return { ok: false, error: body || `Telegram HTTP ${telegramResponse.status}`, ms: Date.now() - started };
     }
 
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
     const msg =
-      e?.name === 'AbortError'
-        ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms`
-        : e?.message || 'Telegram send failed';
+      e?.name === 'AbortError' ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms` : e?.message || 'Telegram send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
@@ -287,9 +284,7 @@ async function sendOrderWebhookSafe(params: {
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
     const msg =
-      e?.name === 'AbortError'
-        ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms`
-        : e?.message || 'Webhook send failed';
+      e?.name === 'AbortError' ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms` : e?.message || 'Webhook send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
@@ -391,6 +386,7 @@ export async function POST(req: Request) {
       ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
       : null;
 
+    // ✅ user_profiles
     const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
       create: {
@@ -408,17 +404,16 @@ export async function POST(req: Request) {
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
 
+    // ✅ валидация товаров по Supabase (каталог)
     const productIds = regularItems
       .map((item) => {
-        const id = parseInt(item.id, 10);
+        const id = parseInt(String(item.id), 10);
         return Number.isFinite(id) ? id : null;
       })
       .filter((id): id is number => id !== null);
 
-    if (regularItems.length > 0 && productIds.length !== regularItems.length) {
-      return NextResponse.json({ error: 'Некоторые ID товаров некорректны (не числа)' }, { status: 400 });
-    }
-
+    // если в корзине есть "нечисловые" id - просто не валим заказ, а пропускаем supabase-валидацию
+    // (на будущее можно ужесточить, но сейчас цель - чтобы заказ проходил)
     if (productIds.length > 0) {
       const { data: products, error: productError } = await supabaseAdmin
         .from('products')
@@ -431,7 +426,8 @@ export async function POST(req: Request) {
       }
 
       const invalidItems = regularItems.filter((item) => {
-        const itemId = parseInt(item.id, 10);
+        const itemId = parseInt(String(item.id), 10);
+        if (!Number.isFinite(itemId)) return false; // не валим заказ на этом
         const product = products?.find((p: any) => p.id === itemId);
         if (!product) return true;
         if (!product.in_stock) return true;
@@ -441,7 +437,7 @@ export async function POST(req: Request) {
 
       if (invalidItems.length > 0) {
         const reasons = invalidItems.map((item) => {
-          const itemId = parseInt(item.id, 10);
+          const itemId = parseInt(String(item.id), 10);
           const product = products?.find((p: any) => p.id === itemId);
           if (!product) return `Товар с ID ${itemId} не найден`;
           if (!product.in_stock) return `Товар с ID ${itemId} отсутствует в наличии`;
@@ -488,60 +484,23 @@ export async function POST(req: Request) {
         postcard_text: sanitizedPostcardText,
         anonymous,
 
-        // ✅ новое поле
         contact_method: finalContactMethod,
-
-        // legacy
         whatsapp: finalContactMethod === 'whatsapp',
 
         occasion: sanitizedOccasion,
 
+        // ✅ главное - состав заказа храним тут (json)
         items: regularItems as any,
         upsell_details: upsellItems as any,
       },
       select: { id: true, order_number: true, items: true, upsell_details: true },
     });
 
-    // ✅ FIX: order_items пишем только для product_id, которые реально существуют в Postgres (Prisma).
-    // Это убирает Foreign key constraint violated: order_items_product_id_fkey при комбо.
-    const orderItemsRaw = regularItems
-      .map((item) => ({
-        order_id: order.id,
-        product_id: parseInt(item.id, 10),
-        quantity: Number(item.quantity) || 1,
-        price: Number(item.price) || 0,
-      }))
-      .filter((x) => Number.isFinite(x.product_id) && x.product_id > 0);
+    // ✅ A-фикс: НЕ создаём order_items вообще
+    // Причина: FK на products (Prisma) ломается, т.к. каталог в Supabase.
+    // Аналитика по товарам - сделаем позже отдельной задачей без FK.
 
-    if (orderItemsRaw.length > 0) {
-      try {
-        const ids = Array.from(new Set(orderItemsRaw.map((x) => x.product_id)));
-
-        // важно: prisma.products должна существовать (у тебя она есть, раз обычные товары проходят FK)
-        const existing = await prisma.products.findMany({
-          where: { id: { in: ids } },
-          select: { id: true },
-        });
-
-        const existingSet = new Set(existing.map((p) => p.id));
-        const safeOrderItems = orderItemsRaw.filter((x) => existingSet.has(x.product_id));
-
-        const dropped = orderItemsRaw.filter((x) => !existingSet.has(x.product_id));
-        if (dropped.length) {
-          console.warn(
-            `[ORDERS][${requestId}] order_items skipped (no product in Postgres):`,
-            dropped.map((d) => d.product_id),
-          );
-        }
-
-        if (safeOrderItems.length) {
-          await prisma.order_items.createMany({ data: safeOrderItems });
-        }
-      } catch (itemError: any) {
-        console.error(`[ORDERS][${requestId}] [order_items error]`, itemError?.message || itemError);
-      }
-    }
-
+    // ✅ промокод: used_count++
     let promoError: string | null = null;
     if (promo_id) {
       try {
@@ -564,6 +523,7 @@ export async function POST(req: Request) {
       }
     }
 
+    // ✅ уведомления - не мешают оформлению
     try {
       const safeNotificationParams = {
         orderNumber: order.order_number ?? null,
@@ -592,16 +552,10 @@ export async function POST(req: Request) {
           console.error(
             `[ORDERS][${requestId}] Telegram failed for order ${order.order_number ?? 'n/a'}: ${telegramRes.value.error} (ms=${telegramRes.value.ms ?? 'n/a'})`,
           );
-        } else {
-          console.log(
-            `[ORDERS][${requestId}] Telegram sent OK for order ${order.order_number ?? 'n/a'} (ms=${telegramRes.value.ms ?? 'n/a'})`,
-          );
         }
       } else {
         console.error(
-          `[ORDERS][${requestId}] Telegram unexpected error for order ${order.order_number ?? 'n/a'}: ${
-            (telegramRes as any).reason?.message || (telegramRes as any).reason
-          }`,
+          `[ORDERS][${requestId}] Telegram unexpected error for order ${order.order_number ?? 'n/a'}: ${telegramRes.reason?.message || telegramRes.reason}`,
         );
       }
 
@@ -610,16 +564,10 @@ export async function POST(req: Request) {
           console.error(
             `[ORDERS][${requestId}] Webhook failed for order ${order.order_number ?? 'n/a'}: ${webhookRes.value.error} (ms=${webhookRes.value.ms ?? 'n/a'})`,
           );
-        } else {
-          console.log(
-            `[ORDERS][${requestId}] Webhook sent OK for order ${order.order_number ?? 'n/a'} (ms=${webhookRes.value.ms ?? 'n/a'})`,
-          );
         }
       } else {
         console.error(
-          `[ORDERS][${requestId}] Webhook unexpected error for order ${order.order_number ?? 'n/a'}: ${
-            (webhookRes as any).reason?.message || (webhookRes as any).reason
-          }`,
+          `[ORDERS][${requestId}] Webhook unexpected error for order ${order.order_number ?? 'n/a'}: ${webhookRes.reason?.message || webhookRes.reason}`,
         );
       }
     } catch (e: any) {
