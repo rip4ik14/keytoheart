@@ -221,16 +221,10 @@ export default function CartPageClient({
           ),
         );
 
-        const productsById = new Map<
-          number,
-          { title?: string; image_url?: string | null; price?: number | null }
-        >();
+        const productsById = new Map<number, { title?: string; image_url?: string | null; price?: number | null }>();
 
         if (idsToFetch.length > 0) {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id,title,image_url,price')
-            .in('id', idsToFetch);
+          const { data, error } = await supabase.from('products').select('id,title,image_url,price').in('id', idsToFetch);
 
           if (!error && Array.isArray(data)) {
             data.forEach((p: any) => {
@@ -254,7 +248,6 @@ export default function CartPageClient({
             const price = Number(x?.price ?? fromDb?.price ?? 0) || 0;
             const quantity = Number(x?.quantity ?? 1) || 1;
 
-            // берём картинку: сначала из products, потом из драфта
             const img =
               (fromDb?.image_url ? String(fromDb.image_url) : '') ||
               (x?.imageUrl ? String(x.imageUrl) : '') ||
@@ -295,8 +288,7 @@ export default function CartPageClient({
 
         toast.success('Заказ перенесён в корзину');
       } catch (e) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[CartPageClient] repeatDraft parse/apply error', e);
+        process.env.NODE_ENV !== 'production' && console.error('[CartPageClient] repeatDraft parse/apply error', e);
         toast.error('Не удалось повторить заказ');
       } finally {
         cleanup();
@@ -310,8 +302,7 @@ export default function CartPageClient({
   // ---------------------------
   // Mobile sticky upsell + smart scroll
   // ---------------------------
-  const { upsellOuterRef, upsellInnerRef, upsellShift, MOBILE_HEADER_OFFSET } =
-    useMobileUpsellSticky(step);
+  const { upsellOuterRef, upsellInnerRef, upsellShift, MOBILE_HEADER_OFFSET } = useMobileUpsellSticky(step);
 
   // ---------------------------
   // Body overflow-x hidden (mobile)
@@ -329,37 +320,36 @@ export default function CartPageClient({
   // ---------------------------
   // Store settings
   // ---------------------------
-  const { storeSettings, isStoreSettingsLoading, currentDaySchedule, canPlaceOrder } =
-    useStoreSettings();
+  const { storeSettings, isStoreSettingsLoading, currentDaySchedule, canPlaceOrder } = useStoreSettings();
 
   // ---------------------------
   // Cart validate + sync
   // ---------------------------
   // ✅ helper: комбо-позиции нельзя синкать, иначе перетрём price на обычную
-const isComboCartItem = (i: any) => {
-  return (
-    i?.discount_reason === 'combo' ||
-    i?.discountReason === 'combo' ||
-    i?.discount_reason === 'COMBO' ||
-    i?.discountReason === 'COMBO' ||
-    !!i?.combo_id ||
-    !!i?.comboId ||
-    !!i?.combo_group_id ||
-    !!i?.comboGroupId
-  );
-};
+  const isComboCartItem = (i: any) => {
+    return (
+      i?.discount_reason === 'combo' ||
+      i?.discountReason === 'combo' ||
+      i?.discount_reason === 'COMBO' ||
+      i?.discountReason === 'COMBO' ||
+      !!i?.combo_id ||
+      !!i?.comboId ||
+      !!i?.combo_group_id ||
+      !!i?.comboGroupId
+    );
+  };
 
-// ✅ валидацию делаем только для обычных (не upsell и не combo)
-const itemsForValidateSync = useMemo<CartItemType[]>(() => {
-  return items.filter((i: CartItemType) => !i.isUpsell && !isComboCartItem(i));
-}, [items]);
+  // ✅ валидацию делаем только для обычных (не upsell и не combo)
+  const itemsForValidateSync = useMemo<CartItemType[]>(() => {
+    return items.filter((i: CartItemType) => !i.isUpsell && !isComboCartItem(i));
+  }, [items]);
 
-useCartValidateAndSync({
-  items: itemsForValidateSync,
-  clearCart,
-  addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
-  enabled: !isApplyingRepeatDraft,
-});
+  useCartValidateAndSync({
+    items: itemsForValidateSync,
+    clearCart,
+    addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
+    enabled: !isApplyingRepeatDraft,
+  });
 
   // ---------------------------
   // Yandex address suggest
@@ -413,8 +403,7 @@ useCartValidateAndSync({
           setBonusBalance(bonusJson.data.bonus_balance ?? 0);
         }
       } catch (e) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[CartPageClient] Error loading bonuses', e);
+        process.env.NODE_ENV !== 'production' && console.error('[CartPageClient] Error loading bonuses', e);
       } finally {
         if (isMounted) setAuthChecked(true);
       }
@@ -598,10 +587,7 @@ useCartValidateAndSync({
   }, [items]);
 
   const upsellTotal = useMemo(() => {
-    return selectedUpsells.reduce(
-      (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
-      0,
-    );
+    return selectedUpsells.reduce((sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity, 0);
   }, [selectedUpsells]);
 
   const baseTotal = subtotal + upsellTotal + deliveryCost;
@@ -612,8 +598,7 @@ useCartValidateAndSync({
   }, [promoDiscount, promoType, baseTotal]);
 
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
-  const bonusesToUse =
-    useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+  const bonusesToUse = useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
 
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
@@ -672,7 +657,7 @@ useCartValidateAndSync({
     const itemsToValidate = items
       .filter((i: CartItemType) => !i.isUpsell)
       .map((i: CartItemType) => ({
-        id: parseInt(i.id, 10),
+        id: parseInt(i.id as any, 10),
         quantity: i.quantity,
         price: i.price,
       }))
@@ -718,11 +703,7 @@ useCartValidateAndSync({
     }
 
     const isFormValid =
-      validateStep1() &&
-      validateStep2() &&
-      validateStep3() &&
-      validateStep4() &&
-      validateStep5(true);
+      validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(true);
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
@@ -756,22 +737,60 @@ useCartValidateAndSync({
       return false;
     }
 
+    // ✅ helper: строго вытаскиваем product id (цифры)
+    const coerceProductId = (it: any): string | null => {
+      const raw = String(it?.id ?? '').trim();
+      if (/^\d+$/.test(raw)) return raw;
+
+      const pid = String(it?.product_id ?? it?.productId ?? '').trim();
+      if (/^\d+$/.test(pid)) return pid;
+
+      const cid = String(it?.combo_id ?? it?.comboId ?? '').trim();
+      if (/^\d+$/.test(cid)) return cid;
+
+      return null;
+    };
+
     setIsSubmittingOrder(true);
 
     try {
-      const cartItems = items.map((item: CartItemType) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
-        isUpsell: false,
-      }));
+      const cartItems = items
+        .filter((i: CartItemType) => !i.isUpsell)
+        .map((item: any) => {
+          const pid = coerceProductId(item);
+          return {
+            id: pid, // ✅ только product id (цифры)
+            title: item.title,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            isUpsell: false,
+
+            // ✅ диагностика + скидки (API их спокойно сохранит в json items, Prisma не ломается)
+            line_id: item.line_id,
+            base_price: item.base_price ?? null,
+            discount_percent: item.discount_percent ?? null,
+            discount_reason: item.discount_reason ?? null,
+            combo_id: item.combo_id ?? null,
+            combo_group_id: item.combo_group_id ?? null,
+          };
+        });
+
+      // ✅ стопаемся, если есть битые id
+      const bad = cartItems.filter((x) => !x.id || !/^\d+$/.test(String(x.id)));
+      if (bad.length > 0) {
+        process.env.NODE_ENV !== 'production' && console.error('[CartPageClient] bad cart item ids:', bad);
+        toast.error('Ошибка корзины: у некоторых товаров некорректный id. Обновите страницу и попробуйте снова.');
+        setErrorModal(
+          'Не удалось оформить заказ: у некоторых товаров в корзине некорректный id. Это обычно случается из-за комбо. Обновите страницу и попробуйте снова.',
+        );
+        return false;
+      }
 
       const upsellItemsPayload = selectedUpsells.map((u: UpsellItem) => ({
-        id: u.id,
+        id: String(u.id),
         title: u.title,
-        price: u.price,
-        quantity: u.quantity,
+        price: Number(u.price),
+        quantity: Number(u.quantity),
         category: u.category,
         isUpsell: true,
       }));
@@ -783,9 +802,9 @@ useCartValidateAndSync({
       } else if ((form as any).askAddressFromRecipient) {
         addressString = 'Адрес уточнить у получателя';
       } else if (form.street) {
-        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${
-          form.apartment ? `, кв. ${form.apartment}` : ''
-        }${form.entrance ? `, подъезд ${form.entrance}` : ''}`;
+        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${form.apartment ? `, кв. ${form.apartment}` : ''}${
+          form.entrance ? `, подъезд ${form.entrance}` : ''
+        }`;
       } else {
         addressString = 'Адрес не указан (требуется уточнение)';
       }
@@ -796,26 +815,26 @@ useCartValidateAndSync({
           : '') + ((form as any).deliveryInstructions || '');
 
       const payload = {
-  phone: customerPhone,
-  name: form.name,
-  recipient: form.recipient,
-  recipientPhone: normalizePhone(form.recipientPhone),
-  address: addressString,
-  payment: (form as any).payment,
-  date: form.date,
-  time: form.time,
-  items: [...cartItems, ...upsellItemsPayload],
-  total: finalTotal,
-  bonuses_used: bonusesUsed,
-  promo_id: promoId,
-  promo_discount: discountAmount,
-  delivery_instructions: deliveryInstructionsCombined || null,
-  postcard_text: postcardText || null,
-  anonymous: (form as any).anonymous,
-  contact_method: (form as any).contactMethod || 'call',
-  occasion: occasion || null,
-};
-
+        phone: customerPhone,
+        name: form.name,
+        recipient: form.recipient,
+        recipientPhone: normalizePhone(form.recipientPhone),
+        address: addressString,
+        deliveryMethod: form.deliveryMethod, // ✅ полезно для API, пусть будет
+        payment: (form as any).payment,
+        date: form.date,
+        time: form.time,
+        items: [...cartItems, ...upsellItemsPayload],
+        total: finalTotal,
+        bonuses_used: bonusesUsed,
+        promo_id: promoId,
+        promo_discount: discountAmount,
+        delivery_instructions: deliveryInstructionsCombined || null,
+        postcard_text: postcardText || null,
+        anonymous: (form as any).anonymous,
+        contact_method: (form as any).contactMethod || 'call',
+        occasion: occasion || null,
+      };
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -827,8 +846,7 @@ useCartValidateAndSync({
 
       if (!res.ok || !json.success) {
         setErrorModal(
-          json.error ||
-            'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
+          json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
         );
         return false;
       }
@@ -857,17 +875,19 @@ useCartValidateAndSync({
         }
       }
 
-      trackOrderSuccess({
-        orderId: json.order_number ?? json.order_id,
-        revenue: finalTotal,
-        promoCode: promoCode || undefined,
-        products: [...cartItems, ...upsellItemsPayload].map((p) => ({
-          id: p.id,
-          name: p.title,
-          price: p.price,
-          quantity: p.quantity,
-        })),
-      });
+    trackOrderSuccess({
+  orderId: json.order_number ?? json.order_id,
+  revenue: finalTotal,
+  promoCode: promoCode || undefined,
+  products: [...cartItems, ...upsellItemsPayload]
+    .filter((p) => p?.id != null && String(p.id).trim() !== '')
+    .map((p) => ({
+      id: String(p.id), // ✅ всегда string, без null
+      name: String((p as any).title ?? (p as any).name ?? ''),
+      price: Number((p as any).price ?? 0),
+      quantity: Number((p as any).quantity ?? 1),
+    })),
+});
 
       setOrderDetails({
         orderId: json.order_id,
@@ -982,14 +1002,7 @@ useCartValidateAndSync({
       );
 
     if (s === 4)
-      return (
-        <Step4DateTime
-          form={form}
-          dateError={dateError}
-          timeError={timeError}
-          onFormChange={onFormChange as any}
-        />
-      );
+      return <Step4DateTime form={form} dateError={dateError} timeError={timeError} onFormChange={onFormChange as any} />;
 
     return <Step5Payment />;
   };
@@ -1064,10 +1077,7 @@ useCartValidateAndSync({
             className="px-2 sm:px-4 pt-3 pb-4"
             style={{ transform: `translateY(${upsellShift}px)` }}
           >
-            <UpsellButtonsMobile
-              onPostcard={() => setShowPostcard(true)}
-              onBalloons={() => setShowBalloons(true)}
-            />
+            <UpsellButtonsMobile onPostcard={() => setShowPostcard(true)} onBalloons={() => setShowBalloons(true)} />
           </div>
         </div>
         <div className="h-3" />
@@ -1081,11 +1091,7 @@ useCartValidateAndSync({
               const stepNum = s as Step;
 
               const onNext =
-                stepNum === 5
-                  ? submitOrder
-                  : stepNum === step
-                    ? async () => handleNextStep()
-                    : undefined;
+                stepNum === 5 ? submitOrder : stepNum === step ? async () => handleNextStep() : undefined;
 
               const onBack = stepNum === step && stepNum !== 1 ? prevStep : undefined;
 
