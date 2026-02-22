@@ -202,6 +202,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
+        {/* 🔥 PRELOAD первого главного баннера — это критично для LCP */}
+        <link
+          rel="preload"
+          as="image"
+          href="https://gwbeabfkknhewwoesqax.supabase.co/storage/v1/object/public/banners/hero-main.webp"
+          fetchPriority="high"
+        />
+
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="msapplication-TileColor" content="#ffffff" />
 
