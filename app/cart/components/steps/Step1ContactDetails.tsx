@@ -14,7 +14,7 @@ interface Props {
     // обязательная галка (оферта/соглашение/политика) - должна быть true для продолжения
     agreedToTerms?: boolean;
 
-    // необязательная галка (маркетинг)
+    // необязательная галка (маркетинг) — теперь по умолчанию true
     agreedToMarketing?: boolean;
 
     contactMethod: 'call' | 'whatsapp' | 'telegram' | 'max';
@@ -143,6 +143,10 @@ function ContactMethodButton({
   );
 }
 
+// Общий класс для чекбоксов — теперь они полностью одинаковые по стилю
+const checkboxClass =
+  'mt-[3px] h-5 w-5 rounded border-2 border-[#bdbdbd] text-black focus:ring-2 focus:ring-black accent-black transition';
+
 export default function Step1ContactDetails({
   form,
   phoneError,
@@ -174,6 +178,16 @@ export default function Step1ContactDetails({
       } as unknown) as React.ChangeEvent<HTMLInputElement>,
     );
   };
+
+  // Устанавливаем галочку «Хочу получать акции» по умолчанию (true)
+  useEffect(() => {
+    if (form.agreedToMarketing === undefined) {
+      onFormChange({
+        target: { name: 'agreedToMarketing', type: 'checkbox', checked: true },
+      } as React.ChangeEvent<HTMLInputElement>);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const uiDigits = digitsOnly(phoneUi);
@@ -381,9 +395,9 @@ export default function Step1ContactDetails({
         )}
       </motion.div>
 
-      {/* ✅ Обязательная галочка (оферта/соглашение/политика) */}
+      {/* ✅ Обязательная галочка (политика + оферта + соглашение) */}
       <motion.div
-        className={`flex items-start gap-3 mt-2 ${
+        className={`flex items-start gap-3 mt-3 ${
           agreedToTermsError ? 'text-red-500' : 'text-[#2f2f2f]'
         }`}
         initial="hidden"
@@ -396,15 +410,15 @@ export default function Step1ContactDetails({
           name="agreedToTerms"
           checked={form.agreedToTerms || false}
           onChange={onFormChange}
-          className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
+          className={checkboxClass}
           aria-label="Согласие с документами"
           required
         />
-        <span className="text-[12px] leading-snug">
+        <span className="text-[12px] leading-snug pt-px">
           Нажимая кнопку "Продолжить", вы подтверждаете согласие с{' '}
           <TrackedLink
             href="/policy"
-            className="underline text-black"
+            className="underline text-black hover:no-underline"
             ariaLabel="Открыть политику конфиденциальности"
             category="checkout"
             action="open_legal"
@@ -415,7 +429,7 @@ export default function Step1ContactDetails({
           ,{' '}
           <TrackedLink
             href="/offer"
-            className="underline text-black"
+            className="underline text-black hover:no-underline"
             ariaLabel="Открыть пользовательское соглашение"
             category="checkout"
             action="open_legal"
@@ -426,7 +440,7 @@ export default function Step1ContactDetails({
           и{' '}
           <TrackedLink
             href="/offer"
-            className="underline text-black"
+            className="underline text-black hover:no-underline"
             ariaLabel="Открыть публичную оферту купли-продажи"
             category="checkout"
             action="open_legal"
@@ -438,11 +452,11 @@ export default function Step1ContactDetails({
         </span>
       </motion.div>
 
-      {agreedToTermsError && <p className="text-red-500 text-xs">{agreedToTermsError}</p>}
+      {agreedToTermsError && <p className="text-red-500 text-xs pl-8">{agreedToTermsError}</p>}
 
-      {/* ✅ Необязательная галочка (маркетинг) */}
+      {/* ✅ Галочка «Хочу получать акции» — стоит по умолчанию */}
       <motion.div
-        className="flex items-start gap-3 mt-1 text-[#2f2f2f]"
+        className="flex items-start gap-3 mt-2 text-[#2f2f2f]"
         initial="hidden"
         animate="visible"
         custom={5}
@@ -451,16 +465,16 @@ export default function Step1ContactDetails({
         <input
           type="checkbox"
           name="agreedToMarketing"
-          checked={form.agreedToMarketing || false}
+          checked={form.agreedToMarketing ?? true}
           onChange={onFormChange}
-          className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
+          className={checkboxClass}
           aria-label="Согласие на рекламную рассылку"
         />
-        <span className="text-[12px] leading-snug">
-          Хочу получать акции и предложения (можно отказаться в любой момент). Условия -{' '}
+        <span className="text-[12px] leading-snug pt-px">
+          Хочу получать акции и предложения (можно отказаться в любой момент). Условия —{' '}
           <TrackedLink
             href="/offer"
-            className="underline text-black"
+            className="underline text-black hover:no-underline"
             ariaLabel="Открыть согласие на рассылку"
             category="checkout"
             action="open_legal"
