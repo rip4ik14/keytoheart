@@ -16,9 +16,7 @@ import FAQSectionWrapper from '@components/FAQSectionWrapper';
 import FlowwowReviewsWidget from '@components/FlowwowReviewsWidget';
 import GiftIdeasStrip from '@components/GiftIdeasStrip';
 
-import { createServerClient } from '@supabase/ssr';
-import { cookies as getCookies } from 'next/headers';
-import type { Database } from '@/lib/supabase/types_new';
+import { getHomeData } from '@/lib/data/home';
 
 /* ----------------------------- FAQ (единый источник) ----------------------------- */
 const faqList = [
@@ -49,50 +47,6 @@ const faqEntities: FAQPage['mainEntity'] = faqList.map((f) => ({
   name: f.question,
   acceptedAnswer: { '@type': 'Answer', text: f.answer },
 }));
-
-const REQUEST_TIMEOUT = 8000;
-
-async function withTimeout<T>(
-  promise: Promise<T> | PromiseLike<T>,
-  timeoutMs = REQUEST_TIMEOUT,
-): Promise<T> {
-  const wrappedPromise = Promise.resolve(promise);
-
-  return Promise.race<T>([
-    wrappedPromise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Timed out fetching data')), timeoutMs),
-    ),
-  ]);
-}
-
-/* --------------------------------- Типы --------------------------------- */
-interface Product {
-  id: number;
-  title: string;
-  price: number;
-  discount_percent: number | null;
-  in_stock: boolean;
-  images: string[];
-  production_time?: number | null;
-  is_popular?: boolean | null;
-  category_ids: number[];
-}
-
-interface CategoryMeta {
-  id: number;
-  name: string;
-  slug: string;
-  count: number;
-}
-
-type GiftIdeaItem = {
-  id: number;
-  name: string;
-  slug: string;
-  home_icon_url?: string | null;
-  home_title?: string | null;
-};
 
 /* -------------------------- ISR / Edge flags ---------------------------- */
 export const revalidate = 300;
@@ -134,7 +88,7 @@ export const metadata: Metadata = {
 
 /* ---------------------- JSON-LD генератор ---------------------- */
 function buildLdGraph(
-  products: Product[],
+  products: any[],
 ): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
@@ -209,201 +163,8 @@ function buildLdGraph(
 
 /* ==============================  Страница  ============================== */
 export default async function Home() {
-  /* ------------------------ Supabase (SSR) ------------------------ */
-  const cookieStore = await getCookies();
-  const cookiesArr = cookieStore.getAll();
+  const { products, categoriesMeta, giftIdeas } = await getHomeData();
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookiesArr.map((c) => ({ name: c.name, value: c.value })),
-        setAll: (list) =>
-          list.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          ),
-      },
-    },
-  );
-
-  /* -------------------- Ищу подарок (иконки) -------------------- */
-  let giftIdeas: GiftIdeaItem[] = [];
-
-  try {
-    // 1) находим категорию "Повод" по slug
-    const { data: povodCat, error: povodErr } = await withTimeout(
-      supabase.from('categories').select('id,slug').eq('slug', 'povod').maybeSingle(),
-    );
-
-    if (povodErr) throw new Error(povodErr.message);
-
-    if (povodCat?.id) {
-      // 2) тянем ТОЛЬКО подкатегории этой категории
-      const { data, error } = await withTimeout(
-        supabase
-          .from('subcategories')
-          .select('id,name,slug,home_icon_url,home_title,home_sort,is_visible,home_is_featured,category_id')
-          .eq('category_id', povodCat.id)
-          .eq('home_is_featured', true)
-          .eq('is_visible', true)
-          .order('home_sort', { ascending: true })
-          .limit(24),
-      );
-
-      if (error) throw new Error(error.message);
-
-      giftIdeas = (data ?? []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        slug: s.slug,
-        home_icon_url: s.home_icon_url ?? null,
-        home_title: s.home_title ?? null,
-      }));
-    }
-  } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[home] gift ideas fetch failed ->', e);
-    }
-  }
-
-
-  /* ---------- Параллельные запросы: продукты + связи ---------- */
-  let pcSafe: { product_id: number; category_id: number }[] = [];
-  let prSafe: any[] = [];
-
-  try {
-    const [{ data: pc, error: pcError }, { data: pr, error: prError }] =
-      await Promise.all([
-        withTimeout(
-          supabase.from('product_categories').select('product_id, category_id'),
-        ),
-        withTimeout(
-          supabase
-            .from('products')
-            .select(
-              'id,title,price,discount_percent,in_stock,images,production_time,is_popular',
-            )
-            .eq('in_stock', true)
-            .not('images', 'is', null)
-            .order('is_popular', { ascending: false })
-            .order('id', { ascending: false })
-            .limit(120),
-        ),
-      ]);
-
-    if (pcError) throw new Error(pcError.message);
-    if (prError) throw new Error(prError.message);
-
-    pcSafe = pc ?? [];
-    prSafe = pr ?? [];
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[home] products fetch failed ->', error);
-    }
-  }
-
-  /* -------- product_id -> [category_id,…] Map -------- */
-  const pcMap = new Map<number, number[]>();
-  pcSafe.forEach(({ product_id, category_id }) => {
-    const arr = pcMap.get(product_id) || [];
-    pcMap.set(product_id, [...arr, category_id]);
-  });
-
-  /* ---------------------- Продукты ---------------------- */
-  const products: Product[] = prSafe.map((p) => ({
-    id: p.id,
-    title: p.title,
-    price: p.price,
-    discount_percent: p.discount_percent ?? null,
-    in_stock: p.in_stock ?? false,
-    images: p.images ?? [],
-    production_time: p.production_time ?? null,
-    is_popular: p.is_popular ?? null,
-    category_ids: pcMap.get(p.id) || [],
-  }));
-
-  /* ---------------------- Категории --------------------- */
-  const uniqueCatIds = [...new Set(products.flatMap((p) => p.category_ids))];
-
-  let catSafe: { id: number; name: string; slug: string }[] = [];
-
-  if (uniqueCatIds.length) {
-    try {
-      const { data: cat, error: catError } = await withTimeout(
-        supabase
-          .from('categories')
-          .select('id,name,slug')
-          .in('id', uniqueCatIds.length ? uniqueCatIds : [-1]),
-      );
-
-      if (catError) throw new Error(catError.message);
-      catSafe = cat ?? [];
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('[home] categories fetch failed ->', error);
-      }
-    }
-  }
-
-  const catMap = new Map<number, { name: string; slug: string }>(
-    catSafe.map((c) => [c.id, { name: c.name, slug: c.slug }]),
-  );
-
-  const IGNORE_SLUGS = new Set([
-    'podarki',
-    'myagkie-igrushki',
-    'vazy',
-    'cards',
-    'balloons',
-  ]);
-
-  const PRIORITY_SLUGS = ['klubnika-v-shokolade', 'flowers', 'combo'];
-
-  const MIN_PRODUCTS_PER_CATEGORY = 2;
-
-  const categoryCounts = new Map<number, number>();
-  products.forEach((p) => {
-    p.category_ids.forEach((id) => {
-      const slug = catMap.get(id)?.slug;
-      if (!slug || IGNORE_SLUGS.has(slug)) return;
-      categoryCounts.set(id, (categoryCounts.get(id) ?? 0) + 1);
-    });
-  });
-
-  const categoryMetaAll: CategoryMeta[] = [...categoryCounts.entries()]
-    .map(([id, count]) => {
-      const catEntry = catMap.get(id);
-      if (!catEntry) return null;
-      return {
-        id,
-        name: catEntry.name,
-        slug: catEntry.slug,
-        count,
-      };
-    })
-    .filter((c): c is CategoryMeta => !!c && c.count >= MIN_PRODUCTS_PER_CATEGORY);
-
-  categoryMetaAll.sort((a, b) => {
-    const ai = PRIORITY_SLUGS.indexOf(a.slug);
-    const bi = PRIORITY_SLUGS.indexOf(b.slug);
-
-    const aPriority = ai === -1 ? Infinity : ai;
-    const bPriority = bi === -1 ? Infinity : bi;
-
-    if (aPriority !== bPriority) return aPriority - bPriority;
-
-    if (aPriority === Infinity && bPriority === Infinity) {
-      if (b.count !== a.count) return b.count - a.count;
-      return a.name.localeCompare(b.name, 'ru');
-    }
-
-    return 0;
-  });
-
-  const categoriesMeta = categoryMetaAll;
-
-  /* ------------------- JSON-LD graph ------------------- */
   const ldGraph = buildLdGraph(products);
 
   return (
@@ -418,13 +179,12 @@ export default async function Home() {
         <PromoGridServer />
       </section>
 
-            {/* ✅ Ищу подарок (ТОЛЬКО мобилка, категория "povod") */}
+      {/* ✅ Ищу подарок (ТОЛЬКО мобилка, категория "povod") */}
       {giftIdeas.length > 0 && (
         <div className="block lg:hidden">
           <GiftIdeasStrip title="Ищу подарок" items={giftIdeas} seeAllHref="/category/povod" />
         </div>
       )}
-
 
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>

@@ -1,10 +1,9 @@
-// ✅ Путь: app/context/CartContext.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 export interface CartItem {
@@ -12,7 +11,7 @@ export interface CartItem {
 
   id: string;
   title: string;
-  price: number; // финальная цена за 1 шт
+  price: number;
   quantity: number;
   imageUrl: string;
   production_time?: number | null;
@@ -21,7 +20,6 @@ export interface CartItem {
   discount_percent?: number | null;
   discount_reason?: 'combo' | 'promo' | 'manual' | null;
 
-  // комбо-идентификаторы (в проекте встречаются разные названия)
   combo_id?: string | null;
   combo_group_id?: string | null;
 
@@ -42,11 +40,9 @@ interface CartContextType {
   addItem: (item: CartItem) => void;
   addMultipleItems: (items: CartItem[]) => void;
 
-  // ✅ по line_id
   removeItem: (lineId: string) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
 
-  // ✅ опционально
   removeAllByProductId: (productId: string) => void;
 
   clearCart: () => void;
@@ -150,21 +146,16 @@ function normalizeCartItem(x: any): CartItem | null {
 }
 
 function sameLineForMerge(a: CartItem, b: CartItem) {
-  // Сливаем только если это один и тот же продукт в одинаковом "контексте"
   return (
     a.id === b.id &&
     (a.combo_id || null) === (b.combo_id || null) &&
     (a.combo_group_id || null) === (b.combo_group_id || null) &&
     (a.discount_reason || null) === (b.discount_reason || null) &&
     (a.discount_percent ?? null) === (b.discount_percent ?? null) &&
-    (a.base_price ?? null) === (b.base_price ?? null) &&
     a.price === b.price
   );
 }
 
-// ---------------------------
-// ✅ Combo normalization
-// ---------------------------
 function getComboGroupId(it: any): string | null {
   const v = it?.combo_group_id ?? it?.comboGroupId ?? null;
   if (v == null) return null;
@@ -178,12 +169,6 @@ function getBasePrice(it: any): number | null {
   return n && Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/**
- * Комбо валидно, если в группе >= 2 позиций, которые реально были со скидкой (price < base_price).
- * Если стало < 2 (удалили товар из группы) - скидка снимается с оставшихся:
- * - price -> base_price
- * - чистим discount_* и combo_* метки
- */
 function normalizeCombos(items: CartItem[]): CartItem[] {
   const groups = new Map<string, number[]>();
   for (let i = 0; i < items.length; i++) {
@@ -251,7 +236,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
-  const addItem = (item: CartItem) => {
+  const addItem = useCallback((item: CartItem) => {
     const normalized = normalizeCartItem(item);
     if (!normalized) {
       toast.error('Не удалось добавить товар в корзину');
@@ -286,9 +271,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       return normalizeCombos([...prev, normalized]);
     });
-  };
+  }, []);
 
-  const addMultipleItems = (newItems: CartItem[]) => {
+  const addMultipleItems = useCallback((newItems: CartItem[]) => {
     setItems((prev) => {
       const updated = [...prev];
 
@@ -322,9 +307,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       return normalizeCombos(updated);
     });
-  };
+  }, []);
 
-  const removeItem = (lineId: string) => {
+  const removeItem = useCallback((lineId: string) => {
     setItems((prev) => {
       const item = prev.find((i) => i.line_id === lineId);
       if (item) {
@@ -336,9 +321,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const filtered = prev.filter((i) => i.line_id !== lineId);
       return normalizeCombos(filtered);
     });
-  };
+  }, []);
 
-  const removeAllByProductId = (productId: string) => {
+  const removeAllByProductId = useCallback((productId: string) => {
     setItems((prev) => {
       const has = prev.some((i) => i.id === productId);
       if (has) {
@@ -350,9 +335,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const filtered = prev.filter((i) => i.id !== productId);
       return normalizeCombos(filtered);
     });
-  };
+  }, []);
 
-  const updateQuantity = (lineId: string, quantity: number) => {
+  const updateQuantity = useCallback((lineId: string, quantity: number) => {
     setItems((prev) => {
       const item = prev.find((i) => i.line_id === lineId);
 
@@ -377,17 +362,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       return normalizeCombos(updatedItems);
     });
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
     localStorage.removeItem('cart');
     toast.success('Корзина очищена');
     window.gtag?.('event', 'clear_cart', { event_category: 'cart' });
     if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'clear_cart');
-  };
+  }, []);
 
-  // repeatDraft: /cart?repeat=1
   useEffect(() => {
     const consumeRepeatDraft = () => {
       if (didConsumeRepeatOnce.current) return;
@@ -415,10 +399,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     consumeRepeatDraft();
 
     return () => window.removeEventListener('repeatDraft', onRepeat);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [addMultipleItems]);
 
-  const maxProductionTime = items.length > 0 ? Math.max(...items.map((item) => item.production_time ?? 0)) : null;
+  const maxProductionTime = useMemo(() => {
+    return items.length > 0 ? Math.max(...items.map((item) => item.production_time ?? 0)) : null;
+  }, [items]);
 
   const value: CartContextType = {
     items,

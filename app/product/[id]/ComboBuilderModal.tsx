@@ -1,7 +1,6 @@
-// ✅ Путь: app/product/[id]/ComboBuilderModal.tsx
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, memo } from 'react';
 import Image from 'next/image';
 import { X, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +54,7 @@ function pickTitleForDesktop(activePick: ComboPickerType) {
   return 'Выберите открытку';
 }
 
-function SlotCard({
+const MemoSlotCard = memo(function SlotCard({
   title,
   subtitle,
   actionLabel,
@@ -89,9 +88,9 @@ function SlotCard({
       </UiButton>
     </div>
   );
-}
+});
 
-function SelectedRow({
+const MemoSelectedRow = memo(function SelectedRow({
   item,
   discounted,
   comboDiscountPercent,
@@ -117,6 +116,7 @@ function SelectedRow({
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
           className="object-cover"
+          loading="lazy"
         />
       </div>
 
@@ -161,9 +161,9 @@ function SelectedRow({
       )}
     </div>
   );
-}
+});
 
-function PickCard({
+const MemoPickCard = memo(function PickCard({
   item,
   onSelect,
 }: {
@@ -202,7 +202,7 @@ function PickCard({
       </div>
     </div>
   );
-}
+});
 
 export default function ComboBuilderModal({
   open,
@@ -290,6 +290,9 @@ export default function ComboBuilderModal({
 }) {
   const discounted = comboDiscountPercent > 0;
 
+  const handleClose = useCallback(() => onClose(), [onClose]);
+  const handleBack = useCallback(() => onBackToMain(), [onBackToMain]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -310,30 +313,15 @@ export default function ComboBuilderModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="
-            fixed inset-0 z-[20010]
-            flex items-end sm:items-center justify-center
-            p-0 sm:p-6
-            bg-black/60
-          "
+          className="fixed inset-0 z-[20010] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/60"
           variants={overlay}
           initial="hidden"
           animate="visible"
           exit="exit"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) onClose();
-          }}
+          onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
         >
           <motion.div
-            className="
-              relative w-full
-              sm:max-w-[1100px]
-              rounded-t-[28px] sm:rounded-[32px]
-              bg-white
-              border border-black/10
-              shadow-[0_35px_110px_rgba(0,0,0,0.42)]
-              overflow-hidden
-            "
+            className="relative w-full sm:max-w-[1100px] rounded-t-[28px] sm:rounded-[32px] bg-white border border-black/10 shadow-[0_35px_110px_rgba(0,0,0,0.42)] overflow-hidden"
             variants={modal}
             initial="hidden"
             animate="visible"
@@ -351,7 +339,7 @@ export default function ComboBuilderModal({
                 <UiButton
                   type="button"
                   variant="brandOutline"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="w-10 h-10 p-0 rounded-full flex items-center justify-center"
                   aria-label="Закрыть"
                 >
@@ -369,39 +357,37 @@ export default function ComboBuilderModal({
                     {/* LEFT: picker */}
                     <div className="border-r border-black/10 h-full flex flex-col min-h-0 bg-white">
                       <div className="px-6 pt-5 pb-4 border-b border-black/10 bg-white">
-                        <div className="min-w-0">
-                          <button
-                            type="button"
-                            onClick={onBackToMain}
-                            className="text-sm underline underline-offset-2 text-black/60 hover:text-black flex items-center gap-1"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                            Назад
-                          </button>
+                        <button
+                          type="button"
+                          onClick={handleBack}
+                          className="text-sm underline underline-offset-2 text-black/60 hover:text-black flex items-center gap-1"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          Назад
+                        </button>
 
-                          <p className="mt-3 text-xl font-semibold text-black">Выберите замену</p>
+                        <p className="mt-3 text-xl font-semibold text-black">Выберите замену</p>
 
-                          <div className="mt-3 flex gap-4 text-sm overflow-x-auto no-scrollbar">
-                            {pickTabs.map((tab) => (
-                              <button
-                                key={tab.t}
-                                type="button"
-                                onClick={() => onTabChange(tab.t)}
-                                className={`pb-2 border-b-2 transition whitespace-nowrap ${
-                                  activePick === tab.t
-                                    ? 'border-black text-black font-semibold'
-                                    : 'border-transparent text-black/50 hover:text-black'
-                                }`}
-                              >
-                                {tabLabel(tab.t, tab.label)}
-                              </button>
-                            ))}
-                          </div>
-
-                          <p className="mt-3 text-sm font-semibold text-black">
-                            {pickTitleForDesktop(activePick)}
-                          </p>
+                        <div className="mt-3 flex gap-4 text-sm overflow-x-auto no-scrollbar">
+                          {pickTabs.map((tab) => (
+                            <button
+                              key={tab.t}
+                              type="button"
+                              onClick={() => onTabChange(tab.t)}
+                              className={`pb-2 border-b-2 transition whitespace-nowrap ${
+                                activePick === tab.t
+                                  ? 'border-black text-black font-semibold'
+                                  : 'border-transparent text-black/50 hover:text-black'
+                              }`}
+                            >
+                              {tabLabel(tab.t, tab.label)}
+                            </button>
+                          ))}
                         </div>
+
+                        <p className="mt-3 text-sm font-semibold text-black">
+                          {pickTitleForDesktop(activePick)}
+                        </p>
                       </div>
 
                       <div className="px-6 py-5 flex-1 min-h-0 overflow-y-auto">
@@ -416,7 +402,7 @@ export default function ComboBuilderModal({
                         ) : (
                           <div className="grid grid-cols-2 gap-4">
                             {pickList.map((it) => (
-                              <PickCard key={it.id} item={it} onSelect={onSelectPick} />
+                              <MemoPickCard key={it.id} item={it} onSelect={onSelectPick} />
                             ))}
                           </div>
                         )}
@@ -426,22 +412,30 @@ export default function ComboBuilderModal({
                     {/* RIGHT: builder */}
                     <div className="h-full flex flex-col min-h-0 bg-white">
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
-                        <SelectedRow
+                        <MemoSelectedRow
                           item={baseItem}
                           discounted={discounted}
                           comboDiscountPercent={comboDiscountPercent}
                         />
 
                         {!selSecondBase ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title={isBerryBase ? 'Добавьте букет' : 'Добавьте клубнику'}
                             subtitle="скидка растет, когда добавляете второй товар"
                             actionLabel={isBerryBase ? 'Добавить букет' : 'Добавить клубнику'}
                             onAction={onPickSecondBase}
-                            icon={<span className="text-2xl">{isBerryBase ? '💐' : '🍓'}</span>}
+                            icon={
+                              <Image
+                                src={isBerryBase ? '/icons/flower.svg' : '/icons/berry.svg'}
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selSecondBase}
                             discounted={discounted}
                             comboDiscountPercent={comboDiscountPercent}
@@ -451,15 +445,23 @@ export default function ComboBuilderModal({
                         )}
 
                         {!selBalloons ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title="Добавьте шары"
                             subtitle="с шарами скидка увеличивается"
                             actionLabel="Добавить шары"
                             onAction={onPickBalloons}
-                            icon={<span className="text-2xl">🎈</span>}
+                            icon={
+                              <Image
+                                src="/icons/balloon.svg"
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selBalloons}
                             discounted={discounted}
                             comboDiscountPercent={comboDiscountPercent}
@@ -469,15 +471,23 @@ export default function ComboBuilderModal({
                         )}
 
                         {!selCard ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title="Добавьте открытку"
                             subtitle="открытка добавится отдельным товаром"
                             actionLabel="Добавить открытку"
                             onAction={onPickCards}
-                            icon={<span className="text-2xl">💌</span>}
+                            icon={
+                              <Image
+                                src="/icons/card.svg"
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selCard}
                             discounted={false}
                             comboDiscountPercent={comboDiscountPercent}
@@ -514,26 +524,34 @@ export default function ComboBuilderModal({
                     </div>
                   </div>
                 ) : (
-                  // MAIN
+                  // MAIN VIEW (desktop)
                   <div className="h-full flex">
                     <div className="w-full max-w-[520px] ml-auto h-full flex flex-col min-h-0 border-l border-black/10 bg-white">
                       <div className="px-6 pt-4 flex-1 min-h-0 overflow-y-auto">
-                        <SelectedRow
+                        <MemoSelectedRow
                           item={baseItem}
                           discounted={discounted}
                           comboDiscountPercent={comboDiscountPercent}
                         />
 
                         {!selSecondBase ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title={isBerryBase ? 'Добавьте букет' : 'Добавьте клубнику'}
                             subtitle="скидка растет, когда добавляете второй товар"
                             actionLabel={isBerryBase ? 'Добавить букет' : 'Добавить клубнику'}
                             onAction={onPickSecondBase}
-                            icon={<span className="text-2xl">{isBerryBase ? '💐' : '🍓'}</span>}
+                            icon={
+                              <Image
+                                src={isBerryBase ? '/icons/flower.svg' : '/icons/berry.svg'}
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selSecondBase}
                             discounted={discounted}
                             comboDiscountPercent={comboDiscountPercent}
@@ -543,15 +561,23 @@ export default function ComboBuilderModal({
                         )}
 
                         {!selBalloons ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title="Добавьте шары"
                             subtitle="с шарами скидка увеличивается"
                             actionLabel="Добавить шары"
                             onAction={onPickBalloons}
-                            icon={<span className="text-2xl">🎈</span>}
+                            icon={
+                              <Image
+                                src="/icons/balloon.svg"
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selBalloons}
                             discounted={discounted}
                             comboDiscountPercent={comboDiscountPercent}
@@ -561,15 +587,23 @@ export default function ComboBuilderModal({
                         )}
 
                         {!selCard ? (
-                          <SlotCard
+                          <MemoSlotCard
                             title="Добавьте открытку"
                             subtitle="открытка добавится отдельным товаром"
                             actionLabel="Добавить открытку"
                             onAction={onPickCards}
-                            icon={<span className="text-2xl">💌</span>}
+                            icon={
+                              <Image
+                                src="/icons/card.svg"
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            }
                           />
                         ) : (
-                          <SelectedRow
+                          <MemoSelectedRow
                             item={selCard}
                             discounted={false}
                             comboDiscountPercent={comboDiscountPercent}
@@ -620,26 +654,35 @@ export default function ComboBuilderModal({
                         placeholder="blur"
                         blurDataURL={BLUR_PLACEHOLDER}
                         className="object-cover"
+                        loading="lazy"
                       />
                     </div>
 
                     <div className="pt-2">
-                      <SelectedRow
+                      <MemoSelectedRow
                         item={baseItem}
                         discounted={discounted}
                         comboDiscountPercent={comboDiscountPercent}
                       />
 
                       {!selSecondBase ? (
-                        <SlotCard
+                        <MemoSlotCard
                           title={isBerryBase ? 'Добавьте букет' : 'Добавьте клубнику'}
                           subtitle="скидка растет, когда добавляете второй товар"
                           actionLabel={isBerryBase ? 'Добавить букет' : 'Добавить клубнику'}
                           onAction={onPickSecondBase}
-                          icon={<span className="text-2xl">{isBerryBase ? '💐' : '🍓'}</span>}
+                          icon={
+                            <Image
+                              src={isBerryBase ? '/icons/flower.svg' : '/icons/berry.svg'}
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          }
                         />
                       ) : (
-                        <SelectedRow
+                        <MemoSelectedRow
                           item={selSecondBase}
                           discounted={discounted}
                           comboDiscountPercent={comboDiscountPercent}
@@ -649,15 +692,23 @@ export default function ComboBuilderModal({
                       )}
 
                       {!selBalloons ? (
-                        <SlotCard
+                        <MemoSlotCard
                           title="Добавьте шары"
                           subtitle="с шарами скидка увеличивается"
                           actionLabel="Добавить шары"
                           onAction={onPickBalloons}
-                          icon={<span className="text-2xl">🎈</span>}
+                          icon={
+                            <Image
+                              src="/icons/balloon.svg"
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          }
                         />
                       ) : (
-                        <SelectedRow
+                        <MemoSelectedRow
                           item={selBalloons}
                           discounted={discounted}
                           comboDiscountPercent={comboDiscountPercent}
@@ -667,15 +718,23 @@ export default function ComboBuilderModal({
                       )}
 
                       {!selCard ? (
-                        <SlotCard
+                        <MemoSlotCard
                           title="Добавьте открытку"
                           subtitle="открытка добавится отдельным товаром"
                           actionLabel="Добавить открытку"
                           onAction={onPickCards}
-                          icon={<span className="text-2xl">💌</span>}
+                          icon={
+                            <Image
+                              src="/icons/card.svg"
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          }
                         />
                       ) : (
-                        <SelectedRow
+                        <MemoSelectedRow
                           item={selCard}
                           discounted={false}
                           comboDiscountPercent={comboDiscountPercent}
@@ -715,7 +774,7 @@ export default function ComboBuilderModal({
                     <div className="flex items-center justify-between gap-3">
                       <button
                         type="button"
-                        onClick={onBackToMain}
+                        onClick={handleBack}
                         className="text-sm underline underline-offset-2 text-black/60 hover:text-black flex items-center gap-1"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -758,7 +817,7 @@ export default function ComboBuilderModal({
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {pickList.map((it) => (
-                            <PickCard key={it.id} item={it} onSelect={onSelectPick} />
+                            <MemoPickCard key={it.id} item={it} onSelect={onSelectPick} />
                           ))}
                         </div>
                       )}
@@ -767,8 +826,6 @@ export default function ComboBuilderModal({
                 )}
               </div>
             </div>
-
-            {/* ✅ НИЖНЕГО FOOTER НЕТ */}
           </motion.div>
         </motion.div>
       )}

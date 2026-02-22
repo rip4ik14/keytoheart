@@ -1,6 +1,6 @@
-// ✅ Путь: app/cart/components/CartSummary.tsx
 'use client';
 
+import { useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -16,7 +16,6 @@ interface CartSummaryProps {
   bonusAccrual: number;
   finalTotal: number;
 
-  // скидки, которые приходят извне (промокод/акции/логика сервера)
   discountAmount: number;
 
   removeUpsell: (id: string) => void;
@@ -64,28 +63,30 @@ export default function CartSummary({
   promoError = null,
   onApplyPromo,
 }: CartSummaryProps) {
-  // товары (включая upsell, если ты их тоже кладешь в items)
-  const subtotal = items.reduce((sum: number, i: CartItemType) => sum + (i.price || 0) * (i.quantity || 0), 0);
+  const subtotal = useMemo(() => {
+    return items.reduce((sum: number, i: CartItemType) => sum + (i.price || 0) * (i.quantity || 0), 0);
+  }, [items]);
 
-  // выбранные допы (если ты хранишь их отдельным массивом)
-  const upsellTotal = selectedUpsells.reduce(
-    (sum: number, i: UpsellItem) => sum + (i.price || 0) * (i.quantity || 0),
-    0,
-  );
+  const upsellTotal = useMemo(() => {
+    return selectedUpsells.reduce(
+      (sum: number, i: UpsellItem) => sum + (i.price || 0) * (i.quantity || 0),
+      0,
+    );
+  }, [selectedUpsells]);
 
-  // ✅ скидка из самих cart items (combo/promo/manual), считаем только по обычным товарам
-  const itemsDiscount = items.reduce((sum: number, it: CartItemType) => {
-    const ci = asCartItem(it);
-    if (!ci) return sum;
+  const itemsDiscount = useMemo(() => {
+    return items.reduce((sum: number, it: CartItemType) => {
+      const ci = asCartItem(it);
+      if (!ci) return sum;
 
-    const base = typeof ci.base_price === 'number' && ci.base_price > 0 ? ci.base_price : null;
-    if (!base) return sum;
+      const base = typeof ci.base_price === 'number' && ci.base_price > 0 ? ci.base_price : null;
+      if (!base) return sum;
 
-    const perUnit = Math.max(0, base - (ci.price || 0));
-    return sum + perUnit * (ci.quantity || 0);
-  }, 0);
+      const perUnit = Math.max(0, base - (ci.price || 0));
+      return sum + perUnit * (ci.quantity || 0);
+    }, 0);
+  }, [items]);
 
-  // ✅ общая скидка = скидка извне + скидка из товаров
   const combinedDiscount = Math.round((discountAmount || 0) + itemsDiscount);
 
   const isPickup = deliveryMethod === 'pickup';
@@ -118,7 +119,6 @@ export default function CartSummary({
         <p className={`mt-4 text-center ${muted}`}>Корзина пуста</p>
       ) : (
         <div className="mt-4 flex flex-col gap-4 text-xs xs:text-sm">
-          {/* суммы */}
           <div className="rounded-2xl border border-black/10 bg-black/[0.015] p-3 xs:p-4">
             <div className="flex justify-between">
               <span className={muted}>Товары</span>
@@ -140,7 +140,6 @@ export default function CartSummary({
             ) : null}
           </div>
 
-          {/* промокод */}
           <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
             <p className={`text-[11px] xs:text-xs font-semibold ${ink}`}>Промокод</p>
 
@@ -177,7 +176,6 @@ export default function CartSummary({
             {promoError ? <p className="mt-2 text-[11px] xs:text-xs text-red-600">{promoError}</p> : null}
           </div>
 
-          {/* бонусы */}
           {isAuthenticated && (
             <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
               <div className="flex items-center justify-between gap-3">
@@ -208,13 +206,11 @@ export default function CartSummary({
             </div>
           )}
 
-          {/* начисление */}
           <div className="flex items-center justify-between rounded-2xl border border-black/10 p-3 xs:p-4">
             <span className={`text-[11px] xs:text-xs ${muted}`}>+ начислим {bonusAccrual} бонусов</span>
             <Image src="/icons/info-circle.svg" alt="Информация" width={16} height={16} loading="lazy" />
           </div>
 
-          {/* итог */}
           <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
             <div className="flex items-center justify-between">
               <span className={`text-sm xs:text-base font-semibold ${ink}`}>Итого</span>

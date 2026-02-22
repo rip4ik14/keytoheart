@@ -1,7 +1,6 @@
-// ✅ Путь: app/cart/hooks/useCheckoutForm.ts
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 
@@ -30,10 +29,8 @@ interface FormState {
 
   anonymous: boolean;
 
-  // обязательная галка (оферта/соглашение/политика) - должна быть true для продолжения
   agreedToTerms: boolean;
 
-  // ✅ NEW: необязательная галка (маркетинг)
   agreedToMarketing: boolean;
 
   askAddressFromRecipient: boolean;
@@ -69,7 +66,6 @@ const initialFormState: FormState = {
 
   agreedToTerms: false,
 
-  // ✅ NEW
   agreedToMarketing: false,
 
   askAddressFromRecipient: false,
@@ -146,7 +142,6 @@ export default function useCheckoutForm() {
       ...parsed,
       contactMethod: migratedContactMethod,
 
-      // ✅ NEW: если в localStorage не было поля (старые пользователи)
       agreedToMarketing:
         typeof parsed.agreedToMarketing === 'boolean' ? parsed.agreedToMarketing : prev.agreedToMarketing,
 
@@ -158,7 +153,6 @@ export default function useCheckoutForm() {
       const s = Number(parsed.step);
       if (s >= 1 && s <= 5) setStep(s as 1 | 2 | 3 | 4 | 5);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -177,7 +171,7 @@ export default function useCheckoutForm() {
     return () => window.clearTimeout(t);
   }, [form, step]);
 
-  const onFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const onFormChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target as HTMLInputElement;
 
     if (type === 'checkbox') {
@@ -221,9 +215,9 @@ export default function useCheckoutForm() {
     }
 
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  }, [phoneError, recipientPhoneError]);
 
-  const validateStep1 = () => {
+  const validateStep1 = useCallback(() => {
     let ok = true;
 
     const normalized = normalizePhoneForRuStrict(form.phone);
@@ -257,11 +251,10 @@ export default function useCheckoutForm() {
       setAgreedToTermsError('');
     }
 
-    // ✅ agreedToMarketing НЕ валидируем, она необязательная
     return ok;
-  };
+  }, [form]);
 
-  const validateStep2 = () => {
+  const validateStep2 = useCallback(() => {
     let ok = true;
 
     if (!form.recipient.trim()) {
@@ -281,9 +274,9 @@ export default function useCheckoutForm() {
     }
 
     return ok;
-  };
+  }, [form]);
 
-  const validateStep3 = () => {
+  const validateStep3 = useCallback(() => {
     if (form.deliveryMethod === 'pickup') {
       setAddressError('');
       return true;
@@ -301,9 +294,9 @@ export default function useCheckoutForm() {
 
     setAddressError('');
     return true;
-  };
+  }, [form]);
 
-  const validateStep4 = () => {
+  const validateStep4 = useCallback(() => {
     let ok = true;
 
     if (!form.date) {
@@ -350,11 +343,11 @@ export default function useCheckoutForm() {
     }
 
     return ok;
-  };
+  }, [form]);
 
-  const validateStep5 = (_agreed: boolean) => true;
+  const validateStep5 = useCallback((_agreed: boolean) => true, []);
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     let ok = true;
 
     if (step === 1) ok = validateStep1();
@@ -370,18 +363,18 @@ export default function useCheckoutForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return safe;
     });
-  };
+  }, [step, validateStep1, validateStep2, validateStep3, validateStep4]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     setStep((prev) => {
       const p = (prev - 1) as 1 | 2 | 3 | 4 | 5;
       const safe = p < 1 ? 1 : p;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return safe;
     });
-  };
+  }, []);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setForm(initialFormState);
     setPhoneError('');
     setEmailError('');
@@ -398,7 +391,7 @@ export default function useCheckoutForm() {
       window.localStorage.removeItem(STORAGE_KEY);
       window.localStorage.removeItem('checkoutForm');
     }
-  };
+  }, []);
 
   return {
     step,

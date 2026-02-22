@@ -56,13 +56,11 @@ export default function LayoutClient({
     return false;
   }, [pathname]);
 
-  // ✅ Железобетонно определяем страницу товара
   const isProductPage = useMemo(() => {
     if (!pathname) return false;
     return /^\/product(\/|$)/.test(pathname);
   }, [pathname]);
 
-  // ✅ Класс на html, чтобы можно было скрывать UI через CSS, если нужно
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -76,8 +74,7 @@ export default function LayoutClient({
     };
   }, [isProductPage]);
 
-  // ✅ Pinch-zoom на iOS спамит resize/viewport события и может "убивать" производительность из-за blur/анимаций.
-  // Мы НЕ запрещаем зум, а только облегчаем UI, пока zoom активен.
+  // Pinch-zoom optimization (оставил как было)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -91,14 +88,12 @@ export default function LayoutClient({
 
     const apply = () => {
       raf = 0;
-
       const scale = vv.scale || 1;
       const zooming = scale > 1.01;
 
       if (zooming === lastZooming) return;
       lastZooming = zooming;
 
-      // класс используем в globals.css - отключаем blur/анимации/transition только во время zoom
       root.classList.toggle('kth-zooming', zooming);
     };
 
@@ -119,14 +114,12 @@ export default function LayoutClient({
     };
   }, []);
 
-  // ✅ Поднимаем FAB над нижней фиксированной панелью товара
-  // ВАЖНО: iOS pinch-zoom часто триггерит resize, поэтому НЕ слушаем window.resize.
-  // Нам нужна только смена брейкпоинта lg -> используем matchMedia change.
+  // Bottom UI height fix
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const root = document.documentElement;
-    const mql = window.matchMedia('(min-width: 1024px)'); // lg
+    const mql = window.matchMedia('(min-width: 1024px)');
 
     const apply = () => {
       const isMobile = !mql.matches;
@@ -137,27 +130,17 @@ export default function LayoutClient({
 
     const onChange = () => apply();
 
-    if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onChange);
-    else mql.addListener(onChange);
-
-    return () => {
-      if (typeof mql.removeEventListener === 'function') mql.removeEventListener('change', onChange);
-      else mql.removeListener(onChange);
-
-      root.style.setProperty('--kth-bottom-ui-h', '0px');
-    };
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
   }, [isProductPage]);
 
-  // ✅ Если нижнее меню скрыто на товаре, сбрасываем переменную его высоты,
-  // иначе после перехода с другой страницы может остаться лишний отступ снизу.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     const root = document.documentElement;
     if (isProductPage) root.style.setProperty('--kth-bottom-nav-h', '0px');
   }, [isProductPage]);
 
-  // ✅ Mobile drawer menu controlled from LayoutClient
+  // Mobile drawer menu
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -203,6 +186,7 @@ export default function LayoutClient({
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // Swipe to close menu
   useEffect(() => {
     let startX = 0;
     const menu = menuRef.current;
@@ -231,8 +215,7 @@ export default function LayoutClient({
 
   useEffect(() => {
     if (!menuOpen) return;
-
-    const isMobile = typeof window !== 'undefined' && !window.matchMedia('(min-width: 640px)').matches; // sm
+    const isMobile = typeof window !== 'undefined' && !window.matchMedia('(min-width: 640px)').matches;
     if (!isMobile) return;
 
     const prev = document.body.style.overflow;
