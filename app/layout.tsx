@@ -15,8 +15,9 @@ import LayoutClient from '@components/LayoutClient';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
 import type { Category } from '@/types/category';
-import { YM_ID } from '@utils/ym';
+import { YM_ID } from '@utils/ym'; // Яндекс.Метрика
 
+/* --------------------------- шрифты через localFont ----------------------- */
 const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
@@ -37,10 +38,12 @@ const marqueeFont = localFont({
   src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
+/* ------------------------------ ISR -------------------------------------- */
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
+/* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
@@ -92,16 +95,21 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+/* --------------------------- viewport ------------------------------------- */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
+/* -------------------------------------------------------------------------- */
+/*                                ROOT LAYOUT                                */
+/* -------------------------------------------------------------------------- */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  // если env не заданы - просто рендерим сайт без категорий, чтобы не падать
   if (!supabaseUrl || !supabaseKey) {
     return (
       <html lang="ru" className={`${golosText.variable} ${marqueeFont.variable}`}>
@@ -111,14 +119,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <meta httpEquiv="Content-Language" content="ru" />
           <meta name="theme-color" content="#ffffff" />
           <meta name="yandex-verification" content="2d95e0ee66415497" />
+
           <meta name="geo.region" content="RU-KDA" />
           <meta name="geo.placename" content="Краснодар" />
           <meta name="geo.position" content="45.058090;39.037611" />
+
           <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
           <link rel="dns-prefetch" href="https://mc.yandex.ru" />
+
           <link rel="manifest" href="/site.webmanifest" />
           <meta name="msapplication-TileColor" content="#ffffff" />
         </head>
+
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
           <LayoutClient categories={[]}>{children}</LayoutClient>
@@ -175,11 +187,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta httpEquiv="Content-Language" content="ru" />
         <meta name="theme-color" content="#ffffff" />
         <meta name="yandex-verification" content="2d95e0ee66415497" />
+
         <meta name="geo.region" content="RU-KDA" />
         <meta name="geo.placename" content="Краснодар" />
         <meta name="geo.position" content="45.058090;39.037611" />
 
-        <link rel="preconnect" href="https://gwbeabfkknhewwoesqax.supabase.co" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://gwbeabfkknhewwoesqax.supabase.co"
+          crossOrigin="anonymous"
+        />
         <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
 
         <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
@@ -242,7 +259,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 openingHoursSpecification: [
                   {
                     '@type': 'OpeningHoursSpecification',
-                    dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+                    dayOfWeek: [
+                      'Monday',
+                      'Tuesday',
+                      'Wednesday',
+                      'Thursday',
+                      'Friday',
+                      'Saturday',
+                      'Sunday',
+                    ],
                     opens: '09:00',
                     closes: '21:00',
                   },
@@ -269,6 +294,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ],
           }}
         />
+
       </head>
 
       <body className={`${golosText.className} antialiased`}>
