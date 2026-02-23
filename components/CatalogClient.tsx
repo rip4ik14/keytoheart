@@ -1,293 +1,228 @@
 // ✅ Путь: components/CatalogClient.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import ProductCard from '@components/ProductCard';
 import ProductCardSkeleton from '@components/ProductCardSkeleton';
 import FilterSection from '@components/FilterSection';
 import SortDropdown from '@components/SortDropdown';
-import type { Database } from '@/lib/supabase/types_new';
 
-/* ------------------------------------------------------------------ */
-/*                               TYPES                                */
-/* ------------------------------------------------------------------ */
-
+/* ===================== EXPORTED TYPES (для app/catalog/page.tsx) ===================== */
 export interface Product {
   id: number;
   title: string;
   price: number;
-  discount_percent?: number | null | undefined;
-  original_price?: number | null | undefined;
-  in_stock?: boolean | null;
+  discount_percent?: number | null;
+  original_price?: number | null;
+  in_stock?: boolean;
   images: string[];
-  image_url?: string | null;
-  created_at?: string | null;
-  slug?: string | null;
-  bonus?: number | null;
-  short_desc?: string | null;
-  description?: string | null;
-  composition?: string | null;
-  is_popular?: boolean | null;
-  is_visible?: boolean | null;
   production_time?: number | null;
+  is_popular?: boolean | null;
   category_ids: number[];
   subcategory_ids: number[];
-  subcategory_names: string[];
 }
 
-export type ProductRow = Database['public']['Tables']['products']['Row'];
-export type SitePage = { label: string; href: string };
-export type SubcategoryFromDB = { id: number; name: string; slug: string; is_visible: boolean };
-export type CategoryFromDB = { id: number; name: string; slug: string; is_visible: boolean };
-
-type Category = { label: string; slug: string };
-type Subcategory = { label: string; slug: string; id: number };
-
-type CatalogClientProps = {
-  initialProducts: Product[];
-  initialSitePages: SitePage[];
-  initialSubcategoriesDB: SubcategoryFromDB[];
-  categoriesDB: CategoryFromDB[];
+export type SitePage = {
+  label: string;
+  href: string;
 };
 
-/* ------------------------------------------------------------------ */
-/*                              HELPERS                               */
-/* ------------------------------------------------------------------ */
+export type CategoryFromDB = {
+  id: number;
+  name: string;
+  slug: string;
+  is_visible: boolean;
+};
 
-function safeNum(v: string | null) {
+export type SubcategoryFromDB = {
+  id: number;
+  name: string;
+  slug: string;
+  is_visible: boolean;
+};
+
+/* ===================== DEBOUNCE ===================== */
+function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/* ===================== HELPERS ===================== */
+function safeNum(v: string | null): number | null {
   if (!v) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function parseCsvNums(v: string | null) {
+function parseCsvNums(v: string | null): number[] {
   if (!v) return [];
   return String(v)
     .split(',')
-    .map((x) => Number(x))
+    .map((x) => Number(x.trim()))
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
-/* ------------------------------------------------------------------ */
-/*                              COMPONENT                             */
-/* ------------------------------------------------------------------ */
-
+/* ===================== MAIN COMPONENT ===================== */
 export default function CatalogClient({
   initialProducts,
   initialSitePages,
   initialSubcategoriesDB,
   categoriesDB,
-}: CatalogClientProps) {
+}: {
+  initialProducts: Product[];
+  initialSitePages: SitePage[];
+  initialSubcategoriesDB: SubcategoryFromDB[];
+  categoriesDB: CategoryFromDB[];
+}) {
   const router = useRouter();
   const sp = useSearchParams();
 
-  /* ------------------------------ state ----------------------------- */
+  const [isPending, startTransition] = useTransition();
+
   const [products] = useState<Product[]>(initialProducts);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(initialProducts);
-  const [sitePages] = useState<SitePage[]>(initialSitePages);
-  const [subcategoriesDB] = useState<SubcategoryFromDB[]>(initialSubcategoriesDB);
-  const [loading] = useState(false); // реальный loading убран
-  const [error] = useState<string | null>(null);
 
-  /* ---------------------- price bounds (realistic) ------------------ */
+  /* ---------------------- Price Bounds ---------------------- */
   const priceBounds = useMemo(() => {
     let max = 0;
-
     for (const p of products) {
-      const effective = p.discount_percent
+      const eff = p.discount_percent
         ? Math.round(p.price * (1 - p.discount_percent / 100))
         : p.price;
-
-      if (Number.isFinite(effective)) max = Math.max(max, effective);
+      if (eff > max) max = eff;
     }
-
-    // небольшой запас и округление вверх до сотен
-    const roundedMax = Math.min(65000, Math.ceil((max || 10000) / 100) * 100);
+    const roundedMax = Math.ceil(Math.max(max, 5000) / 500) * 500;
     return { min: 0, max: roundedMax };
   }, [products]);
 
-  /* ---------------------------- filters ----------------------------- */
-  const [priceRange, setPriceRange] = useState<[number, number]>(() => [0, 10000]);
-  const [selectedCategory, setSelectedCategory] = useState<string>(''); // slug (desktop)
-  const [selectedSubcategory, setSelectedSubcategory] = useState<number | ''>(''); // id (desktop)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  /* --------------------- Filters State --------------------- */
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, priceBounds.max]);
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('');
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | ''>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // актуализируем дефолтный max по реальным товарам (только если пользователь сам не трогал)
   const priceTouchedRef = useRef(false);
-  useEffect(() => {
-    if (priceTouchedRef.current) return;
 
-    const next: [number, number] = [priceBounds.min, priceBounds.max];
-    if (priceRange[0] !== next[0] || priceRange[1] !== next[1]) setPriceRange(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priceBounds.min, priceBounds.max]);
-
-  /* ---------------- query filters (from modal) ---------------------- */
+  /* --------------------- Query Params --------------------- */
   const qMin = safeNum(sp.get('min'));
   const qMax = safeNum(sp.get('max'));
   const qCats = parseCsvNums(sp.get('cats'));
   const qSubs = parseCsvNums(sp.get('subs'));
 
-  /* -------- slug → categoryId map (чтобы не искать постоянно) ------- */
-  const categorySlugToIdMap = useMemo(() => {
+  /* --------------------- Maps --------------------- */
+  const categorySlugToId = useMemo(() => {
     const m = new Map<string, number>();
     categoriesDB.forEach((c) => m.set(c.slug, c.id));
     return m;
   }, [categoriesDB]);
 
-  const categoryIdToSlugMap = useMemo(() => {
+  const categoryIdToSlug = useMemo(() => {
     const m = new Map<number, string>();
     categoriesDB.forEach((c) => m.set(c.id, c.slug));
     return m;
   }, [categoriesDB]);
 
-  /* --------------------- derive categories list --------------------- */
-  const categories: Category[] = useMemo(() => {
-    return Array.from(
-      new Map(
-        sitePages
-          .filter((p) => {
-            const segments = p.href.split('/').filter(Boolean);
-            return p.href.startsWith('/category/') && segments.length === 2;
-          })
-          .map((p) => {
-            const slug = p.href.split('/')[2];
-            return [slug, { label: p.label, slug }];
-          }),
-      ).values(),
-    );
-  }, [sitePages]);
+  /* --------------------- Categories & Subcategories --------------------- */
+  const categories = useMemo(() => {
+    return initialSitePages
+      .filter((p) => p.href.startsWith('/category/') && p.href.split('/').filter(Boolean).length === 2)
+      .map((p) => {
+        const slug = p.href.split('/')[2];
+        return { label: p.label, slug };
+      });
+  }, [initialSitePages]);
 
-  /* --------------- derive sub-categories for dropdown --------------- */
-  const subcategories: Subcategory[] = useMemo(() => {
-    return selectedCategory
-      ? sitePages
-          .filter((p) => {
-            const segments = p.href.split('/').filter(Boolean);
-            return p.href.startsWith(`/category/${selectedCategory}/`) && segments.length === 3;
-          })
-          .map((p) => {
-            const slug = p.href.split('/')[3];
-            const match = subcategoriesDB.find((s) => s.slug === slug);
-            return { label: p.label, slug, id: match ? match.id : 0 };
-          })
-          .filter((s) => s.id !== 0)
-      : [];
-  }, [selectedCategory, sitePages, subcategoriesDB]);
+  const subcategories = useMemo(() => {
+    if (!selectedCategorySlug) return [];
+    return initialSitePages
+      .filter((p) => p.href.startsWith(`/category/${selectedCategorySlug}/`))
+      .map((p) => {
+        const slug = p.href.split('/')[3];
+        const match = initialSubcategoriesDB.find((s) => s.slug === slug);
+        return { label: p.label, slug, id: match?.id || 0 };
+      })
+      .filter((s) => s.id !== 0);
+  }, [selectedCategorySlug, initialSitePages, initialSubcategoriesDB]);
 
-  /* ------------------------------------------------------------------ */
-  /*  SYNC: query -> local filters (чтобы "Применить" реально работало) */
-  /* ------------------------------------------------------------------ */
-
-  const syncingFromQuery = useRef(false);
-
+  /* --------------------- Sync Query → Local --------------------- */
   useEffect(() => {
-    syncingFromQuery.current = true;
-
-    // 1) цена из query имеет приоритет над локальным priceRange
     if (qMin !== null || qMax !== null) {
-      const baseMin = priceBounds.min;
-      const baseMax = priceBounds.max;
-
-      const nextMin = qMin !== null ? Math.max(baseMin, Math.round(qMin)) : priceRange[0];
-      const nextMax = qMax !== null ? Math.max(nextMin, Math.round(qMax)) : priceRange[1];
-
-      const clampedMin = Math.max(baseMin, Math.min(nextMin, baseMax));
-      const clampedMax = Math.max(clampedMin, Math.min(nextMax, baseMax));
-
-      if (clampedMin !== priceRange[0] || clampedMax !== priceRange[1]) {
-        priceTouchedRef.current = true;
-        setPriceRange([clampedMin, clampedMax]);
-      }
+      const newMin = qMin !== null ? Math.max(priceBounds.min, qMin) : priceRange[0];
+      const newMax = qMax !== null ? Math.min(priceBounds.max, qMax) : priceRange[1];
+      setPriceRange([newMin, newMax]);
+      priceTouchedRef.current = true;
     }
 
-    // 2) если в query ровно 1 категория - синхронизируем в dropdown (slug)
     if (qCats.length === 1) {
-      const slug = categoryIdToSlugMap.get(qCats[0]) || '';
-      if (slug && slug !== selectedCategory) setSelectedCategory(slug);
-      if (!slug && selectedCategory) setSelectedCategory('');
+      const slug = categoryIdToSlug.get(qCats[0]) || '';
+      if (slug) setSelectedCategorySlug(slug);
     }
 
-    // 3) если в query ровно 1 подкатегория - синхронизируем dropdown
     if (qSubs.length === 1) {
-      if (selectedSubcategory !== qSubs[0]) setSelectedSubcategory(qSubs[0]);
+      setSelectedSubcategoryId(qSubs[0]);
     }
+  }, [sp.toString(), priceBounds, categoryIdToSlug]);
 
-    const t = setTimeout(() => {
-      syncingFromQuery.current = false;
-    }, 0);
+  /* --------------------- Debounced URL Update --------------------- */
+  const updateURL = useCallback(
+    debounce((min: number, max: number, catSlug: string, subId: number | '') => {
+      startTransition(() => {
+        const params = new URLSearchParams();
 
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp.toString(), priceBounds.min, priceBounds.max]);
+        params.set('min', String(Math.round(min)));
+        params.set('max', String(Math.round(max)));
 
-  /* ------------------------------------------------------------------ */
-  /*  SYNC: local filters -> query (чтобы sidebar фильтры тоже писали URL)
-  /* ------------------------------------------------------------------ */
+        if (catSlug) {
+          const id = categorySlugToId.get(catSlug);
+          if (id) params.set('cats', String(id));
+        }
+        if (subId) params.set('subs', String(subId));
+
+        const qs = params.toString();
+        router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+      });
+    }, 600),
+    [router, categorySlugToId]
+  );
 
   useEffect(() => {
-    if (syncingFromQuery.current) return;
+    updateURL(priceRange[0], priceRange[1], selectedCategorySlug, selectedSubcategoryId);
+  }, [priceRange, selectedCategorySlug, selectedSubcategoryId, updateURL]);
 
-    const hasLocal =
-      priceRange[0] !== priceBounds.min ||
-      priceRange[1] !== priceBounds.max ||
-      Boolean(selectedCategory) ||
-      Boolean(selectedSubcategory);
-
-    if (!hasLocal) return;
-
-    const params = new URLSearchParams(sp.toString());
-
-    params.set('min', String(Math.max(0, Math.round(priceRange[0]))));
-    params.set('max', String(Math.max(0, Math.round(priceRange[1]))));
-
-    if (selectedCategory) {
-      const id = categorySlugToIdMap.get(selectedCategory);
-      if (id) params.set('cats', String(id));
-      else params.delete('cats');
-    } else {
-      params.delete('cats');
-    }
-
-    if (selectedSubcategory) {
-      params.set('subs', String(Number(selectedSubcategory)));
-    } else {
-      params.delete('subs');
-    }
-
-    const qs = params.toString();
-    router.replace(qs ? `?${qs}` : '?', { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priceRange, selectedCategory, selectedSubcategory, sortOrder, priceBounds.min, priceBounds.max]);
-
-  /* ----------------------------- filtering -------------------------- */
+  /* --------------------- Real Filtering --------------------- */
   useEffect(() => {
     let list = [...products];
 
-    const effectiveMin = qMin !== null ? qMin : priceRange[0];
-    const effectiveMax = qMax !== null ? qMax : priceRange[1];
+    const minPrice = qMin !== null ? qMin : priceRange[0];
+    const maxPrice = qMax !== null ? qMax : priceRange[1];
 
     list = list.filter((p) => {
-      const effective = p.discount_percent
+      const effectivePrice = p.discount_percent
         ? Math.round(p.price * (1 - p.discount_percent / 100))
         : p.price;
-
-      return effective >= effectiveMin && effective <= effectiveMax;
+      return effectivePrice >= minPrice && effectivePrice <= maxPrice;
     });
 
     if (qCats.length > 0) {
       list = list.filter((p) => p.category_ids.some((id) => qCats.includes(id)));
-    } else if (selectedCategory) {
-      const catId = categorySlugToIdMap.get(selectedCategory);
-      list = catId ? list.filter((p) => p.category_ids.includes(catId)) : [];
+    } else if (selectedCategorySlug) {
+      const catId = categorySlugToId.get(selectedCategorySlug);
+      if (catId) list = list.filter((p) => p.category_ids.includes(catId));
     }
 
     if (qSubs.length > 0) {
       list = list.filter((p) => p.subcategory_ids.some((id) => qSubs.includes(id)));
-    } else if (selectedSubcategory) {
-      list = list.filter((p) => p.subcategory_ids.includes(Number(selectedSubcategory)));
+    } else if (selectedSubcategoryId) {
+      list = list.filter((p) => p.subcategory_ids.includes(Number(selectedSubcategoryId)));
     }
 
     list.sort((a, b) => {
@@ -300,63 +235,54 @@ export default function CatalogClient({
   }, [
     products,
     priceRange,
-    selectedCategory,
-    selectedSubcategory,
+    selectedCategorySlug,
+    selectedSubcategoryId,
     sortOrder,
     qMin,
     qMax,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     sp.toString(),
+    categorySlugToId,
   ]);
 
-  /* ----------------------------- render ----------------------------- */
   return (
     <section
-      className="min-h-screen bg-white text-black py-8 md:py-12"
-      style={{
-        // ✅ чтобы контент каталога не залезал под MobileBottomNav
-        paddingBottom: 'calc(var(--kth-bottom-nav-h, 0px) + 24px)',
-      }}
+      className="min-h-screen bg-white py-8 md:py-12"
+      style={{ paddingBottom: 'calc(var(--kth-bottom-nav-h, 0px) + 80px)' }}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* header */}
-        <div className="mb-8 flex items-center justify-between gap-3">
-          <h1 className="text-3xl md:text-4xl font-bold">Каталог товаров</h1>
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-3xl md:text-4xl font-bold">Каталог</h1>
           <SortDropdown sortOrder={sortOrder} setSortOrder={setSortOrder} />
         </div>
 
-        <div className="flex flex-col gap-8 md:flex-row">
-          {/* ✅ filters: показываем ТОЛЬКО на md+ (на мобилке фильтр через модалку в sticky header) */}
-          <div className="hidden md:block w-full md:w-[320px] shrink-0">
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="hidden lg:block w-full lg:w-80 shrink-0">
             <FilterSection
               priceRange={priceRange}
               setPriceRange={(v) => {
                 priceTouchedRef.current = true;
                 setPriceRange(v);
               }}
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              selectedSubcategory={selectedSubcategory}
-              setSelectedSubcategory={setSelectedSubcategory}
+              selectedCategory={selectedCategorySlug}
+              setSelectedCategory={setSelectedCategorySlug}
+              selectedSubcategory={selectedSubcategoryId}
+              setSelectedSubcategory={setSelectedSubcategoryId}
               categories={categories}
               subcategories={subcategories}
             />
           </div>
 
-          {/* grid */}
           <div className="flex-1">
-            {loading ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {isPending ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
               </div>
-            ) : error ? (
-              <p className="text-center text-red-500 text-lg">{error}</p>
             ) : filteredProducts.length === 0 ? (
-              <p className="text-center text-gray-500 text-lg">Товары не найдены</p>
+              <p className="text-center py-20 text-xl text-gray-500">По вашему запросу ничего не найдено</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
