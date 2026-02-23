@@ -4,7 +4,7 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Fragment, useEffect, useState } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
@@ -42,6 +42,7 @@ const transliterate = (text: string) => {
     с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
     ы: 'y', э: 'e', ю: 'yu', я: 'ya',
   };
+
   return text
     .split('')
     .map((char) => map[char.toLowerCase()] || char)
@@ -71,10 +72,29 @@ export default function Breadcrumbs({
   categoryName?: string;
 }) {
   const pathname = usePathname() || '/';
-  const searchParams = useSearchParams();
 
-  // Старый формат подкатегорий: /category/[slug]?subcategory=...
-  const subcategoryFromQuery = searchParams.get('subcategory') || 'all';
+  // ✅ Вместо useSearchParams() - читаем query на клиенте через window
+  // Это снимает требование Suspense для useSearchParams и не ломает build /404
+  const [subcategoryFromQuery, setSubcategoryFromQuery] = useState<string>('all');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const readQuery = () => {
+      const sp = new URLSearchParams(window.location.search);
+      setSubcategoryFromQuery(sp.get('subcategory') || 'all');
+    };
+
+    readQuery();
+
+    // На случай навигации назад/вперёд
+    const onPopState = () => readQuery();
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [pathname]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +106,9 @@ export default function Breadcrumbs({
         setLoading(false);
         return;
       }
+
       setLoading(true);
+
       const { data, error } = await supabase
         .from('categories')
         .select(`
@@ -101,7 +123,7 @@ export default function Breadcrumbs({
 
       if (error) throw error;
 
-      const updatedData: Category[] = data.map((cat: any) => {
+      const updatedData: Category[] = (data ?? []).map((cat: any) => {
         const subcats = cat.subcategories
           ? cat.subcategories
               .filter((s: any) => s.is_visible !== false)
@@ -111,6 +133,7 @@ export default function Breadcrumbs({
                 is_visible: s.is_visible ?? true,
               }))
           : [];
+
         return {
           ...cat,
           is_visible: cat.is_visible ?? true,
@@ -122,8 +145,9 @@ export default function Breadcrumbs({
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
-      process.env.NODE_ENV !== 'production' &&
+      if (process.env.NODE_ENV !== 'production') {
         console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -135,6 +159,7 @@ export default function Breadcrumbs({
 
   const segments = pathname.split('/').filter(Boolean);
   const shouldRender = pathname !== '/';
+
   if (!shouldRender) return null;
 
   const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
