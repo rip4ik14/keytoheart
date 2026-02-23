@@ -3,7 +3,7 @@
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ShoppingCart, Gift, Clock } from 'lucide-react';
 import { trackAddToCart } from '@/utils/ymEvents';
@@ -64,18 +64,21 @@ export default function ProductCard({
   product,
   priority = false,
   shadowMode = 'default',
+  withSchema = false, // ✅ по умолчанию выключено (в листинге schema не нужна)
 }: {
   product: Product;
   priority?: boolean;
   shadowMode?: 'default' | 'none';
+  withSchema?: boolean;
 }) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  const [isMobile, setIsMobile] = useState(() => {
+  // ✅ ВАЖНО: не вешаем matchMedia listener на каждую карточку
+  const isMobile = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 640px)').matches;
-  });
+    return window.innerWidth <= 640;
+  }, []);
 
   const [showToast, setShowToast] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,7 +86,7 @@ export default function ProductCard({
   // ✅ фиксируем, какая версия тоста должна показываться (моб/десктоп) в момент клика
   const toastPlacementRef = useRef<'mobile' | 'desktop'>('desktop');
 
-  // ✅ фиксируем top тоста при показе (на iOS это сильно снижает мерцание при скролле)
+  // ✅ фиксируем top тоста при показе (на iOS это снижает дерганье)
   const toastTopRef = useRef<string | null>(null);
 
   // ✅ для portal
@@ -97,21 +100,6 @@ export default function ProductCard({
 
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 640px)');
-    const onChange = () => setIsMobile(mq.matches);
-
-    onChange();
-
-    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
-    else mq.addListener(onChange);
-
-    return () => {
-      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange);
-      else mq.removeListener(onChange);
-    };
   }, []);
 
   const images = Array.isArray(product.images) ? product.images : [];
@@ -141,8 +129,6 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
-    // ✅ FIX: line_id обязателен в CartItem (по твоему CartContext.tsx)
-    // обычный товар - стабильный line_id
     const line_id = `product:${product.id}`;
 
     addItem({
@@ -169,12 +155,10 @@ export default function ProductCard({
 
     toastPlacementRef.current = isMobile ? 'mobile' : 'desktop';
 
-    // ✅ фиксируем top один раз, чтобы при скролле iOS не пересчитывал позицию fixed + blur
     if (typeof window !== 'undefined') {
       if (isMobile) {
         const headerH =
           getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
-
         const safeTop = 'max(env(safe-area-inset-top), 12px)';
         toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
       } else {
@@ -196,61 +180,62 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> меньше артефактов
+  // ✅ Mobile toast: теперь portal создается ТОЛЬКО когда showToast=true
   const MobileToast = () => {
     if (!mounted) return null;
+    if (!showToast) return null;
+    if (toastPlacementRef.current !== 'mobile') return null;
 
     const unoptThumb = isRemoteUrl(imageUrl);
 
     return createPortal(
-      <motion.div
-        className={[
-          'fixed z-[2147483647]',
-          'bg-white/78 backdrop-blur-xl',
-          'text-black rounded-2xl',
-          'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-          'border border-black/10',
-          'px-3 py-3 flex items-center gap-3',
-        ].join(' ')}
-        style={{
-          left: `calc(12px + env(safe-area-inset-left))`,
-          right: `calc(12px + env(safe-area-inset-right))`,
-          maxWidth: 420,
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          top:
-            toastTopRef.current ??
-            `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
-          WebkitTransform: 'translateZ(0)',
-          transform: 'translateZ(0)',
-          willChange: 'transform, opacity',
-          WebkitBackfaceVisibility: 'hidden',
-        }}
-        initial={false}
-        animate={
-          showToast && toastPlacementRef.current === 'mobile'
-            ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }
-            : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }
-        }
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        aria-live="polite"
-      >
-        <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-          <Image
-            src={imageUrl}
-            alt={title}
-            width={48}
-            height={48}
-            className="object-cover w-full h-full"
-            unoptimized={unoptThumb}
-          />
-        </div>
+      <AnimatePresence>
+        <motion.div
+          className={[
+            'fixed z-[2147483647]',
+            'bg-white/78 backdrop-blur-xl',
+            'text-black rounded-2xl',
+            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+            'border border-black/10',
+            'px-3 py-3 flex items-center gap-3',
+          ].join(' ')}
+          style={{
+            left: `calc(12px + env(safe-area-inset-left))`,
+            right: `calc(12px + env(safe-area-inset-right))`,
+            maxWidth: 420,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            top:
+              toastTopRef.current ??
+              `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+            WebkitTransform: 'translateZ(0)',
+            transform: 'translateZ(0)',
+            willChange: 'transform, opacity',
+            WebkitBackfaceVisibility: 'hidden',
+          }}
+          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          aria-live="polite"
+        >
+          <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+            <Image
+              src={imageUrl}
+              alt={title}
+              width={48}
+              height={48}
+              className="object-cover w-full h-full"
+              unoptimized={unoptThumb}
+            />
+          </div>
 
-        <div className="flex flex-col flex-1 min-w-0">
-          <p className="text-sm font-semibold">добавлено в корзину</p>
-          <p className="text-xs text-black/60 break-words">{title}</p>
-        </div>
-      </motion.div>,
+          <div className="flex flex-col flex-1 min-w-0">
+            <p className="text-sm font-semibold">добавлено в корзину</p>
+            <p className="text-xs text-black/60 break-words">{title}</p>
+          </div>
+        </motion.div>
+      </AnimatePresence>,
       document.body,
     );
   };
@@ -279,31 +264,33 @@ export default function ProductCard({
           aria-labelledby={`product-${product.id}-title`}
           tabIndex={0}
         >
-          {/* schema.org оставляем как было в твоем первом файле */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                '@context': 'https://schema.org/',
-                '@type': 'Product',
-                name: title,
-                image: imageUrl,
-                description: product.description || 'Описание товара отсутствует',
-                sku: product.id.toString(),
-                mpn: product.id.toString(),
-                brand: { '@type': 'Brand', name: 'KeyToHeart' },
-                offers: {
-                  '@type': 'Offer',
-                  url: `/product/${product.id}`,
-                  priceCurrency: 'RUB',
-                  price: discountedPrice.toString(),
-                  priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                  itemCondition: 'https://schema.org/NewCondition',
-                },
-              }),
-            }}
-          />
+          {/* ✅ ВАЖНО: schema в карточке по умолчанию выключена */}
+          {withSchema && (
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  '@context': 'https://schema.org/',
+                  '@type': 'Product',
+                  name: title,
+                  image: imageUrl,
+                  description: product.description || 'Описание товара отсутствует',
+                  sku: product.id.toString(),
+                  mpn: product.id.toString(),
+                  brand: { '@type': 'Brand', name: 'KeyToHeart' },
+                  offers: {
+                    '@type': 'Offer',
+                    url: `/product/${product.id}`,
+                    priceCurrency: 'RUB',
+                    price: discountedPrice.toString(),
+                    priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    itemCondition: 'https://schema.org/NewCondition',
+                  },
+                }),
+              }}
+            />
+          )}
 
           <Link
             href={`/product/${product.id}`}
@@ -323,10 +310,8 @@ export default function ProductCard({
               unoptimized={unopt}
             />
 
-            {/* ✅ нижний скрим - читаемость на любых фото */}
             <div className="absolute inset-x-0 bottom-0 h-[72px] z-[10] pointer-events-none bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
 
-            {/* ✅ бонус (компактный) */}
             <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
               {bonus > 0 && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
@@ -336,7 +321,6 @@ export default function ProductCard({
               )}
             </div>
 
-            {/* ✅ популярно - только звезда */}
             <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
               {isPopular && (
                 <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
@@ -345,7 +329,6 @@ export default function ProductCard({
               )}
             </div>
 
-            {/* ✅ время изготовления - контрастная плашка */}
             <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
                 <Clock size={12} className="text-white/80" />
@@ -355,7 +338,6 @@ export default function ProductCard({
               </div>
             </div>
 
-            {/* ✅ скидка - снизу справа (если есть) */}
             {discountAmount > 0 && (
               <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-none">
                 <div className="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
@@ -365,7 +347,6 @@ export default function ProductCard({
             )}
           </Link>
 
-          {/* ✅ низ карточки - название 2 строки + кнопка-цена */}
           <div className="px-3 pt-3 pb-3">
             <h3
               id={`product-${product.id}-title`}
@@ -418,7 +399,7 @@ export default function ProductCard({
   }
 
   // =========================
-  // ✅ DESKTOP - ВОЗВРАЩЕНО 1:1 КАК У ТЕБЯ (НЕ ТРОГАЕМ)
+  // ✅ DESKTOP - ОСТАВЛЕНО КАК БЫЛО
   // =========================
   const useInternalShadow = shadowMode !== 'none';
   const DESKTOP_TITLE_H = 'h-[50px]';
