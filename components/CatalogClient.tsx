@@ -9,19 +9,21 @@ import ProductCardSkeleton from '@components/ProductCardSkeleton';
 import FilterSection from '@components/FilterSection';
 import SortDropdown from '@components/SortDropdown';
 
-/* ===================== EXPORTED TYPES (для app/catalog/page.tsx) ===================== */
+/* ===================== EXPORTED TYPES ===================== */
 export interface Product {
   id: number;
   title: string;
   price: number;
   discount_percent?: number | null;
   original_price?: number | null;
-  in_stock?: boolean;
+  in_stock?: boolean | null;           // ← исправлено
   images: string[];
   production_time?: number | null;
-  is_popular?: boolean | null;
+  is_popular?: boolean | null;         // ← исправлено
+  is_visible?: boolean | null;         // ← исправлено
   category_ids: number[];
   subcategory_ids: number[];
+  subcategory_names: string[];
 }
 
 export type SitePage = {
