@@ -1,3 +1,4 @@
+// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -68,11 +69,15 @@ export default function PromoGridClient({
 
   // --- helpers для позиционирования капсул как в рефе ---
   const getPillPosClass = (idx: number) => {
+    // 0: верх-лево (сверху слева)
+    // 1: верх-право (снизу слева)
+    // 2: низ-лево (снизу слева)
+    // 3: низ-право (сверху слева)
     if (idx === 1 || idx === 2) return 'left-3 bottom-3';
     return 'left-3 top-3';
   };
 
-  const Card = (c: PromoBlock, idx: number) => (
+  const Card = (c: PromoBlock, idx: number, eager?: boolean) => (
     <Link
       key={c.id}
       href={c.href}
@@ -84,16 +89,18 @@ export default function PromoGridClient({
         alt={c.title}
         fill
         sizes="(max-width: 1024px) 320px, 260px"
-        // ✅ важно: карточки НЕ должны конкурировать с баннером за LCP
-        loading="lazy"
-        priority={false}
+        loading={eager ? 'eager' : 'lazy'}
+        priority={!!eager}
+        fetchPriority={eager ? 'high' : undefined}
         placeholder="blur"
         blurDataURL={BLUR_SRC}
         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
       />
 
+      {/* лёгкий затемняющий слой на hover как в ecom */}
       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
 
+      {/* капсула - как в рефе, позиции: часть сверху, часть снизу */}
       <span
         className={`
           absolute ${getPillPosClass(idx)} z-10
@@ -160,19 +167,19 @@ export default function PromoGridClient({
                         alt={b.title}
                         fill
                         sizes="(max-width: 1024px) 100vw, 880px"
-                        // ✅ LCP: только первый баннер priority
                         priority={i === 0}
                         fetchPriority={i === 0 ? 'high' : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
-                        // ✅ можно чуть облегчить баннер
-                        quality={72}
                         className="object-cover rounded-[32px] transition-transform duration-500"
                       />
 
+                      {/* ✅ FIX: баннер НЕ темним постоянно - только когда реально нужен контраст под текст */}
                       {shouldOverlay ? (
                         <>
+                          {/* лёгкое общее затемнение */}
                           <div className="absolute inset-0 bg-black/10" />
+                          {/* мягкий градиент под текст */}
                           <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/10 to-transparent" />
                         </>
                       ) : null}
@@ -264,11 +271,13 @@ export default function PromoGridClient({
 
         {/* ================== КАРТОЧКИ (desktop, мозаика как Labberry) ================== */}
         <div className="hidden lg:flex h-full gap-[20px]">
+          {/* левая колонка: высокая + низкая */}
           <div className="flex-1 flex flex-col gap-[20px] min-h-0">
-            <div className="flex-[6] min-h-0">{desktopCards[0] && Card(desktopCards[0], 0)}</div>
+            <div className="flex-[6] min-h-0">{desktopCards[0] && Card(desktopCards[0], 0, true)}</div>
             <div className="flex-[4] min-h-0">{desktopCards[2] && Card(desktopCards[2], 2)}</div>
           </div>
 
+          {/* правая колонка: низкая + высокая */}
           <div className="flex-1 flex flex-col gap-[20px] min-h-0">
             <div className="flex-[4] min-h-0">{desktopCards[1] && Card(desktopCards[1], 1)}</div>
             <div className="flex-[6] min-h-0">{desktopCards[3] && Card(desktopCards[3], 3)}</div>
