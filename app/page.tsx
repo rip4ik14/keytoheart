@@ -37,8 +37,7 @@ const faqList = [
   },
   {
     question: 'Можно ли оформить заказ в день покупки?',
-    answer:
-      'Да, мы доставим ваш заказ от 30 минут - чтобы порадовать вас и ваших близких без ожидания.',
+    answer: 'Да, мы доставим ваш заказ от 30 минут - чтобы порадовать вас и ваших близких без ожидания.',
   },
 ];
 
@@ -87,9 +86,7 @@ export const metadata: Metadata = {
 };
 
 /* ---------------------- JSON-LD генератор ---------------------- */
-function buildLdGraph(
-  products: any[],
-): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
+function buildLdGraph(products: any[]): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
@@ -109,9 +106,7 @@ function buildLdGraph(
           price: p.price,
           priceCurrency: 'RUB',
           priceValidUntil: validUntil.toISOString().split('T')[0],
-          availability: p.in_stock
-            ? 'https://schema.org/InStock'
-            : 'https://schema.org/OutOfStock',
+          availability: p.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
         },
       },
     })),
@@ -167,6 +162,9 @@ export default async function Home() {
 
   const ldGraph = buildLdGraph(products);
 
+  // ✅ чтобы товары не повторялись между превью категорий на главной
+  const usedIds = new Set<number>();
+
   return (
     <main aria-label="Главная страница">
       <JsonLd<{ '@graph': unknown[] }> item={{ '@graph': ldGraph }} />
@@ -198,9 +196,17 @@ export default async function Home() {
           categoriesMeta.slice(0, 4).map((catMeta, idx) => {
             const { id: catId, name: catName, slug } = catMeta;
 
-            const items = products
-              .filter((p) => p.category_ids.includes(catId))
-              .slice(0, 8);
+            // ✅ кандидаты категории (в порядке, который уже пришёл из getHomeData)
+            const candidates = products.filter((p) => p.category_ids.includes(catId));
+
+            // ✅ берем до 8, но исключаем уже показанные в предыдущих категориях
+            const items: typeof products = [];
+            for (const p of candidates) {
+              if (usedIds.has(p.id)) continue;
+              usedIds.add(p.id);
+              items.push(p);
+              if (items.length >= 8) break;
+            }
 
             if (items.length === 0) return null;
 
@@ -222,18 +228,32 @@ export default async function Home() {
       </section>
 
       {/* Flowwow (как на Labberry, без картинок) */}
-      <section role="region" aria-label="Отзывы Flowwow" className="mt-8 sm:mt-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}>
+      <section
+        role="region"
+        aria-label="Отзывы Flowwow"
+        className="mt-8 sm:mt-10"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
+      >
         <h2 className="sr-only">Отзывы на Flowwow</h2>
         <FlowwowReviewsWidget className="" />
       </section>
 
       {/* Яндекс отзывы */}
-      <section role="region" aria-label="Отзывы клиентов" className="mt-8 sm:mt-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+      <section
+        role="region"
+        aria-label="Отзывы клиентов"
+        className="mt-8 sm:mt-10"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}
+      >
         <h2 className="sr-only">Отзывы клиентов</h2>
         <YandexReviewsWidget />
       </section>
 
-      <section role="region" aria-label="Вопросы и ответы" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
+      <section
+        role="region"
+        aria-label="Вопросы и ответы"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}
+      >
         <h2 className="sr-only">Вопросы и ответы</h2>
         <FAQSectionWrapper />
       </section>

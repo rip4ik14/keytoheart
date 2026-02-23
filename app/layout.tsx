@@ -38,12 +38,7 @@ const marqueeFont = localFont({
   src: [{ path: '../public/fonts/MontserratMarquee.woff2', weight: '900', style: 'normal' }],
 });
 
-/* ------------------------------ ISR -------------------------------------- */
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-
-/* --------------------------- META-ДАННЫЕ ---------------------------------- */
+/* ------------------------------ META-ДАННЫЕ -------------------------------- */
 export const metadata: Metadata = {
   metadataBase: new URL('https://keytoheart.ru'),
   title: {
@@ -124,6 +119,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <meta name="geo.placename" content="Краснодар" />
           <meta name="geo.position" content="45.058090;39.037611" />
 
+          <link
+            rel="preconnect"
+            href="https://gwbeabfkknhewwoesqax.supabase.co"
+            crossOrigin="anonymous"
+          />
+          <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
+
           <link rel="preconnect" href="https://mc.yandex.ru" crossOrigin="anonymous" />
           <link rel="dns-prefetch" href="https://mc.yandex.ru" />
 
@@ -155,6 +157,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     );
 
     const data = await res.json();
+
     if (Array.isArray(data)) {
       categories = data.map((c: any) => ({
         id: c.id,
@@ -173,7 +176,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       }));
     }
   } catch (e) {
-    process.env.NODE_ENV !== 'production' && console.warn('[layout] categories fetch error -', e);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[layout] categories fetch error -', e);
+    }
     categories = [];
   } finally {
     clearTimeout(timeoutId);
@@ -294,7 +299,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ],
           }}
         />
-
       </head>
 
       <body className={`${golosText.className} antialiased`}>
