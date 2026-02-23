@@ -9,18 +9,18 @@ import ProductCardSkeleton from '@components/ProductCardSkeleton';
 import FilterSection from '@components/FilterSection';
 import SortDropdown from '@components/SortDropdown';
 
-/* ===================== EXPORTED TYPES ===================== */
+/* ===================== EXPORTED TYPES (для app/catalog/page.tsx) ===================== */
 export interface Product {
   id: number;
   title: string;
   price: number;
   discount_percent?: number | null;
   original_price?: number | null;
-  in_stock?: boolean | null;           // ← исправлено
+  in_stock?: boolean | null;
   images: string[];
   production_time?: number | null;
-  is_popular?: boolean | null;         // ← исправлено
-  is_visible?: boolean | null;         // ← исправлено
+  is_popular?: boolean | null;
+  is_visible?: boolean | null;
   category_ids: number[];
   subcategory_ids: number[];
   subcategory_names: string[];
@@ -174,26 +174,46 @@ export default function CatalogClient({
     }
   }, [sp.toString(), priceBounds, categoryIdToSlug]);
 
-  /* --------------------- Debounced URL Update --------------------- */
+  /* --------------------- Debounced URL Update (с защитой от цикла) --------------------- */
   const updateURL = useCallback(
     debounce((min: number, max: number, catSlug: string, subId: number | '') => {
+      const currentMin = safeNum(sp.get('min')) ?? priceBounds.min;
+      const currentMax = safeNum(sp.get('max')) ?? priceBounds.max;
+
+      // Защита от бесконечного цикла
+      if (
+        Math.abs(min - currentMin) < 5 &&
+        Math.abs(max - currentMax) < 5 &&
+        catSlug === (sp.get('cats') ? categoryIdToSlug.get(Number(sp.get('cats'))) : '') &&
+        subId === Number(sp.get('subs') || '')
+      ) {
+        return; // ничего не изменилось — не трогаем URL
+      }
+
       startTransition(() => {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(sp.toString());
 
         params.set('min', String(Math.round(min)));
-        params.set('max', String(Math.round(max)));
+        // Ограничиваем max реальными ценами + небольшой запас
+        const safeMax = Math.min(Math.round(max), priceBounds.max + 5000);
+        params.set('max', String(safeMax));
 
         if (catSlug) {
           const id = categorySlugToId.get(catSlug);
           if (id) params.set('cats', String(id));
+          else params.delete('cats');
+        } else {
+          params.delete('cats');
         }
+
         if (subId) params.set('subs', String(subId));
+        else params.delete('subs');
 
         const qs = params.toString();
         router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
       });
-    }, 600),
-    [router, categorySlugToId]
+    }, 650),
+    [router, sp, priceBounds, categorySlugToId, categoryIdToSlug]
   );
 
   useEffect(() => {
