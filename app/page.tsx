@@ -37,7 +37,8 @@ const faqList = [
   },
   {
     question: 'Можно ли оформить заказ в день покупки?',
-    answer: 'Да, мы доставим ваш заказ от 30 минут - чтобы порадовать вас и ваших близких без ожидания.',
+    answer:
+      'Да, мы доставим ваш заказ от 30 минут - чтобы порадовать вас и ваших близких без ожидания.',
   },
 ];
 
@@ -86,7 +87,9 @@ export const metadata: Metadata = {
 };
 
 /* ---------------------- JSON-LD генератор ---------------------- */
-function buildLdGraph(products: any[]): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
+function buildLdGraph(
+  products: any[],
+): Array<WebPage | BreadcrumbList | ItemList | FAQPage | Organization> {
   const validUntil = new Date();
   validUntil.setFullYear(validUntil.getFullYear() + 1);
 
@@ -106,7 +109,9 @@ function buildLdGraph(products: any[]): Array<WebPage | BreadcrumbList | ItemLis
           price: p.price,
           priceCurrency: 'RUB',
           priceValidUntil: validUntil.toISOString().split('T')[0],
-          availability: p.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          availability: p.in_stock
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
         },
       },
     })),
@@ -162,8 +167,53 @@ export default async function Home() {
 
   const ldGraph = buildLdGraph(products);
 
-  // ✅ чтобы товары не повторялись между превью категорий на главной
-  const usedIds = new Set<number>();
+  // ✅ Готовим превью категорий без повторов товаров между секциями
+  // Один товар может состоять в нескольких категориях, но на главной покажется только в первой подходящей секции
+  const usedProductIds = new Set<number>();
+
+  const categoryPreviewBlocks = categoriesMeta.slice(0, 4).map((catMeta, idx) => {
+    const { id: catId, name: catName, slug } = catMeta;
+
+    // Кандидаты по категории
+    const candidates = products.filter((p) => p.category_ids.includes(catId));
+
+    // Защита от дублей внутри одной категории + нормализация id
+    const seenInsideCategory = new Set<number>();
+
+    const uniqueItemsForThisCategory: typeof products = [];
+    for (const product of candidates) {
+      const productId = Number(product.id);
+      if (!Number.isFinite(productId)) continue;
+
+      // дубль внутри этой же категории
+      if (seenInsideCategory.has(productId)) continue;
+      seenInsideCategory.add(productId);
+
+      // уже показан в предыдущей секции
+      if (usedProductIds.has(productId)) continue;
+
+      usedProductIds.add(productId);
+      uniqueItemsForThisCategory.push(product);
+
+      if (uniqueItemsForThisCategory.length >= 8) break;
+    }
+
+    if (uniqueItemsForThisCategory.length === 0) return null;
+
+    const headingId = `category-preview-${slug || idx}`;
+
+    return (
+      <React.Fragment key={catId}>
+        <CategoryPreviewServer
+          categoryName={catName}
+          products={uniqueItemsForThisCategory}
+          seeMoreLink={slug}
+          headingId={headingId}
+        />
+        {idx === 0 && <AdvantagesClient />}
+      </React.Fragment>
+    );
+  });
 
   return (
     <main aria-label="Главная страница">
@@ -186,6 +236,7 @@ export default async function Home() {
 
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>
+
         {products.length === 0 ? (
           <div className="mx-auto my-12 grid max-w-7xl grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -193,37 +244,7 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categoriesMeta.slice(0, 4).map((catMeta, idx) => {
-            const { id: catId, name: catName, slug } = catMeta;
-
-            // ✅ кандидаты категории (в порядке, который уже пришёл из getHomeData)
-            const candidates = products.filter((p) => p.category_ids.includes(catId));
-
-            // ✅ берем до 8, но исключаем уже показанные в предыдущих категориях
-            const items: typeof products = [];
-            for (const p of candidates) {
-              if (usedIds.has(p.id)) continue;
-              usedIds.add(p.id);
-              items.push(p);
-              if (items.length >= 8) break;
-            }
-
-            if (items.length === 0) return null;
-
-            const headingId = `category-preview-${slug || idx}`;
-
-            return (
-              <React.Fragment key={catId}>
-                <CategoryPreviewServer
-                  categoryName={catName}
-                  products={items}
-                  seeMoreLink={slug}
-                  headingId={headingId}
-                />
-                {idx === 0 && <AdvantagesClient />}
-              </React.Fragment>
-            );
-          })
+          categoryPreviewBlocks
         )}
       </section>
 
