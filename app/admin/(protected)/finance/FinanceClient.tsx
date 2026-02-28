@@ -11,6 +11,8 @@ const sources = [
   'instagram',
   'yandex_maps',
   '2gis',
+  'max',
+  'vk',
 ] as const;
 type Source = (typeof sources)[number];
 
@@ -145,6 +147,10 @@ function sourceLabel(s: Source) {
       return 'Яндекс карты';
     case '2gis':
       return '2ГИС';
+    case 'max':
+      return 'MAX';
+    case 'vk':
+      return 'VK';
     default:
       return s;
   }
@@ -159,6 +165,9 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('this_month');
   const [fromDate, setFromDate] = useState<string>(startOfThisMonthISO());
   const [toDate, setToDate] = useState<string>(todayISO());
+
+  // ✅ Фильтр по источникам (для ручной выручки)
+  const [selectedSources, setSelectedSources] = useState<Source[]>(() => [...sources]);
 
   const [newIncome, setNewIncome] = useState<{ date: string; source: Source; amount: string; comment: string }>({
     date: todayISO(),
@@ -230,8 +239,18 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
 
   const filteredManualRevenue = useMemo(() => {
     const { from, to } = range;
-    return manualRevenue.filter((r) => inDateRange(r.date, from, to));
-  }, [manualRevenue, range]);
+
+    const allowed = new Set<Source>(selectedSources);
+    return manualRevenue.filter((r) => {
+      const inRange = inDateRange(r.date, from, to);
+      if (!inRange) return false;
+
+      const src = sources.includes(r.source as any) ? (r.source as Source) : null;
+      if (!src) return false;
+
+      return allowed.has(src);
+    });
+  }, [manualRevenue, range, selectedSources]);
 
   const filteredExpenses = useMemo(() => {
     const { from, to } = range;
@@ -290,6 +309,18 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
       setFromDate('');
       setToDate('');
     }
+  }
+
+  function toggleSource(s: Source) {
+    setSelectedSources((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  }
+
+  function selectAllSources() {
+    setSelectedSources([...sources]);
+  }
+
+  function clearSources() {
+    setSelectedSources([]);
   }
 
   async function addManualRevenue() {
@@ -611,6 +642,54 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
         </div>
       </div>
 
+      {/* ✅ Фильтр источников (только для вкладки "Доходы") */}
+      {tab === 'income' ? (
+        <div className="mt-4 border rounded-xl p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="text-sm font-medium">Источники заказов (ручная выручка)</div>
+              <div className="text-xs text-gray-500 mt-1">Фильтр влияет на сумму ручной выручки и список ниже</div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
+              <button
+                onClick={selectAllSources}
+                className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+              >
+                Все
+              </button>
+              <button
+                onClick={clearSources}
+                className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+              >
+                Очистить
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sources.map((s) => {
+              const active = selectedSources.includes(s);
+              return (
+                <button
+                  key={s}
+                  onClick={() => toggleSource(s)}
+                  className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                    active ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  {sourceLabel(s)}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedSources.length === 0 ? (
+            <div className="mt-3 text-xs text-gray-500">Ничего не выбрано - ручная выручка не будет показываться</div>
+          ) : null}
+        </div>
+      ) : null}
+
       {errorText ? (
         <div className="mt-4 border border-red-200 bg-red-50 text-red-700 text-sm rounded-xl p-3">{errorText}</div>
       ) : null}
@@ -676,6 +755,8 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                   <option value="whatsapp">WhatsApp</option>
                   <option value="telegram">Telegram</option>
                   <option value="instagram">Instagram</option>
+                  <option value="vk">VK</option>
+                  <option value="max">MAX</option>
                   <option value="yandex_maps">Яндекс карты</option>
                   <option value="2gis">2ГИС</option>
                   <option value="offline">Оффлайн</option>
@@ -788,6 +869,8 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                       <option value="whatsapp">WhatsApp</option>
                       <option value="telegram">Telegram</option>
                       <option value="instagram">Instagram</option>
+                      <option value="vk">VK</option>
+                      <option value="max">MAX</option>
                       <option value="yandex_maps">Яндекс карты</option>
                       <option value="2gis">2ГИС</option>
                       <option value="offline">Оффлайн</option>
@@ -839,9 +922,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="text-lg font-semibold">Расходы</h2>
 
-            <div className="text-xs text-gray-500">
-              Визуалка показывает, на что уходит больше всего за выбранный период
-            </div>
+            <div className="text-xs text-gray-500">Визуалка показывает, на что уходит больше всего за выбранный период</div>
           </div>
 
           {/* Аналитика расходов */}
