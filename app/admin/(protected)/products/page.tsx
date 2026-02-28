@@ -399,9 +399,9 @@ function ProductsContent() {
             rel="noopener noreferrer"
             className="px-4 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600 transition"
             whileHover={{ scale: 1.04 }}
-            aria-label="Скачать XML для VK (цены +10%)"
+            aria-label="Скачать XML для VK "
           >
-            Скачать XML для VK (+10%)
+            Скачать XML для VK 
           </motion.a>
         </div>
       </div>
