@@ -2,6 +2,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  LineChart,
+  Line,
+  Legend,
+} from 'recharts';
 
 const sources = [
   'flowwow',
@@ -68,9 +81,10 @@ type Props = {
   initialSiteOrders: SiteOrderRow[];
 };
 
-type Tab = 'income' | 'expenses';
-
+type Tab = 'overview' | 'income' | 'expenses';
 type PeriodPreset = 'all' | '7d' | '30d' | 'this_month' | 'custom';
+type Granularity = 'day' | 'week' | 'month';
+type SourceChartMetric = 'count' | 'amount';
 
 function todayISO() {
   const d = new Date();
@@ -104,6 +118,11 @@ function formatRub(n: number) {
   }
 }
 
+function safeDiv(a: number, b: number) {
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return 0;
+  return a / b;
+}
+
 function getOrderTotal(o: SiteOrderRow): number {
   if (o.total === null || o.total === undefined) return 0;
   if (typeof o.total === 'number') return Math.round(o.total);
@@ -116,6 +135,33 @@ function getOrderDateISO(o: SiteOrderRow): string {
   const d = new Date(o.created_at);
   if (Number.isNaN(d.getTime())) return '';
   return d.toISOString().slice(0, 10);
+}
+
+const mskDtf = new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function formatMskDateTime(iso: string | null | undefined) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+
+  const parts = mskDtf.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+
+  const day = get('day');
+  const month = get('month');
+  const year = get('year');
+  const hour = get('hour');
+  const minute = get('minute');
+
+  return `${day}.${month}.${year} ${hour}:${minute}`;
 }
 
 function isRevenueStatus(status: string | null): boolean {
@@ -156,8 +202,81 @@ function sourceLabel(s: Source) {
   }
 }
 
+function isoToDateLocal(iso: string) {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function formatShortRu(d: Date) {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}.${mm}.${yy}`;
+}
+
+function formatMonthRu(d: Date) {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = String(d.getFullYear());
+  return `${mm}.${yyyy}`;
+}
+
+function mondayOfWeek(d: Date) {
+  const x = startOfDay(d);
+  const day = x.getDay();
+  const diffToMon = (day + 6) % 7;
+  x.setDate(x.getDate() - diffToMon);
+  return x;
+}
+
+function bucketFromISO(iso: string, granularity: Granularity) {
+  const base = isoToDateLocal(iso);
+
+  if (granularity === 'month') {
+    const m = new Date(base.getFullYear(), base.getMonth(), 1);
+    return {
+      key: `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`,
+      label: formatMonthRu(m),
+      sortKey: m.getTime(),
+    };
+  }
+
+  if (granularity === 'week') {
+    const mon = mondayOfWeek(base);
+    const monIso = mon.toISOString().slice(0, 10);
+    return { key: monIso, label: formatShortRu(mon), sortKey: mon.getTime() };
+  }
+
+  const sd = startOfDay(base);
+  return { key: iso, label: formatShortRu(sd), sortKey: sd.getTime() };
+}
+
+function downloadCSV(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function escapeCSV(value: any) {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export default function FinanceClient({ initialManualRevenue, initialExpenses, initialSiteOrders }: Props) {
-  const [tab, setTab] = useState<Tab>('income');
+  const [tab, setTab] = useState<Tab>('overview');
 
   const [manualRevenue, setManualRevenue] = useState<ManualRevenueRow[]>(initialManualRevenue);
   const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
@@ -166,8 +285,10 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
   const [fromDate, setFromDate] = useState<string>(startOfThisMonthISO());
   const [toDate, setToDate] = useState<string>(todayISO());
 
-  // ✅ Фильтр по источникам (для ручной выручки)
   const [selectedSources, setSelectedSources] = useState<Source[]>(() => [...sources]);
+
+  const [granularity, setGranularity] = useState<Granularity>('day');
+  const [sourceMetric, setSourceMetric] = useState<SourceChartMetric>('count');
 
   const [newIncome, setNewIncome] = useState<{ date: string; source: Source; amount: string; comment: string }>({
     date: todayISO(),
@@ -286,6 +407,127 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
     return { rows, total };
   }, [filteredExpenses]);
 
+  const manualBySource = useMemo(() => {
+    const map = new Map<Source, { source: Source; label: string; count: number; amount: number }>();
+    for (const s of sources) map.set(s, { source: s, label: sourceLabel(s), count: 0, amount: 0 });
+
+    for (const r of filteredManualRevenue) {
+      const src = sources.includes(r.source as any) ? (r.source as Source) : null;
+      if (!src) continue;
+      const cur = map.get(src);
+      if (!cur) continue;
+      cur.count += 1;
+      cur.amount += Math.max(0, Math.round(r.amount || 0));
+      map.set(src, cur);
+    }
+
+    const rows = Array.from(map.values())
+      .filter((x) => x.count > 0 || x.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+
+    return rows.map((r) => ({
+      ...r,
+      avg: r.count > 0 ? Math.round(r.amount / r.count) : 0,
+    }));
+  }, [filteredManualRevenue]);
+
+  const series = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        label: string;
+        sortKey: number;
+        siteOrders: number;
+        manualOrders: number;
+        siteRevenue: number;
+        manualRevenue: number;
+        expenses: number;
+        siteCosts: number;
+      }
+    >();
+
+    function ensure(isoDate: string) {
+      const b = bucketFromISO(isoDate, granularity);
+      const cur =
+        map.get(b.key) ??
+        {
+          key: b.key,
+          label: b.label,
+          sortKey: b.sortKey,
+          siteOrders: 0,
+          manualOrders: 0,
+          siteRevenue: 0,
+          manualRevenue: 0,
+          expenses: 0,
+          siteCosts: 0,
+        };
+      map.set(b.key, cur);
+      return cur;
+    }
+
+    for (const o of filteredRevenueOrders) {
+      const iso = getOrderDateISO(o);
+      if (!iso) continue;
+      const cur = ensure(iso);
+      cur.siteOrders += 1;
+      cur.siteRevenue += getOrderTotal(o);
+      cur.siteCosts += Math.max(0, Math.round(o.cost_total || 0));
+    }
+
+    for (const r of filteredManualRevenue) {
+      const iso = r.date;
+      if (!iso) continue;
+      const cur = ensure(iso);
+      cur.manualOrders += 1;
+      cur.manualRevenue += Math.max(0, Math.round(r.amount || 0));
+    }
+
+    for (const e of filteredExpenses) {
+      const iso = e.date;
+      if (!iso) continue;
+      const cur = ensure(iso);
+      cur.expenses += Math.max(0, Math.round(e.amount || 0));
+    }
+
+    return Array.from(map.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map((r) => {
+        const totalRevenue = r.siteRevenue + r.manualRevenue;
+        const profit = totalRevenue - r.expenses - r.siteCosts;
+        return { ...r, totalRevenue, profit };
+      });
+  }, [filteredRevenueOrders, filteredManualRevenue, filteredExpenses, granularity]);
+
+  const siteAvgCheck = useMemo(() => (totals.ordersCount > 0 ? Math.round(totals.siteRevenue / totals.ordersCount) : 0), [totals.ordersCount, totals.siteRevenue]);
+  const manualOrdersCount = useMemo(() => filteredManualRevenue.length, [filteredManualRevenue]);
+  const manualAvgCheck = useMemo(() => (manualOrdersCount > 0 ? Math.round(totals.manualRevenue / manualOrdersCount) : 0), [manualOrdersCount, totals.manualRevenue]);
+
+  const totalRevenueAll = useMemo(() => totals.siteRevenue + totals.manualRevenue, [totals.siteRevenue, totals.manualRevenue]);
+
+  const siteMargin = useMemo(() => totals.siteRevenue - totals.siteCosts, [totals.siteRevenue, totals.siteCosts]);
+  const siteMarginPct = useMemo(() => Math.round(safeDiv(siteMargin, Math.max(1, totals.siteRevenue)) * 100), [siteMargin, totals.siteRevenue]);
+
+  const worstDays = useMemo(() => series.filter((r) => r.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5), [series]);
+
+  const ordersWithoutCosts = useMemo(() => {
+    return filteredRevenueOrders
+      .filter((o) => !o.has_costs)
+      .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+      .slice(0, 12);
+  }, [filteredRevenueOrders]);
+
+  function buildOrdersLink(opts: { q?: string; open?: string; from?: string; to?: string; status?: string }) {
+    const params = new URLSearchParams();
+    if (opts.q) params.set('q', opts.q);
+    if (opts.open) params.set('open', opts.open);
+    if (opts.status) params.set('status', opts.status);
+    if (opts.from) params.set('from', opts.from);
+    if (opts.to) params.set('to', opts.to);
+    const qs = params.toString();
+    return `/admin/orders${qs ? `?${qs}` : ''}`;
+  }
+
   function applyPreset(p: PeriodPreset) {
     setPeriodPreset(p);
     if (p === 'custom') return;
@@ -321,6 +563,52 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
 
   function clearSources() {
     setSelectedSources([]);
+  }
+
+  function exportFinanceCSV() {
+    const periodText =
+      periodPreset === 'custom'
+        ? `${fromDate || ''} - ${toDate || ''}`
+        : periodPreset === 'this_month'
+          ? 'this_month'
+          : periodPreset;
+
+    const summary = [
+      ['Период', periodText],
+      ['Выручка (сайт + ручная)', totalRevenueAll],
+      ['Выручка сайта', totals.siteRevenue],
+      ['Себестоимость сайта', totals.siteCosts],
+      ['Маржа сайта', siteMargin],
+      ['Маржа сайта (%)', siteMarginPct],
+      ['Ручная выручка', totals.manualRevenue],
+      ['Расходы', totals.expenses],
+      ['Прибыль', totals.profit],
+      ['Заказы сайта', totals.ordersCount],
+      ['Средний чек сайта', siteAvgCheck],
+      ['Ручные заказы', manualOrdersCount],
+      ['Средний чек ручной', manualAvgCheck],
+    ];
+
+    const bySourceHeader = ['Источник', 'Кол-во', 'Сумма', 'Средний чек'];
+    const bySourceRows = manualBySource.map((r) => [r.label, r.count, r.amount, r.avg]);
+
+    const seriesHeader = ['Период', 'Заказы сайта', 'Заказы ручные', 'Выручка общая', 'Прибыль', 'Расходы', 'Себестоимость'];
+    const seriesRows = series.map((r) => [r.label, r.siteOrders, r.manualOrders, r.totalRevenue, r.profit, r.expenses, r.siteCosts]);
+
+    const csv = [
+      ['Метрика', 'Значение'].join(','),
+      ...summary.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Ручная выручка по источникам',
+      bySourceHeader.join(','),
+      ...bySourceRows.map((row) => row.map(escapeCSV).join(',')),
+      '',
+      'Динамика',
+      seriesHeader.join(','),
+      ...seriesRows.map((row) => row.map(escapeCSV).join(',')),
+    ].join('\n');
+
+    downloadCSV('finance.csv', csv);
   }
 
   async function addManualRevenue() {
@@ -555,7 +843,6 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
         </div>
 
         <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
-          {/* Период */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-gray-500">Период:</div>
 
@@ -620,8 +907,15 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
             ) : null}
           </div>
 
-          {/* Вкладки */}
           <div className="flex gap-2">
+            <button
+              onClick={() => setTab('overview')}
+              className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                tab === 'overview' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              Аналитика
+            </button>
             <button
               onClick={() => setTab('income')}
               className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
@@ -642,93 +936,380 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
         </div>
       </div>
 
-      {/* ✅ Фильтр источников (только для вкладки "Доходы") */}
-      {tab === 'income' ? (
-        <div className="mt-4 border rounded-xl p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-sm font-medium">Источники заказов (ручная выручка)</div>
-              <div className="text-xs text-gray-500 mt-1">Фильтр влияет на сумму ручной выручки и список ниже</div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
-              <button
-                onClick={selectAllSources}
-                className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
-              >
-                Все
-              </button>
-              <button
-                onClick={clearSources}
-                className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
-              >
-                Очистить
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {sources.map((s) => {
-              const active = selectedSources.includes(s);
-              return (
-                <button
-                  key={s}
-                  onClick={() => toggleSource(s)}
-                  className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
-                    active ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  {sourceLabel(s)}
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedSources.length === 0 ? (
-            <div className="mt-3 text-xs text-gray-500">Ничего не выбрано - ручная выручка не будет показываться</div>
-          ) : null}
-        </div>
-      ) : null}
-
       {errorText ? (
         <div className="mt-4 border border-red-200 bg-red-50 text-red-700 text-sm rounded-xl p-3">{errorText}</div>
       ) : null}
 
-      <div className="grid gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Выручка сайта</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.siteRevenue)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">заказы: {totals.ordersCount}</div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Себестоимость сайта</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.siteCosts)}</div>
+      <div className="grid gap-3 mt-6 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="border rounded-xl p-4 lg:col-span-2">
+          <div className="text-xs text-gray-500">Выручка (сайт + ручная)</div>
+          <div className="text-lg font-semibold mt-1">{formatRub(totalRevenueAll)}</div>
           <div className="text-[11px] text-gray-400 mt-1">
-            заполнено: {totals.costsFilled}/{totals.ordersCount}
+            сайт: {formatRub(totals.siteRevenue)} | ручная: {formatRub(totals.manualRevenue)}
           </div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Ручная выручка</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.manualRevenue)}</div>
-        </div>
-
-        <div className="border rounded-xl p-4">
-          <div className="text-xs text-gray-500">Расходы</div>
-          <div className="text-lg font-semibold mt-1">{formatRub(totals.expenses)}</div>
         </div>
 
         <div className="border rounded-xl p-4">
           <div className="text-xs text-gray-500">Прибыль</div>
           <div className="text-lg font-semibold mt-1">{formatRub(totals.profit)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">сайт + ручная - расходы - себестоимость</div>
+          <div className="text-[11px] text-gray-400 mt-1">выручка - расходы - себестоимость</div>
+        </div>
+
+        <div className="border rounded-xl p-4">
+          <div className="text-xs text-gray-500">Заказы сайта</div>
+          <div className="text-lg font-semibold mt-1">{totals.ordersCount}</div>
+          <div className="text-[11px] text-gray-400 mt-1">ср. чек: {formatRub(siteAvgCheck)}</div>
+        </div>
+
+        <div className="border rounded-xl p-4">
+          <div className="text-xs text-gray-500">Ручные заказы</div>
+          <div className="text-lg font-semibold mt-1">{manualOrdersCount}</div>
+          <div className="text-[11px] text-gray-400 mt-1">ср. чек: {formatRub(manualAvgCheck)}</div>
+        </div>
+
+        <div className="border rounded-xl p-4">
+          <div className="text-xs text-gray-500">Маржа сайта</div>
+          <div className="text-lg font-semibold mt-1">{formatRub(siteMargin)}</div>
+          <div className="text-[11px] text-gray-400 mt-1">
+            {siteMarginPct}% | себестоимость заполнена: {totals.costsFilled}/{totals.ordersCount}
+          </div>
         </div>
       </div>
+
+      {tab === 'overview' ? (
+        <section className="mt-8 space-y-6">
+          <div className="border rounded-xl p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-sm font-medium">Источники заказов (ручные)</div>
+                <div className="text-xs text-gray-500 mt-1">Фильтр влияет на графики и суммы ручной части</div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
+                <button
+                  onClick={selectAllSources}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  Все
+                </button>
+                <button
+                  onClick={clearSources}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  Очистить
+                </button>
+                <button
+                  onClick={exportFinanceCSV}
+                  className="px-3 py-2 text-sm rounded-lg bg-black text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  Экспорт CSV
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sources.map((s) => {
+                const active = selectedSources.includes(s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleSource(s)}
+                    className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                      active ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    {sourceLabel(s)}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedSources.length === 0 ? (
+              <div className="mt-3 text-xs text-gray-500">Ничего не выбрано - ручная часть будет нулевая</div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="border rounded-xl p-4 lg:col-span-1">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium">Ручные заказы по источникам</div>
+                  <div className="text-xs text-gray-500 mt-1">кол-во или сумма</div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSourceMetric('count')}
+                    className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                      sourceMetric === 'count' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    Кол-во
+                  </button>
+                  <button
+                    onClick={() => setSourceMetric('amount')}
+                    className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                      sourceMetric === 'amount' ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    Сумма
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 h-[320px]">
+                {manualBySource.length === 0 ? (
+                  <div className="text-sm text-gray-500">Нет данных по выбранным источникам</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={manualBySource.map((r) => ({ name: r.label, count: r.count, amount: r.amount }))}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} height={60} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(v: any, n: any) => {
+                          if (n === 'amount') return [formatRub(Number(v || 0)), 'Сумма'];
+                          return [Number(v || 0), 'Кол-во'];
+                        }}
+                      />
+                      <Bar dataKey={sourceMetric} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="mt-4 border-t pt-3">
+                <div className="text-xs text-gray-500 mb-2">Сводка (источник - кол-во - сумма - ср. чек)</div>
+                <div className="space-y-2">
+                  {manualBySource.length === 0 ? (
+                    <div className="text-sm text-gray-500">Пока пусто</div>
+                  ) : (
+                    manualBySource.slice(0, 8).map((r) => (
+                      <div key={r.source} className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium truncate">{r.label}</div>
+                        <div className="text-sm text-gray-700 whitespace-nowrap">
+                          {r.count} - {formatRub(r.amount)} - {formatRub(r.avg)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border rounded-xl p-4 lg:col-span-2">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-sm font-medium">Динамика: выручка и прибыль</div>
+                  <div className="text-xs text-gray-500 mt-1">сайт + ручная - расходы - себестоимость</div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-xs text-gray-500">Группировка:</div>
+                  <select
+                    value={granularity}
+                    onChange={(e) => setGranularity(e.target.value as Granularity)}
+                    className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="day">Дни</option>
+                    <option value="week">Недели</option>
+                    <option value="month">Месяцы</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="border rounded-xl p-3">
+                  <div className="text-xs text-gray-500">Выручка общая и прибыль</div>
+                  <div className="mt-3 h-[260px]">
+                    {series.length === 0 ? (
+                      <div className="text-sm text-gray-500">Нет данных за период</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip
+                            formatter={(v: any, n: any) => {
+                              if (n === 'totalRevenue') return [formatRub(Number(v || 0)), 'Выручка'];
+                              if (n === 'profit') return [formatRub(Number(v || 0)), 'Прибыль'];
+                              return [v, n];
+                            }}
+                          />
+                          <Legend />
+                          <Line type="monotone" dataKey="totalRevenue" stroke="#111827" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="profit" stroke="#6b7280" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-3">
+                  <div className="text-xs text-gray-500">Заказы: сайт vs ручные</div>
+                  <div className="mt-3 h-[260px]">
+                    {series.length === 0 ? (
+                      <div className="text-sm text-gray-500">Нет данных за период</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="siteOrders" name="Сайт" />
+                          <Bar dataKey="manualOrders" name="Ручные" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 border rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold">Контроль</div>
+                    <div className="text-xs text-gray-500 mt-1">что требует внимания, чтобы прибыль считалась честно</div>
+                  </div>
+
+                  <Link
+                    href={buildOrdersLink({
+                      from: range.from,
+                      to: range.to,
+                    })}
+                    className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    Открыть заказы
+                  </Link>
+                </div>
+
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="border rounded-xl p-3">
+                    <div className="text-xs text-gray-500">Заказы сайта без себестоимости</div>
+                    <div className="text-sm font-semibold mt-1">
+                      {Math.max(0, totals.ordersCount - totals.costsFilled)} шт.
+                    </div>
+
+                    {ordersWithoutCosts.length === 0 ? (
+                      <div className="mt-3 text-sm text-gray-500">В выбранном периоде всё заполнено</div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {ordersWithoutCosts.map((o) => {
+                          const num = o.order_number ? `#${o.order_number}` : o.id.slice(0, 8);
+                          const q = o.order_number ? `#${o.order_number}` : '';
+                          const href = buildOrdersLink({
+                            q,
+                            open: o.id,
+                            from: range.from,
+                            to: range.to,
+                          });
+
+                          return (
+                            <div key={o.id} className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">
+                                  {num} - {formatRub(getOrderTotal(o))}
+                                </div>
+                                <div className="text-[11px] text-gray-500">{formatMskDateTime(o.created_at)}</div>
+                              </div>
+
+                              <Link
+                                href={href}
+                                className="px-3 py-2 text-sm rounded-lg bg-black text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-black"
+                              >
+                                Открыть
+                              </Link>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border rounded-xl p-3">
+                    <div className="text-xs text-gray-500">Дни в минус (топ)</div>
+
+                    {worstDays.length === 0 ? (
+                      <div className="mt-3 text-sm text-gray-500">Нет отрицательных дней (по текущим данным)</div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {worstDays.map((d) => (
+                          <div key={d.key} className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium">{d.label}</div>
+                            <div className="text-sm text-gray-700 whitespace-nowrap">
+                              {formatRub(d.profit)}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="text-[11px] text-gray-500 pt-1">
+                          если день в минус - чаще всего не заполнена себестоимость или вбиты расходы не в тот день
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {worstDays.length > 0 ? (
+                <div className="mt-4 text-xs text-gray-500">
+                  хочешь - добавлю второй контроль: “расходы больше выручки” (без учёта себестоимости) и кнопку “проверить”
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {tab === 'income' ? (
         <section className="mt-8">
           <h2 className="text-lg font-semibold">Доходы</h2>
+
+          <div className="mt-4 border rounded-xl p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-sm font-medium">Источники заказов (ручная выручка)</div>
+                <div className="text-xs text-gray-500 mt-1">Фильтр влияет на сумму ручной выручки и список ниже</div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
+                <button
+                  onClick={selectAllSources}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  Все
+                </button>
+                <button
+                  onClick={clearSources}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  Очистить
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sources.map((s) => {
+                const active = selectedSources.includes(s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleSource(s)}
+                    className={`px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-black ${
+                      active ? 'bg-black text-white border-black' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    {sourceLabel(s)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="mt-4 border rounded-xl p-4">
             <div className="text-sm font-medium">Добавить ручную выручку</div>
@@ -917,15 +1498,15 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
             </div>
           ) : null}
         </section>
-      ) : (
+      ) : null}
+
+      {tab === 'expenses' ? (
         <section className="mt-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="text-lg font-semibold">Расходы</h2>
-
             <div className="text-xs text-gray-500">Визуалка показывает, на что уходит больше всего за выбранный период</div>
           </div>
 
-          {/* Аналитика расходов */}
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <div className="border rounded-xl p-4">
               <div className="text-sm font-medium">Структура расходов (топ категорий)</div>
@@ -970,10 +1551,6 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                       <div className="text-sm text-gray-700 mt-1">{formatRub(r.amount)}</div>
                     </div>
                   ))}
-
-                  <div className="text-xs text-gray-500 pt-1">
-                    если хочешь, добавим “цель” по категории и предупреждение, когда категория выходит за лимит
-                  </div>
                 </div>
               )}
             </div>
@@ -1179,7 +1756,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
             </div>
           ) : null}
         </section>
-      )}
+      ) : null}
     </div>
   );
 }

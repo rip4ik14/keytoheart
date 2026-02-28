@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink, Send } from 'lucide-react';
@@ -37,7 +37,7 @@ export interface Order {
   bonus: number | null;
 
   anonymous: boolean | null;
-  whatsapp: boolean | null;
+  whatsapp: boolean |null;
 
   contact_method?: string | null;
 
@@ -167,7 +167,48 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
   const router = useRouter();
 
-  const glassPage = 'min-h-screen w-full bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(255,255,255,0.55),transparent),radial-gradient(900px_500px_at_90%_0%,rgba(255,255,255,0.35),transparent)] bg-gray-100';
+  // ✅ PATCH: search params + init filters from URL
+  const searchParams = useSearchParams();
+  const didInitFromParams = useRef(false);
+
+  useEffect(() => {
+    if (didInitFromParams.current) return;
+    didInitFromParams.current = true;
+
+    const q = (searchParams.get('q') || '').trim();
+    const st = (searchParams.get('status') || '').trim();
+    const from = (searchParams.get('from') || '').trim(); // yyyy-mm-dd
+    const to = (searchParams.get('to') || '').trim(); // yyyy-mm-dd
+
+    if (q) setSearch(q);
+    if (st) setStatusFilter(st);
+    if (from) setDateFrom(from);
+    if (to) setDateTo(to);
+  }, [searchParams]);
+
+  // ✅ PATCH: auto-open order details by ?open=
+  const didAutoOpen = useRef(false);
+
+  useEffect(() => {
+    if (didAutoOpen.current) return;
+
+    const open = (searchParams.get('open') || '').trim();
+    if (!open) return;
+
+    const normalized = open.startsWith('#') ? open.slice(1) : open;
+
+    const found = orders.find(
+      (o) => o.id === open || (o.order_number != null && String(o.order_number) === normalized),
+    );
+
+    if (found) {
+      setDetailsOrder(found);
+      didAutoOpen.current = true;
+    }
+  }, [orders, searchParams]);
+
+  const glassPage =
+    'min-h-screen w-full bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(255,255,255,0.55),transparent),radial-gradient(900px_500px_at_90%_0%,rgba(255,255,255,0.35),transparent)] bg-gray-100';
   const glassHeader = 'sticky top-0 z-20 border-b border-white/20 bg-white/55 backdrop-blur-xl';
   const glassCard = 'rounded-3xl border border-white/20 bg-white/60 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
   const glassInner = 'border border-white/15 bg-white/55 backdrop-blur-xl';
@@ -237,7 +278,10 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
       let ok = true;
 
       if (search.trim()) {
-        const q = search.trim().toLowerCase();
+        // ✅ PATCH: allow "#123" to match by order number
+        const qRaw = search.trim().toLowerCase();
+        const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
+
         ok = [
           o.phone,
           o.name,
@@ -379,7 +423,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   }, [statusMenu]);
 
   if (error) {
-    return <div className="p-4 rounded-3xl m-4 border border-rose-200/60 bg-rose-50/70 backdrop-blur-xl text-rose-800">{error}</div>;
+    return (
+      <div className="p-4 rounded-3xl m-4 border border-rose-200/60 bg-rose-50/70 backdrop-blur-xl text-rose-800">
+        {error}
+      </div>
+    );
   }
 
   const statusMenuPortal =
@@ -415,9 +463,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                   style={{ position: 'fixed', left, top, width: w, zIndex: 90 }}
                   className="rounded-3xl border border-white/20 bg-white/70 backdrop-blur-xl shadow-[0_14px_40px_rgba(0,0,0,0.12)] py-2 overflow-hidden"
                 >
-                  <div className="px-3 pb-2 pt-1 text-[11px] font-semibold text-gray-500">
-                    Изменить статус
-                  </div>
+                  <div className="px-3 pb-2 pt-1 text-[11px] font-semibold text-gray-500">Изменить статус</div>
 
                   {statusOptions.map((s) => (
                     <button
@@ -847,7 +893,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                     <div className="text-sm">
                       <div>
                         <span className="text-gray-600">Имя:</span>{' '}
-                        <span className="font-semibold text-gray-900">{detailsOrder.contact_name || detailsOrder.name || '-'}</span>
+                        <span className="font-semibold text-gray-900">
+                          {detailsOrder.contact_name || detailsOrder.name || '-'}
+                        </span>
                       </div>
 
                       <div className="mt-1 flex items-center justify-between gap-2">
@@ -862,7 +910,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                               const method = normalizeContactMethod(detailsOrder);
                               if (method === 'call') {
                                 return (
-                                  <button onClick={() => window.open(`tel:${detailsOrder.phone}`)} className={uiBtnIcon} title="Позвонить">
+                                  <button
+                                    onClick={() => window.open(`tel:${detailsOrder.phone}`)}
+                                    className={uiBtnIcon}
+                                    title="Позвонить"
+                                  >
                                     <Phone size={16} />
                                   </button>
                                 );
@@ -882,7 +934,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                               }
                               if (method === 'telegram') {
                                 return (
-                                  <button onClick={() => openTelegramByPhone(detailsOrder.phone!)} className={uiBtnIcon} title="Telegram">
+                                  <button
+                                    onClick={() => openTelegramByPhone(detailsOrder.phone!)}
+                                    className={uiBtnIcon}
+                                    title="Telegram"
+                                  >
                                     <Send size={16} />
                                   </button>
                                 );
@@ -894,7 +950,11 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                               );
                             })()}
 
-                            <button onClick={() => copyToClipboard(detailsOrder.phone!)} className={uiBtnIcon} title="Скопировать">
+                            <button
+                              onClick={() => copyToClipboard(detailsOrder.phone!)}
+                              className={uiBtnIcon}
+                              title="Скопировать"
+                            >
                               <Info size={16} />
                             </button>
                           </div>
@@ -903,7 +963,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
                       <div className="mt-2">
                         <span className="text-gray-600">Способ связи:</span>{' '}
-                        <span className="font-semibold text-gray-900">{contactLabel(normalizeContactMethod(detailsOrder))}</span>
+                        <span className="font-semibold text-gray-900">
+                          {contactLabel(normalizeContactMethod(detailsOrder))}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -984,7 +1046,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                             ? `скидка ${money(detailsOrder.promo_discount)} ₽`
                             : 'не применён'}
                         </span>
-                        {detailsOrder.promo_code ? <span className="text-gray-600"> (код: {detailsOrder.promo_code})</span> : null}
+                        {detailsOrder.promo_code ? (
+                          <span className="text-gray-600"> (код: {detailsOrder.promo_code})</span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -1000,7 +1064,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
 
                   <div className={`${glassCard} p-4`}>
                     <div className="text-xs font-semibold text-gray-600 mb-2">Текст открытки (postcard_text)</div>
-                    <div className="text-sm whitespace-pre-wrap break-words text-gray-900">{detailsOrder.postcard_text || '-'}</div>
+                    <div className="text-sm whitespace-pre-wrap break-words text-gray-900">
+                      {detailsOrder.postcard_text || '-'}
+                    </div>
                   </div>
                 </section>
 
@@ -1015,7 +1081,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                           {detailsOrder.items.map((it, idx) => (
                             <li key={idx} className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
-                                <div className={`h-12 w-12 rounded-2xl overflow-hidden flex-shrink-0 ${glassInner} shadow-sm`}>
+                                <div
+                                  className={`h-12 w-12 rounded-2xl overflow-hidden flex-shrink-0 ${glassInner} shadow-sm`}
+                                >
                                   {it.image_url ? (
                                     <Image
                                       src={it.image_url}
@@ -1049,7 +1117,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                                 </div>
                               </div>
 
-                              <div className="font-semibold whitespace-nowrap text-gray-900">{money(it.price * it.quantity)} ₽</div>
+                              <div className="font-semibold whitespace-nowrap text-gray-900">
+                                {money(it.price * it.quantity)} ₽
+                              </div>
                             </li>
                           ))}
                         </ul>
@@ -1069,7 +1139,9 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                                 {it.category ? <span className="text-gray-600"> ({it.category})</span> : null}
                                 <span className="text-gray-600"> x{it.quantity}</span>
                               </div>
-                              <div className="font-semibold whitespace-nowrap text-gray-900">{money(it.price * it.quantity)} ₽</div>
+                              <div className="font-semibold whitespace-nowrap text-gray-900">
+                                {money(it.price * it.quantity)} ₽
+                              </div>
                             </li>
                           ))}
                         </ul>
