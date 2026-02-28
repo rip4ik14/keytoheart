@@ -56,8 +56,34 @@ function formatProductionCompact(minutes: number | null): string | null {
 // CSS var from StickyHeader.tsx
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
 
+/* -------------------------------------------------------------------------- */
+/* ✅ ВАЖНО: нормализуем картинки, чтобы не было src="" и кривых URL           */
+/* -------------------------------------------------------------------------- */
 function isRemoteUrl(src: string) {
   return /^https?:\/\//i.test(src);
+}
+
+function normalizeImageUrl(raw?: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  // частый кейс Supabase: двойной слеш после public/<bucket>/
+  // .../public/product-image//1744...jpg -> .../public/product-image/1744...jpg
+  return s.replace(/\/public\/([^/]+)\/\//, '/public/$1/');
+}
+
+function pickFirstValidImage(images: unknown): string | null {
+  if (!Array.isArray(images)) return null;
+
+  for (const it of images) {
+    const u = normalizeImageUrl(it);
+    if (!u) continue;
+
+    // принимаем только нормальные источники
+    if (u.startsWith('/') || isRemoteUrl(u)) return u;
+  }
+  return null;
 }
 
 export default function ProductCard({
@@ -102,24 +128,29 @@ export default function ProductCard({
     setMounted(true);
   }, []);
 
-  const images = Array.isArray(product.images) ? product.images : [];
-  const imageUrl = images[0] || '/placeholder.jpg';
+  // ✅ вместо images[0] берем первый валидный url
+  const imageUrl = pickFirstValidImage((product as any).images) || '/placeholder.jpg';
 
-  const discountPercent = product.discount_percent ?? 0;
-  const originalPrice = product.original_price || product.price;
-  const discountedPrice = discountPercent ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
+  const discountPercent = (product as any).discount_percent ?? 0;
+  const originalPrice = (product as any).original_price || (product as any).price;
+  const discountedPrice = discountPercent
+    ? Math.round((product as any).price * (1 - discountPercent / 100))
+    : (product as any).price;
 
-  const baseForDiscount = originalPrice > product.price ? originalPrice : product.price;
+  const baseForDiscount = originalPrice > (product as any).price ? originalPrice : (product as any).price;
   const discountAmount = discountPercent ? Math.max(0, baseForDiscount - discountedPrice) : 0;
 
-  const bonus = product.bonus ?? Math.floor(discountedPrice * 0.025);
-  const isPopular = !!product.is_popular;
+  const bonus = (product as any).bonus ?? Math.floor(discountedPrice * 0.025);
+  const isPopular = !!(product as any).is_popular;
 
-  const productionText = useMemo(() => formatProductionTime(product.production_time ?? null), [product.production_time]);
+  const productionText = useMemo(
+    () => formatProductionTime((product as any).production_time ?? null),
+    [(product as any).production_time],
+  );
 
   const productionCompact = useMemo(
-    () => formatProductionCompact(product.production_time ?? null),
-    [product.production_time],
+    () => formatProductionCompact((product as any).production_time ?? null),
+    [(product as any).production_time],
   );
 
   useEffect(() => {
@@ -129,20 +160,20 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
-    const line_id = `product:${product.id}`;
+    const line_id = `product:${(product as any).id}`;
 
     addItem({
       line_id,
-      id: product.id.toString(),
+      id: (product as any).id.toString(),
       title,
       price: discountedPrice,
       quantity: 1,
       imageUrl,
-      production_time: product.production_time ?? null,
+      production_time: (product as any).production_time ?? null,
     });
 
     trackAddToCart({
-      id: product.id,
+      id: (product as any).id,
       name: title,
       price: discountedPrice,
       quantity: 1,
@@ -261,7 +292,7 @@ export default function ProductCard({
           transition={{ duration: 0.22 }}
           onKeyDown={handleKeyDown}
           role="article"
-          aria-labelledby={`product-${product.id}-title`}
+          aria-labelledby={`product-${(product as any).id}-title`}
           tabIndex={0}
         >
           {/* ✅ ВАЖНО: schema в карточке по умолчанию выключена */}
@@ -274,17 +305,21 @@ export default function ProductCard({
                   '@type': 'Product',
                   name: title,
                   image: imageUrl,
-                  description: product.description || 'Описание товара отсутствует',
-                  sku: product.id.toString(),
-                  mpn: product.id.toString(),
+                  description: (product as any).description || 'Описание товара отсутствует',
+                  sku: (product as any).id.toString(),
+                  mpn: (product as any).id.toString(),
                   brand: { '@type': 'Brand', name: 'KeyToHeart' },
                   offers: {
                     '@type': 'Offer',
-                    url: `/product/${product.id}`,
+                    url: `/product/${(product as any).id}`,
                     priceCurrency: 'RUB',
                     price: discountedPrice.toString(),
-                    priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                      .toISOString()
+                      .split('T')[0],
+                    availability: (product as any).in_stock
+                      ? 'https://schema.org/InStock'
+                      : 'https://schema.org/OutOfStock',
                     itemCondition: 'https://schema.org/NewCondition',
                   },
                 }),
@@ -293,7 +328,7 @@ export default function ProductCard({
           )}
 
           <Link
-            href={`/product/${product.id}`}
+            href={`/product/${(product as any).id}`}
             className="block relative w-full aspect-[1/1] overflow-hidden bg-black/[0.04]"
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
@@ -349,7 +384,7 @@ export default function ProductCard({
 
           <div className="px-3 pt-3 pb-3">
             <h3
-              id={`product-${product.id}-title`}
+              id={`product-${(product as any).id}-title`}
               className="text-[13px] font-medium text-black leading-[1.25] break-words"
               title={title}
               style={{
@@ -364,7 +399,7 @@ export default function ProductCard({
 
             <div className="mt-2 flex items-end justify-between gap-3">
               <div className="min-w-0">
-                {(discountAmount > 0 || originalPrice > product.price) && (
+                {(discountAmount > 0 || originalPrice > (product as any).price) && (
                   <div className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</div>
                 )}
               </div>
@@ -429,13 +464,13 @@ export default function ProductCard({
         transition={{ duration: 0.28 }}
         onKeyDown={handleKeyDown}
         role="article"
-        aria-labelledby={`product-${product.id}-title`}
+        aria-labelledby={`product-${(product as any).id}-title`}
         tabIndex={0}
         aria-live="polite"
       >
         <div className="relative p-3 sm:p-4">
           <Link
-            href={`/product/${product.id}`}
+            href={`/product/${(product as any).id}`}
             className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
             tabIndex={-1}
             aria-label={`Перейти к товару ${title}`}
@@ -490,7 +525,7 @@ export default function ProductCard({
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
           <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
             <h3
-              id={`product-${product.id}-title`}
+              id={`product-${(product as any).id}-title`}
               className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
               title={title}
             >
@@ -504,7 +539,7 @@ export default function ProductCard({
                 <div className="flex items-baseline gap-2">
                   <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
 
-                  {(discountAmount > 0 || originalPrice > product.price) && (
+                  {(discountAmount > 0 || originalPrice > (product as any).price) && (
                     <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
                   )}
                 </div>
