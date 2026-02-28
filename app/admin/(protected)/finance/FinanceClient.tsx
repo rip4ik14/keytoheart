@@ -275,6 +275,13 @@ function escapeCSV(value: any) {
   return str;
 }
 
+// PATCH: Flowwow ты заносишь как выплаты, а не как заказы
+// - сумма Flowwow остается в выручке и прибыли
+// - Flowwow НЕ влияет на "кол-во заказов" и "средний чек" в ручной части
+function isManualOrderSource(src: Source) {
+  return src !== 'flowwow';
+}
+
 export default function FinanceClient({ initialManualRevenue, initialExpenses, initialSiteOrders }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -373,6 +380,15 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
     });
   }, [manualRevenue, range, selectedSources]);
 
+  // PATCH: ручные "заказы" для метрик (без Flowwow)
+  const filteredManualOrderLike = useMemo(() => {
+    return filteredManualRevenue.filter((r) => {
+      const src = sources.includes(r.source as any) ? (r.source as Source) : null;
+      if (!src) return false;
+      return isManualOrderSource(src);
+    });
+  }, [filteredManualRevenue]);
+
   const filteredExpenses = useMemo(() => {
     const { from, to } = range;
     return expenses.filter((e) => inDateRange(e.date, from, to));
@@ -416,7 +432,12 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
       if (!src) continue;
       const cur = map.get(src);
       if (!cur) continue;
-      cur.count += 1;
+
+      // PATCH: Flowwow не считаем как "заказы"
+      if (isManualOrderSource(src)) {
+        cur.count += 1;
+      }
+
       cur.amount += Math.max(0, Math.round(r.amount || 0));
       map.set(src, cur);
     }
@@ -478,8 +499,16 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
     for (const r of filteredManualRevenue) {
       const iso = r.date;
       if (!iso) continue;
+
+      const src = sources.includes(r.source as any) ? (r.source as Source) : null;
+
       const cur = ensure(iso);
-      cur.manualOrders += 1;
+
+      // PATCH: Flowwow влияет на выручку, но не на кол-во ручных "заказов"
+      if (src && isManualOrderSource(src)) {
+        cur.manualOrders += 1;
+      }
+
       cur.manualRevenue += Math.max(0, Math.round(r.amount || 0));
     }
 
@@ -499,9 +528,22 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
       });
   }, [filteredRevenueOrders, filteredManualRevenue, filteredExpenses, granularity]);
 
-  const siteAvgCheck = useMemo(() => (totals.ordersCount > 0 ? Math.round(totals.siteRevenue / totals.ordersCount) : 0), [totals.ordersCount, totals.siteRevenue]);
-  const manualOrdersCount = useMemo(() => filteredManualRevenue.length, [filteredManualRevenue]);
-  const manualAvgCheck = useMemo(() => (manualOrdersCount > 0 ? Math.round(totals.manualRevenue / manualOrdersCount) : 0), [manualOrdersCount, totals.manualRevenue]);
+  const siteAvgCheck = useMemo(
+    () => (totals.ordersCount > 0 ? Math.round(totals.siteRevenue / totals.ordersCount) : 0),
+    [totals.ordersCount, totals.siteRevenue]
+  );
+
+  // PATCH: manualOrdersCount и manualAvgCheck считаются по "order-like" ручным каналам (без Flowwow)
+  const manualOrdersCount = useMemo(() => filteredManualOrderLike.length, [filteredManualOrderLike]);
+
+  const manualOrderLikeRevenue = useMemo(() => {
+    return filteredManualOrderLike.reduce((s, r) => s + Math.max(0, Math.round(r.amount || 0)), 0);
+  }, [filteredManualOrderLike]);
+
+  const manualAvgCheck = useMemo(
+    () => (manualOrdersCount > 0 ? Math.round(manualOrderLikeRevenue / manualOrdersCount) : 0),
+    [manualOrdersCount, manualOrderLikeRevenue]
+  );
 
   const totalRevenueAll = useMemo(() => totals.siteRevenue + totals.manualRevenue, [totals.siteRevenue, totals.manualRevenue]);
 
@@ -585,8 +627,8 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
       ['Прибыль', totals.profit],
       ['Заказы сайта', totals.ordersCount],
       ['Средний чек сайта', siteAvgCheck],
-      ['Ручные заказы', manualOrdersCount],
-      ['Средний чек ручной', manualAvgCheck],
+      ['Ручные заказы (без Flowwow)', manualOrdersCount],
+      ['Средний чек ручной (без Flowwow)', manualAvgCheck],
     ];
 
     const bySourceHeader = ['Источник', 'Кол-во', 'Сумма', 'Средний чек'];
@@ -965,6 +1007,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
           <div className="text-xs text-gray-500">Ручные заказы</div>
           <div className="text-lg font-semibold mt-1">{manualOrdersCount}</div>
           <div className="text-[11px] text-gray-400 mt-1">ср. чек: {formatRub(manualAvgCheck)}</div>
+          <div className="text-[11px] text-gray-300 mt-1">Flowwow исключён из кол-ва и ср. чека</div>
         </div>
 
         <div className="border rounded-xl p-4">
@@ -983,6 +1026,9 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
               <div>
                 <div className="text-sm font-medium">Источники заказов (ручные)</div>
                 <div className="text-xs text-gray-500 mt-1">Фильтр влияет на графики и суммы ручной части</div>
+                <div className="text-[11px] text-gray-400 mt-1">
+                  Flowwow в выручке учитывается, но в кол-ве/среднем чеке ручных заказов не участвует
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
@@ -1034,7 +1080,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-medium">Ручные заказы по источникам</div>
-                  <div className="text-xs text-gray-500 mt-1">кол-во или сумма</div>
+                  <div className="text-xs text-gray-500 mt-1">кол-во (без Flowwow) или сумма</div>
                 </div>
 
                 <div className="flex gap-2">
@@ -1151,6 +1197,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
 
                 <div className="border rounded-xl p-3">
                   <div className="text-xs text-gray-500">Заказы: сайт vs ручные</div>
+                  <div className="text-[11px] text-gray-400 mt-1">ручные заказы без Flowwow</div>
                   <div className="mt-3 h-[260px]">
                     {series.length === 0 ? (
                       <div className="text-sm text-gray-500">Нет данных за период</div>
@@ -1242,9 +1289,7 @@ export default function FinanceClient({ initialManualRevenue, initialExpenses, i
                         {worstDays.map((d) => (
                           <div key={d.key} className="flex items-center justify-between gap-3">
                             <div className="text-sm font-medium">{d.label}</div>
-                            <div className="text-sm text-gray-700 whitespace-nowrap">
-                              {formatRub(d.profit)}
-                            </div>
+                            <div className="text-sm text-gray-700 whitespace-nowrap">{formatRub(d.profit)}</div>
                           </div>
                         ))}
                         <div className="text-[11px] text-gray-500 pt-1">
