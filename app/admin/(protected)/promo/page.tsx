@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import AdminLayout from '../layout';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import CSRFToken from '@components/CSRFToken';
@@ -253,7 +252,7 @@ export default function PromoAdminPage() {
   const hrefValue = form.href ?? '';
 
   return (
-    <AdminLayout>
+    <>
       <CSRFToken>
         {(csrfToken) => (
           <motion.div
@@ -476,6 +475,6 @@ export default function PromoAdminPage() {
           </motion.div>
         )}
       </CSRFToken>
-    </AdminLayout>
+    </>
   );
 }

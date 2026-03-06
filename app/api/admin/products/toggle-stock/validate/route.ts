@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireAdmin } from '@/lib/api/requireAdmin';
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const deny = await requireAdmin(req);
+    if (deny) return deny;
+
     const body = await safeBody<{ productIds?: Array<number | string> }>(
-      request,
+      req,
       'ADMIN TOGGLE STOCK VALIDATE API',
     );
     if (body instanceof NextResponse) {

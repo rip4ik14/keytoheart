@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
 
 import CatalogFilterModal from '@components/CatalogFilterModal';
@@ -139,6 +138,8 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
 
       setLoading(true);
 
+      const { supabasePublic: supabase } = await import('@/lib/supabase/public');
+
       const { data, error } = await supabase
         .from('categories')
         .select(
@@ -176,21 +177,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       fetchCategories();
     }
 
-    const channel = supabase
-      .channel('categories-subcategories-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-        categoryCache = null;
-        fetchCategories();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, () => {
-        categoryCache = null;
-        fetchCategories();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCategories]);
 

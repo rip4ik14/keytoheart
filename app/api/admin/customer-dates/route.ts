@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireAdmin } from '@/lib/api/requireAdmin';
 
 export async function POST(req: NextRequest) {
   try {
+    const deny = await requireAdmin(req);
+    if (deny) return deny;
+
     const body = await safeBody<{
       phone?: string;
       amount?: number;
