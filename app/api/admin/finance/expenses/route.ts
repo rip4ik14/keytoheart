@@ -1,6 +1,7 @@
 // ✅ Путь: app/api/admin/finance/expenses/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/api/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,7 +37,9 @@ function toTextOrNull(v: any): string | null {
   return s ? s : null;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const deny = await requireAdmin(req);
+  if (deny) return deny;
   try {
     const rows = await prisma.$queryRaw<any[]>`
       select id, date, category, amount, supplier, comment, created_at, updated_at
@@ -62,7 +65,9 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const deny = await requireAdmin(req);
+  if (deny) return deny;
   try {
     const body = await req.json();
 
@@ -104,7 +109,9 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
+  const deny = await requireAdmin(req);
+  if (deny) return deny;
   try {
     const body = await req.json();
 
@@ -153,7 +160,9 @@ export async function PUT(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
+  const deny = await requireAdmin(req);
+  if (deny) return deny;
   try {
     const body = await req.json();
     const id = String(body?.id || '');

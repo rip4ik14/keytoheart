@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { revalidateTag } from 'next/cache';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireAdmin } from '@/lib/api/requireAdmin';
 
 
 export async function POST(req: NextRequest) {
+  const deny = await requireAdmin(req);
+  if (deny) return deny;
   const body = await safeBody<{ id?: number | string }>(req, 'ADMIN TOGGLE STOCK API');
   if (body instanceof NextResponse) {
     return body;

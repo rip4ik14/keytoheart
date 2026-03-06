@@ -8,7 +8,9 @@ import { AnimatePresence, motion, useAnimation } from 'framer-motion';
 
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
-import SearchModal from '@components/SearchModal';
+import dynamic from 'next/dynamic';
+
+const SearchModal = dynamic(() => import('@components/SearchModal'), { ssr: false });
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';

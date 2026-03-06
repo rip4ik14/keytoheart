@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, invalidate } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 import { safeBody } from '@/lib/api/safeBody';
+import { requireAdmin } from '@/lib/api/requireAdmin';
 
 interface ProductData {
   id?: number;
@@ -89,24 +90,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CSRF token missing' }, { status: 403 });
     }
 
-    // Проверка сессии администратора
-    process.env.NODE_ENV !== "production" && console.log('POST /api/products: Checking admin session');
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://keytoheart.ru';
-    process.env.NODE_ENV !== "production" && console.log('POST /api/products: Base URL for admin-session:', baseUrl);
-    const sessionRes = await fetch(new URL('/api/admin-session', baseUrl), {
-      headers: { cookie: req.headers.get('cookie') || '' },
-    });
-    process.env.NODE_ENV !== "production" && console.log('POST /api/products: Admin session response status:', sessionRes.status);
-
-    const sessionData = await sessionRes.json();
-    process.env.NODE_ENV !== "production" && console.log('POST /api/products: Admin session response data:', sessionData);
-    if (!sessionRes.ok || !sessionData.success) {
-      process.env.NODE_ENV !== "production" && console.log('POST /api/products: Admin session check failed:', sessionData);
-      return NextResponse.json(
-        { error: 'Доступ запрещён: требуется роль администратора' },
-        { status: 403 }
-      );
-    }
+    const deny = await requireAdmin(req);
+    if (deny) return deny;
 
     // Парсинг тела запроса
     const body = await safeBody<ProductData>(req, 'PRODUCTS API');
@@ -370,24 +355,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'CSRF token missing' }, { status: 403 });
     }
 
-    // Проверка сессии администратора
-    process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Checking admin session');
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://keytoheart.ru';
-    process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Base URL for admin-session:', baseUrl);
-    const sessionRes = await fetch(new URL('/api/admin-session', baseUrl), {
-      headers: { cookie: req.headers.get('cookie') || '' },
-    });
-    process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Admin session response status:', sessionRes.status);
-
-    const sessionData = await sessionRes.json();
-    process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Admin session response data:', sessionData);
-    if (!sessionRes.ok || !sessionData.success) {
-      process.env.NODE_ENV !== "production" && console.log('PATCH /api/products: Admin session check failed:', sessionData);
-      return NextResponse.json(
-        { error: 'Доступ запрещён: требуется роль администратора' },
-        { status: 403 }
-      );
-    }
+    const deny = await requireAdmin(req);
+    if (deny) return deny;
 
     // Парсинг тела запроса
     const body = await safeBody<ProductData>(req, 'PRODUCTS API');
@@ -641,14 +610,8 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     process.env.NODE_ENV !== "production" && console.log('DELETE /api/products: Starting request');
-    const sessionRes = await fetch(new URL('/api/admin-session', req.url), {
-      headers: { cookie: req.headers.get('cookie') || '' },
-    });
-    const sessionData = await sessionRes.json();
-    if (!sessionRes.ok || !sessionData.success) {
-      process.env.NODE_ENV !== "production" && console.log('DELETE /api/products: Admin session check failed:', sessionData);
-      return NextResponse.json({ error: 'Доступ запрещён: требуется роль администратора' }, { status: 403 });
-    }
+    const deny = await requireAdmin(req);
+    if (deny) return deny;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
