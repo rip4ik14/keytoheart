@@ -147,7 +147,7 @@ export default function PromoGridClient({
         >
           <div
             className="relative w-full overflow-hidden rounded-t-[28px]"
-            style={{ height: 'clamp(520px, 60vh, 780px)' }}
+            style={{ height: 'clamp(280px, 42vh, 380px)' }}
           >
             {banners.map((b, i) => {
               const isActiveSlide = i === active;
