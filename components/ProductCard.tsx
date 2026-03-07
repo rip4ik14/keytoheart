@@ -596,38 +596,42 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             </div>
 
             {/* ✅ desktop toast */}
-            <AnimatePresence>
-              {showToast && toastPlacementRef.current === 'desktop' && (
-                <div
-                  className={[
-                    'fixed bottom-4 right-4 z-[9999]',
-                    'max-w-[380px] w-[92%] sm:w-[340px]',
-                    'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
-                    'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
-                    'border border-black/10',
-                    'px-3 py-3 flex items-center gap-3',
-                  ].join(' ')}
-                  exit={{ opacity: 0, y: 18 }}
-                  aria-live="polite"
-                >
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-                    <Image
-                      src={imageUrl}
-                      alt={title}
-                      width={48}
-                      height={48}
-                      className="object-cover w-full h-full"
-                      unoptimized={isRemoteUrl(imageUrl)}
-                    />
-                  </div>
+            {/* ✅ desktop toast */}
+<AnimatePresence>
+  {showToast && toastPlacementRef.current === 'desktop' && (
+    <motion.div
+      className={[
+        'fixed bottom-4 right-4 z-[9999]',
+        'max-w-[380px] w-[92%] sm:w-[340px]',
+        'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
+        'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
+        'border border-black/10',
+        'px-3 py-3 flex items-center gap-3',
+      ].join(' ')}
+      initial={{ opacity: 0, y: 18, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 18, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      aria-live="polite"
+    >
+      <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+        <Image
+          src={imageUrl}
+          alt={title}
+          width={48}
+          height={48}
+          className="object-cover w-full h-full"
+          unoptimized={isRemoteUrl(imageUrl)}
+        />
+      </div>
 
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <p className="text-sm font-semibold">добавлено в корзину</p>
-                    <p className="text-xs text-black/60 break-words">{title}</p>
-                  </div>
-                </div>
-              )}
-            </AnimatePresence>
+      <div className="flex flex-col flex-1 min-w-0">
+        <p className="text-sm font-semibold">добавлено в корзину</p>
+        <p className="text-xs text-black/60 break-words">{title}</p>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
     </div>
   );
 
