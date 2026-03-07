@@ -1,3 +1,4 @@
+// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -29,7 +30,6 @@ export default function PromoGridClient({
   const [autoplay, setAutoplay] = useState(false);
 
   const heroRef = useRef<HTMLDivElement | null>(null);
-
   const touchStartX = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -141,11 +141,14 @@ export default function PromoGridClient({
         <div
           ref={heroRef}
           id="home-promo"
-          className="relative w-screen left-1/2 -translate-x-1/2 overflow-hidden"
+          className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden rounded-t-[28px] bg-white"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="relative w-full" style={{ height: 'clamp(520px, 60vh, 780px)' }}>
+          <div
+            className="relative w-full overflow-hidden rounded-t-[28px]"
+            style={{ height: 'clamp(520px, 60vh, 780px)' }}
+          >
             {banners.map((b, i) => {
               const isActiveSlide = i === active;
 
@@ -182,27 +185,27 @@ export default function PromoGridClient({
                     </div>
 
                     {showText ? (
-  <div className="absolute inset-x-0 bottom-[56px] px-4 pb-0 pt-10 text-white">
-    {b.title ? (
-      <div className="text-[28px] font-extrabold leading-[1.05] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]">
-        {b.title}
-      </div>
-    ) : null}
+                      <div className="absolute inset-x-0 bottom-[56px] px-4 pb-0 pt-10 text-white">
+                        {b.title ? (
+                          <div className="text-[28px] font-extrabold leading-[1.05] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]">
+                            {b.title}
+                          </div>
+                        ) : null}
 
-    {b.subtitle ? (
-      <div className="mt-2 text-[14px] font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
-        {b.subtitle}
-      </div>
-    ) : null}
-  </div>
-) : null}
+                        {b.subtitle ? (
+                          <div className="mt-2 text-[14px] font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+                            {b.subtitle}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </Link>
                 </div>
               );
             })}
 
             {banners.length > 1 && (
-  <div className="absolute bottom-[26px] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+              <div className="absolute bottom-[26px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
                 {banners.map((_, i) => (
                   <button
                     key={i}
@@ -226,7 +229,7 @@ export default function PromoGridClient({
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[2fr_1fr] lg:gap-[28px]">
             <div
-              className="relative overflow-hidden rounded-[32px] flex flex-col"
+              className="relative flex flex-col overflow-hidden rounded-[32px]"
               style={{ aspectRatio: '3/2', minHeight: 0 }}
             >
               <div className="relative h-full w-full">
@@ -260,7 +263,7 @@ export default function PromoGridClient({
                           {isVideoUrl(b.image_url) ? (
                             i === active ? (
                               <video
-                                className="absolute inset-0 h-full w-full object-cover rounded-[32px]"
+                                className="absolute inset-0 h-full w-full rounded-[32px] object-cover"
                                 src={b.image_url}
                                 muted
                                 playsInline
@@ -281,7 +284,7 @@ export default function PromoGridClient({
                               fetchPriority={i === 0 ? 'high' : undefined}
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
-                              className="object-cover rounded-[32px] transition-transform duration-500"
+                              className="rounded-[32px] object-cover transition-transform duration-500"
                               unoptimized={isExternal(b.image_url)}
                             />
                           )}
