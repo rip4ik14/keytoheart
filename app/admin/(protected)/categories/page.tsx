@@ -46,6 +46,71 @@ interface Category {
   subcategories: Subcategory[];
 }
 
+type RawSubcategory = Partial<Subcategory> & {
+  id: number;
+  name: string;
+  slug: string;
+  category_id: number | null;
+  is_visible: boolean;
+};
+
+type RawCategory = Partial<Category> & {
+  id: number;
+  name: string;
+  slug: string;
+  is_visible: boolean;
+  subcategories?: RawSubcategory[] | null;
+};
+
+function normalizeSubcategory(sub: RawSubcategory): Subcategory {
+  return {
+    id: Number(sub.id),
+    name: String(sub.name ?? ""),
+    category_id: sub.category_id ?? null,
+    slug: String(sub.slug ?? ""),
+    is_visible: Boolean(sub.is_visible),
+
+    seo_h1: sub.seo_h1 ?? null,
+    seo_title: sub.seo_title ?? null,
+    seo_description: sub.seo_description ?? null,
+    seo_text: sub.seo_text ?? null,
+    og_image: sub.og_image ?? null,
+    seo_noindex: sub.seo_noindex ?? null,
+
+    image_url: sub.image_url ?? null,
+    home_is_featured: sub.home_is_featured ?? null,
+    home_sort:
+      typeof sub.home_sort === "number" ? sub.home_sort : Number(sub.home_sort ?? 0),
+    home_icon_url: sub.home_icon_url ?? null,
+    home_title: sub.home_title ?? null,
+  };
+}
+
+function normalizeCategory(cat: RawCategory): Category {
+  return {
+    id: Number(cat.id),
+    name: String(cat.name ?? ""),
+    slug: String(cat.slug ?? ""),
+    is_visible: Boolean(cat.is_visible),
+
+    seo_h1: cat.seo_h1 ?? null,
+    seo_title: cat.seo_title ?? null,
+    seo_description: cat.seo_description ?? null,
+    seo_text: cat.seo_text ?? null,
+    og_image: cat.og_image ?? null,
+    seo_noindex: cat.seo_noindex ?? null,
+
+    home_is_featured: cat.home_is_featured ?? null,
+    home_sort:
+      typeof cat.home_sort === "number" ? cat.home_sort : Number(cat.home_sort ?? 0),
+    home_title: cat.home_title ?? null,
+
+    subcategories: Array.isArray(cat.subcategories)
+      ? cat.subcategories.map(normalizeSubcategory)
+      : [],
+  };
+}
+
 export default async function CategoriesPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
@@ -98,10 +163,11 @@ export default async function CategoriesPage() {
       .order("id", { ascending: true });
 
     if (error) throw error;
-    categories = (data || []) as Category[];
+
+    categories = ((data ?? []) as unknown as RawCategory[]).map(normalizeCategory);
   } catch (error: any) {
     process.env.NODE_ENV !== "production" &&
-      console.error("Error fetching categories:", error.message);
+      console.error("Error fetching categories:", error?.message || error);
   }
 
   return <CategoriesClient categories={categories} />;
