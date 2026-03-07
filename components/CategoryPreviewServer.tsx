@@ -20,18 +20,28 @@ export default function CategoryPreviewServer({ categoryName, products, seeMoreL
 
   return (
     <section className="max-w-7xl mx-auto px-2 sm:px-4 py-10 sm:py-12" aria-labelledby={headingId}>
-      {/* ✅ MOBILE header: слева название, справа стрелка */}
-      <div className="sm:hidden flex items-center justify-between gap-3 mb-4 px-2">
-        <h2 id={headingId} className="text-[22px] font-bold uppercase tracking-tight">
+      {/* ✅ MOBILE header: как в Самокате - слева заголовок, справа "Больше" + стрелка */}
+      <div className="sm:hidden flex items-center justify-between gap-3 mb-3 px-2">
+        <h2 id={headingId} className="text-[22px] font-extrabold tracking-tight">
           {categoryName}
         </h2>
 
         <Link
           href={`/category/${seeMoreLink}`}
-          className="shrink-0 w-11 h-11 rounded-full bg-black/[0.04] border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.06)] inline-flex items-center justify-center active:scale-[0.98] transition"
+          className="shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold text-black/55 hover:text-black/70 transition"
           aria-label={`Перейти в категорию ${categoryName}`}
         >
-          <span className="text-[20px] leading-none">→</span>
+          <span>Больше</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M9 6l6 6-6 6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </Link>
       </div>
 
@@ -43,7 +53,7 @@ export default function CategoryPreviewServer({ categoryName, products, seeMoreL
         {categoryName}
       </h2>
 
-      {/* ✅ MOBILE: горизонтальный свайп без вылета за край */}
+      {/* ✅ MOBILE: горизонтальный свайп */}
       <div className="sm:hidden">
         <div
           className={[
@@ -61,8 +71,6 @@ export default function CategoryPreviewServer({ categoryName, products, seeMoreL
               <ProductCard product={product} />
             </div>
           ))}
-
-          {/* небольшой хвост, чтобы последняя карточка не липла к краю */}
           <div className="shrink-0 w-2" />
         </div>
       </div>

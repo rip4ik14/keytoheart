@@ -5,18 +5,17 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimation } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import toast from 'react-hot-toast';
 
 import BurgerMenu from '@components/BurgerMenu';
 import CategoryNav from '@components/CategoryNav';
-import SearchModal from '@components/SearchModal';
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import { useAuth } from '@context/AuthContext';
 
-import toast from 'react-hot-toast';
 import type { Category } from '@/types/category';
-
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 
@@ -27,8 +26,9 @@ type StickyHeaderProps = {
 const MAX_LINK =
   'https://max.ru/u/f9LHodD0cOI-9oT8wIMLqNgL9blgVvmWzHwla0t-q1TLriNRDUJsOEIedDk';
 
-// CSS var for other UI (toasts, fabs etc.)
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
+
+const SearchModal = dynamic(() => import('@components/SearchModal'), { ssr: false });
 
 function cls(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(' ');
@@ -39,9 +39,15 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const router = useRouter();
 
   const headerRef = useRef<HTMLElement | null>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const cartIconRef = useRef<HTMLImageElement>(null);
 
-  const { items } = useCart() as { items: { price: number; quantity: number; imageUrl: string }[] };
-  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } = useCartAnimation();
+  const { items } = useCart() as {
+    items: { price: number; quantity: number; imageUrl: string }[];
+  };
+
+  const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } =
+    useCartAnimation();
 
   const { isAuthenticated, bonus, clearAuth, refreshAuth } = useAuth();
 
@@ -56,32 +62,36 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [previousTotalItems, setPreviousTotalItems] = useState(0);
-
-  // burger menu state (нужно для BurgerMenu)
   const [isBurgerOpen, setIsBurgerOpen] = useState(false);
+  const [previousTotalItems, setPreviousTotalItems] = useState(0);
+  const [isFlying, setIsFlying] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
-  const profileRef = useRef<HTMLDivElement>(null);
-  // Next/Image ref может быть не "идеально" типизирован, но в практике ок
-  const cartIconRef = useRef<HTMLImageElement>(null);
+  // Главное состояние для мобилки на главной:
+  // false = первый экран, только search button поверх промо
+  // true = скроллнули вниз, показываем sticky header с логотипом и категориями
+  const [homeStickyVisible, setHomeStickyVisible] = useState(pathname !== '/');
+  const homeStickyVisibleRef = useRef(pathname !== '/');
 
   const cartControls = useAnimation();
-  const [isFlying, setIsFlying] = useState(false);
-
-  const [isAndroid, setIsAndroid] = useState(false);
 
   const showMobileFilter = useMemo(() => {
     return pathname === '/' || pathname === '/catalog' || pathname.startsWith('/category/');
   }, [pathname]);
 
+  const isHomePage = pathname === '/';
+  const showHomeCompactSearchOnly = isHomePage && !homeStickyVisible;
+  const showHomeMobileStickyHeader = isHomePage && homeStickyVisible;
+  const showInnerPageMobileHeader = !isHomePage;
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const ua = navigator.userAgent || '';
-    const a = /Android/i.test(ua);
-    setIsAndroid(a);
+    const android = /Android/i.test(ua);
+    setIsAndroid(android);
 
-    if (a) document.documentElement.classList.add('kth-android');
+    if (android) document.documentElement.classList.add('kth-android');
     return () => {
       document.documentElement.classList.remove('kth-android');
     };
@@ -92,17 +102,86 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // expose sticky header height as CSS var (без iOS zoom resize-спама)
-  const lastHeaderHRef = useRef<number>(0);
+  // Убираем мерцание:
+  // вместо IntersectionObserver используем scroll + hysteresis
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (pathname !== '/') {
+      homeStickyVisibleRef.current = true;
+      setHomeStickyVisible(true);
+      return;
+    }
+
+    const el = document.getElementById('home-categories-sheet');
+    if (!el) {
+      homeStickyVisibleRef.current = false;
+      setHomeStickyVisible(false);
+      return;
+    }
+
+    let raf = 0;
+
+    // Когда верх листа категорий доходит примерно до области хедера - показываем sticky
+    const SHOW_AT = 56;
+    // Когда пользователь возвращается вверх - скрываем sticky чуть позже, чтобы не мигало
+    const HIDE_AT = 108;
+
+    const update = () => {
+      raf = 0;
+
+      const rect = el.getBoundingClientRect();
+      const top = rect.top;
+      const current = homeStickyVisibleRef.current;
+
+      let next = current;
+
+      if (!current && top <= SHOW_AT) next = true;
+      if (current && top >= HIDE_AT) next = false;
+
+      if (next !== current) {
+        homeStickyVisibleRef.current = next;
+        setHomeStickyVisible(next);
+      }
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(update);
+    };
+
+    update();
+
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('orientationchange', schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [pathname]);
+
+  // CSS var для прочих элементов интерфейса
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+
+    if (isMobile) {
+      const mobileHeight = showHomeMobileStickyHeader ? 116 : 0;
+      document.documentElement.style.setProperty(STICKY_HEADER_VAR, `${mobileHeight}px`);
+      return;
+    }
+
     const el = headerRef.current;
     if (!el) return;
 
     const apply = () => {
       const h = Math.ceil(el.getBoundingClientRect().height);
       if (!h) return;
-      if (lastHeaderHRef.current === h) return;
-      lastHeaderHRef.current = h;
       document.documentElement.style.setProperty(STICKY_HEADER_VAR, `${h}px`);
     };
 
@@ -122,7 +201,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       window.cancelAnimationFrame(r1);
       window.clearTimeout(t);
     };
-  }, []);
+  }, [showHomeMobileStickyHeader]);
 
   useEffect(() => {
     if (totalItems > 0 && previousTotalItems === 0) {
@@ -135,16 +214,16 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     setPreviousTotalItems(totalItems);
   }, [totalItems, cartControls, previousTotalItems]);
 
-  // ✅ важно: не дергать глобальный state на каждом scroll
-  // обновляем позицию иконки корзины только когда реально идет "полет"
   useEffect(() => {
-    // если не анимируем - один раз обновили и всё
     if (!animationState.isAnimating) {
       const el = cartIconRef.current;
       if (!el) return;
 
       const rect = el.getBoundingClientRect();
-      setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      setCartIconPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
       return;
     }
 
@@ -156,7 +235,10 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       if (!el) return;
 
       const rect = el.getBoundingClientRect();
-      setCartIconPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      setCartIconPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
     };
 
     const schedule = () => {
@@ -166,17 +248,14 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     schedule();
 
-    // scroll оставляем - он реально нужен
     window.addEventListener('scroll', schedule, { passive: true });
 
-    // вместо resize (который дергается при pinch-zoom на iOS) слушаем смену брейкпоинта
-    const mql = window.matchMedia('(min-width: 640px)'); // sm
+    const mql = window.matchMedia('(min-width: 640px)');
     const onChange = () => schedule();
 
     if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onChange);
     else mql.addListener(onChange);
 
-    // безопасно для поворота экрана
     window.addEventListener('orientationchange', schedule);
 
     return () => {
@@ -205,7 +284,6 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // закрываем бургер при смене маршрута (чтобы не зависало)
   useEffect(() => {
     setIsBurgerOpen(false);
   }, [pathname]);
@@ -220,14 +298,14 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
       if (!response.ok) throw new Error('Failed to logout');
 
       await clearAuth();
-
       setOpenProfile(false);
       toast.success('Вы вышли из аккаунта');
 
       window.dispatchEvent(new Event('authChange'));
       router.refresh();
     } catch (error) {
-      process.env.NODE_ENV !== 'production' && console.error('StickyHeader: Error signing out', error);
+      process.env.NODE_ENV !== 'production' &&
+        console.error('StickyHeader: Error signing out', error);
       toast.error('Не удалось выйти из аккаунта');
     }
   };
@@ -236,8 +314,18 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     isFlying && animationState.isAnimating ? (
       <motion.div
         className="fixed pointer-events-none z-[9999]"
-        initial={{ x: animationState.startX, y: animationState.startY, opacity: 1, scale: 1 }}
-        animate={{ x: cartIconPosition.x, y: cartIconPosition.y, opacity: 0, scale: 0.5 }}
+        initial={{
+          x: animationState.startX,
+          y: animationState.startY,
+          opacity: 1,
+          scale: 1,
+        }}
+        animate={{
+          x: cartIconPosition.x,
+          y: cartIconPosition.y,
+          opacity: 0,
+          scale: 0.5,
+        }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
         onAnimationComplete={() => {
           setIsFlying(false);
@@ -249,16 +337,22 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           alt="Товар"
           width={40}
           height={40}
-          className="w-10 h-10 object-cover rounded-full border border-gray-300"
+          className="h-10 w-10 rounded-full border border-gray-300 object-cover"
         />
       </motion.div>
     ) : null;
 
-  const overlayClass = isAndroid ? 'absolute inset-0 bg-black/70' : 'absolute inset-0 bg-black/70 backdrop-blur-sm';
+  const overlayClass = isAndroid
+    ? 'absolute inset-0 bg-black/70'
+    : 'absolute inset-0 bg-black/70 backdrop-blur-sm';
 
   const trackContact = (kind: 'whatsapp' | 'telegram' | 'max') => {
     const eventName =
-      kind === 'whatsapp' ? 'contact_whatsapp' : kind === 'telegram' ? 'contact_telegram' : 'contact_max';
+      kind === 'whatsapp'
+        ? 'contact_whatsapp'
+        : kind === 'telegram'
+          ? 'contact_telegram'
+          : 'contact_max';
 
     window.gtag?.('event', eventName, {
       event_category: 'header',
@@ -271,101 +365,151 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     }
   };
 
+  const mobileHeaderCard = (wrapperClassName?: string) => (
+    <div className={cls('mx-auto w-full max-w-[520px] px-3', wrapperClassName)}>
+      <div
+        className={cls(
+          'pointer-events-auto',
+          'rounded-[28px]',
+          'border border-black/10',
+          'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
+          'overflow-hidden',
+          'kth-glass kth-sticky-surface',
+        )}
+      >
+        <div className="transition-all duration-200">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="h-10 w-10" aria-hidden="true" />
+
+            <Link
+              href="/"
+              className="text-[15px] font-extrabold uppercase tracking-[0.10em] text-zinc-900"
+              aria-label="Главная"
+            >
+              ключ к сердцу
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 active:bg-black/10"
+              aria-label="Поиск"
+            >
+              <Image
+                src="/icons/search.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="h-5 w-5"
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="px-2 pb-2">
+          <div
+            className={cls(
+              'relative overflow-hidden rounded-[22px]',
+              'border border-black/10',
+              'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
+              'kth-glass kth-sticky-surface',
+            )}
+          >
+            <div
+              className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight"
+              aria-hidden="true"
+            />
+            <div className="relative">
+              <CategoryNav
+                initialCategories={initialCategories}
+                showMobileFilter={showMobileFilter}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <header
         ref={headerRef}
         data-sticky-header="true"
-        className="sticky top-0 z-50 bg-transparent sm:bg-white sm:border-b border-black/10 shadow-none sm:shadow-sm"
+        className="z-50 bg-transparent sm:sticky sm:top-0 sm:border-b sm:border-black/10 sm:bg-white sm:shadow-sm"
         aria-label="Основная навигация"
         itemScope
         itemType="https://schema.org/SiteNavigationElement"
       >
-        {/* ========================= */}
-        {/* ✅ MOBILE */}
-        {/* ========================= */}
-        <div className="sm:hidden px-3 pt-2 pb-2 bg-transparent">
-          <div
-            className={cls(
-              'mx-auto',
-              'w-full',
-              'max-w-[520px]',
-              'rounded-[28px]',
-              'border border-black/10',
-              'shadow-[0_18px_55px_rgba(0,0,0,0.12)]',
-              'overflow-hidden',
-              'kth-glass kth-sticky-surface',
-            )}
-          >
-            <div className="transition-all duration-200">
-              <div className="flex items-center justify-between px-3 py-2">
-                <div className="w-10 h-10" aria-hidden="true" />
-
-                <Link
-                  href="/"
-                  className="text-[15px] font-extrabold tracking-[0.10em] uppercase text-zinc-900"
-                  aria-label="Главная"
-                >
-                  ключ к сердцу
-                </Link>
-
+        {/* MOBILE */}
+        <div className="sm:hidden">
+          {/* Первый экран главной - только кнопка поиска поверх промо */}
+          {showHomeCompactSearchOnly && (
+            <div
+              className="pointer-events-none fixed inset-x-0 z-[60]"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 48px)' }}
+            >
+              <div className="mx-auto flex w-full max-w-[520px] justify-end px-4">
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
-                  className="w-10 h-10 rounded-full bg-black/5 active:bg-black/10 flex items-center justify-center"
+                  className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-white/85 shadow-[0_12px_28px_rgba(0,0,0,0.10)] backdrop-blur"
                   aria-label="Поиск"
                 >
-                  <Image src="/icons/search.svg" alt="" width={20} height={20} className="w-5 h-5" />
+                  <Image
+                    src="/icons/search.svg"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="h-5 w-5"
+                  />
                 </button>
               </div>
             </div>
+          )}
 
-            <div className="px-2 pb-2">
-              <div
-                className={cls(
-                  'relative rounded-[22px]',
-                  'border border-black/10',
-                  'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
-                  'overflow-hidden',
-                  'kth-glass kth-sticky-surface',
-                )}
-              >
-                <div className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight" aria-hidden="true" />
-                <div className="relative">
-                  <CategoryNav initialCategories={initialCategories} showMobileFilter={showMobileFilter} />
-                </div>
-              </div>
+          {/* Главная после скролла - фиксированный sticky header */}
+          {showHomeMobileStickyHeader && (
+            <div
+              className="pointer-events-none fixed inset-x-0 z-[60]"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 48px)' }}
+            >
+              {mobileHeaderCard()}
             </div>
-          </div>
+          )}
+
+          {/* Внутренние страницы - шапка в потоке документа, чтобы естественно уходила вверх при скролле */}
+          {showInnerPageMobileHeader && mobileHeaderCard('pt-2')}
         </div>
 
-        {/* ===================== */}
-        {/* ✅ DESKTOP */}
-        {/* ===================== */}
+        {/* DESKTOP */}
         <div className="hidden sm:block">
-          <div className={['border-b border-black/0', 'transition-all duration-200', 'opacity-100'].join(' ')}>
-            <div className="container mx-auto flex items-center justify-between px-4 py-2 md:py-3 gap-2 min-w-[320px] relative">
-              <div className="flex items-center gap-2 md:gap-4 min-w-0">
+          <div
+            className={[
+              'border-b border-black/0',
+              'transition-all duration-200',
+              'opacity-100',
+            ].join(' ')}
+          >
+            <div className="container relative mx-auto flex min-w-[320px] items-center justify-between gap-2 px-4 py-2 md:py-3">
+              <div className="flex min-w-0 items-center gap-2 md:gap-4">
                 <BurgerMenu open={isBurgerOpen} onOpenChange={setIsBurgerOpen} />
 
                 <Link
                   href="/"
                   className={[
-                    'uppercase',
+                    'truncate uppercase',
                     'text-[18px] sm:text-[20px] md:text-[30px]',
-                    'leading-none',
-                    'font-extrabold',
-                    'tracking-[0.08em]',
+                    'leading-none font-extrabold tracking-[0.08em]',
                     'text-zinc-900',
                     'md:absolute md:left-1/2 md:-translate-x-1/2',
-                    'truncate',
                   ].join(' ')}
                   aria-label="Перейти на главную страницу"
                 >
                   КЛЮЧ К СЕРДЦУ
                 </Link>
 
-                <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-black">
+                <div className="hidden flex-wrap items-center gap-4 text-sm text-black md:flex">
                   <span>Краснодар</span>
 
                   <div className="flex flex-col leading-tight">
@@ -382,7 +526,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   <div className="flex items-center gap-2">
                     <a
                       href="https://wa.me/79886033821"
-                      className="border rounded-full p-2 hover:bg-gray-100"
+                      className="rounded-full border p-2 hover:bg-gray-100"
                       title="WhatsApp"
                       aria-label="Перейти в WhatsApp"
                       rel="nofollow"
@@ -394,7 +538,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
                     <a
                       href="https://t.me/keytomyheart"
-                      className="border rounded-full p-2 hover:bg-gray-100"
+                      className="rounded-full border p-2 hover:bg-gray-100"
                       title="Telegram"
                       aria-label="Перейти в Telegram"
                       rel="nofollow"
@@ -406,7 +550,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
                     <a
                       href={MAX_LINK}
-                      className="border rounded-full p-2 hover:bg-gray-100"
+                      className="rounded-full border p-2 hover:bg-gray-100"
                       title="MAX"
                       aria-label="Перейти в MAX"
                       rel="nofollow"
@@ -419,25 +563,31 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 md:gap-3 relative">
+              <div className="relative flex items-center gap-2 md:gap-3">
                 <button
                   onClick={() => setIsSearchOpen(true)}
-                  className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:p-2.5"
+                  className="rounded-full p-2 hover:bg-gray-100 focus:ring-2 focus:ring-black md:p-2.5"
                   title="Поиск"
                   aria-controls="search-modal"
                 >
-                  <Image src="/icons/search.svg" alt="Поиск" width={20} height={20} className="w-5 h-5" />
+                  <Image
+                    src="/icons/search.svg"
+                    alt="Поиск"
+                    width={20}
+                    height={20}
+                    className="h-5 w-5"
+                  />
                 </button>
 
-                <div className="hidden sm:flex items-center gap-2 md:gap-3">
+                <div className="hidden items-center gap-2 md:gap-3 sm:flex">
                   {isAuthenticated ? (
                     <div ref={profileRef} className="relative">
                       <button
                         onClick={() => setOpenProfile((p) => !p)}
-                        className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:px-4 md:py-1 md:border md:rounded-full"
+                        className="rounded-full p-2 hover:bg-gray-100 focus:ring-2 focus:ring-black md:rounded-full md:border md:px-4 md:py-1"
                         aria-expanded={openProfile}
                       >
-                        <div className="hidden md:flex items-center gap-2">
+                        <div className="hidden items-center gap-2 md:flex">
                           {bonus !== null && bonus >= 0 && (
                             <span className="rounded-full border px-2 py-[2px] text-xs font-semibold">
                               Бонусов: {bonus}
@@ -446,7 +596,13 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                           <span>Профиль</span>
                         </div>
 
-                        <Image src="/icons/user.svg" alt="Профиль" width={20} height={20} className="w-5 h-5 md:hidden" />
+                        <Image
+                          src="/icons/user.svg"
+                          alt="Профиль"
+                          width={20}
+                          height={20}
+                          className="h-5 w-5 md:hidden"
+                        />
                       </button>
 
                       <AnimatePresence>
@@ -456,12 +612,12 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
-                            className="absolute right-0 mt-2 w-48 bg-white shadow-lg border rounded-lg z-50"
+                            className="absolute right-0 z-50 mt-2 w-48 rounded-lg border bg-white shadow-lg"
                           >
                             <div className="py-1">
                               <Link
                                 href="/account"
-                                className="block px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
+                                className="block px-4 py-2 text-sm outline-none hover:bg-gray-100 focus:bg-gray-100"
                                 onClick={() => setOpenProfile(false)}
                               >
                                 Личный кабинет
@@ -469,7 +625,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
                               <button
                                 onClick={handleSignOut}
-                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 outline-none"
+                                className="w-full px-4 py-2 text-left text-sm outline-none hover:bg-gray-100 focus:bg-gray-100"
                               >
                                 Выход
                               </button>
@@ -481,40 +637,49 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
                   ) : (
                     <Link
                       href="/account"
-                      className="p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:px-4 md:py-1 md:border md:rounded-full"
+                      className="rounded-full p-2 hover:bg-gray-100 focus:ring-2 focus:ring-black md:rounded-full md:border md:px-4 md:py-1"
                       aria-label="Войти в аккаунт"
                     >
-                      <Image src="/icons/user.svg" alt="Вход" width={20} height={20} className="w-5 h-5 md:hidden" />
+                      <Image
+                        src="/icons/user.svg"
+                        alt="Вход"
+                        width={20}
+                        height={20}
+                        className="h-5 w-5 md:hidden"
+                      />
                       <span className="hidden md:inline">Вход</span>
                     </Link>
                   )}
 
                   <Link
                     href="/cart"
-                    className="relative flex items-center gap-1 p-2 hover:bg-gray-100 rounded-full focus:ring-2 focus:ring-black md:gap-2 md:border md:px-3 md:py-1 md:rounded-full"
+                    className="relative flex items-center gap-1 rounded-full p-2 hover:bg-gray-100 focus:ring-2 focus:ring-black md:gap-2 md:rounded-full md:border md:px-3 md:py-1"
                     title="Корзина"
                     aria-label="Перейти в корзину"
                   >
                     <motion.div animate={cartControls} className="relative">
                       <Image
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ref={cartIconRef as any}
                         src="/icons/shopping-cart.svg"
                         alt="Корзина"
                         width={20}
                         height={20}
-                        className={`w-5 h-5 ${totalItems > 0 ? 'text-rose-500' : 'text-gray-900'}`}
+                        className={`h-5 w-5 ${totalItems > 0 ? 'text-rose-500' : 'text-gray-900'}`}
                         loading="eager"
                       />
 
                       {totalItems > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center shadow-sm border border-white">
+                        <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white bg-rose-500 text-xs font-semibold text-white shadow-sm">
                           {totalItems}
                         </span>
                       )}
                     </motion.div>
 
-                    {cartSum > 0 && <span className="hidden sm:block text-base font-medium">{formattedCartSum}</span>}
+                    {cartSum > 0 && (
+                      <span className="hidden text-base font-medium sm:block">
+                        {formattedCartSum}
+                      </span>
+                    )}
                   </Link>
                 </div>
               </div>
@@ -524,12 +689,14 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           {flyBall}
 
           <div className="border-t">
-            <CategoryNav initialCategories={initialCategories} showMobileFilter={showMobileFilter} />
+            <CategoryNav
+              initialCategories={initialCategories}
+              showMobileFilter={showMobileFilter}
+            />
           </div>
         </div>
       </header>
 
-      {/* Search modal */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -540,29 +707,46 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
           >
-            <motion.div className={overlayClass} onClick={() => setIsSearchOpen(false)} aria-hidden="true" />
+            <motion.div
+              className={overlayClass}
+              onClick={() => setIsSearchOpen(false)}
+              aria-hidden="true"
+            />
 
-            <div className="relative w-full max-w-md sm:max-w-2xl mx-4 mt-16 sm:mt-24">
+            <div className="relative mx-4 mt-16 w-full max-w-md sm:mt-24 sm:max-w-2xl">
               <motion.div
-                className="bg-white rounded-2xl z-10"
+                className="z-10 rounded-2xl bg-white"
                 initial={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
                 animate={isAndroid ? { opacity: 1, y: 0 } : { scale: 1, opacity: 1 }}
                 exit={isAndroid ? { opacity: 0, y: 12 } : { scale: 0.96, opacity: 0 }}
-                transition={isAndroid ? { duration: 0.18 } : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }}
+                transition={
+                  isAndroid
+                    ? { duration: 0.18 }
+                    : { type: 'spring', stiffness: 220, damping: 26, delay: 0.06 }
+                }
               >
-                <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+                <SearchModal
+                  isOpen={isSearchOpen}
+                  onClose={() => setIsSearchOpen(false)}
+                />
               </motion.div>
 
               <motion.button
                 onClick={() => setIsSearchOpen(false)}
-                className="absolute top-4 right-4 text-gray-600 hover:text-black focus:ring-2 focus:ring-black"
+                className="absolute right-4 top-4 text-gray-600 hover:text-black focus:ring-2 focus:ring-black"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.16, delay: 0.06 }}
                 aria-label="Закрыть поиск"
               >
-                <Image src="/icons/x.svg" alt="Закрыть" width={24} height={24} loading="eager" />
+                <Image
+                  src="/icons/x.svg"
+                  alt="Закрыть"
+                  width={24}
+                  height={24}
+                  loading="eager"
+                />
               </motion.button>
             </div>
           </motion.div>

@@ -101,10 +101,6 @@ export default function ProductCard({
   const { triggerCartAnimation } = useCartAnimation();
 
   // ✅ ВАЖНО: не вешаем matchMedia listener на каждую карточку
-  const isMobile = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 640;
-  }, []);
 
   const [showToast, setShowToast] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,8 +114,10 @@ export default function ProductCard({
   // ✅ для portal
   const [mounted, setMounted] = useState(false);
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const mobileCardRef = useRef<HTMLDivElement>(null);
+  const desktopCardRef = useRef<HTMLDivElement>(null);
+  const mobileButtonRef = useRef<HTMLButtonElement>(null);
+  const desktopButtonRef = useRef<HTMLButtonElement>(null);
   const stablePriority = useRef(priority).current;
 
   const title = useMemo(() => normalizeTitle(product.title || ''), [product.title]);
@@ -179,25 +177,43 @@ export default function ProductCard({
       quantity: 1,
     });
 
-    if (buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
+    const isMobileNow = typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false;
+
+
+    const btnEl = isMobileNow ? mobileButtonRef.current : desktopButtonRef.current;
+
+    if (btnEl) {
+
+      const r = btnEl.getBoundingClientRect();
+
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
+
     }
 
-    toastPlacementRef.current = isMobile ? 'mobile' : 'desktop';
+
+    toastPlacementRef.current = isMobileNow ? 'mobile' : 'desktop';
+
 
     if (typeof window !== 'undefined') {
-      if (isMobile) {
-        const headerH =
-          getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
-        const safeTop = 'max(env(safe-area-inset-top), 12px)';
-        toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
-      } else {
-        toastTopRef.current = null;
-      }
-    }
 
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      if (isMobileNow) {
+
+        const headerH =
+
+          getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
+
+        const safeTop = 'max(env(safe-area-inset-top), 12px)';
+
+        toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
+
+      } else {
+
+        toastTopRef.current = null;
+
+      }
+
+    }
+if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setShowToast(true);
     toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
   };
@@ -271,169 +287,165 @@ export default function ProductCard({
     );
   };
 
-  if (isMobile) {
-    const unopt = isRemoteUrl(imageUrl);
+  
+  const unopt = isRemoteUrl(imageUrl);
 
-    return (
-      <>
-        <motion.div
-          ref={cardRef}
-          className={[
-            'relative w-full',
-            'rounded-[18px]',
-            'border border-black/10',
-            'bg-white',
-            'shadow-[0_10px_28px_rgba(0,0,0,0.06)]',
-            'overflow-hidden',
-            'flex flex-col',
-          ].join(' ')}
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22 }}
-          onKeyDown={handleKeyDown}
-          role="article"
-          aria-labelledby={`product-${(product as any).id}-title`}
-          tabIndex={0}
-        >
-          {/* ✅ ВАЖНО: schema в карточке по умолчанию выключена */}
-          {withSchema && (
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
-                  '@context': 'https://schema.org/',
-                  '@type': 'Product',
-                  name: title,
-                  image: imageUrl,
-                  description: (product as any).description || 'Описание товара отсутствует',
-                  sku: (product as any).id.toString(),
-                  mpn: (product as any).id.toString(),
-                  brand: { '@type': 'Brand', name: 'KeyToHeart' },
-                  offers: {
-                    '@type': 'Offer',
-                    url: `/product/${(product as any).id}`,
-                    priceCurrency: 'RUB',
-                    price: discountedPrice.toString(),
-                    priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                      .toISOString()
-                      .split('T')[0],
-                    availability: (product as any).in_stock
-                      ? 'https://schema.org/InStock'
-                      : 'https://schema.org/OutOfStock',
-                    itemCondition: 'https://schema.org/NewCondition',
-                  },
-                }),
-              }}
-            />
-          )}
-
-          <Link
-            href={`/product/${(product as any).id}`}
-            className="block relative w-full aspect-[1/1] overflow-hidden bg-black/[0.04]"
-            tabIndex={-1}
-            aria-label={`Перейти к товару ${title}`}
-          >
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              fetchPriority={stablePriority ? 'high' : 'auto'}
-              sizes="(max-width: 640px) 70vw, 220px"
-              className="object-cover w-full h-full"
-              loading={stablePriority ? 'eager' : 'lazy'}
-              priority={stablePriority}
-              unoptimized={unopt}
-            />
-
-            <div className="absolute inset-x-0 bottom-0 h-[72px] z-[10] pointer-events-none bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
-
-            <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
-              {bonus > 0 && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
-                  <Gift size={12} className="text-black/70" />
-                  <span className="text-[10px] font-semibold text-black/80">+{bonus}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
-              {isPopular && (
-                <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                  <Star size={14} className="text-yellow-400" />
-                </div>
-              )}
-            </div>
-
-            <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
-                <Clock size={12} className="text-white/80" />
-                <span className="text-[10px] font-semibold text-white">
-                  {productionCompact || (productionText ? productionText : '-')}
-                </span>
-              </div>
-            </div>
-
-            {discountAmount > 0 && (
-              <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-none">
-                <div className="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
-                  <span className="text-[10px] font-bold text-white">-{formatRuble(discountAmount)} ₽</span>
-                </div>
-              </div>
-            )}
-          </Link>
-
-          <div className="px-3 pt-3 pb-3">
-            <h3
-              id={`product-${(product as any).id}-title`}
-              className="text-[13px] font-medium text-black leading-[1.25] break-words"
-              title={title}
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {title}
-            </h3>
-
-            <div className="mt-2 flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                {(discountAmount > 0 || originalPrice > (product as any).price) && (
-                  <div className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</div>
-                )}
-              </div>
-
-              <button
-                ref={buttonRef}
-                type="button"
-                onClick={handleAddToCart}
+  const MobileView = (
+    <div className="sm:hidden">
+              <div
+                ref={mobileCardRef}
                 className={[
-                  'shrink-0',
-                  'inline-flex items-center justify-center gap-2',
-                  'h-[36px] px-3 rounded-[14px]',
-                  'bg-black/[0.04]',
+                  'relative w-full',
+                  'rounded-[18px]',
                   'border border-black/10',
-                  'text-black',
-                  'shadow-[0_10px_20px_rgba(0,0,0,0.06)]',
-                  'active:scale-[0.99]',
-                  'transition',
+                  'bg-white',
+                  'shadow-[0_10px_28px_rgba(0,0,0,0.06)]',
+                  'overflow-hidden',
+                  'flex flex-col',
                 ].join(' ')}
-                aria-label={`Добавить ${title} в корзину`}
+                onKeyDown={handleKeyDown}
+                role="article"
+                aria-labelledby={`product-${(product as any).id}-title-m`}
+                tabIndex={0}
               >
-                <ShoppingCart size={16} className="text-black/70" />
-                <span className="text-[14px] font-bold">{priceText}</span>
-              </button>
-            </div>
-          </div>
-        </motion.div>
+                {/* ✅ ВАЖНО: schema в карточке по умолчанию выключена */}
+                {withSchema && (
+                  <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                      __html: JSON.stringify({
+                        '@context': 'https://schema.org/',
+                        '@type': 'Product',
+                        name: title,
+                        image: imageUrl,
+                        description: (product as any).description || 'Описание товара отсутствует',
+                        sku: (product as any).id.toString(),
+                        mpn: (product as any).id.toString(),
+                        brand: { '@type': 'Brand', name: 'KeyToHeart' },
+                        offers: {
+                          '@type': 'Offer',
+                          url: `/product/${(product as any).id}`,
+                          priceCurrency: 'RUB',
+                          price: discountedPrice.toString(),
+                          priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            .toISOString()
+                            .split('T')[0],
+                          availability: (product as any).in_stock
+                            ? 'https://schema.org/InStock'
+                            : 'https://schema.org/OutOfStock',
+                          itemCondition: 'https://schema.org/NewCondition',
+                        },
+                      }),
+                    }}
+                  />
+                )}
 
-        <MobileToast />
-      </>
-    );
-  }
+                <Link
+                  href={`/product/${(product as any).id}`}
+                  className="block relative w-full aspect-[1/1] overflow-hidden bg-black/[0.04]"
+                  tabIndex={-1}
+                  aria-label={`Перейти к товару ${title}`}
+                >
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    fill
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    sizes="(max-width: 640px) 70vw, 220px"
+                    className="object-cover w-full h-full"
+                    loading={stablePriority ? 'eager' : 'lazy'}
+                    priority={stablePriority}
+                    unoptimized={unopt}
+                  />
 
-  // =========================
+                  <div className="absolute inset-x-0 bottom-0 h-[72px] z-[10] pointer-events-none bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
+
+                  <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+                    {bonus > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
+                        <Gift size={12} className="text-black/70" />
+                        <span className="text-[10px] font-semibold text-black/80">+{bonus}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
+                    {isPopular && (
+                      <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                        <Star size={14} className="text-yellow-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                      <Clock size={12} className="text-white/80" />
+                      <span className="text-[10px] font-semibold text-white">
+                        {productionCompact || (productionText ? productionText : '-')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-none">
+                      <div className="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                        <span className="text-[10px] font-bold text-white">-{formatRuble(discountAmount)} ₽</span>
+                      </div>
+                    </div>
+                  )}
+                </Link>
+
+                <div className="px-3 pt-3 pb-3">
+                  <h3
+                    id={`product-${(product as any).id}-title-m`}
+                    className="text-[13px] font-medium text-black leading-[1.25] break-words"
+                    title={title}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {title}
+                  </h3>
+
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      {(discountAmount > 0 || originalPrice > (product as any).price) && (
+                        <div className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</div>
+                      )}
+                    </div>
+
+                    <button
+                      ref={mobileButtonRef}
+                      type="button"
+                      onClick={handleAddToCart}
+                      className={[
+                        'shrink-0',
+                        'inline-flex items-center justify-center gap-2',
+                        'h-[36px] px-3 rounded-[14px]',
+                        'bg-black/[0.04]',
+                        'border border-black/10',
+                        'text-black',
+                        'shadow-[0_10px_20px_rgba(0,0,0,0.06)]',
+                        'active:scale-[0.99]',
+                        'transition',
+                      ].join(' ')}
+                      aria-label={`Добавить ${title} в корзину`}
+                    >
+                      <ShoppingCart size={16} className="text-black/70" />
+                      <span className="text-[14px] font-bold">{priceText}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <MobileToast />
+    </div>
+  );
+
+// =========================
   // ✅ DESKTOP - ОСТАВЛЕНО КАК БЫЛО
   // =========================
   const useInternalShadow = shadowMode !== 'none';
@@ -441,187 +453,188 @@ export default function ProductCard({
   const DESKTOP_META_H = 'h-[36px]';
   const DESKTOP_BOTTOM_H = 'h-[104px]';
 
+  const DesktopView = (
+    <div className="hidden sm:block">
+            <div
+              className={[
+                'group relative w-full',
+                'max-w-[220px] sm:max-w-[280px] mx-auto',
+                'rounded-[26px]',
+                'bg-white/70 backdrop-blur-xl',
+                'border border-black/10',
+                'overflow-hidden',
+                'transition-transform duration-300',
+                'hover:scale-[1.01]',
+                useInternalShadow
+                  ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.14)]'
+                  : 'shadow-none',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+                'flex flex-col',
+              ].join(' ')}
+              onKeyDown={handleKeyDown}
+              role="article"
+              aria-labelledby={`product-${(product as any).id}-title-d`}
+              tabIndex={0}
+              aria-live="polite"
+            >
+              <div className="relative p-3 sm:p-4">
+                <Link
+                  href={`/product/${(product as any).id}`}
+                  className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
+                  tabIndex={-1}
+                  aria-label={`Перейти к товару ${title}`}
+                >
+                  <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
+
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    fill
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    sizes="(max-width: 640px) 50vw, 280px"
+                    className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
+                    loading={stablePriority ? 'eager' : 'lazy'}
+                    priority={stablePriority}
+                    unoptimized={isRemoteUrl(imageUrl)}
+                  />
+
+                  <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
+                    {bonus > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <Gift size={14} className="text-black/70" />
+                        <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
+                      </div>
+                    )}
+
+                    {productionText && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <Clock size={14} className="text-black/55" />
+                        <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
+                    {isPopular && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
+                        <Star size={14} className="text-yellow-400" />
+                        <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
+                      </div>
+                    )}
+
+                    {discountAmount > 0 && (
+                      <div className="inline-flex items-center rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <span className="text-[11px] font-bold tracking-tight text-black">-{formatRuble(discountAmount)} ₽</span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
+
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
+                <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
+                  <h3
+                    id={`product-${(product as any).id}-title-d`}
+                    className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
+                    title={title}
+                  >
+                    {title}
+                  </h3>
+                </div>
+
+                <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
+
+                        {(discountAmount > 0 || originalPrice > (product as any).price) && (
+                          <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
+                        )}
+                      </div>
+
+                      <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
+                        {productionText ? (
+                          <div className="text-[11px] text-black/55 leading-snug break-words">
+                            Изготовление: {productionText}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-transparent select-none">.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
+                      <button
+                        ref={desktopButtonRef}
+                        type="button"
+                        onClick={handleAddToCart}
+                        className={[
+                          'inline-flex items-center justify-center gap-2',
+                          'h-[44px] px-4 rounded-full',
+                          'bg-white/70 backdrop-blur-xl',
+                          'border border-black/15',
+                          'text-black',
+                          'text-[12px] font-bold uppercase tracking-tight',
+                          'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
+                          'transition-all duration-200',
+                          'hover:bg-black hover:text-white hover:border-black',
+                          'active:scale-[0.98]',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+                          'opacity-0 translate-y-2 pointer-events-none',
+                          'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
+                        ].join(' ')}
+                        aria-label={`Добавить ${title} в корзину`}
+                      >
+                        <ShoppingCart size={18} />
+                        в корзину
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ desktop toast */}
+            <AnimatePresence>
+              {showToast && toastPlacementRef.current === 'desktop' && (
+                <div
+                  className={[
+                    'fixed bottom-4 right-4 z-[9999]',
+                    'max-w-[380px] w-[92%] sm:w-[340px]',
+                    'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
+                    'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
+                    'border border-black/10',
+                    'px-3 py-3 flex items-center gap-3',
+                  ].join(' ')}
+                  exit={{ opacity: 0, y: 18 }}
+                  aria-live="polite"
+                >
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+                    <Image
+                      src={imageUrl}
+                      alt={title}
+                      width={48}
+                      height={48}
+                      className="object-cover w-full h-full"
+                      unoptimized={isRemoteUrl(imageUrl)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <p className="text-sm font-semibold">добавлено в корзину</p>
+                    <p className="text-xs text-black/60 break-words">{title}</p>
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
+    </div>
+  );
+
   return (
     <>
-      <motion.div
-        className={[
-          'group relative w-full',
-          'max-w-[220px] sm:max-w-[280px] mx-auto',
-          'rounded-[26px]',
-          'bg-white/70 backdrop-blur-xl',
-          'border border-black/10',
-          'overflow-hidden',
-          'transition-transform duration-300',
-          'hover:scale-[1.01]',
-          useInternalShadow
-            ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.14)]'
-            : 'shadow-none',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
-          'flex flex-col',
-        ].join(' ')}
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28 }}
-        onKeyDown={handleKeyDown}
-        role="article"
-        aria-labelledby={`product-${(product as any).id}-title`}
-        tabIndex={0}
-        aria-live="polite"
-      >
-        <div className="relative p-3 sm:p-4">
-          <Link
-            href={`/product/${(product as any).id}`}
-            className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
-            tabIndex={-1}
-            aria-label={`Перейти к товару ${title}`}
-          >
-            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
-
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              fetchPriority={stablePriority ? 'high' : 'auto'}
-              sizes="(max-width: 640px) 50vw, 280px"
-              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
-              loading={stablePriority ? 'eager' : 'lazy'}
-              priority={stablePriority}
-              unoptimized={isRemoteUrl(imageUrl)}
-            />
-
-            <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
-              {bonus > 0 && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <Gift size={14} className="text-black/70" />
-                  <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
-                </div>
-              )}
-
-              {productionText && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <Clock size={14} className="text-black/55" />
-                  <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
-              {isPopular && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
-                  <Star size={14} className="text-yellow-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
-                </div>
-              )}
-
-              {discountAmount > 0 && (
-                <div className="inline-flex items-center rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <span className="text-[11px] font-bold tracking-tight text-black">-{formatRuble(discountAmount)} ₽</span>
-                </div>
-              )}
-            </div>
-          </Link>
-        </div>
-
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
-          <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
-            <h3
-              id={`product-${(product as any).id}-title`}
-              className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
-              title={title}
-            >
-              {title}
-            </h3>
-          </div>
-
-          <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
-
-                  {(discountAmount > 0 || originalPrice > (product as any).price) && (
-                    <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
-                  )}
-                </div>
-
-                <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
-                  {productionText ? (
-                    <div className="text-[11px] text-black/55 leading-snug break-words">
-                      Изготовление: {productionText}
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-transparent select-none">.</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
-                <button
-                  ref={buttonRef}
-                  type="button"
-                  onClick={handleAddToCart}
-                  className={[
-                    'inline-flex items-center justify-center gap-2',
-                    'h-[44px] px-4 rounded-full',
-                    'bg-white/70 backdrop-blur-xl',
-                    'border border-black/15',
-                    'text-black',
-                    'text-[12px] font-bold uppercase tracking-tight',
-                    'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
-                    'transition-all duration-200',
-                    'hover:bg-black hover:text-white hover:border-black',
-                    'active:scale-[0.98]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
-                    'opacity-0 translate-y-2 pointer-events-none',
-                    'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
-                  ].join(' ')}
-                  aria-label={`Добавить ${title} в корзину`}
-                >
-                  <ShoppingCart size={18} />
-                  в корзину
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ✅ desktop toast */}
-      <AnimatePresence>
-        {showToast && toastPlacementRef.current === 'desktop' && (
-          <motion.div
-            className={[
-              'fixed bottom-4 right-4 z-[9999]',
-              'max-w-[380px] w-[92%] sm:w-[340px]',
-              'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
-              'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
-              'border border-black/10',
-              'px-3 py-3 flex items-center gap-3',
-            ].join(' ')}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 18 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            aria-live="polite"
-          >
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-              <Image
-                src={imageUrl}
-                alt={title}
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-                unoptimized={isRemoteUrl(imageUrl)}
-              />
-            </div>
-
-            <div className="flex flex-col flex-1 min-w-0">
-              <p className="text-sm font-semibold">добавлено в корзину</p>
-              <p className="text-xs text-black/60 break-words">{title}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {MobileView}
+      {DesktopView}
     </>
   );
 }

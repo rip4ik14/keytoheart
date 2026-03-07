@@ -855,3 +855,22 @@ html.kth-zooming .kth-glass-highlight {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* плавное исчезновение текста по краям бегущей строки */
+.topbar-fade {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}

@@ -14,7 +14,7 @@ import AdvantagesClient from '@components/AdvantagesClient';
 import YandexReviewsWidget from '@components/YandexReviewsWidget';
 import FAQSectionWrapper from '@components/FAQSectionWrapper';
 import FlowwowReviewsWidget from '@components/FlowwowReviewsWidget';
-import GiftIdeasStrip from '@components/GiftIdeasStrip';
+import HomeCategoryPills from '@components/HomeCategoryPills';
 
 import { getHomeData } from '@/lib/data/home';
 
@@ -163,7 +163,7 @@ function buildLdGraph(
 
 /* ==============================  Страница  ============================== */
 export default async function Home() {
-  const { products, categoriesMeta, giftIdeas } = await getHomeData();
+  const { products, categoriesMeta, homePillItems } = await getHomeData();
 
   const ldGraph = buildLdGraph(products);
 
@@ -227,12 +227,9 @@ export default async function Home() {
         <PromoGridServer />
       </section>
 
-      {/* ✅ Ищу подарок (ТОЛЬКО мобилка, категория "povod") */}
-      {giftIdeas.length > 0 && (
-        <div className="block lg:hidden">
-          <GiftIdeasStrip title="Ищу подарок" items={giftIdeas} seeAllHref="/category/povod" />
-        </div>
-      )}
+      {/* ✅ Samokat mobile categories sheet */}
+      <HomeCategoryPills categories={homePillItems} />
+
 
       <section role="region" aria-label="Категории товаров" id="home-categories">
         <h2 className="sr-only">Категории товаров</h2>

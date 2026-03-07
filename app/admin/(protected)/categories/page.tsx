@@ -1,9 +1,9 @@
 // ✅ Путь: app/admin/(protected)/categories/page.tsx
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { verifyAdminJwt } from '@/lib/auth';
-import CategoriesClient from './CategoriesClient';
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { verifyAdminJwt } from "@/lib/auth";
+import CategoriesClient from "./CategoriesClient";
 
 interface Subcategory {
   id: number;
@@ -18,6 +18,12 @@ interface Subcategory {
   seo_text?: string | null;
   og_image?: string | null;
   seo_noindex?: boolean | null;
+
+  image_url?: string | null;
+  home_is_featured?: boolean | null;
+  home_sort?: number | null;
+  home_icon_url?: string | null;
+  home_title?: string | null;
 }
 
 interface Category {
@@ -33,23 +39,27 @@ interface Category {
   og_image?: string | null;
   seo_noindex?: boolean | null;
 
+  home_is_featured?: boolean | null;
+  home_sort?: number | null;
+  home_title?: string | null;
+
   subcategories: Subcategory[];
 }
 
 export default async function CategoriesPage() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('admin_session')?.value;
+  const token = cookieStore.get("admin_session")?.value;
 
-  if (!token) redirect('/admin/login?error=no-session');
+  if (!token) redirect("/admin/login?error=no-session");
 
   const isValidToken = await verifyAdminJwt(token);
-  if (!isValidToken) redirect('/admin/login?error=invalid-session');
+  if (!isValidToken) redirect("/admin/login?error=invalid-session");
 
   let categories: Category[] = [];
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('categories')
+      .from("categories")
       .select(
         `
         id,
@@ -62,6 +72,9 @@ export default async function CategoriesPage() {
         seo_text,
         og_image,
         seo_noindex,
+        home_is_featured,
+        home_sort,
+        home_title,
         subcategories!subcategories_category_id_fkey(
           id,
           name,
@@ -73,16 +86,22 @@ export default async function CategoriesPage() {
           seo_description,
           seo_text,
           og_image,
-          seo_noindex
+          seo_noindex,
+          image_url,
+          home_is_featured,
+          home_sort,
+          home_icon_url,
+          home_title
         )
-      `
+      `,
       )
-      .order('id', { ascending: true });
+      .order("id", { ascending: true });
 
     if (error) throw error;
     categories = (data || []) as Category[];
   } catch (error: any) {
-    process.env.NODE_ENV !== 'production' && console.error('Error fetching categories:', error.message);
+    process.env.NODE_ENV !== "production" &&
+      console.error("Error fetching categories:", error.message);
   }
 
   return <CategoriesClient categories={categories} />;

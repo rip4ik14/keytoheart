@@ -43,6 +43,8 @@ export default function LayoutClient({
 }) {
   const pathname = usePathname();
 
+  const isHomePage = useMemo(() => pathname === '/' || pathname === '', [pathname]);
+
   const isGiftPage = useMemo(() => {
     if (!pathname) return false;
 
@@ -247,7 +249,9 @@ export default function LayoutClient({
               id="main-content"
               tabIndex={-1}
               className={
-                isGiftPage ? '' : 'pt-12 sm:pt-14 pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]'
+                isGiftPage
+                  ? ''
+                  : `${isHomePage ? 'pt-0' : 'pt-0 sm:pt-14'} pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]`
               }
             >
               {children}
