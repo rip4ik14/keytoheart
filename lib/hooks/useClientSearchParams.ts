@@ -1,55 +1,60 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-declare global {
-  interface Window {
-    __kthSearchParamsPatched?: boolean;
-  }
-}
+type HistoryMethod = 'pushState' | 'replaceState';
 
-function ensureHistoryPatched() {
-  if (typeof window === 'undefined' || window.__kthSearchParamsPatched) return;
-
-  const wrap = (method: 'pushState' | 'replaceState') => {
-    const original = window.history[method];
-    window.history[method] = function (...args: Parameters<History['pushState']>) {
-      const result = original.apply(this, args as any);
-      window.dispatchEvent(new Event('kth:searchchange'));
-      return result;
-    } as History[typeof method];
-  };
-
-  wrap('pushState');
-  wrap('replaceState');
-  window.__kthSearchParamsPatched = true;
-}
-
-function subscribe(onStoreChange: () => void) {
-  if (typeof window === 'undefined') return () => {};
-
-  ensureHistoryPatched();
-
-  const handler = () => onStoreChange();
-  window.addEventListener('popstate', handler);
-  window.addEventListener('kth:searchchange', handler as EventListener);
-
-  return () => {
-    window.removeEventListener('popstate', handler);
-    window.removeEventListener('kth:searchchange', handler as EventListener);
-  };
-}
-
-function getSnapshot() {
+function readSearch(): string {
   if (typeof window === 'undefined') return '';
   return window.location.search || '';
 }
 
-function getServerSnapshot() {
-  return '';
-}
+export function useClientSearchParams() {
+  const [search, setSearch] = useState<string>(() => readSearch());
 
-export default function useClientSearchParams() {
-  const search = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useEffect(() => {
+    const notify = () => setSearch(readSearch());
+
+    const restoreFns: Array<() => void> = [];
+
+    const patchHistory = (method: HistoryMethod) => {
+      const original = window.history[method];
+
+      const patched = function (
+        this: History,
+        ...args: Parameters<History['pushState']>
+      ) {
+        const result = original.apply(
+          window.history,
+          args as [data: unknown, unused: string, url?: string | URL | null]
+        );
+        window.dispatchEvent(new Event('kth:searchchange'));
+        return result;
+      } as History[typeof method];
+
+      window.history[method] = patched;
+
+      restoreFns.push(() => {
+        window.history[method] = original;
+      });
+    };
+
+    patchHistory('pushState');
+    patchHistory('replaceState');
+
+    window.addEventListener('popstate', notify);
+    window.addEventListener('kth:searchchange', notify);
+
+    notify();
+
+    return () => {
+      window.removeEventListener('popstate', notify);
+      window.removeEventListener('kth:searchchange', notify);
+      restoreFns.forEach((restore) => restore());
+    };
+  }, []);
+
   return useMemo(() => new URLSearchParams(search), [search]);
 }
+
+export default useClientSearchParams;
