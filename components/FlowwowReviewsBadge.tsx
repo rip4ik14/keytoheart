@@ -13,7 +13,7 @@ type Props = {
 
 function formatRatingCount(n: number) {
   if (!Number.isFinite(n) || n <= 0) return '';
-  if (n >= 1000) return 'более 2800 оценок'; // как ты просил, без точных фото и без перечислений
+  if (n >= 1000) return 'более 3000 оценок'; // как ты просил, без точных фото и без перечислений
   return `${n} оценок`;
 }
 

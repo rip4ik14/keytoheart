@@ -43,7 +43,7 @@ function FlowwowFooterBadge() {
           <Star key={i} className="h-3.5 w-3.5 fill-current text-black" strokeWidth={0} />
         ))}
       </span>
-      <span className="text-gray-600">более 2800 оценок</span>
+      <span className="text-gray-600">более 3000 оценок</span>
       <ExternalLink className="h-3.5 w-3.5 text-gray-600" />
     </a>
   );
