@@ -11,7 +11,7 @@ import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import supabaseImageLoader, { isSupabasePublicUrl } from '@/lib/utils/supabaseImageLoader';
+import { isExternalUrl, withSupabaseTransform } from './imagePerf';
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -234,7 +234,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (!showToast) return null;
     if (toastPlacementRef.current !== 'mobile') return null;
 
-    const unoptThumb = isRemoteUrl(imageUrl);
+    const thumbImageUrl = withSupabaseTransform(imageUrl, 96, 64);
+    const unoptThumb = isExternalUrl(thumbImageUrl);
 
     return createPortal(
       <AnimatePresence>
@@ -269,12 +270,10 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         >
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
             <Image
-              src={imageUrl}
+              src={thumbImageUrl}
               alt={title}
               width={48}
               height={48}
-              quality={60}
-              loader={isSupabasePublicUrl(imageUrl) ? supabaseImageLoader : undefined}
               className="object-cover w-full h-full"
               unoptimized={unoptThumb}
             />
@@ -291,8 +290,10 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const isSupabaseImage = isSupabasePublicUrl(imageUrl);
-  const unopt = isRemoteUrl(imageUrl) && !isSupabaseImage;
+  const mobileImageUrl = withSupabaseTransform(imageUrl, 512, 72);
+  const desktopImageUrl = withSupabaseTransform(imageUrl, 640, 72);
+  const desktopToastImageUrl = withSupabaseTransform(imageUrl, 96, 64);
+  const unopt = isExternalUrl(imageUrl);
 
   const MobileView = (
     <div className="sm:hidden">
@@ -351,13 +352,11 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   aria-label={`Перейти к товару ${title}`}
                 >
                   <Image
-                    src={imageUrl}
+                    src={mobileImageUrl}
                     alt={title}
                     fill
-                    fetchPriority={stablePriority ? 'high' : undefined}
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
                     sizes="(max-width: 640px) 46vw, 220px"
-                    quality={72}
-                    loader={isSupabaseImage ? supabaseImageLoader : undefined}
                     className="object-cover w-full h-full"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
@@ -493,17 +492,15 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
 
                   <Image
-                    src={imageUrl}
+                    src={desktopImageUrl}
                     alt={title}
                     fill
-                    fetchPriority={stablePriority ? 'high' : undefined}
-                    sizes="(max-width: 767px) 46vw, (max-width: 1279px) 28vw, 280px"
-                    quality={74}
-                    loader={isSupabaseImage ? supabaseImageLoader : undefined}
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    sizes="(max-width: 1024px) 28vw, 280px"
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
-                    unoptimized={unopt}
+                    unoptimized={isRemoteUrl(imageUrl)}
                   />
 
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -624,14 +621,12 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     >
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
         <Image
-          src={imageUrl}
+          src={desktopToastImageUrl}
           alt={title}
           width={48}
           height={48}
-          quality={60}
-          loader={isSupabaseImage ? supabaseImageLoader : undefined}
           className="object-cover w-full h-full"
-          unoptimized={unopt}
+          unoptimized={isExternalUrl(desktopToastImageUrl)}
         />
       </div>
 

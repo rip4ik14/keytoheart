@@ -5,7 +5,6 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== 'production';
 
-/* ------------------------- Content-Security-Policy ------------------------- */
 const buildCsp = () => {
   const COMMON = {
     default: ["'self'"],
@@ -65,7 +64,6 @@ const buildCsp = () => {
   ].join(' ');
 };
 
-/* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
   { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/object/public/**' },
   { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/render/image/public/**' },
@@ -82,9 +80,7 @@ if (isDev) {
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
-
   eslint: { ignoreDuringBuilds: true },
-
   images: {
     remotePatterns,
     formats: ['image/avif', 'image/webp'],
@@ -93,16 +89,13 @@ const nextConfig = {
     minimumCacheTTL: 2592000,
     dangerouslyAllowSVG: false,
   },
-
   experimental: {
     optimizePackageImports: ['framer-motion', 'swiper'],
     optimizeCss: true,
   },
-
   async rewrites() {
     return [{ source: '/sitemap-products/:page.xml', destination: '/sitemap-products/:page' }];
   },
-
   async headers() {
     return [
       {
