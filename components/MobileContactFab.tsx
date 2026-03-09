@@ -73,6 +73,7 @@ export default function MobileContactFab() {
 
   // desktop режим
   const [isDesktop, setIsDesktop] = useState(false);
+  const [hideForFooter, setHideForFooter] = useState(false);
 
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -109,11 +110,38 @@ export default function MobileContactFab() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const onResize = () => setIsDesktop(window.matchMedia('(min-width: 640px)').matches);
+    const onResize = () => setIsDesktop(window.matchMedia('(min-width: 1024px)').matches);
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isDesktop) {
+      setHideForFooter(false);
+      return;
+    }
+
+    const footer = document.querySelector('footer[aria-label="Нижний колонтитул"]');
+    if (!footer || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting;
+        setHideForFooter(visible);
+        if (visible) setOpen(false);
+      },
+      {
+        root: null,
+        threshold: 0.01,
+        rootMargin: '0px 0px 140px 0px',
+      },
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [isDesktop]);
 
   // запоминаем первую страницу входа
   useEffect(() => {
@@ -446,7 +474,7 @@ export default function MobileContactFab() {
     <>
       {/* ✅ FAB: один единственный */}
       <AnimatePresence>
-        {!open && (
+        {!open && !hideForFooter && (
           <motion.div
             key="kth-fab"
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -528,7 +556,7 @@ export default function MobileContactFab() {
               type="button"
               aria-label="Закрыть чат"
               onClick={closeSheet}
-              className="fixed inset-0 z-[19998] bg-black/35 sm:hidden"
+              className="fixed inset-0 z-[19998] bg-black/35 lg:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -537,7 +565,7 @@ export default function MobileContactFab() {
             <motion.div
               ref={sheetRef}
               className="
-                fixed left-0 right-0 bottom-0 z-[19999] sm:hidden
+                fixed left-0 right-0 bottom-0 z-[19999] lg:hidden
                 rounded-t-[28px]
                 bg-white
                 border-t border-black/10
@@ -618,7 +646,7 @@ export default function MobileContactFab() {
               type="button"
               aria-label="Закрыть чат"
               onClick={closeSheet}
-              className="fixed inset-0 z-[19998] bg-black/25 hidden sm:block"
+              className="fixed inset-0 z-[19998] bg-black/25 hidden lg:block"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -628,7 +656,7 @@ export default function MobileContactFab() {
               className="
                 fixed z-[19999]
                 right-4 bottom-20
-                hidden sm:block
+                hidden lg:block
                 w-[360px]
                 kth-sticky-surface
               "

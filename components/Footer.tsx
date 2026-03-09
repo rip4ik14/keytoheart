@@ -1,40 +1,138 @@
 // ✅ Путь: components/Footer.tsx
-'use client';
-
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, ExternalLink } from 'lucide-react';
+import { ExternalLink, Star } from 'lucide-react';
+
 import type { Category } from '@/types/category';
+import FooterMetrics from '@components/FooterMetrics';
 
 type FooterProps = {
   categories: Category[];
 };
 
-const FLOWWOW_URL = 'https://flowwow.com/shop/key-to-heart/';
+type MetricMeta = {
+  event: string;
+  metricKey?: string;
+  metricValue?: string;
+};
 
-// Если переименуешь /offer в /marketing-consent - просто поменяй здесь
+const FLOWWOW_URL = 'https://flowwow.com/shop/key-to-heart/';
 const MARKETING_CONSENT_HREF = '/offer';
+
+const serviceLinks = [
+  { href: '/dostavka', label: 'Доставка', goal: 'footer_delivery_click' },
+  { href: '/payment', label: 'Оплата', goal: 'footer_payment_click' },
+  { href: '/faq', label: 'Часто задаваемые вопросы', goal: 'footer_faq_click' },
+  { href: '/loyalty', label: 'Программа лояльности', goal: 'footer_loyalty_click' },
+  { href: '/corporate', label: 'Корпоративным клиентам', goal: 'footer_corporate_click' },
+];
+
+const companyLinks = [
+  { href: '/about', label: 'О нас', goal: 'footer_about_click' },
+  { href: '/contacts', label: 'Контакты', goal: 'footer_contacts_click' },
+  { href: '/news', label: 'Новости', goal: 'footer_news_click' },
+  { href: '/articles', label: 'Статьи', goal: 'footer_articles_click' },
+  { href: '/occasions', label: 'Праздники', goal: 'footer_occasions_click' },
+];
+
+const legalLinks = [
+  { href: '/policy', label: 'Политика конфиденциальности', goal: 'policy_click' },
+  { href: '/cookie-policy', label: 'Политика cookies', goal: 'cookie_policy_click' },
+  { href: '/public-offer', label: 'Публичная оферта', goal: 'public_offer_click' },
+  { href: MARKETING_CONSENT_HREF, label: 'Согласие на рекламную рассылку', goal: 'marketing_consent_click' },
+  { href: '/terms', label: 'Пользовательское соглашение', goal: 'terms_click' },
+];
+
+function metricAttrs(meta?: MetricMeta) {
+  if (!meta) return {};
+
+  return {
+    'data-kth-footer-event': meta.event,
+    ...(meta.metricKey && meta.metricValue
+      ? {
+          'data-kth-footer-metric-key': meta.metricKey,
+          'data-kth-footer-metric-value': meta.metricValue,
+        }
+      : {}),
+  };
+}
+
+function FooterLink({
+  href,
+  label,
+  goal,
+  metricKey,
+  metricValue,
+  className,
+}: {
+  href: string;
+  label: string;
+  goal: string;
+  metricKey?: string;
+  metricValue?: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={[
+        'text-[15px] leading-6 text-gray-600 transition hover:text-black hover:underline',
+        className ?? 'block',
+      ].join(' ')}
+      {...metricAttrs({ event: goal, metricKey, metricValue })}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function FooterExternalLink({
+  href,
+  label,
+  className,
+  children,
+  event,
+  metricKey,
+  metricValue,
+  ariaLabel,
+}: {
+  href: string;
+  label: string;
+  className: string;
+  children: React.ReactNode;
+  event: string;
+  metricKey?: string;
+  metricValue?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      aria-label={ariaLabel ?? label}
+      title={label}
+      {...metricAttrs({ event, metricKey, metricValue })}
+    >
+      {children}
+    </a>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="mb-4 text-[15px] font-semibold tracking-tight text-black">{children}</h3>;
+}
 
 function FlowwowFooterBadge() {
   return (
-    <a
+    <FooterExternalLink
       href={FLOWWOW_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="
-        inline-flex items-center gap-2
-        rounded-full border border-gray-200 bg-white
-        px-3 py-1.5 text-xs text-gray-700
-        hover:bg-gray-50 transition
-      "
-      aria-label="Открыть отзывы на Flowwow"
-      onClick={() => {
-        window.gtag?.('event', 'flowwow_click', { event_category: 'footer' });
-        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'flowwow_click');
-      }}
+      label="Открыть отзывы на Flowwow"
+      event="flowwow_click"
+      className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50"
+      ariaLabel="Открыть отзывы на Flowwow"
     >
       <span className="font-semibold text-black">Flowwow</span>
       <span className="font-bold text-black">4,93</span>
@@ -43,423 +141,247 @@ function FlowwowFooterBadge() {
           <Star key={i} className="h-3.5 w-3.5 fill-current text-black" strokeWidth={0} />
         ))}
       </span>
-      <span className="text-gray-600">более 3000 оценок</span>
-      <ExternalLink className="h-3.5 w-3.5 text-gray-600" />
-    </a>
+      <span className="truncate text-gray-600">более 3000 оценок</span>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-gray-600" />
+    </FooterExternalLink>
   );
 }
 
-function ymGoal(goal: string, params?: Record<string, any>) {
-  if (YM_ID === undefined) return;
-  callYm(YM_ID, 'reachGoal', goal, params);
+function FooterList({
+  items,
+  categoryMetric,
+}: {
+  items: Array<{ href: string; label: string; goal: string }>;
+  categoryMetric?: boolean;
+}) {
+  return (
+    <ul className="space-y-2" role="list">
+      {items.map((item) => (
+        <li key={item.href}>
+          <FooterLink
+            href={item.href}
+            label={item.label}
+            goal={item.goal}
+            metricKey={categoryMetric ? 'category' : undefined}
+            metricValue={categoryMetric ? item.label : undefined}
+          />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export default function Footer({ categories }: FooterProps) {
+  const visibleCategories = categories.slice(0, 8).map((cat) => ({
+    href: `/category/${cat.slug}`,
+    label: cat.name,
+    goal: 'footer_category_click',
+  }));
+
   return (
-    <footer aria-label="Нижний колонтитул">
-      {/* ======= Десктопный/планшетный футер ======= */}
-      <div className="hidden sm:block bg-white text-sm text-gray-700 mt-12 border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          <div>
-            <h3 className="text-xl font-bold mb-3">КЛЮЧ К СЕРДЦУ</h3>
+    <footer data-site-footer="true" aria-label="Нижний колонтитул" className="mt-12 border-t border-gray-200 bg-white">
+      <FooterMetrics />
 
-            <div className="flex gap-3 mb-4">
-              <a
-                href="https://vk.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 border rounded-full hover:bg-gray-100 transition-colors duration-300"
-                aria-label="Перейти в ВКонтакте"
-                onClick={() => {
-                  window.gtag?.('event', 'vk_click', { event_category: 'footer' });
-                  ymGoal('vk_click');
-                }}
+      <div className="hidden lg:block">
+        <div className="mx-auto grid max-w-7xl grid-cols-12 gap-x-10 gap-y-10 px-6 py-12 xl:gap-x-14">
+          <div className="col-span-12 xl:col-span-4">
+            <h2 className="text-[28px] font-black uppercase tracking-[0.06em] text-black">КЛЮЧ К СЕРДЦУ</h2>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <FooterExternalLink
+                href="https://vk.com/key_to_heart_store"
+                label="ВКонтакте"
+                event="vk_click"
+                className="rounded-full border border-gray-200 p-2.5 transition hover:bg-gray-50"
+                ariaLabel="Перейти в ВКонтакте"
               >
-                <Image src="/icons/vk.svg" alt="ВКонтакте" width={16} height={16} />
-              </a>
+                <Image src="/icons/vk.svg" alt="ВКонтакте" width={18} height={18} />
+              </FooterExternalLink>
 
-              <a
+              <FooterExternalLink
                 href="https://wa.me/79886033821"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 border rounded-full hover:bg-gray-100 transition-colors duration-300"
-                aria-label="Перейти в WhatsApp"
-                onClick={() => {
-                  window.gtag?.('event', 'whatsapp_click', { event_category: 'footer' });
-                  ymGoal('whatsapp_click');
-                }}
+                label="WhatsApp"
+                event="whatsapp_click"
+                className="rounded-full border border-gray-200 p-2.5 transition hover:bg-gray-50"
+                ariaLabel="Перейти в WhatsApp"
               >
-                <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
-              </a>
+                <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={18} height={18} />
+              </FooterExternalLink>
 
-              <a
+              <FooterExternalLink
                 href="https://t.me/keytomyheart"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 border rounded-full hover:bg-gray-100 transition-colors duration-300"
-                aria-label="Перейти в Telegram"
-                onClick={() => {
-                  window.gtag?.('event', 'telegram_click', { event_category: 'footer' });
-                  ymGoal('telegram_click');
-                }}
+                label="Telegram"
+                event="telegram_click"
+                className="rounded-full border border-gray-200 p-2.5 transition hover:bg-gray-50"
+                ariaLabel="Перейти в Telegram"
               >
-                <Image src="/icons/telegram.svg" alt="Telegram" width={16} height={16} />
-              </a>
+                <Image src="/icons/telegram.svg" alt="Telegram" width={18} height={18} />
+              </FooterExternalLink>
             </div>
 
-            {/* Яндекс рейтинг на десктопе */}
-            <div className="mb-3">
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               <iframe
                 src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating"
                 width="150"
                 height="50"
                 frameBorder="0"
                 title="Рейтинг Яндекс"
+                loading="lazy"
               />
-            </div>
-
-            {/* Flowwow компакт */}
-            <div className="mb-3">
               <FlowwowFooterBadge />
             </div>
 
-            {/* Реквизиты и контакты (коротко, но полезно) */}
-            <div className="mt-3 space-y-1 text-xs text-gray-600">
-              <div>ИП Рашевская Регина Сергеевна</div>
-              <div>ИНН 234810526700, ОГРНИП 324237500032680</div>
-              <div>Адрес: Краснодарский край, Северский район, пгт Ильский</div>
-              <div className="pt-1">
+            <div className="mt-6 space-y-2 text-sm leading-6 text-gray-600">
+              <p>ИП Рашевская Регина Сергеевна</p>
+              <p>ИНН 234810526700, ОГРНИП 324237500032680</p>
+              <p>Адрес: Краснодарский край, Северский район, пгт Ильский</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-black">
                 <a
                   href="tel:+79886033821"
-                  className="underline hover:text-gray-500 transition-colors"
+                  className="transition hover:text-gray-600"
                   aria-label="Позвонить"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_phone_click', { event_category: 'footer' });
-                    ymGoal('footer_phone_click');
-                  }}
+                  {...metricAttrs({ event: 'footer_phone_click' })}
                 >
                   +7 (988) 603-38-21
                 </a>
-                <span className="mx-2 text-gray-300">|</span>
+                <span className="text-gray-300">•</span>
                 <a
                   href="mailto:r.rashevskaya@yandex.ru"
-                  className="underline hover:text-gray-500 transition-colors"
+                  className="transition hover:text-gray-600"
                   aria-label="Написать на email"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_email_click', { event_category: 'footer' });
-                    ymGoal('footer_email_click');
-                  }}
+                  {...metricAttrs({ event: 'footer_email_click' })}
                 >
                   r.rashevskaya@yandex.ru
                 </a>
               </div>
             </div>
-
-            <p className="text-xs text-gray-600 mt-4">© 2026 КЛЮЧ К СЕРДЦУ. Все права защищены.</p>
-
-            {/* Юридические документы */}
-            <div className="mt-3 space-y-1">
-              <Link
-                href="/policy"
-                className="hover:underline block text-gray-500"
-                onClick={() => {
-                  window.gtag?.('event', 'policy_click', { event_category: 'footer' });
-                  ymGoal('policy_click');
-                }}
-              >
-                Политика конфиденциальности
-              </Link>
-
-              <Link
-                href="/cookie-policy"
-                className="hover:underline block text-gray-500"
-                onClick={() => {
-                  window.gtag?.('event', 'cookie_policy_click', { event_category: 'footer' });
-                  ymGoal('cookie_policy_click');
-                }}
-              >
-                Политика cookies
-              </Link>
-
-              <Link
-                href="/public-offer"
-                className="hover:underline block text-gray-500"
-                onClick={() => {
-                  window.gtag?.('event', 'public_offer_click', { event_category: 'footer' });
-                  ymGoal('public_offer_click');
-                }}
-              >
-                Публичная оферта
-              </Link>
-
-              <Link
-                href={MARKETING_CONSENT_HREF}
-                className="hover:underline block text-gray-500"
-                onClick={() => {
-                  window.gtag?.('event', 'marketing_consent_click', { event_category: 'footer' });
-                  ymGoal('marketing_consent_click');
-                }}
-              >
-                Согласие на рекламную рассылку
-              </Link>
-
-              <Link
-                href="/terms"
-                className="hover:underline block text-gray-500"
-                onClick={() => {
-                  window.gtag?.('event', 'terms_click', { event_category: 'footer' });
-                  ymGoal('terms_click');
-                }}
-              >
-                Пользовательское соглашение
-              </Link>
-            </div>
           </div>
 
-          <div>
-            <h4 className="text-base font-semibold mb-3">Каталог</h4>
-            <ul className="space-y-1" role="list">
-              {categories.map((cat) => (
-                <li key={cat.id} role="listitem">
-                  <Link
-                    href={`/category/${cat.slug}`}
-                    className="hover:underline text-gray-500"
-                    onClick={() => {
-                      window.gtag?.('event', 'footer_category_click', {
-                        event_category: 'footer',
-                        category: cat.name,
-                      });
-                      ymGoal('footer_category_click', { category: cat.name });
-                    }}
-                  >
-                    {cat.name}
-                  </Link>
-                </li>
-              ))}
-
-              <li role="listitem">
-                <Link
-                  href="/occasions"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_occasions_click', { event_category: 'footer' });
-                    ymGoal('footer_occasions_click');
-                  }}
-                >
-                  Праздники
-                </Link>
-              </li>
-            </ul>
+          <div className="col-span-4 md:col-span-3 xl:col-span-2 xl:col-start-6">
+            <SectionTitle>Каталог</SectionTitle>
+            <FooterList
+              items={[
+                ...visibleCategories,
+                { href: '/occasions', label: 'Праздники', goal: 'footer_occasions_click' },
+              ]}
+              categoryMetric
+            />
           </div>
 
-          <div>
-            <h4 className="text-base font-semibold mb-3">Сервис</h4>
-            <ul className="space-y-1" role="list">
-              <li role="listitem">
-                <Link
-                  href="/dostavka"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_delivery_click', { event_category: 'footer' });
-                    ymGoal('footer_delivery_click');
-                  }}
-                >
-                  Доставка
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/payment"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_payment_click', { event_category: 'footer' });
-                    ymGoal('footer_payment_click');
-                  }}
-                >
-                  Оплата
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/faq"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_faq_click', { event_category: 'footer' });
-                    ymGoal('footer_faq_click');
-                  }}
-                >
-                  Часто задаваемые вопросы
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/loyalty"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_loyalty_click', { event_category: 'footer' });
-                    ymGoal('footer_loyalty_click');
-                  }}
-                >
-                  Программа лояльности
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/corporate"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_corporate_click', { event_category: 'footer' });
-                    ymGoal('footer_corporate_click');
-                  }}
-                >
-                  Корпоративным клиентам
-                </Link>
-              </li>
-            </ul>
+          <div className="col-span-4 md:col-span-3 xl:col-span-2">
+            <SectionTitle>Сервис</SectionTitle>
+            <FooterList items={serviceLinks} />
           </div>
 
-          <div>
-            <h4 className="text-base font-semibold mb-3">Компания</h4>
-            <ul className="space-y-1" role="list">
-              <li role="listitem">
-                <Link
-                  href="/about"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_about_click', { event_category: 'footer' });
-                    ymGoal('footer_about_click');
-                  }}
-                >
-                  О нас
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/contacts"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_contacts_click', { event_category: 'footer' });
-                    ymGoal('footer_contacts_click');
-                  }}
-                >
-                  Контакты
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/news"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_news_click', { event_category: 'footer' });
-                    ymGoal('footer_news_click');
-                  }}
-                >
-                  Новости
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/articles"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_articles_click', { event_category: 'footer' });
-                    ymGoal('footer_articles_click');
-                  }}
-                >
-                  Статьи
-                </Link>
-              </li>
-
-              <li role="listitem">
-                <Link
-                  href="/occasions"
-                  className="hover:underline text-gray-500"
-                  onClick={() => {
-                    window.gtag?.('event', 'footer_occasions_click', { event_category: 'footer' });
-                    ymGoal('footer_occasions_click');
-                  }}
-                >
-                  Праздники
-                </Link>
-              </li>
-            </ul>
+          <div className="col-span-4 md:col-span-3 xl:col-span-2">
+            <SectionTitle>Компания</SectionTitle>
+            <FooterList items={companyLinks} />
           </div>
         </div>
 
         <div className="border-t border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span className="text-xs text-gray-600 font-mono">Разработчик: Рыбалко Денис</span>
+          <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">© 2026 КЛЮЧ К СЕРДЦУ. Все права защищены.</p>
 
-            <a
+              <nav className="mt-3 flex flex-wrap gap-x-5 gap-y-2" aria-label="Юридические ссылки">
+                {legalLinks.map((item) => (
+                  <FooterLink
+                    key={item.href}
+                    href={item.href}
+                    label={item.label}
+                    goal={item.goal}
+                    className="inline-flex text-sm leading-6"
+                  />
+                ))}
+              </nav>
+            </div>
+
+            <FooterExternalLink
               href="https://t.me/rip4inskiy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-full text-xs text-gray-500 hover:bg-gray-100 font-mono transition"
-              aria-label="Telegram разработчика"
+              label="Telegram разработчика"
+              event="footer_dev_telegram_click"
+              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-xs text-gray-500 transition hover:bg-gray-50"
+              ariaLabel="Telegram разработчика"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="none"
-                className="w-4 h-4"
+                className="h-4 w-4"
                 stroke="currentColor"
                 strokeWidth={1.7}
               >
-                <path d="M21.998 3.911c-.019-.08-.051-.155-.09-.224-.025-.044-.052-.084-.087-.12-.059-.061-.131-.104-.212-.117-.063-.012-.13-.005-.193.017l-19 6.5c-.165.056-.276.216-.261.391.015.173.143.316.312.352l4.28.88 2.04 6.237c.042.128.157.218.293.229.015.001.03.002.045.002.127 0 .243-.075.292-.191l2.288-5.205 4.825 4.084c.093.078.223.093.328.038.104-.056.164-.168.151-.284l-.608-5.064 5.402-4.837c.073-.065.109-.169.089-.271zm-8.735 8.735l-.804 1.83-1.232-3.771 2.036 1.941zm2.086-4.429l-2.852 2.555c-.076.069-.111.179-.087.284l.743 3.124-2.424-2.311-1.392-4.227 6.012-2.059c-.024.021-.049.041-.072.065zm.492.638l-1.504 1.347 2.024 1.712-1.524-3.059zm-6.427 5.001l-1.653-5.061 2.742 3.24-1.089 1.821zm9.048-6.839l-4.329 3.876c-.066.059-.093.153-.067.238l.547 1.808-3.31-3.156 7.159-2.453zm1.663-2.021c-.007-.023-.02-.044-.038-.06-.019-.017-.044-.027-.07-.029-.024-.002-.048.004-.068.017l-16.329 5.598c-.029.011-.052.036-.061.067-.009.032.002.066.026.089.02.019.048.029.076.026l3.884-.773 2.025 6.194c.012.036.045.062.083.065.038.003.074-.021.089-.057l2.332-5.303 4.953 4.193c.027.023.067.028.099.012.033-.017.049-.054.042-.089l-.63-5.242 5.559-4.98c.03-.026.041-.068.027-.106z" />
+                <path d="M21.998 3.911c-.019-.08-.051-.155-.09-.224-.025-.044-.052-.084-.087-.12-.059-.061-.131-.104-.212-.117-.063-.012-.13-.005-.193.017l-19 6.5c-.165.056-.276.216-.261.391.015.173.143.316.312.352l4.28.88 2.04 6.237c.042.128.157.218.293.229.015.001.03.002.045.002.127 0 .243-.075.292-.191l2.288-5.205 4.825 4.084c.093.078.223.093.328.038.104-.056.164-.168.151-.284l-.608-5.064 5.402-4.837c.073-.065.109-.169.089-.271z" />
               </svg>
               Связаться в Telegram
-            </a>
+            </FooterExternalLink>
           </div>
         </div>
       </div>
 
-      {/* ======= Микрофутер только для мобильных ======= */}
-      <div className="block sm:hidden bg-white border-t border-gray-200 text-xs text-center py-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex flex-col items-center mb-2">
-            <iframe
-              src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating"
-              width="150"
-              height="50"
-              frameBorder="0"
-              title="Рейтинг Яндекс"
-            />
-          </div>
+      <div className="px-4 py-6 pb-[calc(8rem+env(safe-area-inset-bottom)+var(--kth-bottom-nav-h,0px))] lg:hidden">
+        <div className="mx-auto max-w-[860px] rounded-[28px] border border-black/10 bg-white px-4 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-[0.06em] text-black">КЛЮЧ К СЕРДЦУ</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Клубника в шоколаде, цветы и комбо-наборы с доставкой по Краснодару.
+              </p>
+            </div>
 
-          <div className="mb-1">
-            <FlowwowFooterBadge />
-          </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <iframe
+                src="https://yandex.ru/sprav/widget/rating-badge/81940019159?type=rating"
+                width="150"
+                height="50"
+                frameBorder="0"
+                title="Рейтинг Яндекс"
+                loading="lazy"
+              />
+              <FlowwowFooterBadge />
+            </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-            <Link href="/policy" className="text-gray-500 underline">
-              Политика
-            </Link>
-            <span className="mx-1 text-gray-300">|</span>
-            <Link href="/cookie-policy" className="text-gray-500 underline">
-              Cookies
-            </Link>
-            <span className="mx-1 text-gray-300">|</span>
-            <Link href="/public-offer" className="text-gray-500 underline">
-              Оферта
-            </Link>
-            <span className="mx-1 text-gray-300">|</span>
-            <Link href={MARKETING_CONSENT_HREF} className="text-gray-500 underline">
-              Рассылка
-            </Link>
-            <span className="mx-1 text-gray-300">|</span>
-            <Link href="/contacts" className="text-gray-500 underline">
-              Контакты
-            </Link>
-          </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <SectionTitle>Контакты</SectionTitle>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <a href="tel:+79886033821" className="block text-black" {...metricAttrs({ event: 'footer_phone_click' })}>
+                    +7 (988) 603-38-21
+                  </a>
+                  <a
+                    href="mailto:r.rashevskaya@yandex.ru"
+                    className="block break-all text-black"
+                    {...metricAttrs({ event: 'footer_email_click' })}
+                  >
+                    r.rashevskaya@yandex.ru
+                  </a>
+                  <p>ИП Рашевская Регина Сергеевна</p>
+                </div>
+              </div>
 
-          <div className="text-gray-400">© 2026 КЛЮЧ К СЕРДЦУ</div>
+              <div>
+                <SectionTitle>Ссылки</SectionTitle>
+                <ul className="space-y-2" role="list">
+                  {[...serviceLinks.slice(0, 3), ...companyLinks.slice(0, 2)].map((item) => (
+                    <li key={item.href}>
+                      <FooterLink href={item.href} label={item.label} goal={item.goal} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <ul className="grid grid-cols-1 gap-2 border-t border-gray-100 pt-4 text-sm sm:grid-cols-2" role="list">
+              {legalLinks.map((item) => (
+                <li key={item.href}>
+                  <FooterLink href={item.href} label={item.label} goal={item.goal} />
+                </li>
+              ))}
+            </ul>
+
+            <div className="text-xs text-gray-400">© 2026 КЛЮЧ К СЕРДЦУ</div>
+          </div>
         </div>
       </div>
     </footer>

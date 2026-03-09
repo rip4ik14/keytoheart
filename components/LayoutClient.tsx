@@ -217,7 +217,7 @@ export default function LayoutClient({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const isMobile = typeof window !== 'undefined' && !window.matchMedia('(min-width: 640px)').matches;
+    const isMobile = typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches;
     if (!isMobile) return;
 
     const prev = document.body.style.overflow;
@@ -238,7 +238,7 @@ export default function LayoutClient({
             {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
             {!isGiftPage && (
-              <div className="hidden sm:block">
+              <div className="hidden lg:block">
                 <Suspense fallback={null}>
                   <ClientBreadcrumbs />
                 </Suspense>
@@ -251,7 +251,7 @@ export default function LayoutClient({
               className={
                 isGiftPage
                   ? ''
-                  : `${isHomePage ? 'pt-0' : 'pt-0 sm:pt-14'} pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]`
+                  : `${isHomePage ? 'pt-0' : 'pt-0 lg:pt-14'} pb-[calc(var(--kth-bottom-nav-h,0px)+var(--kth-bottom-ui-h,0px))]`
               }
             >
               {children}
@@ -275,7 +275,7 @@ export default function LayoutClient({
                 <div
                   ref={menuRef}
                   className={`
-                    sm:hidden
+                    lg:hidden
                     fixed top-0 left-0 z-[18000] h-full w-72 bg-white shadow-xl
                     transform transition-transform duration-300 ease-in-out
                     ${menuOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -351,7 +351,7 @@ export default function LayoutClient({
                 {menuOpen && (
                   <button
                     type="button"
-                    className="sm:hidden fixed inset-0 bg-black/40 z-[17999]"
+                    className="lg:hidden fixed inset-0 bg-black/40 z-[17999]"
                     onClick={closeMenu}
                     aria-label="Закрыть меню"
                   />

@@ -172,9 +172,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       const updated = hydrate(initialCategories as any[]);
       setCategories(updated);
       categoryCache = updated;
-    } else {
-      fetchCategories();
+      return;
     }
+
+    fetchCategories();
 
     const channel = supabase
       .channel('categories-subcategories-changes')
@@ -376,7 +377,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   return (
     <nav className="bg-transparent text-black font-sans" aria-label="Навигация по категориям">
       {/* mobile - tabs */}
-      <div className="sm:hidden">
+      <div className="lg:hidden">
         <div className="relative">
           <div
             className={cls(
@@ -476,7 +477,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       </div>
 
       {/* desktop */}
-      <ul className="hidden sm:flex px-4 py-4 justify-center relative bg-white border-b">
+      <ul className="hidden lg:flex px-4 py-4 justify-center relative bg-white border-b">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <li key={i}>

@@ -12,6 +12,8 @@ import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
+import TopBar from '@components/TopBar';
+import Footer from '@components/Footer';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
 import type { Category } from '@/types/category';
@@ -39,9 +41,9 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------ ISR -------------------------------------- */
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+// ВАЖНО: не душим весь сайт глобальным no-store.
+// Витрина получает нормальный ISR, а truly-dynamic страницы уже сами переопределяют runtime ниже по дереву.
+export const revalidate = 3600;
 
 /* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
@@ -133,7 +135,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
-          <LayoutClient categories={[]}>{children}</LayoutClient>
+          <LayoutClient categories={[]} topBarSlot={<TopBar />} footerSlot={<Footer categories={[]} />}>{children}</LayoutClient>
         </body>
       </html>
     );
@@ -149,7 +151,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
       {
         headers: { apikey: supabaseKey },
-        next: { revalidate: 3600 },
+        cache: 'force-cache',
+        next: { revalidate: 3600, tags: ['layout-categories'] },
         signal: controller.signal,
       },
     );
@@ -334,7 +337,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </noscript>
         )}
 
-        <LayoutClient categories={categories}>{children}</LayoutClient>
+        <LayoutClient categories={categories} topBarSlot={<TopBar />} footerSlot={<Footer categories={categories} />}>{children}</LayoutClient>
       </body>
     </html>
   );
