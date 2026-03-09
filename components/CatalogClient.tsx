@@ -2,7 +2,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 
 import ProductCard from '@components/ProductCard';
 import ProductCardSkeleton from '@components/ProductCardSkeleton';
@@ -77,7 +78,7 @@ export default function CatalogClient({
   categoriesDB,
 }: CatalogClientProps) {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useClientSearchParams();
   const pathname = usePathname();
 
   /* ------------------------------ state ----------------------------- */

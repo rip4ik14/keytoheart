@@ -2,7 +2,8 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
@@ -11,7 +12,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
   const router = useRouter();
-  const params = useSearchParams();
+  const params = useClientSearchParams();
   const redirectTo = params.get('from') || '/admin/products';
   const error = params.get('error');
 

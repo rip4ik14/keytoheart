@@ -5,7 +5,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink, Send } from 'lucide-react';
@@ -168,7 +169,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
   const router = useRouter();
 
   // ✅ PATCH: search params + init filters from URL
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const didInitFromParams = useRef(false);
 
   useEffect(() => {

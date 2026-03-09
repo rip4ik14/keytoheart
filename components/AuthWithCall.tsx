@@ -6,7 +6,7 @@ import { YM_ID } from '@/utils/ym';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import toast from 'react-hot-toast';
 
 import UiButton from '@/components/ui/UiButton';
@@ -40,7 +40,7 @@ function fmtTimer(seconds: number) {
 }
 
 export default function AuthWithCall({ onSuccess }: Props) {
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
 
   const [step, setStep] = useState<'phone' | 'call' | 'success' | 'ban'>('phone');
   const [phone, setPhone] = useState('');

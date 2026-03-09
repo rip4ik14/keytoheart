@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -52,22 +53,11 @@ export default function CatalogFilterModal({
   currentCategorySlug = null,
 }: Props) {
   const router = useRouter();
+  const searchParams = useClientSearchParams();
 
   // ✅ SSR/CSR safe
   const [mounted, setMounted] = useState(false);
-  const [currentSearch, setCurrentSearch] = useState('');
-
-  useEffect(() => {
-    setMounted(true);
-
-    if (typeof window === 'undefined') return;
-
-    const syncSearch = () => setCurrentSearch(window.location.search || '');
-    syncSearch();
-
-    window.addEventListener('popstate', syncSearch);
-    return () => window.removeEventListener('popstate', syncSearch);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   // ✅ Android mode (меньше GPU-дерганий)
   const [isAndroid, setIsAndroid] = useState(false);
@@ -82,11 +72,10 @@ export default function CatalogFilterModal({
   const targetPath = '/catalog';
 
   const applied = useMemo(() => {
-    const params = new URLSearchParams(currentSearch);
-    const min = parseNum(params.get('min'));
-    const max = parseNum(params.get('max'));
-    const cats = (params.get('cats') || '').split(',').filter(Boolean);
-    const subs = (params.get('subs') || '').split(',').filter(Boolean);
+    const min = parseNum(searchParams.get('min'));
+    const max = parseNum(searchParams.get('max'));
+    const cats = (searchParams.get('cats') || '').split(',').filter(Boolean);
+    const subs = (searchParams.get('subs') || '').split(',').filter(Boolean);
 
     return {
       min: min === null ? null : clamp(min, minLimit, maxLimit),
@@ -94,7 +83,7 @@ export default function CatalogFilterModal({
       cats,
       subs,
     };
-  }, [currentSearch, minLimit, maxLimit]);
+  }, [searchParams, minLimit, maxLimit]);
 
   const [minPrice, setMinPrice] = useState<number | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
@@ -160,15 +149,12 @@ export default function CatalogFilterModal({
   function apply() {
     const params = buildParams();
     const qs = params.toString();
-    const nextSearch = qs ? `?${qs}` : '';
 
-    setCurrentSearch(nextSearch);
     router.push(qs ? `${targetPath}?${qs}` : targetPath, { scroll: true });
     onClose();
   }
 
   function reset() {
-    setCurrentSearch('');
     router.push(targetPath, { scroll: true });
 
     setMinPrice(null);

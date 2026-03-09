@@ -6,7 +6,8 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import ProductCard from '@components/ProductCard';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import { Product } from '@components/CatalogClient';
 import { ChevronDown } from 'lucide-react';
 
@@ -34,7 +35,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 export default function CategoryPageClient({ products, h1, slug, subcategories, seoText = null }: Props) {
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const router = useRouter();
   const pathname = usePathname() || '/';
 
