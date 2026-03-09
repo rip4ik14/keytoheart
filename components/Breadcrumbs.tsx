@@ -4,11 +4,10 @@
 import { callYm } from '@/utils/metrics';
 import { YM_ID } from '@/utils/ym';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
-// Типы
 type Category = {
   id: number;
   name: string;
@@ -22,7 +21,6 @@ type Crumb = {
   label: string;
 };
 
-// Статические названия для других страниц
 const staticTitles: Record<string, string> = {
   cart: 'Корзина',
   account: 'Профиль',
@@ -34,7 +32,6 @@ const staticTitles: Record<string, string> = {
 
 let categoryCache: Category[] | null = null;
 
-// Транслитерация для генерации slug
 const transliterate = (text: string) => {
   const map: Record<string, string> = {
     а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
@@ -42,6 +39,7 @@ const transliterate = (text: string) => {
     с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
     ы: 'y', э: 'e', ю: 'yu', я: 'ya',
   };
+
   return text
     .split('')
     .map((char) => map[char.toLowerCase()] || char)
@@ -71,13 +69,15 @@ export default function Breadcrumbs({
   categoryName?: string;
 }) {
   const pathname = usePathname() || '/';
-  const searchParams = useSearchParams();
-
-  // Старый формат подкатегорий: /category/[slug]?subcategory=...
-  const subcategoryFromQuery = searchParams.get('subcategory') || 'all';
-
+  const [subcategoryFromQuery, setSubcategoryFromQuery] = useState('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setSubcategoryFromQuery(params.get('subcategory') || 'all');
+  }, [pathname]);
 
   const fetchCategories = async () => {
     try {
@@ -86,6 +86,7 @@ export default function Breadcrumbs({
         setLoading(false);
         return;
       }
+
       setLoading(true);
       const { data, error } = await supabase
         .from('categories')
@@ -101,7 +102,7 @@ export default function Breadcrumbs({
 
       if (error) throw error;
 
-      const updatedData: Category[] = data.map((cat: any) => {
+      const updatedData: Category[] = (data || []).map((cat: any) => {
         const subcats = cat.subcategories
           ? cat.subcategories
               .filter((s: any) => s.is_visible !== false)
@@ -111,6 +112,7 @@ export default function Breadcrumbs({
                 is_visible: s.is_visible ?? true,
               }))
           : [];
+
         return {
           ...cat,
           is_visible: cat.is_visible ?? true,
@@ -122,24 +124,29 @@ export default function Breadcrumbs({
       categoryCache = updatedData;
       setCategories(updatedData);
     } catch (err) {
-      process.env.NODE_ENV !== 'production' &&
+      if (process.env.NODE_ENV !== 'production') {
         console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (!pathname.startsWith('/category/') && !pathname.startsWith('/product/')) {
+      setLoading(false);
+      return;
+    }
 
-  const segments = pathname.split('/').filter(Boolean);
+    fetchCategories();
+  }, [pathname]);
+
+  const segments = useMemo(() => pathname.split('/').filter(Boolean), [pathname]);
   const shouldRender = pathname !== '/';
   if (!shouldRender) return null;
 
   const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
 
-  // /category/[slug] или /category/[slug]/[subslug]
   if (segments[0] === 'category' && segments[1]) {
     crumbs.push({ href: '/catalog', label: 'Каталог' });
 
@@ -151,21 +158,16 @@ export default function Breadcrumbs({
       label: cat ? cat.name : humanizeSlug(catSlug),
     });
 
-    // Новый формат: /category/[catSlug]/[subSlug]
     const subSlugFromPath = segments[2];
 
     if (!loading && cat) {
-      // 1) если подкатегория в пути
       if (subSlugFromPath) {
         const sub = cat.subcategories.find((s) => s.slug === subSlugFromPath);
         crumbs.push({
           href: `/category/${catSlug}/${subSlugFromPath}`,
           label: sub ? sub.name : humanizeSlug(subSlugFromPath),
         });
-      }
-
-      // 2) иначе - старый формат query ?subcategory=
-      else if (subcategoryFromQuery !== 'all') {
+      } else if (subcategoryFromQuery !== 'all') {
         const sub = cat.subcategories.find((s) => s.slug === subcategoryFromQuery);
         if (sub) {
           crumbs.push({
@@ -175,10 +177,7 @@ export default function Breadcrumbs({
         }
       }
     }
-  }
-
-  // /product/[id]
-  else if (segments[0] === 'product' && segments[1]) {
+  } else if (segments[0] === 'product' && segments[1]) {
     crumbs.push({ href: '/catalog', label: 'Каталог' });
 
     if (categorySlug && categoryName) {
@@ -189,10 +188,7 @@ export default function Breadcrumbs({
       href: `/product/${segments[1]}`,
       label: productTitle || `Товар ${segments[1]}`,
     });
-  }
-
-  // остальные страницы
-  else {
+  } else {
     let currentPath = '';
     segments.forEach((seg) => {
       currentPath += `/${seg}`;
@@ -204,12 +200,12 @@ export default function Breadcrumbs({
   return (
     <nav
       aria-label="Хлебные крошки"
-      className="max-w-7xl mx-auto px-4 py-2 text-sm text-gray-500 font-sans"
+      className="mx-auto max-w-7xl px-4 py-2 text-sm text-gray-500 font-sans"
     >
       {loading && segments[0] === 'category' ? (
         <div>Загрузка...</div>
       ) : (
-        <ol className="flex flex-wrap gap-1 items-center" role="list">
+        <ol className="flex flex-wrap items-center gap-1" role="list">
           {crumbs.map((c, i) => (
             <Fragment key={`${c.href}-${i}`}>
               {i > 0 && (
@@ -219,20 +215,22 @@ export default function Breadcrumbs({
               )}
               <li role="listitem">
                 {i === crumbs.length - 1 ? (
-                  <span className="text-black font-medium" aria-current="page">
-                    {c.label}
-                  </span>
+                  <span className="font-medium text-black">{c.label}</span>
                 ) : (
                   <Link
                     href={c.href}
-                    className="hover:underline text-gray-500"
+                    className="transition hover:text-black"
                     onClick={() => {
                       window.gtag?.('event', 'breadcrumb_click', {
                         event_category: 'navigation',
-                        path: c.href,
+                        breadcrumb_label: c.label,
+                        breadcrumb_href: c.href,
                       });
                       if (YM_ID !== undefined) {
-                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', { path: c.href });
+                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', {
+                          breadcrumb_label: c.label,
+                          breadcrumb_href: c.href,
+                        });
                       }
                     }}
                   >

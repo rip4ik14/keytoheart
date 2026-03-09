@@ -12,7 +12,6 @@ import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
-
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
 import type { Category } from '@/types/category';
@@ -40,8 +39,7 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------ ISR -------------------------------------- */
-// ВАЖНО: не душим весь сайт глобальным no-store.
-// Витрина получает нормальный ISR, а truly-dynamic страницы уже сами переопределяют runtime ниже по дереву.
+// Даём витрине нормальный ISR вместо глобального no-store
 export const revalidate = 3600;
 
 /* --------------------------- META-ДАННЫЕ ---------------------------------- */
@@ -134,9 +132,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
-          <LayoutClient categories={[]}>
-  {children}
-</LayoutClient>
+          <LayoutClient categories={[]}>{children}</LayoutClient>
         </body>
       </html>
     );
@@ -338,9 +334,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </noscript>
         )}
 
-        <LayoutClient categories={categories}>
-  {children}
-</LayoutClient>
+        <LayoutClient categories={categories}>{children}</LayoutClient>
       </body>
     </html>
   );
