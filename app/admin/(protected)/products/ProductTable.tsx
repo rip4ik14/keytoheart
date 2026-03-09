@@ -133,6 +133,8 @@ const SortableProduct = ({
             alt={product.title}
             width={80}
             height={80}
+            sizes="80px"
+            unoptimized={product.images[0].startsWith('http') || product.images[0].startsWith('blob:')}
             className="object-cover rounded"
             loading="lazy"
           />
@@ -241,6 +243,8 @@ const ProductTableTable = ({
                     alt={product.title}
                     width={60}
                     height={60}
+                    sizes="60px"
+                    unoptimized={product.images[0].startsWith('http') || product.images[0].startsWith('blob:')}
                     className="object-cover rounded"
                   />
                 ) : (
