@@ -2,7 +2,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
-import { isExternalUrl, withSupabaseTransform } from './imagePerf';
+
+function isExternal(src?: string | null) {
+  return !!src && /^https?:\/\//i.test(src);
+}
 
 function GridIcon() {
   return (
@@ -51,8 +54,6 @@ function CategoryPill({
   fallbackLetter,
   isCatalog = false,
 }: PillProps) {
-  const pillImage = image ? withSupabaseTransform(image, 96, 70) : null;
-
   return (
     <Link
       href={href}
@@ -80,14 +81,14 @@ function CategoryPill({
       >
         {isCatalog ? (
           <GridIcon />
-        ) : pillImage ? (
+        ) : image ? (
           <Image
-            src={pillImage}
+            src={image}
             alt={label}
             fill
             sizes="38px"
             className="object-cover"
-            unoptimized={isExternalUrl(pillImage)}
+            unoptimized={isExternal(image)}
           />
         ) : (
           <span className="text-[14px] font-semibold text-black/35">{fallbackLetter}</span>

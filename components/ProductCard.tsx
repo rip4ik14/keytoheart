@@ -11,7 +11,6 @@ import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { isExternalUrl, withSupabaseTransform } from './imagePerf';
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -234,8 +233,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (!showToast) return null;
     if (toastPlacementRef.current !== 'mobile') return null;
 
-    const thumbImageUrl = withSupabaseTransform(imageUrl, 96, 64);
-    const unoptThumb = isExternalUrl(thumbImageUrl);
+    const unoptThumb = isRemoteUrl(imageUrl);
 
     return createPortal(
       <AnimatePresence>
@@ -270,7 +268,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         >
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
             <Image
-              src={thumbImageUrl}
+              src={imageUrl}
               alt={title}
               width={48}
               height={48}
@@ -290,10 +288,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const mobileImageUrl = withSupabaseTransform(imageUrl, 512, 72);
-  const desktopImageUrl = withSupabaseTransform(imageUrl, 640, 72);
-  const desktopToastImageUrl = withSupabaseTransform(imageUrl, 96, 64);
-  const unopt = isExternalUrl(imageUrl);
+  const unopt = isRemoteUrl(imageUrl);
 
   const MobileView = (
     <div className="sm:hidden">
@@ -352,11 +347,11 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   aria-label={`Перейти к товару ${title}`}
                 >
                   <Image
-                    src={mobileImageUrl}
+                    src={imageUrl}
                     alt={title}
                     fill
                     fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 640px) 46vw, 220px"
+                    sizes="(max-width: 640px) 70vw, 220px"
                     className="object-cover w-full h-full"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
@@ -492,11 +487,11 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
 
                   <Image
-                    src={desktopImageUrl}
+                    src={imageUrl}
                     alt={title}
                     fill
                     fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 1024px) 28vw, 280px"
+                    sizes="(max-width: 640px) 50vw, 280px"
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
@@ -621,12 +616,12 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     >
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
         <Image
-          src={desktopToastImageUrl}
+          src={imageUrl}
           alt={title}
           width={48}
           height={48}
           className="object-cover w-full h-full"
-          unoptimized={isExternalUrl(desktopToastImageUrl)}
+          unoptimized={isRemoteUrl(imageUrl)}
         />
       </div>
 
