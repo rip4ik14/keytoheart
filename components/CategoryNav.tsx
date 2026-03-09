@@ -338,18 +338,16 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
 
   const FilterBtn = ({ onClick }: { onClick: () => void }) => {
     const baseClass = cls(
-      'shrink-0 snap-start',
-      'h-9 px-3',
-      'rounded-full',
-      'inline-flex items-center gap-2',
-      'border border-black/10',
-      'text-black/80',
-      'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
-      'active:bg-white/55',
-      'transition',
-      'focus:ring-2 focus:ring-black/20 focus:outline-none',
-      isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/40 backdrop-blur-xl',
-    );
+  'shrink-0 snap-start',
+  'h-9 px-3',
+  'rounded-full',
+  'inline-flex items-center gap-2',
+  'border border-black/10',
+  'text-black/80',
+  'bg-white',
+  'focus:ring-2 focus:ring-black/20 focus:outline-none',
+);
+    
 
     if (isAndroid) {
       return (
