@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import TopBar from '@components/TopBar';
 import StickyHeader from '@components/StickyHeader';
 import SkipLink from '@components/SkipLink';
 
@@ -27,7 +26,6 @@ const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), {
 const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('@components/MobileBottomNav'), { ssr: false });
 
-const Footer = dynamic(() => import('@components/Footer'), { ssr: false });
 
 function trackMenu(eventName: string, extra?: Record<string, any>) {
   window.gtag?.('event', eventName, { event_category: 'navigation', ...extra });
@@ -234,7 +232,6 @@ export default function LayoutClient({
       <AuthProvider initialIsAuthenticated={false} initialPhone={null} initialBonus={null}>
         <CartAnimationProvider>
           <CartProvider>
-            {!isGiftPage && <TopBar />}
             {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
             {!isGiftPage && (
@@ -263,7 +260,6 @@ export default function LayoutClient({
               </Suspense>
             )}
 
-            {!isGiftPage && <Footer categories={categories} />}
             {!isGiftPage && <CookieBanner />}
 
             {!isGiftPage && !menuOpen && <MobileContactFab />}

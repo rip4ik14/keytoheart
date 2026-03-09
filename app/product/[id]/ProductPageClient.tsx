@@ -63,6 +63,10 @@ function money(n: number) {
 function percentToMultiplier(p: number) {
   return 1 - p / 100;
 }
+function isRemoteImage(src: string | null | undefined) {
+  return !!src && /^https?:\/\//i.test(src);
+}
+
 
 // ✅ combo helpers
 function makeComboId() {
@@ -317,7 +321,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           aria-live="polite"
         >
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-            <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
+            <Image src={imageUrl} alt={title} width={48} height={48} unoptimized={isRemoteImage(imageUrl)} className="object-cover w-full h-full" />
           </div>
 
           <div className="flex flex-col flex-1 min-w-0">
@@ -1240,6 +1244,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                           priority={i === 0}
                           loading={i === 0 ? 'eager' : 'lazy'}
                           sizes="(max-width:768px) 100vw, 50vw"
+                          unoptimized={isRemoteImage(src)}
                           className="object-cover"
                         />
                       </div>
@@ -1306,6 +1311,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                         blurDataURL={BLUR_PLACEHOLDER}
                         loading="lazy"
                         sizes="(max-width:768px) 20vw, 8vw"
+                        unoptimized={isRemoteImage(src)}
                         className="object-cover group-hover:scale-105 transition-transform"
                       />
                     </div>
@@ -1357,6 +1363,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                               fill
                               placeholder="blur"
                               blurDataURL={BLUR_PLACEHOLDER}
+                              unoptimized={isRemoteImage(it.image)}
                               className="object-cover group-hover:scale-105 transition-transform"
                               loading="lazy"
                             />
@@ -1428,6 +1435,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                               fill
                               placeholder="blur"
                               blurDataURL={BLUR_PLACEHOLDER}
+                              unoptimized={isRemoteImage(combo.image)}
                               className="object-cover group-hover:scale-105 transition-transform"
                               loading="lazy"
                             />
@@ -1735,6 +1743,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                           fill
                           placeholder="blur"
                           blurDataURL={BLUR_PLACEHOLDER}
+                          unoptimized={isRemoteImage(it.image)}
                           className="object-cover group-hover:scale-105 transition-transform"
                           loading="lazy"
                         />
@@ -1819,6 +1828,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                             fill
                             placeholder="blur"
                             blurDataURL={BLUR_PLACEHOLDER}
+                            unoptimized={isRemoteImage(combo.image)}
                             className="object-cover group-hover:scale-105 transition-transform"
                             loading="lazy"
                           />

@@ -5,11 +5,12 @@ import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
-import dynamic from 'next/dynamic';
+
 import { ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
 
 const CatalogFilterModal = dynamic(() => import('@components/CatalogFilterModal'), { ssr: false });

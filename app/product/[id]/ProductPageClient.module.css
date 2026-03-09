@@ -1,0 +1,56 @@
+.customSwiper {
+  position: relative;
+}
+
+.customSwiperButtonPrev,
+.customSwiperButtonNext {
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background 0.3s ease;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.customSwiperButtonPrev:hover,
+.customSwiperButtonNext:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.customSwiperButtonPrev {
+  left: 10px;
+}
+
+.customSwiperButtonNext {
+  right: 10px;
+}
+
+.customSwiperButtonPrev::after,
+.customSwiperButtonNext::after {
+  content: '';
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.customSwiperButtonPrev::after {
+  content: '<';
+}
+
+.customSwiperButtonNext::after {
+  content: '>';
+}
+
+.customSwiper :global(.swiper-button-prev),
+.customSwiper :global(.swiper-button-next) {
+  display: none;
+}

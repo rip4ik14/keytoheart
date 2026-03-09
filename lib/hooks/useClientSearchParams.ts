@@ -14,8 +14,7 @@ export function useClientSearchParams() {
 
   useEffect(() => {
     const notify = () => setSearch(readSearch());
-
-    const restoreFns: Array<() => void> = [];
+    const restores: Array<() => void> = [];
 
     const patchHistory = (method: HistoryMethod) => {
       const original = window.history[method];
@@ -33,8 +32,7 @@ export function useClientSearchParams() {
       } as History[typeof method];
 
       window.history[method] = patched;
-
-      restoreFns.push(() => {
+      restores.push(() => {
         window.history[method] = original;
       });
     };
@@ -44,13 +42,12 @@ export function useClientSearchParams() {
 
     window.addEventListener('popstate', notify);
     window.addEventListener('kth:searchchange', notify);
-
     notify();
 
     return () => {
       window.removeEventListener('popstate', notify);
       window.removeEventListener('kth:searchchange', notify);
-      restoreFns.forEach((restore) => restore());
+      restores.forEach((restore) => restore());
     };
   }, []);
 

@@ -12,6 +12,8 @@ import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
+import TopBar from '@components/TopBar';
+import Footer from '@components/Footer';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
 import type { Category } from '@/types/category';
@@ -132,7 +134,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
+          <TopBar />
           <LayoutClient categories={[]}>{children}</LayoutClient>
+          <Footer categories={[]} />
         </body>
       </html>
     );
@@ -299,6 +303,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
       <body className={`${golosText.className} antialiased`}>
         <DisableConsoleInProd />
+        <TopBar />
 
         {YM_ID && (
           <Script
@@ -335,6 +340,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         <LayoutClient categories={categories}>{children}</LayoutClient>
+        <Footer categories={categories} />
       </body>
     </html>
   );

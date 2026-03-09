@@ -116,27 +116,23 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
     let raf = 0;
     let lastY = Math.max(window.scrollY || 0, 0);
-    const SHOW_AFTER = 140;
-    const TOP_HIDE_AT = 72;
-    const DELTA = 8;
+    const TOP_HIDE_AT = 12;
+    const DELTA = 3;
 
     const update = () => {
       raf = 0;
 
       const y = Math.max(window.scrollY || 0, 0);
       const dy = y - lastY;
-      const absDy = Math.abs(dy);
       const current = homeStickyVisibleRef.current;
       let next = current;
 
       if (y <= TOP_HIDE_AT) {
         next = false;
-      } else if (absDy >= DELTA) {
-        if (dy > 0) {
-          next = false;
-        } else if (y >= SHOW_AFTER) {
-          next = true;
-        }
+      } else if (dy > DELTA) {
+        next = false;
+      } else if (dy < -DELTA) {
+        next = true;
       }
 
       lastY = y;
