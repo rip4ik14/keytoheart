@@ -12,8 +12,7 @@ import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
-import TopBar from '@components/TopBar';
-import Footer from '@components/Footer';
+
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
 import type { Category } from '@/types/category';
