@@ -5,7 +5,6 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== 'production';
 
-/* ------------------------- Content-Security-Policy ------------------------- */
 const buildCsp = () => {
   const COMMON = {
     default: ["'self'"],
@@ -65,46 +64,67 @@ const buildCsp = () => {
   ].join(' ');
 };
 
-/* --------------------------- Remote image patterns -------------------------- */
 const remotePatterns = [
-  { protocol: 'https', hostname: 'gwbeabfkknhewwoesqax.supabase.co', pathname: '/storage/v1/object/public/**' },
-  { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
-  { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
-  { protocol: 'https', hostname: 'keytoheart.ru', pathname: '/**' },
+  {
+    protocol: 'https',
+    hostname: 'gwbeabfkknhewwoesqax.supabase.co',
+    pathname: '/storage/v1/object/public/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'via.placeholder.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'keytoheart.ru',
+    pathname: '/**',
+  },
 ];
 
 if (isDev) {
-  remotePatterns.push({ protocol: 'https', hostname: 'example.com', pathname: '/**' });
+  remotePatterns.push({
+    protocol: 'https',
+    hostname: 'example.com',
+    pathname: '/**',
+  });
 }
 
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
 
-  eslint: { ignoreDuringBuilds: true },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   images: {
     remotePatterns,
-    formats: ['image/avif', 'image/webp'],
-    deviceSizes: [320, 640, 768, 1024, 1280, 1600],
+    // На self-hosted Next AVIF часто ухудшает TTFB/LCP из-за более тяжёлой on-the-fly перекодировки.
+    // Для e-commerce с большим количеством карточек более безопасный и быстрый вариант - WebP.
+    formats: ['image/webp'],
+    deviceSizes: [360, 640, 768, 1024, 1280, 1536],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 2_592_000,
+    minimumCacheTTL: 2678400, // 31 день
     dangerouslyAllowSVG: false,
   },
 
   experimental: {
-    optimizePackageImports: ['framer-motion', 'swiper'],
+    optimizePackageImports: ['framer-motion', 'swiper', 'lucide-react'],
     optimizeCss: true,
   },
 
-  /* ----------------------------- Rewrites ----------------------------- */
   async rewrites() {
     return [
-      { source: '/sitemap-products/:page.xml', destination: '/sitemap-products/:page' },
+      {
+        source: '/sitemap-products/:page.xml',
+        destination: '/sitemap-products/:page',
+      },
     ];
   },
 
-  /* ----------------------------- Custom headers ---------------------------- */
   async headers() {
     return [
       {
@@ -115,20 +135,26 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map((source) => ({
-        source,
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      })),
+      ...['/fonts/:path*', '/icons/:path*', '/uploads/:path*', '/_next/static/:path*'].map(
+        (source) => ({
+          source,
+          headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+        }),
+      ),
       {
         source: '/_next/image',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
       },
       ...['/', '/about', '/policy'].map((source) => ({
         source,
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
       })),
     ];
   },

@@ -2,8 +2,8 @@
 export default {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
@@ -65,9 +65,5 @@ export default {
     require('@tailwindcss/aspect-ratio'),
     require('tailwindcss-animate'),
   ],
-  safelist: [
-    'bg-red-500',
-      'text-white',
-  '!text-white',
-  ],
+  safelist: ['bg-red-500', 'text-white', '!text-white'],
 };
