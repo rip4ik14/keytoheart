@@ -1,13 +1,11 @@
-// ✅ Путь: components/Breadcrumbs.tsx
 'use client';
 
-import { callYm } from '@/utils/metrics';
-import { YM_ID } from '@/utils/ym';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 
+// Типы
 type Category = {
   id: number;
   name: string;
@@ -69,81 +67,83 @@ export default function Breadcrumbs({
   categoryName?: string;
 }) {
   const pathname = usePathname() || '/';
-  const [subcategoryFromQuery, setSubcategoryFromQuery] = useState('all');
+
+  const subcategoryFromQuery = useMemo(() => {
+    if (typeof window === 'undefined') return 'all';
+    return new URLSearchParams(window.location.search).get('subcategory') || 'all';
+  }, [pathname]);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    setSubcategoryFromQuery(params.get('subcategory') || 'all');
-  }, [pathname]);
+    let isMounted = true;
 
-  const fetchCategories = async () => {
-    try {
-      if (categoryCache) {
-        setCategories(categoryCache);
-        setLoading(false);
-        return;
+    const fetchCategories = async () => {
+      try {
+        if (categoryCache) {
+          if (!isMounted) return;
+          setCategories(categoryCache);
+          setLoading(false);
+          return;
+        }
+
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('categories')
+          .select(`
+            id,
+            name,
+            slug,
+            is_visible,
+            subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
+          `)
+          .eq('is_visible', true)
+          .order('id', { ascending: true });
+
+        if (error) throw error;
+
+        const updatedData: Category[] = (data ?? []).map((cat: any) => {
+          const subcats = Array.isArray(cat.subcategories)
+            ? cat.subcategories
+                .filter((s: any) => s.is_visible !== false)
+                .map((s: any) => ({
+                  ...s,
+                  slug: s.slug || generateSlug(s.name),
+                  is_visible: s.is_visible ?? true,
+                }))
+            : [];
+
+          return {
+            ...cat,
+            is_visible: cat.is_visible ?? true,
+            slug: cat.slug || generateSlug(cat.name),
+            subcategories: subcats,
+          };
+        });
+
+        categoryCache = updatedData;
+
+        if (!isMounted) return;
+        setCategories(updatedData);
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('categories')
-        .select(`
-          id,
-          name,
-          slug,
-          is_visible,
-          subcategories!subcategories_category_id_fkey(id, name, slug, is_visible)
-        `)
-        .eq('is_visible', true)
-        .order('id', { ascending: true });
-
-      if (error) throw error;
-
-      const updatedData: Category[] = (data || []).map((cat: any) => {
-        const subcats = cat.subcategories
-          ? cat.subcategories
-              .filter((s: any) => s.is_visible !== false)
-              .map((s: any) => ({
-                ...s,
-                slug: s.slug || generateSlug(s.name),
-                is_visible: s.is_visible ?? true,
-              }))
-          : [];
-
-        return {
-          ...cat,
-          is_visible: cat.is_visible ?? true,
-          slug: cat.slug || generateSlug(cat.name),
-          subcategories: subcats,
-        };
-      });
-
-      categoryCache = updatedData;
-      setCategories(updatedData);
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Ошибка загрузки категорий в Breadcrumbs:', err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!pathname.startsWith('/category/') && !pathname.startsWith('/product/')) {
-      setLoading(false);
-      return;
-    }
+    };
 
     fetchCategories();
-  }, [pathname]);
 
-  const segments = useMemo(() => pathname.split('/').filter(Boolean), [pathname]);
-  const shouldRender = pathname !== '/';
-  if (!shouldRender) return null;
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const segments = pathname.split('/').filter(Boolean);
+  if (pathname === '/') return null;
 
   const crumbs: Crumb[] = [{ href: '/', label: 'Главная' }];
 
@@ -200,7 +200,7 @@ export default function Breadcrumbs({
   return (
     <nav
       aria-label="Хлебные крошки"
-      className="mx-auto max-w-7xl px-4 py-2 text-sm text-gray-500 font-sans"
+      className="mx-auto max-w-7xl px-4 py-2 text-sm font-sans text-gray-500"
     >
       {loading && segments[0] === 'category' ? (
         <div>Загрузка...</div>
@@ -215,25 +215,9 @@ export default function Breadcrumbs({
               )}
               <li role="listitem">
                 {i === crumbs.length - 1 ? (
-                  <span className="font-medium text-black">{c.label}</span>
+                  <span className="text-gray-700">{c.label}</span>
                 ) : (
-                  <Link
-                    href={c.href}
-                    className="transition hover:text-black"
-                    onClick={() => {
-                      window.gtag?.('event', 'breadcrumb_click', {
-                        event_category: 'navigation',
-                        breadcrumb_label: c.label,
-                        breadcrumb_href: c.href,
-                      });
-                      if (YM_ID !== undefined) {
-                        callYm(YM_ID, 'reachGoal', 'breadcrumb_click', {
-                          breadcrumb_label: c.label,
-                          breadcrumb_href: c.href,
-                        });
-                      }
-                    }}
-                  >
+                  <Link href={c.href} className="hover:text-black transition-colors">
                     {c.label}
                   </Link>
                 )}
