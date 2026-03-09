@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
+import supabaseImageLoader, { isSupabasePublicUrl } from '@/lib/utils/supabaseImageLoader';
 
 function isExternal(src?: string | null) {
   return !!src && /^https?:\/\//i.test(src);
@@ -54,6 +55,8 @@ function CategoryPill({
   fallbackLetter,
   isCatalog = false,
 }: PillProps) {
+  const useSupabaseLoader = isSupabasePublicUrl(image);
+
   return (
     <Link
       href={href}
@@ -87,8 +90,10 @@ function CategoryPill({
             alt={label}
             fill
             sizes="38px"
+            quality={70}
+            loader={useSupabaseLoader ? supabaseImageLoader : undefined}
             className="object-cover"
-            unoptimized={isExternal(image)}
+            unoptimized={isExternal(image) && !useSupabaseLoader}
           />
         ) : (
           <span className="text-[14px] font-semibold text-black/35">{fallbackLetter}</span>

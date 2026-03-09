@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PromoBlock } from '@/types/promo';
+import supabaseImageLoader, { isSupabasePublicUrl } from '@/lib/utils/supabaseImageLoader';
 
 const BLUR_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
@@ -17,6 +18,10 @@ function isVideoUrl(url?: string | null) {
 
 function isExternal(url?: string | null) {
   return !!url && /^https?:\/\//i.test(url);
+}
+
+function shouldUseNativeRemote(url?: string | null) {
+  return isExternal(url) && !isSupabasePublicUrl(url);
 }
 
 export default function PromoGridClient({
@@ -97,6 +102,7 @@ export default function PromoGridClient({
     priority?: boolean;
   }) => {
     const video = isVideoUrl(b.image_url);
+    const useSupabaseLoader = isSupabasePublicUrl(b.image_url);
 
     if (video) {
       return isActive ? (
@@ -119,13 +125,15 @@ export default function PromoGridClient({
         src={b.image_url}
         alt={b.title || 'Промо'}
         fill
-        sizes="100vw"
+        sizes="(max-width: 1023px) 100vw, (max-width: 1536px) 66vw, 960px"
         priority={!!priority}
         fetchPriority={priority ? 'high' : undefined}
+        quality={priority ? 74 : 72}
+        loader={useSupabaseLoader ? supabaseImageLoader : undefined}
         placeholder="blur"
         blurDataURL={BLUR_SRC}
         className="object-cover"
-        unoptimized={isExternal(b.image_url)}
+        unoptimized={shouldUseNativeRemote(b.image_url)}
       />
     );
   };
@@ -279,13 +287,15 @@ export default function PromoGridClient({
                               src={b.image_url}
                               alt={b.title || 'Промо'}
                               fill
-                              sizes="(max-width: 1024px) 100vw, 880px"
+                              sizes="(max-width: 1023px) 100vw, (max-width: 1536px) 66vw, 960px"
                               priority={i === 0}
                               fetchPriority={i === 0 ? 'high' : undefined}
+                              quality={i === 0 ? 74 : 72}
+                              loader={isSupabasePublicUrl(b.image_url) ? supabaseImageLoader : undefined}
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
-                              unoptimized={isExternal(b.image_url)}
+                              unoptimized={shouldUseNativeRemote(b.image_url)}
                             />
                           )}
 
@@ -390,11 +400,13 @@ export default function PromoGridClient({
                         src={desktopCards[0].image_url}
                         alt={desktopCards[0].title}
                         fill
-                        sizes="260px"
+                        sizes="(max-width: 1279px) 0px, 260px"
+                        quality={72}
+                        loader={isSupabasePublicUrl(desktopCards[0].image_url) ? supabaseImageLoader : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[0].image_url)}
+                        unoptimized={shouldUseNativeRemote(desktopCards[0].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -415,11 +427,13 @@ export default function PromoGridClient({
                         src={desktopCards[2].image_url}
                         alt={desktopCards[2].title}
                         fill
-                        sizes="260px"
+                        sizes="(max-width: 1279px) 0px, 260px"
+                        quality={72}
+                        loader={isSupabasePublicUrl(desktopCards[2].image_url) ? supabaseImageLoader : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[2].image_url)}
+                        unoptimized={shouldUseNativeRemote(desktopCards[2].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -442,11 +456,13 @@ export default function PromoGridClient({
                         src={desktopCards[1].image_url}
                         alt={desktopCards[1].title}
                         fill
-                        sizes="260px"
+                        sizes="(max-width: 1279px) 0px, 260px"
+                        quality={72}
+                        loader={isSupabasePublicUrl(desktopCards[1].image_url) ? supabaseImageLoader : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[1].image_url)}
+                        unoptimized={shouldUseNativeRemote(desktopCards[1].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -467,11 +483,13 @@ export default function PromoGridClient({
                         src={desktopCards[3].image_url}
                         alt={desktopCards[3].title}
                         fill
-                        sizes="260px"
+                        sizes="(max-width: 1279px) 0px, 260px"
+                        quality={72}
+                        loader={isSupabasePublicUrl(desktopCards[3].image_url) ? supabaseImageLoader : undefined}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[3].image_url)}
+                        unoptimized={shouldUseNativeRemote(desktopCards[3].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">

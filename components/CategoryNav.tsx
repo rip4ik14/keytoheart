@@ -588,12 +588,14 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
         </div>
       )}
 
-      <CatalogFilterModal
-        open={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        categories={(categories as any) || []}
-        currentCategorySlug={currentCategorySlug}
-      />
+      {filterOpen ? (
+        <CatalogFilterModal
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          categories={(categories as any) || []}
+          currentCategorySlug={currentCategorySlug}
+        />
+      ) : null}
     </nav>
   );
 }

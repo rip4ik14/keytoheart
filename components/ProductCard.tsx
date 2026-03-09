@@ -11,6 +11,7 @@ import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
+import supabaseImageLoader, { isSupabasePublicUrl } from '@/lib/utils/supabaseImageLoader';
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -272,6 +273,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
               alt={title}
               width={48}
               height={48}
+              quality={60}
+              loader={isSupabasePublicUrl(imageUrl) ? supabaseImageLoader : undefined}
               className="object-cover w-full h-full"
               unoptimized={unoptThumb}
             />
@@ -288,7 +291,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const unopt = isRemoteUrl(imageUrl);
+  const isSupabaseImage = isSupabasePublicUrl(imageUrl);
+  const unopt = isRemoteUrl(imageUrl) && !isSupabaseImage;
 
   const MobileView = (
     <div className="sm:hidden">
@@ -350,8 +354,10 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     src={imageUrl}
                     alt={title}
                     fill
-                    fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 640px) 70vw, 220px"
+                    fetchPriority={stablePriority ? 'high' : undefined}
+                    sizes="(max-width: 640px) 46vw, 220px"
+                    quality={72}
+                    loader={isSupabaseImage ? supabaseImageLoader : undefined}
                     className="object-cover w-full h-full"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
@@ -490,12 +496,14 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     src={imageUrl}
                     alt={title}
                     fill
-                    fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 640px) 50vw, 280px"
+                    fetchPriority={stablePriority ? 'high' : undefined}
+                    sizes="(max-width: 767px) 46vw, (max-width: 1279px) 28vw, 280px"
+                    quality={74}
+                    loader={isSupabaseImage ? supabaseImageLoader : undefined}
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
-                    unoptimized={isRemoteUrl(imageUrl)}
+                    unoptimized={unopt}
                   />
 
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -620,8 +628,10 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
           alt={title}
           width={48}
           height={48}
+          quality={60}
+          loader={isSupabaseImage ? supabaseImageLoader : undefined}
           className="object-cover w-full h-full"
-          unoptimized={isRemoteUrl(imageUrl)}
+          unoptimized={unopt}
         />
       </div>
 
