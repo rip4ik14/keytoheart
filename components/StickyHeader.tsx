@@ -451,15 +451,15 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           )}
 
           {/* Главная после скролла - фиксированный sticky header */}
-        <AnimatePresence>
+       <AnimatePresence mode="wait">
   {showHomeMobileStickyHeader && (
     <motion.div
       className="pointer-events-none fixed inset-x-0 z-[60]"
       style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
-      initial={{ opacity: 0, y: -14, scale: 0.985 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -10, scale: 0.99 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      initial={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+exit={{ opacity: 0, y: -8, filter: 'blur(2px)' }}
+transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
     >
       {mobileHeaderCard()}
     </motion.div>
