@@ -135,7 +135,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
-          <LayoutClient categories={[]} topBarSlot={<TopBar />} footerSlot={<Footer categories={[]} />}>{children}</LayoutClient>
+          <LayoutClient categories={[]}>
+  {children}
+</LayoutClient>
         </body>
       </html>
     );
@@ -337,7 +339,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </noscript>
         )}
 
-        <LayoutClient categories={categories} topBarSlot={<TopBar />} footerSlot={<Footer categories={categories} />}>{children}</LayoutClient>
+        <LayoutClient categories={categories}>
+  {children}
+</LayoutClient>
       </body>
     </html>
   );
