@@ -393,23 +393,6 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
             }}
           />
 
-          <button
-            type="button"
-            onClick={nudgeRight}
-            className={cls(
-              'absolute right-1 top-1/2 -translate-y-1/2',
-              'w-8 h-8 rounded-full',
-              'border border-black/10',
-              'shadow-[0_10px_26px_rgba(0,0,0,0.10)]',
-              'flex items-center justify-center',
-              'transition-opacity duration-200',
-              isAndroid ? 'kth-glass kth-sticky-surface' : 'bg-white/75 backdrop-blur-xl',
-              canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none',
-            )}
-            aria-label="Показать еще категории"
-          >
-            <ChevronRight className="w-4 h-4 text-black/70" />
-          </button>
 
           <div
             ref={scrollRef}

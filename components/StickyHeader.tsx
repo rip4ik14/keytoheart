@@ -404,26 +404,11 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
         </div>
 
         <div className="px-2 pb-2">
-          <div
-            className={cls(
-              'relative overflow-hidden rounded-[22px]',
-              'border border-black/10',
-              'shadow-[0_10px_26px_rgba(0,0,0,0.06)]',
-              'kth-glass kth-sticky-surface',
-            )}
-          >
-            <div
-              className="pointer-events-none absolute inset-0 opacity-70 kth-glass-highlight"
-              aria-hidden="true"
-            />
-            <div className="relative">
-              <CategoryNav
-                initialCategories={initialCategories}
-                showMobileFilter={showMobileFilter}
-              />
-            </div>
-          </div>
-        </div>
+  <CategoryNav
+    initialCategories={initialCategories}
+    showMobileFilter={showMobileFilter}
+  />
+</div>
       </div>
     </div>
   );
@@ -444,7 +429,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           {showHomeCompactSearchOnly && (
             <div
               className="pointer-events-none fixed inset-x-0 z-[60]"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 48px)' }}
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
             >
               <div className="mx-auto flex w-full max-w-[520px] justify-end px-4">
                 <button
@@ -466,14 +451,20 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
           )}
 
           {/* Главная после скролла - фиксированный sticky header */}
-          {showHomeMobileStickyHeader && (
-            <div
-              className="pointer-events-none fixed inset-x-0 z-[60]"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 48px)' }}
-            >
-              {mobileHeaderCard()}
-            </div>
-          )}
+        <AnimatePresence>
+  {showHomeMobileStickyHeader && (
+    <motion.div
+      className="pointer-events-none fixed inset-x-0 z-[60]"
+      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+      initial={{ opacity: 0, y: -14, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.99 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+    >
+      {mobileHeaderCard()}
+    </motion.div>
+  )}
+</AnimatePresence>
 
           {/* Внутренние страницы - шапка в потоке документа, чтобы естественно уходила вверх при скролле */}
           {showInnerPageMobileHeader && mobileHeaderCard('pt-2')}
