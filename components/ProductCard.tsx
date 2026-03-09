@@ -351,7 +351,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     alt={title}
                     fill
                     fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 640px) 70vw, 220px"
+                    sizes="(max-width: 640px) 50vw, 220px"
                     className="object-cover w-full h-full"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
@@ -491,7 +491,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     alt={title}
                     fill
                     fetchPriority={stablePriority ? 'high' : 'auto'}
-                    sizes="(max-width: 640px) 50vw, 280px"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 280px"
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}

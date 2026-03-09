@@ -279,7 +279,7 @@ export default function PromoGridClient({
                               src={b.image_url}
                               alt={b.title || 'Промо'}
                               fill
-                              sizes="(max-width: 1024px) 100vw, 880px"
+                              sizes="(max-width: 1279px) calc(100vw - 64px), 880px"
                               priority={i === 0}
                               fetchPriority={i === 0 ? 'high' : undefined}
                               placeholder="blur"

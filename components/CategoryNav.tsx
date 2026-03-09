@@ -5,13 +5,15 @@ import { YM_ID } from '@/utils/ym';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import type { Category } from '@/types/category';
 
-import CatalogFilterModal from '@components/CatalogFilterModal';
 import { ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
+
+const CatalogFilterModal = dynamic(() => import('@components/CatalogFilterModal'), { ssr: false });
 
 let categoryCache: Category[] | null = null;
 
@@ -172,9 +174,10 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       const updated = hydrate(initialCategories as any[]);
       setCategories(updated);
       categoryCache = updated;
-    } else {
-      fetchCategories();
+      return;
     }
+
+    fetchCategories();
 
     const channel = supabase
       .channel('categories-subcategories-changes')
@@ -376,7 +379,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
   return (
     <nav className="bg-transparent text-black font-sans" aria-label="Навигация по категориям">
       {/* mobile - tabs */}
-      <div className="sm:hidden">
+      <div className="lg:hidden">
         <div className="relative">
           <div
             className={cls(
@@ -476,7 +479,7 @@ export default function CategoryNav({ initialCategories, showMobileFilter = fals
       </div>
 
       {/* desktop */}
-      <ul className="hidden sm:flex px-4 py-4 justify-center relative bg-white border-b">
+      <ul className="hidden lg:flex px-4 py-4 justify-center relative bg-white border-b">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <li key={i}>
