@@ -16,7 +16,6 @@ function isVideoUrl(url?: string | null) {
   return clean.endsWith('.mp4') || clean.endsWith('.webm') || clean.endsWith('.mov');
 }
 
-
 export default function PromoGridClient({
   banners,
   cards,
@@ -114,7 +113,11 @@ export default function PromoGridClient({
       );
     }
 
-    const imageSrc = withSupabaseTransform(b.image_url, mode === 'desktop' ? 1440 : 960, mode === 'desktop' ? 76 : 72);
+    const imageSrc = withSupabaseTransform(
+      b.image_url,
+      mode === 'desktop' ? 1440 : 960,
+      mode === 'desktop' ? 76 : 72
+    );
 
     return (
       <Image
@@ -248,6 +251,9 @@ export default function PromoGridClient({
 
                   const hasText = !!(b.title || b.subtitle || b.button_text);
                   const shouldOverlay = i === active && hasText;
+                  const desktopBannerImageSrc = isVideoUrl(b.image_url)
+                    ? b.image_url
+                    : withSupabaseTransform(b.image_url, 1440, 76);
 
                   return (
                     <div
@@ -278,7 +284,7 @@ export default function PromoGridClient({
                             )
                           ) : (
                             <Image
-                              src={b.image_url}
+                              src={desktopBannerImageSrc}
                               alt={b.title || 'Промо'}
                               fill
                               sizes="(max-width: 1024px) 100vw, 880px"
@@ -287,7 +293,7 @@ export default function PromoGridClient({
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
-                              unoptimized={isExternalUrl(imageSrc)}
+                              unoptimized={isExternalUrl(desktopBannerImageSrc)}
                             />
                           )}
 
@@ -345,7 +351,7 @@ export default function PromoGridClient({
 
                     <button
                       className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/80 p-2 shadow transition hover:bg-white sm:flex"
-                      aria-label="Вперёд"
+                      aria-label="Вперед"
                       onClick={() => next(true)}
                       type="button"
                     >
@@ -360,136 +366,92 @@ export default function PromoGridClient({
                         />
                       </svg>
                     </button>
-
-                    <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-                      {banners.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => goTo(i, true)}
-                          aria-label={`Показать баннер ${i + 1}`}
-                          className={`h-2.5 w-2.5 rounded-full border transition ${
-                            i === active ? 'border-white bg-white/90' : 'border-white/40 bg-white/40'
-                          }`}
-                          type="button"
-                        />
-                      ))}
-                    </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="hidden h-full gap-[20px] lg:flex">
-              <div className="flex min-h-0 flex-1 flex-col gap-[20px]">
-                <div className="min-h-0 flex-[6]">
-                  {desktopCards[0] ? (
-                    <Link
-                      href={desktopCards[0].href}
-                      className="group relative block h-full w-full overflow-hidden rounded-[24px]"
-                      title={desktopCards[0].title}
-                    >
-                      <Image
-                        src={withSupabaseTransform(desktopCards[0].image_url, 520, 72)}
-                        alt={desktopCards[0].title}
-                        fill
-                        sizes="(max-width: 1280px) 24vw, 260px"
-                        placeholder="blur"
-                        blurDataURL={BLUR_SRC}
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternalUrl(desktopCards[0].image_url)}
-                      />
-                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
-                      <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
-                        {desktopCards[0].title}
-                      </span>
-                    </Link>
-                  ) : null}
-                </div>
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 sm:gap-5">
+              {desktopCards[0] ? (
+                <Link
+                  href={desktopCards[0].href || '#'}
+                  className="group relative overflow-hidden rounded-[24px]"
+                  style={{ aspectRatio: '1 / 1' }}
+                  title={desktopCards[0].title || undefined}
+                >
+                  <Image
+                    src={withSupabaseTransform(desktopCards[0].image_url, 520, 72)}
+                    alt={desktopCards[0].title || 'Промо'}
+                    fill
+                    sizes="(max-width: 1280px) 16vw, 260px"
+                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                    unoptimized={isExternalUrl(withSupabaseTransform(desktopCards[0].image_url, 520, 72))}
+                  />
+                </Link>
+              ) : (
+                <div className="rounded-[24px] bg-transparent" />
+              )}
 
-                <div className="min-h-0 flex-[4]">
-                  {desktopCards[2] ? (
-                    <Link
-                      href={desktopCards[2].href}
-                      className="group relative block h-full w-full overflow-hidden rounded-[24px]"
-                      title={desktopCards[2].title}
-                    >
-                      <Image
-                        src={withSupabaseTransform(desktopCards[2].image_url, 520, 72)}
-                        alt={desktopCards[2].title}
-                        fill
-                        sizes="(max-width: 1280px) 24vw, 260px"
-                        placeholder="blur"
-                        blurDataURL={BLUR_SRC}
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternalUrl(desktopCards[2].image_url)}
-                      />
-                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
-                      <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
-                        {desktopCards[2].title}
-                      </span>
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
+              {desktopCards[2] ? (
+                <Link
+                  href={desktopCards[2].href || '#'}
+                  className="group relative overflow-hidden rounded-[24px]"
+                  style={{ aspectRatio: '1 / 1' }}
+                  title={desktopCards[2].title || undefined}
+                >
+                  <Image
+                    src={withSupabaseTransform(desktopCards[2].image_url, 520, 72)}
+                    alt={desktopCards[2].title || 'Промо'}
+                    fill
+                    sizes="(max-width: 1280px) 16vw, 260px"
+                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                    unoptimized={isExternalUrl(withSupabaseTransform(desktopCards[2].image_url, 520, 72))}
+                  />
+                </Link>
+              ) : (
+                <div className="rounded-[24px] bg-transparent" />
+              )}
 
-              <div className="flex min-h-0 flex-1 flex-col gap-[20px]">
-                <div className="min-h-0 flex-[4]">
-                  {desktopCards[1] ? (
-                    <Link
-                      href={desktopCards[1].href}
-                      className="group relative block h-full w-full overflow-hidden rounded-[24px]"
-                      title={desktopCards[1].title}
-                    >
-                      <Image
-                        src={withSupabaseTransform(desktopCards[1].image_url, 520, 72)}
-                        alt={desktopCards[1].title}
-                        fill
-                        sizes="(max-width: 1280px) 24vw, 260px"
-                        placeholder="blur"
-                        blurDataURL={BLUR_SRC}
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternalUrl(desktopCards[1].image_url)}
-                      />
-                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
-                      <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
-                        {desktopCards[1].title}
-                      </span>
-                    </Link>
-                  ) : null}
-                </div>
+              {desktopCards[1] ? (
+                <Link
+                  href={desktopCards[1].href || '#'}
+                  className="group relative overflow-hidden rounded-[24px]"
+                  style={{ aspectRatio: '1 / 1' }}
+                  title={desktopCards[1].title || undefined}
+                >
+                  <Image
+                    src={withSupabaseTransform(desktopCards[1].image_url, 520, 72)}
+                    alt={desktopCards[1].title || 'Промо'}
+                    fill
+                    sizes="(max-width: 1280px) 16vw, 260px"
+                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                    unoptimized={isExternalUrl(withSupabaseTransform(desktopCards[1].image_url, 520, 72))}
+                  />
+                </Link>
+              ) : (
+                <div className="rounded-[24px] bg-transparent" />
+              )}
 
-                <div className="min-h-0 flex-[6]">
-                  {desktopCards[3] ? (
-                    <Link
-                      href={desktopCards[3].href}
-                      className="group relative block h-full w-full overflow-hidden rounded-[24px]"
-                      title={desktopCards[3].title}
-                    >
-                      <Image
-                        src={withSupabaseTransform(desktopCards[3].image_url, 520, 72)}
-                        alt={desktopCards[3].title}
-                        fill
-                        sizes="(max-width: 1280px) 24vw, 260px"
-                        placeholder="blur"
-                        blurDataURL={BLUR_SRC}
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternalUrl(desktopCards[3].image_url)}
-                      />
-                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
-                      <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
-                        {desktopCards[3].title}
-                      </span>
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
+              {desktopCards[3] ? (
+                <Link
+                  href={desktopCards[3].href || '#'}
+                  className="group relative overflow-hidden rounded-[24px]"
+                  style={{ aspectRatio: '1 / 1' }}
+                  title={desktopCards[3].title || undefined}
+                >
+                  <Image
+                    src={withSupabaseTransform(desktopCards[3].image_url, 520, 72)}
+                    alt={desktopCards[3].title || 'Промо'}
+                    fill
+                    sizes="(max-width: 1280px) 16vw, 260px"
+                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                    unoptimized={isExternalUrl(withSupabaseTransform(desktopCards[3].image_url, 520, 72))}
+                  />
+                </Link>
+              ) : (
+                <div className="rounded-[24px] bg-transparent" />
+              )}
             </div>
-          </div>
-
-          <div className="mb-2 mt-4 text-center sm:mb-4 sm:mt-6">
-            <p className="text-sm font-medium leading-snug text-black/70 sm:text-base md:text-lg">
-              Клубника в бельгийском шоколаде и цветы с доставкой 30 минут по Краснодару
-            </p>
           </div>
         </div>
       </div>

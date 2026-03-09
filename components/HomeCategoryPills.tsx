@@ -4,7 +4,6 @@ import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
 import { isExternalUrl, withSupabaseTransform } from './imagePerf';
 
-
 function GridIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -81,7 +80,7 @@ function CategoryPill({
       >
         {isCatalog ? (
           <GridIcon />
-        ) : image ? (
+        ) : pillImage ? (
           <Image
             src={pillImage}
             alt={label}
