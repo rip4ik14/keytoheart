@@ -12,13 +12,15 @@ export function isSupabasePublicUrl(src?: string | null) {
  */
 export function shouldSkipOptimization(src?: string | null): boolean {
   if (!src) return false;
+  // blob: previews (admin uploads and temporary client-side objects)
+  if (src.startsWith('blob:')) return true;
+
   if (!isExternalUrl(src)) return false;
   // These domains are in next.config.js remotePatterns — Next.js can optimize them
   if (isSupabasePublicUrl(src)) return false;
   if (/^https?:\/\/via\.placeholder\.com\//i.test(src)) return false;
   if (/^https?:\/\/keytoheart\.ru\//i.test(src)) return false;
-  // blob: URLs during admin uploads
-  if (src.startsWith('blob:')) return true;
+  // external URLs outside configured allow-list
   return true;
 }
 
