@@ -42,7 +42,23 @@ export default async function PromoGridServer() {
     const banners = (data ?? []).filter((b) => b.type === 'banner');
     const cards = (data ?? []).filter((b) => b.type === 'card');
 
-    return <PromoGridWrapper banners={banners} cards={cards} />;
+    // Preload LCP image — React 19 hoists <link> to <head>
+    const firstBannerUrl = banners[0]?.image_url;
+    const isVideo = firstBannerUrl && /\.(mp4|webm|mov)(\?|$)/i.test(firstBannerUrl);
+
+    return (
+      <>
+        {firstBannerUrl && !isVideo && (
+          <link
+            rel="preload"
+            as="image"
+            href={firstBannerUrl}
+            fetchPriority="high"
+          />
+        )}
+        <PromoGridWrapper banners={banners} cards={cards} />
+      </>
+    );
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('PromoGridServer error:', err);
