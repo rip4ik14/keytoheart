@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimation } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
@@ -49,7 +49,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } =
     useCartAnimation();
 
-  const { isAuthenticated, bonus, clearAuth, refreshAuth } = useAuth();
+  const { isAuthenticated, bonus, clearAuth } = useAuth();
 
   const cartSum = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items]);
   const totalItems = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);

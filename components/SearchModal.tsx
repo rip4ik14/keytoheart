@@ -7,19 +7,12 @@ import Image from 'next/image';
 import { supabasePublic } from '@/lib/supabase/public';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-
 interface Product {
   id: number;
   title: string;
   price: number;
   images: string[];
   category_ids: number[];
-}
-
-interface Category {
-  id: number;
-  name: string;
 }
 
 export default function SearchModal({
