@@ -313,7 +313,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   trackLinks:true,
                   accurateTrackBounce:true,
                   trackHash:true,
-                  webvisor:true
+                  webvisor:false
                 });
               `,
             }}
