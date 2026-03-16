@@ -11,6 +11,7 @@ import { Navigation, Thumbs } from 'swiper/modules';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useCart } from '@context/CartContext';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 import { createClient } from '@supabase/supabase-js';
 
 import { callYm } from '@utils/metrics';
@@ -63,9 +64,7 @@ function money(n: number) {
 function percentToMultiplier(p: number) {
   return 1 - p / 100;
 }
-function isRemoteImage(src: string | null | undefined) {
-  return !!src && /^https?:\/\//i.test(src);
-}
+const isRemoteImage = shouldSkipOptimization;
 
 
 // ✅ combo helpers

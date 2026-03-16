@@ -5,6 +5,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import Image from "next/image";
+import { shouldSkipOptimization } from "@/components/imagePerf";
 import { createClient } from "@/lib/supabase/client";
 
 import {
@@ -1093,7 +1094,7 @@ export default function CategoriesClient({
                               alt="preview"
                               fill
                               className="object-cover"
-                              unoptimized={/^https?:\/\//i.test(
+                              unoptimized={shouldSkipOptimization(
                                 String(editingCategory.og_image ?? ""),
                               )}
                             />
@@ -1343,7 +1344,7 @@ export default function CategoriesClient({
                                   fill
                                   sizes="56px"
                                   className="object-cover"
-                                  unoptimized={/^https?:\/\//i.test(
+                                  unoptimized={shouldSkipOptimization(
                                     String(cat.og_image),
                                   )}
                                 />
@@ -1602,7 +1603,7 @@ export default function CategoriesClient({
                                         alt="preview"
                                         fill
                                         className="object-cover"
-                                        unoptimized={/^https?:\/\//i.test(
+                                        unoptimized={shouldSkipOptimization(
                                           editingSub.image_url ||
                                             editingSub.home_icon_url ||
                                             "",

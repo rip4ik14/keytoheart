@@ -6,6 +6,22 @@ export function isSupabasePublicUrl(src?: string | null) {
   return !!src && /^https?:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(src);
 }
 
+/**
+ * Returns true only for external URLs that are NOT in Next.js remotePatterns.
+ * Supabase and placeholder.com images can be optimized by Next.js Image.
+ */
+export function shouldSkipOptimization(src?: string | null): boolean {
+  if (!src) return false;
+  if (!isExternalUrl(src)) return false;
+  // These domains are in next.config.js remotePatterns — Next.js can optimize them
+  if (isSupabasePublicUrl(src)) return false;
+  if (/^https?:\/\/via\.placeholder\.com\//i.test(src)) return false;
+  if (/^https?:\/\/keytoheart\.ru\//i.test(src)) return false;
+  // blob: URLs during admin uploads
+  if (src.startsWith('blob:')) return true;
+  return true;
+}
+
 export function withSupabaseTransform(src: string, width: number, quality = 72) {
   if (!isSupabasePublicUrl(src)) return src;
 
