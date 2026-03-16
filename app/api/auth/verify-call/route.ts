@@ -29,7 +29,9 @@ export async function POST(request: Request) {
     const responseText = await smsRes.text();
 
     const lines = responseText.trim().split('\n');
-    if (lines[0] !== '100') {
+    const statusCode = (lines[0] || '').trim();
+    if (statusCode !== '100') {
+      process.env.NODE_ENV !== "production" && console.warn('SMS.ru verify response:', responseText);
       return NextResponse.json({ success: false, error: 'Неверный код' }, { status: 400 });
     }
 

@@ -3,7 +3,7 @@
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ShoppingCart, Gift, Clock } from 'lucide-react';
 import { trackAddToCart } from '@/utils/ymEvents';
@@ -63,6 +63,13 @@ function isRemoteUrl(src: string) {
   return /^https?:\/\//i.test(src);
 }
 
+function isUnoptimizedUrl(src: string) {
+  if (!isRemoteUrl(src)) return false;
+  // Supabase images can be optimized by Next.js — don't skip them
+  if (/\.supabase\.co\//i.test(src)) return false;
+  return true;
+}
+
 function normalizeImageUrl(raw?: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const s = raw.trim();
@@ -86,7 +93,7 @@ function pickFirstValidImage(images: unknown): string | null {
   return null;
 }
 
-export default function ProductCard({
+function ProductCard({
   product,
   priority = false,
   shadowMode = 'default',
@@ -233,7 +240,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (!showToast) return null;
     if (toastPlacementRef.current !== 'mobile') return null;
 
-    const unoptThumb = isRemoteUrl(imageUrl);
+    const unoptThumb = isUnoptimizedUrl(imageUrl);
 
     return createPortal(
       <AnimatePresence>
@@ -288,7 +295,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const unopt = isRemoteUrl(imageUrl);
+  const unopt = isUnoptimizedUrl(imageUrl);
 
   const MobileView = (
     <div className="sm:hidden">
@@ -495,7 +502,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
-                    unoptimized={isRemoteUrl(imageUrl)}
+                    unoptimized={isUnoptimizedUrl(imageUrl)}
                   />
 
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -621,7 +628,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
           width={48}
           height={48}
           className="object-cover w-full h-full"
-          unoptimized={isRemoteUrl(imageUrl)}
+          unoptimized={isUnoptimizedUrl(imageUrl)}
         />
       </div>
 
@@ -642,3 +649,5 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     </>
   );
 }
+
+export default React.memo(ProductCard);

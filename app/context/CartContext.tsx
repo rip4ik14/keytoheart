@@ -61,7 +61,7 @@ function safeParseJSON<T>(raw: string | null): T | null {
 }
 
 function makeLineId() {
-  const c: any = typeof crypto !== 'undefined' ? crypto : null;
+  const c = typeof crypto !== 'undefined' ? crypto : null;
   if (c?.randomUUID) return String(c.randomUUID());
   return `line_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
@@ -405,7 +405,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.length > 0 ? Math.max(...items.map((item) => item.production_time ?? 0)) : null;
   }, [items]);
 
-  const value: CartContextType = {
+  const value: CartContextType = useMemo(() => ({
     items,
     setItems,
     addItem,
@@ -415,7 +415,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     removeAllByProductId,
     clearCart,
     maxProductionTime,
-  };
+  }), [items, setItems, addItem, addMultipleItems, removeItem, updateQuantity, removeAllByProductId, clearCart, maxProductionTime]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

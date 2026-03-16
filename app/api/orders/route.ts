@@ -394,7 +394,7 @@ export async function POST(req: Request) {
     const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
 
     const sanitizedOccasionRaw = occasion
-      ? sanitizeHtml(String(occasion), { allowedTags: [], allowedAttributes: {} })
+      ? sanitizeHtml(String(occasion).slice(0, 500), { allowedTags: [], allowedAttributes: {} })
       : '';
     const sanitizedOccasion = sanitizedOccasionRaw.trim() ? sanitizedOccasionRaw.trim() : null;
 

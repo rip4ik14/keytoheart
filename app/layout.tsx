@@ -143,7 +143,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   let categories: Category[] = [];
 

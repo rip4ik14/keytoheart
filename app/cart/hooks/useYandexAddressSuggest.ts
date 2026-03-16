@@ -4,7 +4,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import debounce from 'lodash/debounce';
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+  let timer: ReturnType<typeof setTimeout>;
+  return ((...args: any[]) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  }) as unknown as T;
+}
 
 type Args = {
   onFormChange: (e: ChangeEvent<HTMLInputElement>) => void;

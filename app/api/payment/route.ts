@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     });
 
     const data = await r.json();
-    if (!r.ok || !data?.PaymentURL) {
+    if (!r.ok || !data?.PaymentURL || typeof data.PaymentURL !== 'string' || !data.PaymentURL.startsWith('http')) {
       return NextResponse.json({ error: data }, { status: 502 });
     }
     return NextResponse.json({ paymentUrl: data.PaymentURL });
