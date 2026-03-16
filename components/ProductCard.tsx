@@ -540,11 +540,11 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     src={imageUrl}
                     alt={title}
                     fill
-                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    fetchPriority="auto"
                     sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 280px"
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
-                    loading={stablePriority ? 'eager' : 'lazy'}
-                    priority={stablePriority}
+                    loading="lazy"
+                    priority={false}
                     unoptimized={shouldSkipOptimization(imageUrl)}
                   />
 
