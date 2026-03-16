@@ -144,6 +144,7 @@ export default function LayoutClient({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [nonCriticalReady, setNonCriticalReady] = useState(false);
+  const [stickyReady, setStickyReady] = useState(() => !isHomePage);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -175,6 +176,42 @@ export default function LayoutClient({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHomePage) {
+      setStickyReady(true);
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const activate = () => {
+      if (cancelled) return;
+      setStickyReady(true);
+    };
+
+    const idleCb = (window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    }).requestIdleCallback;
+
+    if (idleCb) {
+      const id = idleCb(activate, { timeout: 1800 });
+      return () => {
+        cancelled = true;
+        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id);
+      };
+    }
+
+    timeoutId = setTimeout(activate, 900);
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isHomePage]);
 
   const navLinks = useMemo(
     () => [
@@ -264,7 +301,7 @@ export default function LayoutClient({
       <AuthProvider initialIsAuthenticated={false} initialPhone={null} initialBonus={null}>
         <CartAnimationProvider>
           <CartProvider>
-            {!isGiftPage && <StickyHeader initialCategories={categories} />}
+            {!isGiftPage && stickyReady && <StickyHeader initialCategories={categories} />}
 
             {!isGiftPage && (
               <div className="hidden lg:block">
