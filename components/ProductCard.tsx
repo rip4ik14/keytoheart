@@ -4,14 +4,70 @@
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Gift, Clock } from 'lucide-react';
 import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
 import { shouldSkipOptimization } from '@/components/imagePerf';
 import { createPortal } from 'react-dom';
+
+function IconBase({ children, size = 16, className = '' }: { children: React.ReactNode; size?: number; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function ShoppingCartIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="9" cy="20" r="1" />
+      <circle cx="18" cy="20" r="1" />
+      <path d="M3 4h2l2.4 10.5a2 2 0 0 0 2 1.5h7.7a2 2 0 0 0 2-1.5L21 7H7" />
+    </IconBase>
+  );
+}
+
+function GiftIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M12 8v13" />
+      <path d="M3 12h18" />
+      <path d="M12 8H8.5A2.5 2.5 0 1 1 12 4.5V8Z" />
+      <path d="M12 8h3.5A2.5 2.5 0 1 0 12 4.5V8Z" />
+    </IconBase>
+  );
+}
+
+function ClockIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </IconBase>
+  );
+}
+
+function StarIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden="true">
+      <path d="M12 2l2.9 6 6.6 1-4.8 4.7 1.2 6.7L12 17.6 6.1 20.4l1.2-6.7L2.5 9l6.6-1L12 2z" fill="currentColor" />
+    </svg>
+  );
+}
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -235,8 +291,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     const unoptThumb = shouldSkipOptimization(imageUrl);
 
     return createPortal(
-      <AnimatePresence>
-        <motion.div
+      <div
           className={[
             'fixed z-[2147483647]',
             'bg-white/78 backdrop-blur-xl',
@@ -244,6 +299,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
             'border border-black/10',
             'px-3 py-3 flex items-center gap-3',
+            'animate-in fade-in slide-in-from-bottom-2 duration-200',
           ].join(' ')}
           style={{
             left: `calc(12px + env(safe-area-inset-left))`,
@@ -259,10 +315,6 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             willChange: 'transform, opacity',
             WebkitBackfaceVisibility: 'hidden',
           }}
-          initial={{ opacity: 0, y: 8, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 8, scale: 0.98 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
           aria-live="polite"
         >
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
@@ -280,8 +332,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             <p className="text-sm font-semibold">добавлено в корзину</p>
             <p className="text-xs text-black/60 break-words">{title}</p>
           </div>
-        </motion.div>
-      </AnimatePresence>,
+        </div>,
       document.body,
     );
   };
@@ -362,7 +413,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
                     {bonus > 0 && (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
-                        <Gift size={12} className="text-black/70" />
+                        <GiftIcon size={12} className="text-black/70" />
                         <span className="text-[10px] font-semibold text-black/80">+{bonus}</span>
                       </div>
                     )}
@@ -371,14 +422,14 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
                     {isPopular && (
                       <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                        <Star size={14} className="text-yellow-400" />
+                        <StarIcon size={14} className="text-yellow-400" />
                       </div>
                     )}
                   </div>
 
                   <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
-                      <Clock size={12} className="text-white/80" />
+                      <ClockIcon size={12} className="text-white/80" />
                       <span className="text-[10px] font-semibold text-white">
                         {productionCompact || (productionText ? productionText : '-')}
                       </span>
@@ -433,7 +484,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                       ].join(' ')}
                       aria-label={`Добавить ${title} в корзину`}
                     >
-                      <ShoppingCart size={16} className="text-black/70" />
+                      <ShoppingCartIcon size={16} className="text-black/70" />
                       <span className="text-[14px] font-bold">{priceText}</span>
                     </button>
                   </div>
@@ -500,14 +551,14 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
                     {bonus > 0 && (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                        <Gift size={14} className="text-black/70" />
+                        <GiftIcon size={14} className="text-black/70" />
                         <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
                       </div>
                     )}
 
                     {productionText && (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                        <Clock size={14} className="text-black/55" />
+                        <ClockIcon size={14} className="text-black/55" />
                         <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
                       </div>
                     )}
@@ -516,7 +567,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                   <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
                     {isPopular && (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
-                        <Star size={14} className="text-yellow-400" />
+                        <StarIcon size={14} className="text-yellow-400" />
                         <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
                       </div>
                     )}
@@ -585,7 +636,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                         ].join(' ')}
                         aria-label={`Добавить ${title} в корзину`}
                       >
-                        <ShoppingCart size={18} />
+                        <ShoppingCartIcon size={18} />
                         в корзину
                       </button>
                     </div>
@@ -596,9 +647,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
 
             {/* ✅ desktop toast */}
             {/* ✅ desktop toast */}
-<AnimatePresence>
-  {showToast && toastPlacementRef.current === 'desktop' && (
-    <motion.div
+{showToast && toastPlacementRef.current === 'desktop' && (
+    <div
       className={[
         'fixed bottom-4 right-4 z-[9999]',
         'max-w-[380px] w-[92%] sm:w-[340px]',
@@ -606,11 +656,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
         'border border-black/10',
         'px-3 py-3 flex items-center gap-3',
+            'animate-in fade-in slide-in-from-bottom-2 duration-200',
       ].join(' ')}
-      initial={{ opacity: 0, y: 18, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 18, scale: 0.98 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
       aria-live="polite"
     >
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
@@ -628,9 +675,8 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         <p className="text-sm font-semibold">добавлено в корзину</p>
         <p className="text-xs text-black/60 break-words">{title}</p>
       </div>
-    </motion.div>
+    </div>
   )}
-</AnimatePresence>
     </div>
   );
 

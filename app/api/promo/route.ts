@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getPromoBlocks } from '@/lib/data/promo';
 import { safeBody } from '@/lib/api/safeBody';
 
 // Получить все промо-блоки
 export async function GET() {
   try {
-    const data = await prisma.promo_blocks.findMany({
-      orderBy: { order_index: 'asc' },
-      select: {
-        id: true,
-        title: true,
-        subtitle: true,
-        button_text: true,
-        href: true,
-        image_url: true,
-        type: true,
-        order_index: true,
-      },
-    });
+    const data = await getPromoBlocks();
     return NextResponse.json(data);
   } catch (err: any) {
     console.error('Prisma promo_blocks GET error:', err);
