@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import StickyHeader from '@components/StickyHeader';
 import SkipLink from '@components/SkipLink';
 
 import { CartProvider } from '@context/CartContext';
@@ -22,6 +21,7 @@ import { YM_ID } from '@/utils/ym';
 const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), { ssr: false });
 const CookieBanner = dynamic(() => import('@components/CookieBanner'), { ssr: false });
 const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), { ssr: false });
+const StickyHeader = dynamic(() => import('@components/StickyHeader'), { ssr: false });
 
 const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('@components/MobileBottomNav'), { ssr: false });
