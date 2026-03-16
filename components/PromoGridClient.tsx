@@ -119,6 +119,7 @@ export default function PromoGridClient({
         sizes="100vw"
         priority={!!priority}
         fetchPriority={priority ? 'high' : undefined}
+        quality={62}
         placeholder="blur"
         blurDataURL={BLUR_SRC}
         className="object-cover"
@@ -277,8 +278,10 @@ export default function PromoGridClient({
                               alt={b.title || 'Промо'}
                               fill
                               sizes="(max-width: 1279px) calc(100vw - 64px), 880px"
-                              priority={i === 0}
-                              fetchPriority={i === 0 ? 'high' : undefined}
+                              // Desktop hero is hidden on mobile; avoid competing high-priority fetches
+                              // with the mobile LCP image.
+                              priority={false}
+                              quality={62}
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
@@ -388,6 +391,7 @@ export default function PromoGridClient({
                         alt={desktopCards[0].title}
                         fill
                         sizes="260px"
+                        quality={60}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -413,6 +417,7 @@ export default function PromoGridClient({
                         alt={desktopCards[2].title}
                         fill
                         sizes="260px"
+                        quality={60}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -440,6 +445,7 @@ export default function PromoGridClient({
                         alt={desktopCards[1].title}
                         fill
                         sizes="260px"
+                        quality={60}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -465,6 +471,7 @@ export default function PromoGridClient({
                         alt={desktopCards[3].title}
                         fill
                         sizes="260px"
+                        quality={60}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
