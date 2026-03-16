@@ -209,7 +209,8 @@ export default async function Home() {
           products={uniqueItemsForThisCategory}
           seeMoreLink={slug}
           headingId={headingId}
-          priorityCount={idx === 0 ? 4 : 0}
+          // Keep eager loading minimal to avoid competing with hero LCP image on mobile.
+          priorityCount={idx === 0 ? 1 : 0}
         />
         {idx === 0 && <AdvantagesClient />}
       </React.Fragment>

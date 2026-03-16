@@ -277,8 +277,9 @@ export default function PromoGridClient({
                               alt={b.title || 'Промо'}
                               fill
                               sizes="(max-width: 1279px) calc(100vw - 64px), 880px"
-                              priority={i === 0}
-                              fetchPriority={i === 0 ? 'high' : undefined}
+                              // Desktop hero is hidden on mobile; avoid competing high-priority fetches
+                              // with the mobile LCP image.
+                              priority={false}
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
