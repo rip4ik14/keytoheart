@@ -1,6 +1,7 @@
 // ✅ Путь: components/GiftIdeasStrip.tsx
 import Link from 'next/link';
 import Image from 'next/image';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 
 export type GiftIdeaItem = {
   id: number;
@@ -83,7 +84,7 @@ export default function GiftIdeasStrip({
                         fill
                         sizes="72px"
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={/^https?:\/\//i.test(icon)}
+                        unoptimized={shouldSkipOptimization(icon)}
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-black/70 font-bold">

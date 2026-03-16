@@ -9,6 +9,7 @@ import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 
 interface Category {
   id: number;
@@ -47,8 +48,7 @@ interface ImageFile {
 }
 
 const isUnsafeForNextImage = (src: string) =>
-  src.startsWith('http://') ||
-  src.startsWith('https://') ||
+  shouldSkipOptimization(src) ||
   src.startsWith('blob:');
 
 export default function EditProductPage() {

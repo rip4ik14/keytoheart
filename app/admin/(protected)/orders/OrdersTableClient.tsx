@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import useClientSearchParams from '@/lib/hooks/useClientSearchParams';
 import Link from 'next/link';
 import Image from 'next/image';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 import { Phone, MessageCircle, Trash2, Info, X as CloseIcon, ExternalLink, Send } from 'lucide-react';
 
 export interface Order {
@@ -1092,7 +1093,7 @@ export default function OrdersTableClient({ initialOrders, loadError }: Props) {
                                       width={48}
                                       height={48}
                                       className="h-12 w-12 object-cover"
-                                      unoptimized
+                                      unoptimized={shouldSkipOptimization(it.image_url)}
                                     />
                                   ) : (
                                     <div className="h-12 w-12 flex items-center justify-center text-[10px] text-gray-500">

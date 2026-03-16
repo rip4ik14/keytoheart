@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 import { supabasePublic as supabase } from '@/lib/supabase/public';
 import {
   DndContext,
@@ -134,7 +135,7 @@ const SortableProduct = ({
             width={80}
             height={80}
             sizes="80px"
-            unoptimized={product.images[0].startsWith('http') || product.images[0].startsWith('blob:')}
+            unoptimized={shouldSkipOptimization(product.images[0])}
             className="object-cover rounded"
             loading="lazy"
           />
@@ -244,7 +245,7 @@ const ProductTableTable = ({
                     width={60}
                     height={60}
                     sizes="60px"
-                    unoptimized={product.images[0].startsWith('http') || product.images[0].startsWith('blob:')}
+                    unoptimized={shouldSkipOptimization(product.images[0])}
                     className="object-cover rounded"
                   />
                 ) : (

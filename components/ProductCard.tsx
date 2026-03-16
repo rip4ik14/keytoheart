@@ -10,6 +10,7 @@ import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 import { createPortal } from 'react-dom';
 
 function normalizeTitle(raw: string): string {
@@ -59,9 +60,6 @@ const STICKY_HEADER_VAR = '--kth-sticky-header-h';
 /* -------------------------------------------------------------------------- */
 /* ✅ ВАЖНО: нормализуем картинки, чтобы не было src="" и кривых URL           */
 /* -------------------------------------------------------------------------- */
-function isRemoteUrl(src: string) {
-  return /^https?:\/\//i.test(src);
-}
 
 
 function normalizeImageUrl(raw?: unknown): string | null {
@@ -82,7 +80,7 @@ function pickFirstValidImage(images: unknown): string | null {
     if (!u) continue;
 
     // принимаем только нормальные источники
-    if (u.startsWith('/') || isRemoteUrl(u)) return u;
+    if (u.startsWith('/') || /^https?:\/\//i.test(u)) return u;
   }
   return null;
 }
@@ -234,7 +232,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (!showToast) return null;
     if (toastPlacementRef.current !== 'mobile') return null;
 
-    const unoptThumb = isRemoteUrl(imageUrl);
+    const unoptThumb = shouldSkipOptimization(imageUrl);
 
     return createPortal(
       <AnimatePresence>
@@ -289,7 +287,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const unopt = isRemoteUrl(imageUrl);
+  const unopt = shouldSkipOptimization(imageUrl);
 
   const MobileView = (
     <div className="sm:hidden">
@@ -496,7 +494,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
-                    unoptimized={isRemoteUrl(imageUrl)}
+                    unoptimized={shouldSkipOptimization(imageUrl)}
                   />
 
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -622,7 +620,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
           width={48}
           height={48}
           className="object-cover w-full h-full"
-          unoptimized={isRemoteUrl(imageUrl)}
+          unoptimized={shouldSkipOptimization(imageUrl)}
         />
       </div>
 

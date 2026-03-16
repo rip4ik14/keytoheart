@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PromoBlock } from '@/types/promo';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 
 const BLUR_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
@@ -13,10 +14,6 @@ function isVideoUrl(url?: string | null) {
   if (!url) return false;
   const clean = url.split('?')[0].toLowerCase();
   return clean.endsWith('.mp4') || clean.endsWith('.webm') || clean.endsWith('.mov');
-}
-
-function isExternal(url?: string | null) {
-  return !!url && /^https?:\/\//i.test(url);
 }
 
 export default function PromoGridClient({
@@ -125,7 +122,7 @@ export default function PromoGridClient({
         placeholder="blur"
         blurDataURL={BLUR_SRC}
         className="object-cover"
-        unoptimized={isExternal(b.image_url)}
+        unoptimized={shouldSkipOptimization(b.image_url)}
       />
     );
   };
@@ -285,7 +282,7 @@ export default function PromoGridClient({
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
-                              unoptimized={isExternal(b.image_url)}
+                              unoptimized={shouldSkipOptimization(b.image_url)}
                             />
                           )}
 
@@ -394,7 +391,7 @@ export default function PromoGridClient({
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[0].image_url)}
+                        unoptimized={shouldSkipOptimization(desktopCards[0].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -419,7 +416,7 @@ export default function PromoGridClient({
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[2].image_url)}
+                        unoptimized={shouldSkipOptimization(desktopCards[2].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -446,7 +443,7 @@ export default function PromoGridClient({
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[1].image_url)}
+                        unoptimized={shouldSkipOptimization(desktopCards[1].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -471,7 +468,7 @@ export default function PromoGridClient({
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[3].image_url)}
+                        unoptimized={shouldSkipOptimization(desktopCards[3].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
