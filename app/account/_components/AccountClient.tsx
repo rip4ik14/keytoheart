@@ -1,3 +1,4 @@
+// ✅ Путь: components/account/AccountClient.tsx
 'use client';
 
 import { callYm } from '@/utils/metrics';
@@ -41,11 +42,15 @@ interface Props {
   initialBonusData: BonusesData | null;
 }
 
-// Нормализация номера: всегда +7XXXXXXXXXX
+// Нормализация номера: всегда +7XXXXXXXXXX (только для отображения)
 function normalizePhone(phone: string): string {
   if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
-  return cleaned.startsWith('7') ? `+${cleaned}` : `+7${cleaned}`;
+  if (!cleaned) return '';
+  if (cleaned.length === 11 && cleaned.startsWith('7')) return `+${cleaned}`;
+  if (cleaned.length === 11 && cleaned.startsWith('8')) return `+7${cleaned.slice(1)}`;
+  if (cleaned.length === 10) return `+7${cleaned}`;
+  return phone;
 }
 
 const containerVariants = {
@@ -74,10 +79,11 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       const response = await fetch('/api/auth/check-session', {
         method: 'GET',
         credentials: 'include',
+        headers: { Accept: 'application/json' },
       });
       const sessionData = await response.json();
 
-      if (sessionData.isAuthenticated) {
+      if (sessionData?.isAuthenticated) {
         setIsAuthenticated(true);
         setPhone(sessionData.phone || '');
       } else {
@@ -99,63 +105,69 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
 
   // Подписка на событие authChange
   useEffect(() => {
-    const handleAuthChange = () => {
-      checkAuth();
-    };
+    const handleAuthChange = () => checkAuth();
     window.addEventListener('authChange', handleAuthChange);
     return () => window.removeEventListener('authChange', handleAuthChange);
   }, [checkAuth]);
 
-  // Перезагрузка данных аккаунта
-  const fetchAccountData = useCallback(async () => {
-    if (!phone) return;
-    const phoneForApi = normalizePhone(phone);
+  const authFetch = useCallback(async (input: RequestInfo, init?: RequestInit) => {
+    const res = await fetch(input, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        ...(init?.headers || {}),
+      },
+    });
 
+    // Единый сценарий - если сессия умерла
+    if (res.status === 401) {
+      setIsAuthenticated(false);
+      setPhone('');
+      setOrders([]);
+      setBonusData(null);
+      toast('Сессия истекла, войдите снова', { icon: '🔒' });
+      window.dispatchEvent(new Event('authChange'));
+      router.refresh();
+      throw new Error('unauthorized');
+    }
+
+    return res;
+  }, [router]);
+
+  // Перезагрузка данных аккаунта (phone для API не передаем - только cookie)
+  const fetchAccountData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1) Сгораемость бонусов
-      const expireRes = await fetch('/api/account/expire-bonuses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneForApi }),
-      });
+      // 1) Сгораемость бонусов (если используешь этот сценарий)
+      const expireRes = await authFetch('/api/account/bonuses', { method: 'POST' });
       const expireResult = await expireRes.json();
-      if (expireRes.ok && expireResult.success && expireResult.expired > 0) {
+      if (expireRes.ok && expireResult?.success && Number(expireResult.expired || 0) > 0) {
         toast(`Сгорело ${expireResult.expired} бонусов за неактивность 6 месяцев`, { icon: '⚠️' });
       }
 
       // 2) Уровень лояльности
-      const loyaltyRes = await fetch('/api/account/update-loyalty', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneForApi }),
-      });
+      const loyaltyRes = await authFetch('/api/account/update-loyalty', { method: 'POST' });
       const loyaltyResult = await loyaltyRes.json();
-      if (!loyaltyRes.ok || !loyaltyResult.success) {
+      if (!loyaltyRes.ok || !loyaltyResult?.success) {
         process.env.NODE_ENV !== 'production' &&
-          console.error('Failed to update loyalty:', loyaltyResult.error);
+          console.error('Failed to update loyalty:', loyaltyResult?.error);
       }
 
       // 3) Бонусы
-      const bonusesRes = await fetch(
-        `/api/account/bonuses?phone=${encodeURIComponent(phoneForApi)}`,
-        { method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } },
-      );
+      const bonusesRes = await authFetch('/api/account/bonuses', { method: 'GET' });
       if (!bonusesRes.ok) throw new Error('Bonuses fetch error: ' + bonusesRes.statusText);
       const bonusesResult = await bonusesRes.json();
-      if (!bonusesResult.success) throw new Error('Bonuses fetch error: ' + bonusesResult.error);
+      if (!bonusesResult?.success) throw new Error('Bonuses fetch error: ' + bonusesResult?.error);
 
       let bonuses: BonusesData = bonusesResult.data;
-      if (loyaltyResult.success) bonuses.level = loyaltyResult.level;
+      if (loyaltyResult?.success && loyaltyResult?.level) bonuses.level = loyaltyResult.level;
 
       // 4) Заказы
-      const ordersRes = await fetch(
-        `/api/account/orders?phone=${encodeURIComponent(phoneForApi)}`,
-        { method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } },
-      );
+      const ordersRes = await authFetch('/api/account/orders', { method: 'GET' });
       if (!ordersRes.ok) throw new Error('Orders fetch error: ' + ordersRes.statusText);
       const ordersResult = await ordersRes.json();
-      if (!ordersResult.success) throw new Error('Orders fetch error: ' + ordersResult.error);
+      if (!ordersResult?.success) throw new Error('Orders fetch error: ' + ordersResult?.error);
 
       const transformedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
         id: order.id,
@@ -170,7 +182,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
           price: item.price,
           product_id: item.product_id ?? 0,
           title: item.title || 'Неизвестный товар',
-          cover_url: item.imageUrl || null,
+          cover_url: item.imageUrl || item.cover_url || item.coverUrl || null,
         })),
         upsell_details: (order.upsell_details || []).map((upsell: any) => ({
           title: upsell.title || 'Неизвестный товар',
@@ -186,12 +198,14 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
       window.gtag?.('event', 'view_account', { event_category: 'account' });
       if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'view_account');
     } catch (error: any) {
-      toast.error('Ошибка загрузки данных');
-      setOrders([]);
+      if (error?.message !== 'unauthorized') {
+        toast.error('Ошибка загрузки данных');
+        setOrders([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [phone]);
+  }, [authFetch]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -206,16 +220,16 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
     }
   }, [isAuthenticated, fetchAccountData]);
 
-  const handleAuthSuccess = (p: string) => {
+  const handleAuthSuccess = async (p: string) => {
     setIsAuthenticated(true);
     setPhone(p);
-    fetchAccountData();
+    await fetchAccountData();
   };
 
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       setIsAuthenticated(false);
       setPhone('');
       setOrders([]);
@@ -248,10 +262,7 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
   // --- AUTH SCREEN ---
   if (!isAuthenticated) {
     return (
-      <main
-        className="min-h-[70vh] bg-white text-black"
-        aria-label="Вход в личный кабинет"
-      >
+      <main className="min-h-[70vh] bg-white text-black" aria-label="Вход в личный кабинет">
         <Toaster position="top-center" />
         <div className="max-w-md mx-auto px-4 py-10">
           <motion.div
@@ -260,19 +271,13 @@ export default function AccountClient({ initialSession, initialOrders, initialBo
             initial="hidden"
             animate="visible"
           >
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              Вход в кабинет
-            </h1>
-           
-          
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Вход в кабинет</h1>
 
             <div className="mt-5">
               <AuthWithCall onSuccess={handleAuthSuccess} />
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              
-            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2" />
           </motion.div>
         </div>
       </main>

@@ -66,8 +66,8 @@ export default function ContactsPageClient() {
           <li role="listitem">
             <strong>Email:</strong>{' '}
             <ContactLink
-              href="mailto:info@keytoheart.ru"
-              label="Отправить письмо на info@keytoheart.ru"
+              href="mailto:r.rashevskaya@yandex.ru"
+              label="Отправить письмо на r.rashevskaya@yandex.ru"
               type="email"
             />
           </li>

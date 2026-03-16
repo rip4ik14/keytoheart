@@ -3,14 +3,71 @@
 
 import { useCart } from '@context/CartContext';
 import { useCartAnimation } from '@context/CartAnimationContext';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Gift, Clock } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { trackAddToCart } from '@/utils/ymEvents';
 import type { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 import { createPortal } from 'react-dom';
+
+function IconBase({ children, size = 16, className = '' }: { children: React.ReactNode; size?: number; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function ShoppingCartIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="9" cy="20" r="1" />
+      <circle cx="18" cy="20" r="1" />
+      <path d="M3 4h2l2.4 10.5a2 2 0 0 0 2 1.5h7.7a2 2 0 0 0 2-1.5L21 7H7" />
+    </IconBase>
+  );
+}
+
+function GiftIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M12 8v13" />
+      <path d="M3 12h18" />
+      <path d="M12 8H8.5A2.5 2.5 0 1 1 12 4.5V8Z" />
+      <path d="M12 8h3.5A2.5 2.5 0 1 0 12 4.5V8Z" />
+    </IconBase>
+  );
+}
+
+function ClockIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <IconBase size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </IconBase>
+  );
+}
+
+function StarIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden="true">
+      <path d="M12 2l2.9 6 6.6 1-4.8 4.7 1.2 6.7L12 17.6 6.1 20.4l1.2-6.7L2.5 9l6.6-1L12 2z" fill="currentColor" />
+    </svg>
+  );
+}
 
 function normalizeTitle(raw: string): string {
   const t = (raw || '').trim();
@@ -42,25 +99,63 @@ function formatProductionTime(minutes: number | null): string | null {
   return result || 'Мгновенно';
 }
 
+// ✅ компактно для бейджа: 1 ч 20 м
+function formatProductionCompact(minutes: number | null): string | null {
+  if (minutes == null || minutes <= 0) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+
+  if (h > 0 && m > 0) return `${h} ч ${m} м`;
+  if (h > 0) return `${h} ч`;
+  return `${m} м`;
+}
+
 // CSS var from StickyHeader.tsx
 const STICKY_HEADER_VAR = '--kth-sticky-header-h';
 
-export default function ProductCard({
+/* -------------------------------------------------------------------------- */
+/* ✅ ВАЖНО: нормализуем картинки, чтобы не было src="" и кривых URL           */
+/* -------------------------------------------------------------------------- */
+
+
+function normalizeImageUrl(raw?: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  // частый кейс Supabase: двойной слеш после public/<bucket>/
+  // .../public/product-image//1744...jpg -> .../public/product-image/1744...jpg
+  return s.replace(/\/public\/([^/]+)\/\//, '/public/$1/');
+}
+
+function pickFirstValidImage(images: unknown): string | null {
+  if (!Array.isArray(images)) return null;
+
+  for (const it of images) {
+    const u = normalizeImageUrl(it);
+    if (!u) continue;
+
+    // принимаем только нормальные источники
+    if (u.startsWith('/') || /^https?:\/\//i.test(u)) return u;
+  }
+  return null;
+}
+
+function ProductCard({
   product,
   priority = false,
   shadowMode = 'default',
+  withSchema = false, // ✅ по умолчанию выключено (в листинге schema не нужна)
 }: {
   product: Product;
   priority?: boolean;
   shadowMode?: 'default' | 'none';
+  withSchema?: boolean;
 }) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
 
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 640px)').matches;
-  });
+  // ✅ ВАЖНО: не вешаем matchMedia listener на каждую карточку
 
   const [showToast, setShowToast] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,14 +163,16 @@ export default function ProductCard({
   // ✅ фиксируем, какая версия тоста должна показываться (моб/десктоп) в момент клика
   const toastPlacementRef = useRef<'mobile' | 'desktop'>('desktop');
 
-  // ✅ фиксируем top тоста при показе (на iOS это сильно снижает мерцание при скролле)
+  // ✅ фиксируем top тоста при показе (на iOS это снижает дерганье)
   const toastTopRef = useRef<string | null>(null);
 
   // ✅ для portal
   const [mounted, setMounted] = useState(false);
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const mobileCardRef = useRef<HTMLDivElement>(null);
+  const desktopCardRef = useRef<HTMLDivElement>(null);
+  const mobileButtonRef = useRef<HTMLButtonElement>(null);
+  const desktopButtonRef = useRef<HTMLButtonElement>(null);
   const stablePriority = useRef(priority).current;
 
   const title = useMemo(() => normalizeTitle(product.title || ''), [product.title]);
@@ -84,37 +181,29 @@ export default function ProductCard({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 640px)');
-    const onChange = () => setIsMobile(mq.matches);
+  // ✅ вместо images[0] берем первый валидный url
+  const imageUrl = pickFirstValidImage((product as any).images) || '/placeholder.jpg';
 
-    onChange();
+  const discountPercent = (product as any).discount_percent ?? 0;
+  const originalPrice = (product as any).original_price || (product as any).price;
+  const discountedPrice = discountPercent
+    ? Math.round((product as any).price * (1 - discountPercent / 100))
+    : (product as any).price;
 
-    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
-    else mq.addListener(onChange);
-
-    return () => {
-      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange);
-      else mq.removeListener(onChange);
-    };
-  }, []);
-
-  const images = Array.isArray(product.images) ? product.images : [];
-  const imageUrl = images[0] || '/placeholder.jpg';
-
-  const discountPercent = product.discount_percent ?? 0;
-  const originalPrice = product.original_price || product.price;
-  const discountedPrice = discountPercent ? Math.round(product.price * (1 - discountPercent / 100)) : product.price;
-
-  const baseForDiscount = originalPrice > product.price ? originalPrice : product.price;
+  const baseForDiscount = originalPrice > (product as any).price ? originalPrice : (product as any).price;
   const discountAmount = discountPercent ? Math.max(0, baseForDiscount - discountedPrice) : 0;
 
-  const bonus = product.bonus ?? Math.floor(discountedPrice * 0.025);
-  const isPopular = !!product.is_popular;
+  const bonus = (product as any).bonus ?? Math.floor(discountedPrice * 0.025);
+  const isPopular = !!(product as any).is_popular;
 
   const productionText = useMemo(
-    () => formatProductionTime(product.production_time ?? null),
-    [product.production_time],
+    () => formatProductionTime((product as any).production_time ?? null),
+    [(product as any).production_time],
+  );
+
+  const productionCompact = useMemo(
+    () => formatProductionCompact((product as any).production_time ?? null),
+    [(product as any).production_time],
   );
 
   useEffect(() => {
@@ -124,43 +213,62 @@ export default function ProductCard({
   }, []);
 
   const handleAddToCart = () => {
+    const line_id = `product:${(product as any).id}`;
+
     addItem({
-      id: product.id.toString(),
+      line_id,
+      id: (product as any).id.toString(),
       title,
       price: discountedPrice,
       quantity: 1,
       imageUrl,
-      production_time: product.production_time ?? null,
+      production_time: (product as any).production_time ?? null,
     });
 
     trackAddToCart({
-      id: product.id,
+      id: (product as any).id,
       name: title,
       price: discountedPrice,
       quantity: 1,
     });
 
-    if (buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
+    const isMobileNow = typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false;
+
+
+    const btnEl = isMobileNow ? mobileButtonRef.current : desktopButtonRef.current;
+
+    if (btnEl) {
+
+      const r = btnEl.getBoundingClientRect();
+
       triggerCartAnimation(r.left + r.width / 2, r.top + r.height / 2, imageUrl);
+
     }
 
-    toastPlacementRef.current = isMobile ? 'mobile' : 'desktop';
 
-    // ✅ фиксируем top один раз, чтобы при скролле iOS не пересчитывал позицию fixed + blur
+    toastPlacementRef.current = isMobileNow ? 'mobile' : 'desktop';
+
+
     if (typeof window !== 'undefined') {
-      if (isMobile) {
+
+      if (isMobileNow) {
+
         const headerH =
+
           getComputedStyle(document.documentElement).getPropertyValue(STICKY_HEADER_VAR).trim() || '72px';
 
         const safeTop = 'max(env(safe-area-inset-top), 12px)';
-        toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
-      } else {
-        toastTopRef.current = null;
-      }
-    }
 
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        toastTopRef.current = `calc(${headerH} + 12px + ${safeTop})`;
+
+      } else {
+
+        toastTopRef.current = null;
+
+      }
+
+    }
+if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setShowToast(true);
     toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2400);
   };
@@ -174,404 +282,410 @@ export default function ProductCard({
 
   const priceText = useMemo(() => `${formatRuble(discountedPrice)} ₽`, [discountedPrice]);
 
-  const MOBILE_TITLE_H = 'h-[96px]';
-  const MOBILE_BOTTOM_H = 'h-[112px]';
-
-  // ✅ Mobile toast: без AnimatePresence, без mount/unmount -> меньше артефактов
+  // ✅ Mobile toast: теперь portal создается ТОЛЬКО когда showToast=true
   const MobileToast = () => {
     if (!mounted) return null;
+    if (!showToast) return null;
+    if (toastPlacementRef.current !== 'mobile') return null;
+
+    const unoptThumb = shouldSkipOptimization(imageUrl);
 
     return createPortal(
-      <motion.div
-        className={[
-          'fixed z-[2147483647]',
-          'bg-white/78 backdrop-blur-xl',
-          'text-black rounded-2xl',
-          'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-          'border border-black/10',
-          'px-3 py-3 flex items-center gap-3',
-        ].join(' ')}
-        style={{
-          left: `calc(12px + env(safe-area-inset-left))`,
-          right: `calc(12px + env(safe-area-inset-right))`,
-          maxWidth: 420,
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          top:
-            toastTopRef.current ??
-            `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
-          WebkitTransform: 'translateZ(0)',
-          transform: 'translateZ(0)',
-          willChange: 'transform, opacity',
-          WebkitBackfaceVisibility: 'hidden',
-        }}
-        initial={false}
-        animate={
-          showToast && toastPlacementRef.current === 'mobile'
-            ? { opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }
-            : { opacity: 0, y: 8, scale: 0.98, pointerEvents: 'none' }
-        }
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        aria-live="polite"
-      >
-        <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-          <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
-        </div>
+      <div
+          className={[
+            'fixed z-[2147483647]',
+            'bg-white/78 backdrop-blur-xl',
+            'text-black rounded-2xl',
+            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+            'border border-black/10',
+            'px-3 py-3 flex items-center gap-3',
+            'animate-in fade-in slide-in-from-bottom-2 duration-200',
+          ].join(' ')}
+          style={{
+            left: `calc(12px + env(safe-area-inset-left))`,
+            right: `calc(12px + env(safe-area-inset-right))`,
+            maxWidth: 420,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            top:
+              toastTopRef.current ??
+              `calc(var(${STICKY_HEADER_VAR}, 72px) + 12px + max(env(safe-area-inset-top), 12px))`,
+            WebkitTransform: 'translateZ(0)',
+            transform: 'translateZ(0)',
+            willChange: 'transform, opacity',
+            WebkitBackfaceVisibility: 'hidden',
+          }}
+          aria-live="polite"
+        >
+          <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+            <Image
+              src={imageUrl}
+              alt={title}
+              width={48}
+              height={48}
+              className="object-cover w-full h-full"
+              unoptimized={unoptThumb}
+            />
+          </div>
 
-        <div className="flex flex-col flex-1 min-w-0">
-          <p className="text-sm font-semibold">добавлено в корзину</p>
-          <p className="text-xs text-black/60 break-words">{title}</p>
-        </div>
-
-        {/* ✅ кнопку убрали по твоей просьбе */}
-      </motion.div>,
+          <div className="flex flex-col flex-1 min-w-0">
+            <p className="text-sm font-semibold">добавлено в корзину</p>
+            <p className="text-xs text-black/60 break-words">{title}</p>
+          </div>
+        </div>,
       document.body,
     );
   };
 
-  if (isMobile) {
-    return (
-      <>
-        <motion.div
-          ref={cardRef}
-          className={[
-            'relative w-full max-w-[220px] mx-auto',
-            'rounded-[22px]',
-            'border border-black/10',
-            'bg-white/70 backdrop-blur-xl',
-            'shadow-[0_12px_40px_rgba(0,0,0,0.08)]',
-            'overflow-hidden',
-            'transition',
-            'active:scale-[0.99]',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
-            'flex flex-col',
-          ].join(' ')}
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
-          onKeyDown={handleKeyDown}
-          role="article"
-          aria-labelledby={`product-${product.id}-title`}
-          tabIndex={0}
-        >
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                '@context': 'https://schema.org/',
-                '@type': 'Product',
-                name: title,
-                image: imageUrl,
-                description: product.description || 'Описание товара отсутствует',
-                sku: product.id.toString(),
-                mpn: product.id.toString(),
-                brand: { '@type': 'Brand', name: 'KeyToHeart' },
-                offers: {
-                  '@type': 'Offer',
-                  url: `/product/${product.id}`,
-                  priceCurrency: 'RUB',
-                  price: discountedPrice.toString(),
-                  priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                    .toISOString()
-                    .split('T')[0],
-                  availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                  itemCondition: 'https://schema.org/NewCondition',
-                },
-              }),
-            }}
-          />
+  
+  const unopt = shouldSkipOptimization(imageUrl);
 
-          <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
-            <div className="flex flex-col items-end gap-2">
-              {isPopular && (
-                <motion.div
-                  className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-2.5 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <Star size={14} className="text-yellow-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-tight">популярно</span>
-                </motion.div>
-              )}
-
-              {bonus > 0 && (
-                <motion.div
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-2.5 py-1 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <Gift size={14} className="text-black/70" />
-                  <span className="text-[11px] font-semibold text-black/80">+{bonus}</span>
-                </motion.div>
-              )}
-            </div>
-          </div>
-
-          <Link
-            href={`/product/${product.id}`}
-            className="block relative w-full aspect-[3/4] overflow-hidden"
-            tabIndex={-1}
-            aria-label={`Перейти к товару ${title}`}
-          >
-            <div className="absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              fetchPriority={stablePriority ? 'high' : 'auto'}
-              sizes="(max-width: 640px) 100vw, 220px"
-              className="object-cover w-full h-full transition-transform duration-300 active:scale-[1.02]"
-              loading={stablePriority ? 'eager' : 'lazy'}
-              priority={stablePriority}
-            />
-          </Link>
-
-          <div className="flex flex-col px-3 pt-2 pb-3">
-            <div className={[MOBILE_TITLE_H, 'flex items-center justify-center'].join(' ')}>
-              <h3
-                id={`product-${product.id}-title`}
-                className="text-sm font-medium text-black text-center leading-tight break-words"
-                title={title}
+  const MobileView = (
+    <div className="sm:hidden">
+              <div
+                ref={mobileCardRef}
+                className={[
+                  'relative w-full',
+                  'rounded-[18px]',
+                  'border border-black/10',
+                  'bg-white',
+                  'shadow-[0_10px_28px_rgba(0,0,0,0.06)]',
+                  'overflow-hidden',
+                  'flex flex-col',
+                ].join(' ')}
+                onKeyDown={handleKeyDown}
+                role="article"
+                aria-labelledby={`product-${(product as any).id}-title-m`}
+                tabIndex={0}
               >
-                {title}
-              </h3>
-            </div>
+                {/* ✅ ВАЖНО: schema в карточке по умолчанию выключена */}
+                {withSchema && (
+                  <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                      __html: JSON.stringify({
+                        '@context': 'https://schema.org/',
+                        '@type': 'Product',
+                        name: title,
+                        image: imageUrl,
+                        description: (product as any).description || 'Описание товара отсутствует',
+                        sku: (product as any).id.toString(),
+                        mpn: (product as any).id.toString(),
+                        brand: { '@type': 'Brand', name: 'KeyToHeart' },
+                        offers: {
+                          '@type': 'Offer',
+                          url: `/product/${(product as any).id}`,
+                          priceCurrency: 'RUB',
+                          price: discountedPrice.toString(),
+                          priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            .toISOString()
+                            .split('T')[0],
+                          availability: (product as any).in_stock
+                            ? 'https://schema.org/InStock'
+                            : 'https://schema.org/OutOfStock',
+                          itemCondition: 'https://schema.org/NewCondition',
+                        },
+                      }),
+                    }}
+                  />
+                )}
 
-            <div className={[MOBILE_BOTTOM_H, 'flex flex-col justify-end'].join(' ')}>
-              <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2">
-                  {(discountAmount > 0 || originalPrice > product.price) && (
-                    <span className="text-xs text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
-                  )}
-                  {discountAmount > 0 && (
-                    <span className="text-xs font-bold text-red-500">-{formatRuble(discountAmount)} ₽</span>
-                  )}
-                  <span className="text-lg font-bold tracking-normal text-black">{priceText}</span>
-                </div>
+                <Link
+                  href={`/product/${(product as any).id}`}
+                  className="block relative w-full aspect-[1/1] overflow-hidden bg-black/[0.04]"
+                  tabIndex={-1}
+                  aria-label={`Перейти к товару ${title}`}
+                >
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    fill
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    sizes="(max-width: 640px) 50vw, 220px"
+                    className="object-cover w-full h-full"
+                    loading={stablePriority ? 'eager' : 'lazy'}
+                    priority={stablePriority}
+                    unoptimized={unopt}
+                  />
 
-                <div className="mt-1 h-[18px] flex items-center justify-center">
-                  {productionText ? (
-                    <div className="inline-flex items-center gap-1.5 text-xs text-black/55 leading-snug">
-                      <Clock className="h-3.5 w-3.5 text-black/45" />
-                      <span>Изготовление: {productionText}</span>
+                  <div className="absolute inset-x-0 bottom-0 h-[72px] z-[10] pointer-events-none bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
+
+                  <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+                    {bonus > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 border border-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.08)]">
+                        <GiftIcon size={12} className="text-black/70" />
+                        <span className="text-[10px] font-semibold text-black/80">+{bonus}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
+                    {isPopular && (
+                      <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/75 border border-white/10 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                        <StarIcon size={14} className="text-yellow-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                      <ClockIcon size={12} className="text-white/80" />
+                      <span className="text-[10px] font-semibold text-white">
+                        {productionCompact || (productionText ? productionText : '-')}
+                      </span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-transparent select-none">.</span>
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-none">
+                      <div className="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 border border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-[6px]">
+                        <span className="text-[10px] font-bold text-white">-{formatRuble(discountAmount)} ₽</span>
+                      </div>
+                    </div>
                   )}
+                </Link>
+
+                <div className="px-3 pt-3 pb-3">
+                  <h3
+                    id={`product-${(product as any).id}-title-m`}
+                    className="text-[13px] font-medium text-black leading-[1.25] break-words"
+                    title={title}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {title}
+                  </h3>
+
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      {(discountAmount > 0 || originalPrice > (product as any).price) && (
+                        <div className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</div>
+                      )}
+                    </div>
+
+                    <button
+                      ref={mobileButtonRef}
+                      type="button"
+                      onClick={handleAddToCart}
+                      className={[
+                        'shrink-0',
+                        'inline-flex items-center justify-center gap-2',
+                        'h-[36px] px-3 rounded-[14px]',
+                        'bg-black/[0.04]',
+                        'border border-black/10',
+                        'text-black',
+                        'shadow-[0_10px_20px_rgba(0,0,0,0.06)]',
+                        'active:scale-[0.99]',
+                        'transition',
+                      ].join(' ')}
+                      aria-label={`Добавить ${title} в корзину`}
+                    >
+                      <ShoppingCartIcon size={16} className="text-black/70" />
+                      <span className="text-[14px] font-bold">{priceText}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <button
-                ref={buttonRef}
-                onClick={handleAddToCart}
-                className={[
-                  'mt-3 w-full',
-                  'inline-flex items-center justify-center gap-2',
-                  'h-[44px] px-4 rounded-full',
-                  'bg-white/70 backdrop-blur-xl',
-                  'border border-black/15',
-                  'text-black',
-                  'text-[12px] font-bold tracking-tight',
-                  'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
-                  'active:scale-[0.98]',
-                  'transition',
-                ].join(' ')}
-                aria-label={`Добавить ${title} в корзину`}
-              >
-                <ShoppingCart size={18} className="text-black/75" />
-                В корзину
-              </button>
-            </div>
-          </div>
-        </motion.div>
+              <MobileToast />
+    </div>
+  );
 
-        <MobileToast />
-      </>
-    );
-  }
-
+// =========================
+  // ✅ DESKTOP - ОСТАВЛЕНО КАК БЫЛО
+  // =========================
   const useInternalShadow = shadowMode !== 'none';
   const DESKTOP_TITLE_H = 'h-[50px]';
   const DESKTOP_META_H = 'h-[36px]';
   const DESKTOP_BOTTOM_H = 'h-[104px]';
 
+  const DesktopView = (
+    <div className="hidden sm:block">
+            <div
+              className={[
+                'group relative w-full',
+                'max-w-[220px] sm:max-w-[280px] mx-auto',
+                'rounded-[26px]',
+                'bg-white/70 backdrop-blur-xl',
+                'border border-black/10',
+                'overflow-hidden',
+                'transition-transform duration-300',
+                'hover:scale-[1.01]',
+                useInternalShadow
+                  ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.14)]'
+                  : 'shadow-none',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+                'flex flex-col',
+              ].join(' ')}
+              onKeyDown={handleKeyDown}
+              role="article"
+              aria-labelledby={`product-${(product as any).id}-title-d`}
+              tabIndex={0}
+              aria-live="polite"
+            >
+              <div className="relative p-3 sm:p-4">
+                <Link
+                  href={`/product/${(product as any).id}`}
+                  className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
+                  tabIndex={-1}
+                  aria-label={`Перейти к товару ${title}`}
+                >
+                  <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
+
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    fill
+                    fetchPriority={stablePriority ? 'high' : 'auto'}
+                    sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 280px"
+                    className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
+                    loading={stablePriority ? 'eager' : 'lazy'}
+                    priority={stablePriority}
+                    unoptimized={shouldSkipOptimization(imageUrl)}
+                  />
+
+                  <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
+                    {bonus > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <GiftIcon size={14} className="text-black/70" />
+                        <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
+                      </div>
+                    )}
+
+                    {productionText && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <ClockIcon size={14} className="text-black/55" />
+                        <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
+                    {isPopular && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
+                        <StarIcon size={14} className="text-yellow-400" />
+                        <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
+                      </div>
+                    )}
+
+                    {discountAmount > 0 && (
+                      <div className="inline-flex items-center rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+                        <span className="text-[11px] font-bold tracking-tight text-black">-{formatRuble(discountAmount)} ₽</span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
+
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
+                <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
+                  <h3
+                    id={`product-${(product as any).id}-title-d`}
+                    className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
+                    title={title}
+                  >
+                    {title}
+                  </h3>
+                </div>
+
+                <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
+
+                        {(discountAmount > 0 || originalPrice > (product as any).price) && (
+                          <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
+                        )}
+                      </div>
+
+                      <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
+                        {productionText ? (
+                          <div className="text-[11px] text-black/55 leading-snug break-words">
+                            Изготовление: {productionText}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-transparent select-none">.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
+                      <button
+                        ref={desktopButtonRef}
+                        type="button"
+                        onClick={handleAddToCart}
+                        className={[
+                          'inline-flex items-center justify-center gap-2',
+                          'h-[44px] px-4 rounded-full',
+                          'bg-white/70 backdrop-blur-xl',
+                          'border border-black/15',
+                          'text-black',
+                          'text-[12px] font-bold uppercase tracking-tight',
+                          'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
+                          'transition-all duration-200',
+                          'hover:bg-black hover:text-white hover:border-black',
+                          'active:scale-[0.98]',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
+                          'opacity-0 translate-y-2 pointer-events-none',
+                          'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
+                        ].join(' ')}
+                        aria-label={`Добавить ${title} в корзину`}
+                      >
+                        <ShoppingCartIcon size={18} />
+                        в корзину
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ desktop toast */}
+            {/* ✅ desktop toast */}
+{showToast && toastPlacementRef.current === 'desktop' && (
+    <div
+      className={[
+        'fixed bottom-4 right-4 z-[9999]',
+        'max-w-[380px] w-[92%] sm:w-[340px]',
+        'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
+        'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
+        'border border-black/10',
+        'px-3 py-3 flex items-center gap-3',
+            'animate-in fade-in slide-in-from-bottom-2 duration-200',
+      ].join(' ')}
+      aria-live="polite"
+    >
+      <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
+        <Image
+          src={imageUrl}
+          alt={title}
+          width={48}
+          height={48}
+          className="object-cover w-full h-full"
+          unoptimized={shouldSkipOptimization(imageUrl)}
+        />
+      </div>
+
+      <div className="flex flex-col flex-1 min-w-0">
+        <p className="text-sm font-semibold">добавлено в корзину</p>
+        <p className="text-xs text-black/60 break-words">{title}</p>
+      </div>
+    </div>
+  )}
+    </div>
+  );
+
   return (
     <>
-      <motion.div
-        className={[
-          'group relative w-full',
-          'max-w-[220px] sm:max-w-[280px] mx-auto',
-          'rounded-[26px]',
-          'bg-white/70 backdrop-blur-xl',
-          'border border-black/10',
-          'overflow-hidden',
-          'transition-transform duration-300',
-          'hover:scale-[1.01]',
-          useInternalShadow
-            ? 'shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.14)]'
-            : 'shadow-none',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
-          'flex flex-col',
-        ].join(' ')}
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28 }}
-        onKeyDown={handleKeyDown}
-        role="article"
-        aria-labelledby={`product-${product.id}-title`}
-        tabIndex={0}
-        aria-live="polite"
-      >
-        <div className="relative p-3 sm:p-4">
-          <Link
-            href={`/product/${product.id}`}
-            className="block relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-black/[0.04] border border-black/10"
-            tabIndex={-1}
-            aria-label={`Перейти к товару ${title}`}
-          >
-            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/30 via-transparent to-black/10" />
-
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              fetchPriority={stablePriority ? 'high' : 'auto'}
-              sizes="(max-width: 640px) 50vw, 280px"
-              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
-              loading={stablePriority ? 'eager' : 'lazy'}
-              priority={stablePriority}
-            />
-
-            <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
-              {bonus > 0 && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <Gift size={14} className="text-black/70" />
-                  <span className="text-[11px] font-semibold tracking-tight text-black/80">+{bonus}</span>
-                </div>
-              )}
-
-              {productionText && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <Clock size={14} className="text-black/55" />
-                  <span className="text-[11px] font-semibold tracking-tight text-black/70">{productionText}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
-              {isPopular && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] border border-white/10 backdrop-blur">
-                  <Star size={14} className="text-yellow-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight">популярно</span>
-                </div>
-              )}
-
-              {discountAmount > 0 && (
-                <div className="inline-flex items-center rounded-full bg-white/75 backdrop-blur px-3 py-1.5 border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
-                  <span className="text-[11px] font-bold tracking-tight text-black">-{formatRuble(discountAmount)} ₽</span>
-                </div>
-              )}
-            </div>
-          </Link>
-        </div>
-
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex flex-col flex-1">
-          <div className={[DESKTOP_TITLE_H, 'flex items-start'].join(' ')}>
-            <h3
-              id={`product-${product.id}-title`}
-              className="text-[13px] sm:text-[14px] font-semibold leading-tight text-black break-words"
-              title={title}
-            >
-              {title}
-            </h3>
-          </div>
-
-          <div className={[DESKTOP_BOTTOM_H, 'mt-auto flex flex-col justify-end'].join(' ')}>
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[15px] sm:text-[16px] font-bold tracking-tight text-black">{priceText}</span>
-
-                  {(discountAmount > 0 || originalPrice > product.price) && (
-                    <span className="text-[12px] text-black/45 line-through">{formatRuble(baseForDiscount)} ₽</span>
-                  )}
-                </div>
-
-                <div className={[DESKTOP_META_H, 'mt-1'].join(' ')}>
-                  {productionText ? (
-                    <div className="text-[11px] text-black/55 leading-snug break-words">
-                      Изготовление: {productionText}
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-transparent select-none">.</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="shrink-0 w-[132px] h-[44px] flex items-end justify-end">
-                <button
-                  ref={buttonRef}
-                  type="button"
-                  onClick={handleAddToCart}
-                  className={[
-                    'inline-flex items-center justify-center gap-2',
-                    'h-[44px] px-4 rounded-full',
-                    'bg-white/70 backdrop-blur-xl',
-                    'border border-black/15',
-                    'text-black',
-                    'text-[12px] font-bold uppercase tracking-tight',
-                    'shadow-[0_14px_40px_rgba(0,0,0,0.10)]',
-                    'transition-all duration-200',
-                    'hover:bg-black hover:text-white hover:border-black',
-                    'active:scale-[0.98]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15',
-                    'opacity-0 translate-y-2 pointer-events-none',
-                    'group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
-                  ].join(' ')}
-                  aria-label={`Добавить ${title} в корзину`}
-                >
-                  <ShoppingCart size={18} />
-                  в корзину
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ✅ desktop toast */}
-      <AnimatePresence>
-        {showToast && toastPlacementRef.current === 'desktop' && (
-          <motion.div
-            className={[
-              'fixed bottom-4 right-4 z-[9999]',
-              'max-w-[380px] w-[92%] sm:w-[340px]',
-              'bg-white/78 backdrop-blur-xl text-black rounded-2xl',
-              'shadow-[0_18px_48px_rgba(0,0,0,0.18)]',
-              'border border-black/10',
-              'px-3 py-3 flex items-center gap-3',
-            ].join(' ')}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 18 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            aria-live="polite"
-          >
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/[0.04] flex-shrink-0 border border-black/10">
-              <Image src={imageUrl} alt={title} width={48} height={48} className="object-cover w-full h-full" />
-            </div>
-
-            <div className="flex flex-col flex-1 min-w-0">
-              <p className="text-sm font-semibold">добавлено в корзину</p>
-              <p className="text-xs text-black/60 break-words">{title}</p>
-            </div>
-
-            {/* ✅ кнопку убрали по твоей просьбе */}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {MobileView}
+      {DesktopView}
     </>
   );
 }
+
+export default React.memo(ProductCard);

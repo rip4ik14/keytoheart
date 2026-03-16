@@ -9,6 +9,7 @@ import CSRFToken from '@components/CSRFToken';
 import Compressor from 'compressorjs';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { shouldSkipOptimization } from '@/components/imagePerf';
 
 interface Category {
   id: number;
@@ -45,6 +46,10 @@ interface ImageFile {
   id: string;
   file: File;
 }
+
+const isUnsafeForNextImage = (src: string) =>
+  shouldSkipOptimization(src) ||
+  src.startsWith('blob:');
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -661,6 +666,8 @@ export default function EditProductPage() {
                           src={url}
                           alt={`Изображение ${index + 1}`}
                           fill
+                          sizes="96px"
+                          unoptimized={isUnsafeForNextImage(url)}
                           className="object-cover rounded-lg pointer-events-none"
                         />
                         <div className="absolute top-1 left-1 flex space-x-1 z-10">
@@ -707,6 +714,8 @@ export default function EditProductPage() {
                           src={URL.createObjectURL(image.file)}
                           alt={image.file.name}
                           fill
+                          sizes="96px"
+                          unoptimized
                           className="object-cover rounded-lg pointer-events-none"
                         />
                         <button

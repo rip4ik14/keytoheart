@@ -13,7 +13,11 @@ export default function AdvantagesClient() {
 
   /* ---------- refs для IntersectionObserver ---------- */
   const itemsRef = useRef<HTMLDivElement[]>([]);
-  const [, force] = useState(0); // триггер ререндера для Tailwind‑классов
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const io = new IntersectionObserver(
@@ -22,15 +26,16 @@ export default function AdvantagesClient() {
           if (entry.isIntersecting) {
             entry.target.classList.add('adv-visible');
             io.unobserve(entry.target);
-            force((n) => n + 1); // заставляем React вычислить className ещё раз
           }
         }),
       { rootMargin: '-80px 0px' },
     );
 
-    itemsRef.current.forEach((el) => el && io.observe(el));
+    if (mounted) {
+      itemsRef.current.forEach((el) => el && io.observe(el));
+    }
     return () => io.disconnect();
-  }, []);
+  }, [mounted]);
 
   return (
     <section

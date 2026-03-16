@@ -70,7 +70,8 @@ export function usePromoAndBonuses({
       if (YM_ID !== undefined) {
         callYm(YM_ID, 'reachGoal', 'apply_promo_code', { promo_code: promoCode });
       }
-    } catch {
+    } catch (err) {
+      console.error('Promo code validation error:', err);
       toast.error('Ошибка при проверке промокода.');
     } finally {
       setIsApplyingPromo(false);

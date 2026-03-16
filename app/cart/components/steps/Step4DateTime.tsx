@@ -5,6 +5,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useCart } from '@context/CartContext';
+import {
+  fetchStoreSettingsCached,
+  type StoreSettings,
+} from '@/lib/store-settings-client';
 
 interface FormSlice {
   date?: string;
@@ -22,28 +26,6 @@ interface Props {
   timeError: string;
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
-
-interface DaySchedule {
-  start: string;
-  end: string;
-  enabled?: boolean;
-}
-
-interface StoreSettings {
-  order_acceptance_enabled: boolean;
-  order_acceptance_schedule: Record<string, DaySchedule>;
-  store_hours: Record<string, DaySchedule>;
-}
-
-const daysOfWeek = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-] as const;
 
 const TIME_STEP_MINUTES = 30;
 const NEAREST_LOOKAHEAD_DAYS = 21;
@@ -91,28 +73,6 @@ function addDays(date: Date, days: number) {
   d.setDate(d.getDate() + days);
   return d;
 }
-
-const transformSchedule = (schedule: unknown): Record<string, DaySchedule> => {
-  const base = Object.fromEntries(
-    daysOfWeek.map(d => [d, { start: '09:00', end: '18:00', enabled: true }]),
-  ) as Record<string, DaySchedule>;
-
-  if (typeof schedule !== 'object' || schedule === null) return base;
-
-  for (const [key, value] of Object.entries(schedule)) {
-    if (daysOfWeek.includes(key as any) && typeof value === 'object' && value) {
-      const { start, end, enabled } = value as any;
-      if (typeof start === 'string' && typeof end === 'string') {
-        base[key] = {
-          start,
-          end,
-          enabled: enabled === undefined ? true : !!enabled,
-        };
-      }
-    }
-  }
-  return base;
-};
 
 export default function Step4DateTime({ form, dateError, timeError, onFormChange }: Props) {
   const { items } = useCart() as any;
@@ -207,17 +167,8 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     const fetchSettings = async () => {
       setIsLoadingSettings(true);
       try {
-        const res = await fetch('/api/store-settings');
-        const json = await res.json();
-        if (res.ok && json.success) {
-          setStoreSettings({
-            order_acceptance_enabled: json.data.order_acceptance_enabled ?? false,
-            order_acceptance_schedule: transformSchedule(json.data.order_acceptance_schedule),
-            store_hours: transformSchedule(json.data.store_hours),
-          });
-        } else {
-          console.error('Ошибка настроек магазина:', json?.error);
-        }
+        const settings = await fetchStoreSettingsCached();
+        setStoreSettings(settings);
       } catch (e) {
         console.error('Ошибка загрузки настроек магазина:', e);
       } finally {

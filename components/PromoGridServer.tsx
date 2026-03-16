@@ -1,5 +1,4 @@
-// components/PromoGridServer.tsx
-import PromoBannerServer from './PromoBannerServer';
+// ✅ Путь: components/PromoGridServer.tsx
 import PromoGridWrapper from './PromoGridWrapper';
 import { PromoBlock } from '@/types/promo';
 
@@ -22,28 +21,34 @@ export default async function PromoGridServer() {
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
     const res = await fetchWithTimeout(`${baseUrl}/api/promo`, {
+      headers: {
+        Accept: 'application/json',
+      },
       next: { revalidate: 60 },
+      cache: 'force-cache',
     });
+
     if (!res.ok) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('PromoGridServer fetch error:', await res.text());
       }
       return null;
     }
+
     const data: PromoBlock[] = await res.json();
+
     const banners = (data ?? []).filter((b) => b.type === 'banner');
     const cards = (data ?? []).filter((b) => b.type === 'card');
 
-    // SSR — только первый баннер!
-    return (
-      <div>
-        {banners[0] && <PromoBannerServer banner={banners[0]} />}
-        <PromoGridWrapper banners={banners} cards={cards} />
-      </div>
-    );
+    // Next.js Image with priority={true} auto-adds <link rel="preload">
+    // for the optimized /_next/image URL — no manual preload needed.
+    return <PromoGridWrapper banners={banners} cards={cards} />;
   } catch (err) {
-    process.env.NODE_ENV !== 'production' && console.error('PromoGridServer error:', err);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('PromoGridServer error:', err);
+    }
     return null;
   }
 }

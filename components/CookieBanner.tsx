@@ -12,29 +12,33 @@ declare global {
 }
 
 const CONSENT_KEY = 'cookieConsent';
-
-// CSS var, чтобы MobileContactFab автоматически поднимался выше баннера
 const CSS_VAR = '--kth-cookie-banner-h';
 
 export default function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-
-  // singleton (чтобы баннер не смонтировался дважды)
   const isPrimaryRef = useRef(true);
+  const lastHeightRef = useRef<number>(0);
 
   const setBannerHeightVar = (px: number) => {
     if (typeof document === 'undefined') return;
-    document.documentElement.style.setProperty(CSS_VAR, `${Math.max(0, px)}px`);
+
+    const v = Math.max(0, Math.round(px));
+    if (lastHeightRef.current === v) return;
+    lastHeightRef.current = v;
+
+    document.documentElement.style.setProperty(CSS_VAR, `${v}px`);
   };
 
   const clearBannerHeightVar = () => {
     if (typeof document === 'undefined') return;
+    lastHeightRef.current = 0;
     document.documentElement.style.setProperty(CSS_VAR, '0px');
   };
 
-  // mount + singleton + initial check
+  /* ---------------- mount + singleton ---------------- */
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (window.__cookieBannerMounted) {
@@ -71,10 +75,11 @@ export default function CookieBanner() {
         window.__cookieBannerMounted = false;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, []);
 
-  // measure height while visible
+  /* ---------------- измеряем высоту ---------------- */
+
   useLayoutEffect(() => {
     if (!isPrimaryRef.current) {
       clearBannerHeightVar();
@@ -89,22 +94,30 @@ export default function CookieBanner() {
     const measure = () => {
       const el = rootRef.current;
       if (!el) return;
-      setBannerHeightVar(el.offsetHeight);
+      const h = el.getBoundingClientRect().height;
+      setBannerHeightVar(h);
     };
 
     measure();
 
-    const ro = new ResizeObserver(() => measure());
-    if (rootRef.current) ro.observe(rootRef.current);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure());
+      if (rootRef.current) ro.observe(rootRef.current);
+    }
 
     window.addEventListener('resize', measure);
+    const t = window.setTimeout(measure, 180);
 
     return () => {
-      ro.disconnect();
+      if (ro) ro.disconnect();
       window.removeEventListener('resize', measure);
+      window.clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [isVisible]);
+
+  /* ---------------- accept ---------------- */
 
   const accept = () => {
     try {
@@ -123,29 +136,35 @@ export default function CookieBanner() {
       {isVisible && (
         <motion.div
           ref={rootRef}
-          initial={{ opacity: 0, y: 18, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 18, scale: 0.98 }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 18 }}
           transition={{ duration: 0.2 }}
           className="
-            fixed left-0 right-0 bottom-0 mx-auto
-            z-[10010]
-            px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3
-            sm:left-auto sm:right-4 sm:bottom-4 sm:px-0 sm:pb-0 sm:pt-0
+            fixed left-0 right-0 mx-auto
+            z-[35000]
+            px-3 pt-3
+            sm:left-auto sm:right-4 sm:bottom-4 sm:px-0 sm:pt-0
+            kth-sticky-surface
           "
+          style={{
+            // 🔥 ГЛАВНЫЙ ФИКС
+            // поднимаем баннер НАД нижним меню
+            bottom:
+              'calc(var(--kth-bottom-nav-h, 0px) + env(safe-area-inset-bottom) + 12px)',
+          }}
           role="dialog"
           aria-modal="true"
           aria-describedby="cookie-banner-desc"
-          data-cookie-banner="true"
         >
           <div
             className="
               mx-auto w-full max-w-[520px]
               rounded-3xl
-              bg-white/82 backdrop-blur-xl
               border border-black/10
               shadow-[0_22px_70px_rgba(0,0,0,0.18)]
               overflow-hidden
+              kth-glass kth-sticky-surface
             "
           >
             <div className="px-4 pt-3.5 pb-3">
@@ -157,7 +176,6 @@ export default function CookieBanner() {
                 <Link
                   href="/cookie-policy"
                   className="underline underline-offset-2 text-black/80 hover:text-black transition-colors"
-                  aria-label="Перейти к политике cookies"
                   onClick={() =>
                     trackEvent({
                       category: 'cookie_banner',
@@ -180,12 +198,12 @@ export default function CookieBanner() {
                     w-full
                     h-12
                     rounded-2xl
-                    bg-white/88 backdrop-blur
                     border border-black/10
                     shadow-[0_12px_35px_rgba(0,0,0,0.12)]
                     text-sm font-semibold text-black
                     transition
                     hover:bg-white
+                    kth-glass kth-sticky-surface
                   "
                 >
                   Согласен

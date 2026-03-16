@@ -1,168 +1,114 @@
-// ✅ Путь: app/category/[category]/[subcategorySlug]/page.tsx
 import { notFound } from 'next/navigation';
-import type { Metadata } from 'next';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 
-import ProductCard from '@components/ProductCard';
-import Breadcrumbs from '@components/Breadcrumbs';
+import CategoryPageClient from '../CategoryPageClient';
+import type { Product } from '@components/CatalogClient';
 
-type SeoRow = {
-  seo_h1: string | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  seo_text: string | null;
-  og_image: string | null;
-  seo_noindex: boolean | null;
-};
+export const dynamicParams = true;
+// можешь поставить 60/300 - как тебе по кэшу норм
+export const revalidate = 60;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { category: string; subcategorySlug: string };
-}): Promise<Metadata> {
-  const supabase = createServerComponentClient({ cookies });
+type Params = { category: string; subcategorySlug: string };
 
-  const { data: category } = await supabase
-    .from('categories')
-    .select('id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex')
-    .eq('slug', params.category)
-    .maybeSingle<SeoRow & { id: number; name: string; slug: string; is_visible: boolean }>();
+function getSupabaseServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-  if (!category || category.is_visible === false) return {};
+  // поддержка старого и нового нейминга ключа
+  const anon =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  const { data: sub } = await supabase
-    .from('subcategories')
-    .select('id,name,slug,is_visible,seo_h1,seo_title,seo_description,seo_text,og_image,seo_noindex,category_id')
-    .eq('category_id', category.id)
-    .eq('slug', params.subcategorySlug)
-    .maybeSingle<SeoRow & { id: number; name: string; slug: string; is_visible: boolean; category_id: number }>();
+  // если на сервере есть service role - можно использовать его (безопасно, т.к. это server-only файл)
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || anon;
 
-  if (!sub || sub.is_visible === false) return {};
+  if (!url || !key) {
+    throw new Error(
+      'Supabase env is missing. Need NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).'
+    );
+  }
 
-  const titleBase =
-    sub.seo_title?.trim() ||
-    `${sub.name} - ${category.name} с доставкой в Краснодаре`;
-
-  const title = titleBase;
-
-  const description =
-    sub.seo_description?.trim() ||
-    `Закажите "${sub.name}" в категории "${category.name}" с доставкой по Краснодару. Фото перед отправкой, аккуратная упаковка.`;
-
-  const canonical = `https://keytoheart.ru/category/${category.slug}/${sub.slug}`;
-
-  const robots = sub.seo_noindex ? { index: false, follow: false } : { index: true, follow: true };
-
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    robots,
-    openGraph: {
-      title: titleBase,
-      description,
-      url: canonical,
-      type: 'website',
-      images: [
-        {
-          url: sub.og_image?.trim() || category.og_image?.trim() || 'https://keytoheart.ru/og-default.webp',
-          width: 1200,
-          height: 630,
-          alt: `${sub.name} | KeyToHeart`,
-        },
-      ],
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
     },
-  };
-}
-
-async function getProductsForSubcategory(supabase: any, subcategoryId: number) {
-  // Вариант A: products.subcategory_id
-  const { data: direct, error: directErr } = await supabase
-    .from('products')
-    .select('*')
-    .eq('subcategory_id', subcategoryId)
-    .eq('is_visible', true)
-    .eq('in_stock', true)
-    .order('id', { ascending: false });
-
-  if (!directErr && Array.isArray(direct)) return direct;
-
-  // Вариант B: product_subcategories
-  const { data: links, error: linksErr } = await supabase
-    .from('product_subcategories')
-    .select('product_id')
-    .eq('subcategory_id', subcategoryId);
-
-  if (linksErr || !links?.length) return direct || [];
-
-  const ids = links.map((x: any) => x.product_id).filter(Boolean);
-
-  const { data: products } = await supabase
-    .from('products')
-    .select('*')
-    .in('id', ids)
-    .eq('is_visible', true)
-    .eq('in_stock', true)
-    .order('id', { ascending: false });
-
-  return products || [];
+  });
 }
 
 export default async function SubcategoryPage({
   params,
 }: {
-  params: { category: string; subcategorySlug: string };
+  params: Promise<Params>;
 }) {
-  const supabase = createServerComponentClient({ cookies });
+  const { category: categorySlug, subcategorySlug } = await params;
 
-  const { data: category } = await supabase
+  const supabase = getSupabaseServerClient();
+
+  // 1) категория
+  const { data: category, error: catErr } = await supabase
     .from('categories')
-    .select('id,name,slug,is_visible')
-    .eq('slug', params.category)
+    .select('*')
+    .eq('slug', categorySlug)
     .maybeSingle();
 
-  if (!category || category.is_visible === false) return notFound();
+  if (catErr) {
+    console.error('[subcategory page] category error:', catErr);
+    return notFound();
+  }
+  if (!category) return notFound();
 
-  const { data: sub } = await supabase
+  // 2) подкатегория (строго внутри категории)
+  const { data: subcategory, error: subErr } = await supabase
     .from('subcategories')
-    .select('id,name,slug,is_visible,seo_h1,seo_text')
+    .select('*')
     .eq('category_id', category.id)
-    .eq('slug', params.subcategorySlug)
+    .eq('slug', subcategorySlug)
     .maybeSingle();
 
-  if (!sub || sub.is_visible === false) return notFound();
+  if (subErr) {
+    console.error('[subcategory page] subcategory error:', subErr);
+    return notFound();
+  }
+  if (!subcategory) return notFound();
 
-  const products = await getProductsForSubcategory(supabase, sub.id);
+  // 3) все подкатегории категории - для табов/пилюль на странице
+  const { data: allSubcategories, error: allSubErr } = await supabase
+    .from('subcategories')
+    .select('*')
+    .eq('category_id', category.id)
+    .order('id', { ascending: true });
 
-  const h1 = (sub.seo_h1 || sub.name || '').trim();
+  if (allSubErr) {
+    console.error('[subcategory page] allSubcategories error:', allSubErr);
+    // не валим страницу - просто показываем текущую
+  }
 
+  // 4) товары подкатегории (через связку product_subcategories)
+  const { data: links, error: linksErr } = await supabase
+    .from('product_subcategories')
+    .select('product:products(*)')
+    .eq('subcategory_id', subcategory.id);
+
+  if (linksErr) {
+    console.error('[subcategory page] product_subcategories error:', linksErr);
+    // не 404 - пусть просто будет пусто, как на категории
+  }
+
+  const products = ((links || [])
+    .map((r: any) => r.product)
+    .filter(Boolean)
+    // мягкая фильтрация, чтобы не упасть, если колонок нет
+    .filter((p: any) => p.is_visible !== false && p.is_available !== false)) as Product[];
+
+  // Важно: НЕ делаем notFound при пустом списке - на /category/[category] у тебя так же
   return (
-    <main className="container mx-auto px-4 py-6" id="main-content">
-      {/* ✅ Breadcrumbs сам строит путь по URL */}
-      
-
-      <h1 className="text-2xl md:text-3xl font-semibold text-black mt-4">{h1}</h1>
-
-      <section className="mt-6">
-        {products?.length ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-            {products.map((p: any) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-6 text-gray-600">
-            Товары в этой подкатегории пока не добавлены.
-          </div>
-        )}
-      </section>
-
-      {sub.seo_text?.trim() ? (
-        <section className="mt-10 prose prose-sm max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: sub.seo_text }} />
-        </section>
-      ) : null}
-    </main>
+    <CategoryPageClient
+      products={products}
+      h1={(category as any)?.seo_h1 || category.name}
+      slug={category.slug}
+      subcategories={((allSubcategories || []).filter((s: any) => s.is_visible !== false) as any) || []}
+      seoText={(subcategory as any)?.seo_text ?? null}
+    />
   );
 }

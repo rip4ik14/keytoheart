@@ -25,6 +25,16 @@ interface HrefOption {
   value: string;
 }
 
+function normalizeHref(raw: string) {
+  const v = (raw || '').trim();
+  const lower = v.toLowerCase();
+
+  // запретим опасные схемы
+  if (lower.startsWith('javascript:') || lower.startsWith('data:')) return '';
+
+  return v;
+}
+
 export default function PromoAdminPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -33,6 +43,7 @@ export default function PromoAdminPage() {
   const [form, setForm] = useState<Partial<PromoBlock>>({
     type: 'card',
     order_index: 0,
+    href: '',
   });
   const [file, setFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -76,21 +87,25 @@ export default function PromoAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки списка страниц');
 
-      const raw: HrefOption[] = data.map((p: any) => ({
+      const raw: HrefOption[] = (data || []).map((p: any) => ({
         label: p.label,
         value: p.href,
       }));
 
       const dedup = Array.from(new Map(raw.map(o => [o.value, o])).values());
-      dedup.sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+      dedup.sort((a, b) => (a.label || '').localeCompare(b.label || '', 'ru'));
 
       setHrefOptions(dedup);
     } catch (err: any) {
+      // 500 на /api/site-pages не должен ломать страницу и ручной ввод
+      setHrefOptions([]);
       toast.error('Ошибка загрузки списка страниц: ' + err.message);
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) {
     const { name, value } = e.target;
     setForm(f => ({
       ...f,
@@ -121,7 +136,10 @@ export default function PromoAdminPage() {
   }
 
   function handleEdit(block: PromoBlock) {
-    setForm(block);
+    setForm({
+      ...block,
+      href: block.href || '',
+    });
     setEditingId(block.id);
     setPreviewImage(block.image_url);
     setFile(null);
@@ -152,7 +170,10 @@ export default function PromoAdminPage() {
   async function handleSubmit(csrfToken: string) {
     try {
       if (!form.title?.trim()) throw new Error('Название обязательно');
-      if (!form.href) throw new Error('Ссылка (href) обязательна');
+
+      const hrefNormalized = normalizeHref(form.href || '');
+      if (!hrefNormalized) throw new Error('Ссылка (href) обязательна');
+
       if (!form.image_url && !file) throw new Error('Изображение обязательно');
 
       const sanitizedTitle = DOMPurify.sanitize(form.title?.trim() || '');
@@ -180,7 +201,7 @@ export default function PromoAdminPage() {
         title: sanitizedTitle,
         subtitle: sanitizedSubtitle,
         button_text: sanitizedButtonText,
-        href: form.href!,
+        href: hrefNormalized,
         image_url,
         type: form.type || 'card',
         order_index: form.order_index || 0,
@@ -207,7 +228,7 @@ export default function PromoAdminPage() {
         toast.success('Блок добавлен');
       }
 
-      setForm({ type: 'card', order_index: 0 });
+      setForm({ type: 'card', order_index: 0, href: '' });
       setFile(null);
       setPreviewImage(null);
       setEditingId(null);
@@ -218,7 +239,7 @@ export default function PromoAdminPage() {
   }
 
   const resetForm = () => {
-    setForm({ type: 'card', order_index: 0 });
+    setForm({ type: 'card', order_index: 0, href: '' });
     setFile(null);
     setPreviewImage(null);
     setEditingId(null);
@@ -228,6 +249,8 @@ export default function PromoAdminPage() {
     return <div className="min-h-screen flex items-center justify-center">Проверка авторизации...</div>;
   }
   if (!isAuthenticated) return null;
+
+  const hrefValue = form.href ?? '';
 
   return (
     <AdminLayout>
@@ -285,29 +308,29 @@ export default function PromoAdminPage() {
                   />
                 </div>
 
-                {/* 🔥 Новый ввод ссылки + datalist */}
                 <div>
                   <label htmlFor="href" className="font-medium">Ссылка (href)</label>
                   <motion.input
                     id="href"
                     name="href"
+                    type="text"
                     list="href-options"
-                    value={form.href || ''}
+                    value={hrefValue}
                     onChange={handleChange}
                     onFocus={fetchHrefOptions}
                     className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Введите свою ссылку или выберите из списка"
                     required
                     whileFocus={{ scale: 1.02 }}
+                    autoComplete="off"
+                    inputMode="url"
                   />
 
                   <datalist id="href-options">
                     {hrefOptions.map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        label={option.label}
-                      />
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
                     ))}
                   </datalist>
 

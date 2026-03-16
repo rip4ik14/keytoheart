@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import PromoGridClient from './PromoGridClient';
 import { PromoBlock } from '@/types/promo';
 
@@ -36,11 +35,9 @@ export default function PromoGridWrapper({
   banners?: PromoBlock[];
   cards?: PromoBlock[];
 }) {
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => setHydrated(true), []);
-
-  if (!hydrated) return <PromoGridSkeleton />;
+  // ✅ НЕ ждём hydrated - иначе LCP картинка появится слишком поздно
+  // client-компонент и так SSR-рендерится, а интерактивность подключится после гидрации
+  if (!banners.length && !cards.length) return <PromoGridSkeleton />;
 
   return <PromoGridClient banners={banners} cards={cards} />;
 }

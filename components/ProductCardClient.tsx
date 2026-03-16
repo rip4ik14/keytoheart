@@ -1,3 +1,4 @@
+// ✅ Путь: components/ProductCardClient.tsx
 'use client';
 
 import { useCart } from '@context/CartContext';
@@ -16,19 +17,18 @@ interface Props {
   productionTime: number | null;
 }
 
-export default function ProductCardClient({
-  id,
-  title,
-  price,
-  imageUrl,
-  productionTime,
-}: Props) {
+export default function ProductCardClient({ id, title, price, imageUrl, productionTime }: Props) {
   const { addItem } = useCart();
   const { triggerCartAnimation } = useCartAnimation();
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleClick = () => {
+    // ✅ FIX: line_id обязателен в CartItem (по CartContext.tsx)
+    // обычный товар - стабильный line_id
+    const line_id = `product:${id}`;
+
     addItem({
+      line_id,
       id: id.toString(),
       title,
       price,
@@ -72,10 +72,10 @@ export default function ProductCardClient({
             className="text-sm font-bold leading-5"
             style={{
               display: '-webkit-box',
-              WebkitLineClamp: 3,          // можно 2, если так в макете
+              WebkitLineClamp: 3, // можно 2, если так в макете
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              minHeight: '3.75rem',        // 3 строки * 1.25rem (leading-5)
+              minHeight: '3.75rem', // 3 строки * 1.25rem (leading-5)
             }}
             title={title}
           >

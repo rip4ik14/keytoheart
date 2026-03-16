@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { ExternalLink, Star } from 'lucide-react';
 
@@ -14,7 +12,7 @@ type Props = {
 function formatRatingCount(n: number) {
   if (!Number.isFinite(n) || n <= 0) return '';
   // ты просил именно так, без точных цифр и без фото
-  return 'более 2800 оценок';
+  return 'более 3000 оценок';
 }
 
 export default function FlowwowReviewsWidget({

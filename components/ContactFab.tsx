@@ -5,8 +5,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 
+import { callYm } from '@/utils/metrics';
+import { YM_ID } from '@/utils/ym';
+
 type ContactItem = {
-  id: string;
+  id: 'whatsapp' | 'telegram' | 'max' | 'call';
   title: string;
   subtitle?: string;
   href: string;
@@ -29,6 +32,33 @@ export default function ContactFab() {
 
   // drag-to-close
   const dragY = useRef(0);
+
+  // ✅ цели метрики как в StickyHeader
+  const trackContact = (kind: ContactItem['id'], meta?: Record<string, unknown>) => {
+    const eventName =
+      kind === 'whatsapp'
+        ? 'contact_whatsapp'
+        : kind === 'telegram'
+          ? 'contact_telegram'
+          : kind === 'max'
+            ? 'contact_max'
+            : 'contact_call';
+
+    // (опционально) GA4 - пусть тоже летит
+    window.gtag?.('event', eventName, {
+      event_category: 'contact_fab',
+      event_label: `ContactFab: ${kind}`,
+      value: 1,
+    });
+
+    // ✅ Яндекс.Метрика
+    if (YM_ID !== undefined) {
+      callYm(YM_ID, 'reachGoal', eventName, {
+        source: 'contact_fab',
+        ...meta,
+      });
+    }
+  };
 
   const items: ContactItem[] = useMemo(
     () => [
@@ -84,10 +114,18 @@ export default function ContactFab() {
       if (!initialPath || currentPath !== initialPath) return;
 
       sessionStorage.setItem(SESSION_KEY, '1');
+
+      // ✅ цель: авто-показ FAB
+      trackContact('telegram', { type: 'autoshown_hint' }); // мягкая "служебная" цель, если хочешь можно убрать
+      if (YM_ID !== undefined) {
+        callYm(YM_ID, 'reachGoal', 'contact_autoshown', { source: 'contact_fab' });
+      }
+
       setOpen(true);
     }, OPEN_AFTER_MS);
 
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // закрытие по Escape
@@ -104,10 +142,24 @@ export default function ContactFab() {
     setPressed(true);
     window.setTimeout(() => setPressed(false), 140);
 
-    setOpen((v) => !v);
+    setOpen((v) => {
+      const next = !v;
+
+      // ✅ цель: открытие/закрытие виджета
+      if (next) {
+        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'contact_open', { source: 'contact_fab' });
+      } else {
+        if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'contact_close', { source: 'contact_fab' });
+      }
+
+      return next;
+    });
   };
 
-  const close = () => setOpen(false);
+  const close = () => {
+    setOpen(false);
+    if (YM_ID !== undefined) callYm(YM_ID, 'reachGoal', 'contact_close', { source: 'contact_fab' });
+  };
 
   const onDragEnd = () => {
     // если потянули вниз сильно - закрываем
@@ -140,10 +192,7 @@ export default function ContactFab() {
           aria-label="Открыть чат"
         >
           <span
-            className={cn(
-              'inline-flex h-10 w-10 items-center justify-center rounded-full',
-              'bg-black text-white',
-            )}
+            className={cn('inline-flex h-10 w-10 items-center justify-center rounded-full', 'bg-black text-white')}
             aria-hidden="true"
           >
             <Image src="/icons/chat.svg" alt="" width={18} height={18} />
@@ -200,12 +249,8 @@ export default function ContactFab() {
                 <div className="px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[15px] sm:text-base font-semibold tracking-tight text-black">
-                        Написать нам
-                      </div>
-                      <div className="text-xs sm:text-sm text-black/55 mt-1">
-                        Обычно отвечаем быстро
-                      </div>
+                      <div className="text-[15px] sm:text-base font-semibold tracking-tight text-black">Написать нам</div>
+                      <div className="text-xs sm:text-sm text-black/55 mt-1">Обычно отвечаем быстро</div>
                     </div>
 
                     <button
@@ -241,13 +286,17 @@ export default function ContactFab() {
                           'flex flex-col items-center justify-center gap-2',
                         )}
                         aria-label={it.title}
+                        onClick={() => {
+                          // ✅ цель: клик по каналу из FAB
+                          trackContact(it.id);
+                          // закрываем виджет после клика (как обычно в share-sheet)
+                          close();
+                        }}
                       >
                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-black/10 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
                           <Image src={it.icon} alt={it.title} width={22} height={22} />
                         </span>
-                        <span className="text-[11px] font-semibold text-black leading-none">
-                          {it.title}
-                        </span>
+                        <span className="text-[11px] font-semibold text-black leading-none">{it.title}</span>
                       </a>
                     ))}
                   </div>

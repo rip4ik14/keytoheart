@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       const discountPercent = product.discount_percent || 0;
       const discountedPrice = Math.round(productPrice * (1 - discountPercent / 100));
 
-      if (discountedPrice !== item.price) {
+      if (Math.abs(discountedPrice - item.price) > 1) {
         invalidItems.push({ id: item.id, reason: `Цена изменилась: ожидалась ${item.price}, текущая ${discountedPrice}` });
         continue;
       }

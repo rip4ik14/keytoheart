@@ -19,16 +19,18 @@ export default function AdminProtectedLayoutClient({
   const isOrdersPage = pathname?.startsWith('/admin/orders');
 
   const navItems = [
-    { href: '/admin', label: '🏠 Главная' },
-    { href: '/admin/products', label: '📦 Товары' },
-    { href: '/admin/orders', label: '🧾 Заказы' },
-    { href: '/admin/customers', label: '👥 Клиенты' },
-    { href: '/admin/promo', label: '🏷️ Промо-блоки' },
-    { href: '/admin/promo-codes', label: '💸 Промокоды' },
-    { href: '/admin/categories', label: '📁 Категории' },
-    { href: '/admin/settings', label: '⚙️ Настройки' },
-    { href: '/admin/stats', label: '📊 Статистика' },
-  ];
+  { href: '/admin', label: '🏠 Главная' },
+  { href: '/admin/products', label: '📦 Товары' },
+  { href: '/admin/orders', label: '🧾 Заказы' },
+  { href: '/admin/customers', label: '👥 Клиенты' },
+  { href: '/admin/promo', label: '🏷️ Промо-блоки' },
+  { href: '/admin/promo-codes', label: '💸 Промокоды' },
+  { href: '/admin/categories', label: '📁 Категории' },
+  { href: '/admin/settings', label: '⚙️ Настройки' },
+  { href: '/admin/finance', label: '💳 Финансы' },
+  { href: '/admin/stats', label: '📊 Статистика' },
+];
+
 
   return (
     <div className="flex min-h-screen bg-gray-50">

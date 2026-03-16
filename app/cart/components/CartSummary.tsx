@@ -1,11 +1,11 @@
-// ✅ Путь: app/cart/components/CartSummary.tsx
 'use client';
 
+import { useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
-import type { CartItemType, UpsellItem } from '@/app/cart/types';
+import type { CartItemType, UpsellItem, CartItem } from '@/app/cart/types';
 import UiButton from '@/components/ui/UiButton';
 
 interface CartSummaryProps {
@@ -15,7 +15,9 @@ interface CartSummaryProps {
   bonusBalance: number;
   bonusAccrual: number;
   finalTotal: number;
+
   discountAmount: number;
+
   removeUpsell: (id: string) => void;
   isAuthenticated: boolean;
   useBonuses: boolean;
@@ -31,6 +33,14 @@ interface CartSummaryProps {
 
 function rub(n: number) {
   return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+}
+
+function isUpsellItem(i: CartItemType): i is UpsellItem {
+  return (i as UpsellItem).isUpsell === true;
+}
+
+function asCartItem(i: CartItemType): CartItem | null {
+  return isUpsellItem(i) ? null : (i as CartItem);
 }
 
 export default function CartSummary({
@@ -53,18 +63,36 @@ export default function CartSummary({
   promoError = null,
   onApplyPromo,
 }: CartSummaryProps) {
-  const subtotal = items.reduce((sum: number, i: CartItemType) => sum + i.price * i.quantity, 0);
+  const subtotal = useMemo(() => {
+    return items.reduce((sum: number, i: CartItemType) => sum + (i.price || 0) * (i.quantity || 0), 0);
+  }, [items]);
 
-  const upsellTotal = selectedUpsells.reduce(
-    (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
-    0,
-  );
+  const upsellTotal = useMemo(() => {
+    return selectedUpsells.reduce(
+      (sum: number, i: UpsellItem) => sum + (i.price || 0) * (i.quantity || 0),
+      0,
+    );
+  }, [selectedUpsells]);
+
+  const itemsDiscount = useMemo(() => {
+    return items.reduce((sum: number, it: CartItemType) => {
+      const ci = asCartItem(it);
+      if (!ci) return sum;
+
+      const base = typeof ci.base_price === 'number' && ci.base_price > 0 ? ci.base_price : null;
+      if (!base) return sum;
+
+      const perUnit = Math.max(0, base - (ci.price || 0));
+      return sum + perUnit * (ci.quantity || 0);
+    }, 0);
+  }, [items]);
+
+  const combinedDiscount = Math.round((discountAmount || 0) + itemsDiscount);
 
   const isPickup = deliveryMethod === 'pickup';
   const totalBeforeDiscounts = subtotal + upsellTotal + deliveryCost;
 
-  const card =
-    'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
+  const card = 'rounded-3xl border border-black/10 bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)]';
   const muted = 'text-black/60';
   const ink = 'text-[#121212]';
 
@@ -91,7 +119,6 @@ export default function CartSummary({
         <p className={`mt-4 text-center ${muted}`}>Корзина пуста</p>
       ) : (
         <div className="mt-4 flex flex-col gap-4 text-xs xs:text-sm">
-          {/* суммы */}
           <div className="rounded-2xl border border-black/10 bg-black/[0.015] p-3 xs:p-4">
             <div className="flex justify-between">
               <span className={muted}>Товары</span>
@@ -105,15 +132,14 @@ export default function CartSummary({
               <span className={`font-semibold ${ink}`}>{isPickup ? '0 ₽' : 'по расчету'}</span>
             </div>
 
-            {discountAmount > 0 ? (
+            {combinedDiscount > 0 ? (
               <div className="mt-2 flex justify-between text-emerald-700">
                 <span>Скидка</span>
-                <span className="font-semibold">-{rub(discountAmount)} ₽</span>
+                <span className="font-semibold">-{rub(combinedDiscount)} ₽</span>
               </div>
             ) : null}
           </div>
 
-          {/* промокод */}
           <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
             <p className={`text-[11px] xs:text-xs font-semibold ${ink}`}>Промокод</p>
 
@@ -147,12 +173,9 @@ export default function CartSummary({
               </UiButton>
             </div>
 
-            {promoError ? (
-              <p className="mt-2 text-[11px] xs:text-xs text-red-600">{promoError}</p>
-            ) : null}
+            {promoError ? <p className="mt-2 text-[11px] xs:text-xs text-red-600">{promoError}</p> : null}
           </div>
 
-          {/* бонусы */}
           {isAuthenticated && (
             <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
               <div className="flex items-center justify-between gap-3">
@@ -178,21 +201,16 @@ export default function CartSummary({
               <p className={`mt-2 text-[11px] xs:text-xs ${muted}`}>
                 {bonusBalance <= 0
                   ? 'Нет доступных бонусов'
-                  : `Доступно: ${Math.min(
-                      bonusBalance,
-                      Math.floor(totalBeforeDiscounts * 0.15),
-                    )} ₽`}
+                  : `Доступно: ${Math.min(bonusBalance, Math.floor(totalBeforeDiscounts * 0.15))} ₽`}
               </p>
             </div>
           )}
 
-          {/* начисление */}
           <div className="flex items-center justify-between rounded-2xl border border-black/10 p-3 xs:p-4">
             <span className={`text-[11px] xs:text-xs ${muted}`}>+ начислим {bonusAccrual} бонусов</span>
             <Image src="/icons/info-circle.svg" alt="Информация" width={16} height={16} loading="lazy" />
           </div>
 
-          {/* итог */}
           <div className="rounded-2xl border border-black/10 p-3 xs:p-4">
             <div className="flex items-center justify-between">
               <span className={`text-sm xs:text-base font-semibold ${ink}`}>Итого</span>
@@ -200,8 +218,6 @@ export default function CartSummary({
                 {rub(finalTotal)} ₽
               </span>
             </div>
-
-            
           </div>
         </div>
       )}

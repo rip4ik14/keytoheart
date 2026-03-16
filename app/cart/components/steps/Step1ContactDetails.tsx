@@ -1,3 +1,4 @@
+// ✅ Путь: app/cart/components/steps/Step1ContactDetails.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -7,14 +8,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface Props {
   form: {
-    phone: string; // хранится НОРМАЛИЗОВАННО: +7XXXXXXXXXX (или пусто / частично во время ввода)
-    whatsapp: boolean;
+    phone: string;
     name: string;
+
+    // обязательная галка (оферта/соглашение/политика) - должна быть true для продолжения
     agreedToTerms?: boolean;
+
+    // необязательная галка (маркетинг) — теперь по умолчанию true
+    agreedToMarketing?: boolean;
+
+    contactMethod: 'call' | 'whatsapp' | 'telegram' | 'max';
   };
   phoneError: string;
   nameError: string;
   agreedToTermsError: string;
+
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
   isAuthenticated?: boolean;
@@ -38,12 +46,6 @@ function digitsOnly(v: string) {
   return (v || '').replace(/\D/g, '');
 }
 
-/**
- * Достаём локальные 10 из любого ввода/вставки:
- * - "7912..." / "+7912..." / "8(912)..." -> "912..."
- * - если цифр > 10 -> последние 10
- * - иначе -> первые 10
- */
 function extractLocal10FromAnyInput(raw: string) {
   const d = digitsOnly(raw);
   if (!d) return '';
@@ -56,9 +58,6 @@ function extractLocal10FromAnyInput(raw: string) {
   return d.slice(0, 10);
 }
 
-/**
- * Вытаскиваем локальные 10 из form.phone (+7/8/что угодно).
- */
 function toLocal10FromStoredPhone(stored: string) {
   const d = digitsOnly(stored);
   if (!d) return '';
@@ -84,9 +83,6 @@ function formatLocal10ForInput(local10: string) {
   return `(${a}) ${b}-${c}-${e}`;
 }
 
-/**
- * Каретка - считаем сколько цифр было слева, потом ставим в похожую позицию после форматирования.
- */
 function countDigitsBeforePos(s: string, pos: number) {
   let c = 0;
   for (let i = 0; i < Math.min(pos, s.length); i++) {
@@ -109,7 +105,6 @@ function posForDigitIndex(formatted: string, digitIndex: number) {
 
 function iosBlurFix() {
   if (typeof window === 'undefined') return;
-  // micro "scroll nudge" помогает Safari вернуть в норму viewport после клавы
   setTimeout(() => {
     try {
       const y = window.scrollY;
@@ -121,6 +116,36 @@ function iosBlurFix() {
     }
   }, 60);
 }
+
+function ContactMethodButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'w-full rounded-[14px] border px-3 py-[9px] text-[11px] sm:text-[11px] font-bold uppercase tracking-tight transition',
+        'active:scale-[0.99]',
+        active
+          ? 'bg-white border-black text-black'
+          : 'bg-white border-[#bdbdbd] text-[#2f2f2f] hover:border-black',
+      ].join(' ')}
+    >
+      {label}
+    </button>
+  );
+}
+
+// Общий класс для чекбоксов — теперь они полностью одинаковые по стилю
+const checkboxClass =
+  'mt-[3px] h-5 w-5 rounded border-2 border-[#bdbdbd] text-black focus:ring-2 focus:ring-black accent-black transition';
 
 export default function Step1ContactDetails({
   form,
@@ -154,6 +179,16 @@ export default function Step1ContactDetails({
     );
   };
 
+  // Устанавливаем галочку «Хочу получать акции» по умолчанию (true)
+  useEffect(() => {
+    if (form.agreedToMarketing === undefined) {
+      onFormChange({
+        target: { name: 'agreedToMarketing', type: 'checkbox', checked: true },
+      } as React.ChangeEvent<HTMLInputElement>);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const uiDigits = digitsOnly(phoneUi);
     const nextDigits = digitsOnly(local10FromForm);
@@ -167,9 +202,13 @@ export default function Step1ContactDetails({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local10FromForm]);
 
+  useEffect(() => {
+    if (!form.contactMethod) emit('contactMethod', 'call');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="space-y-4">
-      {/* Имя */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -193,7 +232,6 @@ export default function Step1ContactDetails({
         {nameError && <p className="text-red-500 text-xs">{nameError}</p>}
       </motion.div>
 
-      {/* Телефон */}
       <motion.div
         className="space-y-2"
         initial="hidden"
@@ -247,7 +285,7 @@ export default function Step1ContactDetails({
                 try {
                   el.setSelectionRange(nextPos, nextPos);
                 } catch {
-                  // iOS может ругаться в некоторые моменты - игнор
+                  // noop
                 }
               });
             }}
@@ -266,26 +304,45 @@ export default function Step1ContactDetails({
         <p className="text-[12px] text-[#6f6f6f]">Текст открытки можно написать далее</p>
       </motion.div>
 
-      {/* WhatsApp */}
-      <motion.label
-        className="flex items-center gap-3 pt-1"
+      <motion.div
+        className="space-y-2 pt-1"
         initial="hidden"
         animate="visible"
         custom={2}
         variants={containerVariants}
       >
-        <input
-          type="checkbox"
-          name="whatsapp"
-          checked={form.whatsapp}
-          onChange={onFormChange}
-          className="h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
-          aria-label="Не звонить, а написать в WhatsApp"
-        />
-        <span className="text-[13px] text-[#2f2f2f]">Не звонить, а написать в WhatsApp</span>
-      </motion.label>
+        <p className="text-[13px] font-semibold text-black">Как с вами связаться по заказу?</p>
 
-      {/* Бонусы и вход */}
+        <div className="grid grid-cols-2 gap-2">
+          <ContactMethodButton
+            active={form.contactMethod === 'call'}
+            label="Позвонить"
+            onClick={() => emit('contactMethod', 'call')}
+          />
+          <ContactMethodButton
+            active={form.contactMethod === 'telegram'}
+            label="Написать в Telegram"
+            onClick={() => emit('contactMethod', 'telegram')}
+          />
+          <ContactMethodButton
+            active={form.contactMethod === 'whatsapp'}
+            label="Написать в WhatsApp"
+            onClick={() => emit('contactMethod', 'whatsapp')}
+          />
+          <ContactMethodButton
+            active={form.contactMethod === 'max'}
+            label="Написать в MAX"
+            onClick={() => emit('contactMethod', 'max')}
+          />
+        </div>
+
+        <p className="text-[11px] text-[#6f6f6f] leading-snug">
+          Если выберете мессенджер - мы напишем туда по номеру телефона из заказа. При выборе
+          мессенджера вы переходите в сторонний сервис, который обрабатывает данные по своим
+          правилам.
+        </p>
+      </motion.div>
+
       <motion.div
         className="mt-2 rounded-[22px] border border-[#bdbdbd] p-4 bg-white space-y-2"
         initial="hidden"
@@ -299,7 +356,9 @@ export default function Step1ContactDetails({
 
             {isAuthenticated ? (
               <>
-                <p className="text-[12px] text-[#6f6f6f]">Вы вошли, бонусы начисляются автоматически</p>
+                <p className="text-[12px] text-[#6f6f6f]">
+                  Вы вошли, бонусы начисляются автоматически
+                </p>
                 <p className="text-[12px] text-[#6f6f6f]">
                   Баланс: <span className="font-semibold text-black">{bonusBalance}</span>
                 </p>
@@ -336,9 +395,9 @@ export default function Step1ContactDetails({
         )}
       </motion.div>
 
-      {/* Согласие */}
+      {/* ✅ Обязательная галочка (политика + оферта + соглашение) */}
       <motion.div
-        className={`flex items-start gap-3 mt-2 ${
+        className={`flex items-start gap-3 mt-3 ${
           agreedToTermsError ? 'text-red-500' : 'text-[#2f2f2f]'
         }`}
         initial="hidden"
@@ -351,38 +410,81 @@ export default function Step1ContactDetails({
           name="agreedToTerms"
           checked={form.agreedToTerms || false}
           onChange={onFormChange}
-          className="mt-[2px] h-5 w-5 rounded border-[#bdbdbd] text-black focus:ring-black"
-          aria-label="Согласие с офертой и политикой"
+          className={checkboxClass}
+          aria-label="Согласие с документами"
           required
         />
-        <span className="text-[12px] leading-snug">
+        <span className="text-[12px] leading-snug pt-px">
           Нажимая кнопку "Продолжить", вы подтверждаете согласие с{' '}
           <TrackedLink
             href="/policy"
-            className="underline text-black"
+            className="underline text-black hover:no-underline"
             ariaLabel="Открыть политику конфиденциальности"
             category="checkout"
             action="open_legal"
             label="policy"
           >
             политикой обработки персональных данных
-          </TrackedLink>{' '}
-          и{' '}
+          </TrackedLink>
+          ,{' '}
           <TrackedLink
             href="/offer"
-            className="underline text-black"
-            ariaLabel="Открыть условия оферты"
+            className="underline text-black hover:no-underline"
+            ariaLabel="Открыть пользовательское соглашение"
             category="checkout"
             action="open_legal"
             label="offer"
           >
             пользовательским соглашением
+          </TrackedLink>{' '}
+          и{' '}
+          <TrackedLink
+            href="/offer"
+            className="underline text-black hover:no-underline"
+            ariaLabel="Открыть публичную оферту купли-продажи"
+            category="checkout"
+            action="open_legal"
+            label="public_offer"
+          >
+            публичной офертой
           </TrackedLink>
           .
         </span>
       </motion.div>
 
-      {agreedToTermsError && <p className="text-red-500 text-xs">{agreedToTermsError}</p>}
+      {agreedToTermsError && <p className="text-red-500 text-xs pl-8">{agreedToTermsError}</p>}
+
+      {/* ✅ Галочка «Хочу получать акции» — стоит по умолчанию */}
+      <motion.div
+        className="flex items-start gap-3 mt-2 text-[#2f2f2f]"
+        initial="hidden"
+        animate="visible"
+        custom={5}
+        variants={containerVariants}
+      >
+        <input
+          type="checkbox"
+          name="agreedToMarketing"
+          checked={form.agreedToMarketing ?? true}
+          onChange={onFormChange}
+          className={checkboxClass}
+          aria-label="Согласие на рекламную рассылку"
+        />
+        <span className="text-[12px] leading-snug pt-px">
+          Хочу получать акции и предложения (можно отказаться в любой момент). Условия —{' '}
+          <TrackedLink
+            href="/offer"
+            className="underline text-black hover:no-underline"
+            ariaLabel="Открыть согласие на рассылку"
+            category="checkout"
+            action="open_legal"
+            label="marketing_offer"
+          >
+            здесь
+          </TrackedLink>
+          .
+        </span>
+      </motion.div>
     </div>
   );
 }

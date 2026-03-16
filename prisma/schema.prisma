@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]  
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
@@ -384,13 +384,15 @@ model bonus_history {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model bonuses {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  phone         String          @unique(map: "bonuses_phone_idx")
-  total_bonus   Int             @default(0)
-  updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
-  bonus_balance Int?            @default(0)
-  total_spent   Int?            @default(0)
-  level         String?         @default("Бронзовый")
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone                    String    @unique(map: "bonuses_phone_idx")
+  total_bonus              Int       @default(0)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+  bonus_balance            Int?      @default(0)
+  total_spent              Int?      @default(0)
+  level                    String?   @default("Бронзовый")
+  welcome_bonus_awarded_at DateTime? @db.Timestamptz(6) // <- добавили
+
   bonus_history bonus_history[]
 
   @@schema("public")
@@ -400,7 +402,7 @@ model categories {
   id                 Int                  @id @default(autoincrement())
   name               String
   slug               String               @unique
-  parent_id          Int?                 // Изменено с BigInt? на Int?
+  parent_id          Int? // Изменено с BigInt? на Int?
   is_visible         Boolean?             @default(true)
   categories         categories?          @relation("categoriesTocategories", fields: [parent_id], references: [id], onUpdate: NoAction)
   other_categories   categories[]         @relation("categoriesTocategories")
@@ -496,38 +498,45 @@ model order_items {
 }
 
 model orders {
-  id                    String         @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
-  created_at            DateTime?      @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  phone                 String?
-  whatsapp              Boolean?       @default(false)
-  name                  String?
-  recipient             String
-  address               String
-  items                 Json?
-  total                 Decimal?       @db.Decimal
-  bonus                 Int
-  status                String?
-  bonuses_used          Int?           @default(0)
-  contact_name          String?
-  delivery_date         String?
-  delivery_time         String?
-  payment_method        String?
-  bonus_used            Decimal?       @default(0) @db.Decimal
-  promo_id              String?        @db.Uuid
-  promo_discount        Decimal?       @db.Decimal(10, 2)
-  delivery_method       String?        @default("delivery")
+  id         String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  phone      String?
+  whatsapp   Boolean?  @default(false)
+
+  contact_method String? @default("call") @db.Text
+
+  name         String?
+  recipient    String
+  address      String
+  items        Json?
+  total        Decimal? @db.Decimal
+  bonus        Int
+  status       String?
+  bonuses_used Int?     @default(0)
+
+  contact_name   String?
+  delivery_date  String?
+  delivery_time  String?
+  payment_method String?
+
+  promo_id              String?  @db.Uuid
+  promo_discount        Decimal? @db.Decimal(10, 2)
+  delivery_method       String?  @default("delivery")
   delivery_instructions String?
   postcard_text         String?
   occasion              String?
   promo_code            String?
-  order_number          Int            @unique(map: "unique_order_number") @default(autoincrement())
-  upsell_details        Json?          @default("[]")
-  anonymous             Boolean?       @default(false)
+  order_number          Int      @unique(map: "unique_order_number") @default(autoincrement())
+  upsell_details        Json?    @default("[]")
+  anonymous             Boolean? @default(false)
   recipient_phone       String?
-  user_id               String?        @db.Uuid
-  order_items           order_items[]
-  promo_codes           promo_codes?   @relation(fields: [promo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_promo_id")
-  user_profiles         user_profiles? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_id               String?  @db.Uuid
+
+  order_items   order_items[]
+  promo_codes   promo_codes?   @relation(fields: [promo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_promo_id")
+  user_profiles user_profiles? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  order_costs order_costs?
 
   @@schema("public")
 }
@@ -604,7 +613,8 @@ model promo_blocks {
   order_index Int?    @default(0)
   button_text String? @default("Подробнее")
   subtitle    String?
-  slides      Json?   // <-- Вот это добавь!
+  slides      Json? // <-- Вот это добавь!
+
   @@index([order_index], map: "promo_blocks_order_idx")
   @@schema("public")
 }
@@ -707,18 +717,27 @@ model upsell_items {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+
 model user_profiles {
-  id              String            @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
-  bonus_balance   Int?              @default(0)
-  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
-  phone           String?           @unique
-  name            String?
-  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
-  email           String?
-  birthday        String?
-  anniversary     String?
-  last_name       String?
-  receive_offers  Boolean?          @default(false)
+  id            String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  bonus_balance Int?      @default(0)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  phone         String?   @unique
+  name          String?
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  email         String?
+  birthday      String?
+  anniversary   String?
+  last_name     String?
+
+  // --- marketing consent (opt-in) ---
+  receive_offers         Boolean?  @default(false)
+  receive_offers_at      DateTime? @db.Timestamptz(6)
+  receive_offers_source  String?   @db.Text
+  receive_offers_version String?   @db.Text
+  receive_offers_ip      String?   @db.Text
+  receive_offers_ua      String?   @db.Text
+
   important_dates important_dates[]
   orders          orders[]
 
@@ -764,4 +783,70 @@ enum one_time_token_type {
   phone_change_token
 
   @@schema("auth")
+}
+
+model order_costs {
+  id       String @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  order_id String @unique @db.Uuid
+
+  strawberries_cost Int @default(0)
+  flowers_cost      Int @default(0)
+  chocolate_cost    Int @default(0)
+  packaging_cost    Int @default(0)
+  supply_taxi_cost  Int @default(0)
+  other_cost        Int @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  orders orders @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_costs_order_id")
+  @@schema("public")
+}
+
+model finance_expenses {
+  id         String   @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  date       DateTime @db.Date
+  category   String   @db.Text
+  amount     Int
+  supplier   String?  @db.Text
+  comment    String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([date], map: "idx_finance_expenses_date")
+  @@index([category], map: "idx_finance_expenses_category")
+  @@schema("public")
+}
+
+model finance_manual_revenue {
+  id         String   @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  date       DateTime @db.Date
+  source     String   @db.Text
+  amount     Int
+  comment    String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([date], map: "idx_finance_manual_revenue_date")
+  @@index([source], map: "idx_finance_manual_revenue_source")
+  @@schema("public")
+}
+
+model marketing_consent_events {
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone   String  @db.Text
+  user_id String? @db.Uuid
+
+  consent_type String   @default("marketing") @db.Text
+  granted      Boolean
+  source       String   @db.Text
+  version      String   @db.Text
+  text         String   @db.Text
+  ip           String?  @db.Text
+  user_agent   String?  @db.Text
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([phone, created_at], map: "idx_marketing_consent_phone_created_at")
+  @@index([user_id], map: "idx_marketing_consent_user_id")
+  @@schema("public")
 }

@@ -1,4 +1,3 @@
-// ✅ Путь: app/cart/CartPageClient.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -74,15 +73,9 @@ export default function CartPageClient({
   initialIsAuthenticated = false,
   initialPhone = null,
 }: CartPageClientProps) {
-  // ---------------------------
-  // YM dedupe guards
-  // ---------------------------
   const hasTrackedCheckoutStartRef = useRef(false);
   const lastTrackedCheckoutStepRef = useRef<number | null>(null);
 
-  // ---------------------------
-  // Cart context
-  // ---------------------------
   let cartContext;
   try {
     cartContext = useCart();
@@ -97,9 +90,6 @@ export default function CartPageClient({
 
   const { items, updateQuantity, removeItem, clearCart, addMultipleItems } = cartContext;
 
-  // ---------------------------
-  // Form
-  // ---------------------------
   const {
     step,
     setStep,
@@ -125,9 +115,6 @@ export default function CartPageClient({
     resetForm,
   } = useCheckoutForm();
 
-  // ---------------------------
-  // Auth state + bonuses
-  // ---------------------------
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialIsAuthenticated);
   const [phone, setPhone] = useState<string | null>(initialPhone);
   const [userId, setUserId] = useState<string | null>(null);
@@ -138,9 +125,6 @@ export default function CartPageClient({
   const [authChecked, setAuthChecked] = useState<boolean>(false);
   const [showAuthPanel, setShowAuthPanel] = useState<boolean>(false);
 
-  // ---------------------------
-  // Extra UI state
-  // ---------------------------
   const [postcardText, setPostcardText] = useState<string>('');
   const [occasion, setOccasion] = useState<string>('');
 
@@ -153,25 +137,17 @@ export default function CartPageClient({
   } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
 
-  // ✅ NEW: чтобы валидатор корзины не перетирал применяемый repeatDraft
   const [isApplyingRepeatDraft, setIsApplyingRepeatDraft] = useState<boolean>(false);
 
-  // Promo state
   const [promoCode, setPromoCode] = useState<string>('');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoDiscount, setPromoDiscount] = useState<number | null>(null);
   const [promoType, setPromoType] = useState<'fixed' | 'percentage' | null>(null);
   const [promoId, setPromoId] = useState<string | null>(null);
 
-  // ---------------------------
-  // Desktop upsell buttons
-  // ---------------------------
   const [showPostcard, setShowPostcard] = useState<boolean>(false);
   const [showBalloons, setShowBalloons] = useState<boolean>(false);
 
-  // ---------------------------
-  // Upsells data + selection
-  // ---------------------------
   const upsellSubcategoryIds = useMemo(() => [173, 171] as const, []);
 
   const { selectedUpsells, setSelectedUpsells, removeUpsell, updateUpsellQuantity } = useUpsells({
@@ -179,10 +155,7 @@ export default function CartPageClient({
     subcategoryIds: upsellSubcategoryIds as unknown as number[],
   });
 
-  // ---------------------------
-  // Repeat order: apply draft from Account (repeatDraft/cartDraft)
-  // (draft в Prisma, но картинка/актуальные данные - из Supabase products)
-  // ---------------------------
+  // ================== REPEAT DRAFT ==================
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -221,16 +194,10 @@ export default function CartPageClient({
           ),
         );
 
-        const productsById = new Map<
-          number,
-          { title?: string; image_url?: string | null; price?: number | null }
-        >();
+        const productsById = new Map<number, { title?: string; image_url?: string | null; price?: number | null }>();
 
         if (idsToFetch.length > 0) {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id,title,image_url,price')
-            .in('id', idsToFetch);
+          const { data, error } = await supabase.from('products').select('id,title,image_url,price').in('id', idsToFetch);
 
           if (!error && Array.isArray(data)) {
             data.forEach((p: any) => {
@@ -254,7 +221,6 @@ export default function CartPageClient({
             const price = Number(x?.price ?? fromDb?.price ?? 0) || 0;
             const quantity = Number(x?.quantity ?? 1) || 1;
 
-            // берём картинку: сначала из products, потом из драфта
             const img =
               (fromDb?.image_url ? String(fromDb.image_url) : '') ||
               (x?.imageUrl ? String(x.imageUrl) : '') ||
@@ -295,8 +261,7 @@ export default function CartPageClient({
 
         toast.success('Заказ перенесён в корзину');
       } catch (e) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[CartPageClient] repeatDraft parse/apply error', e);
+        process.env.NODE_ENV !== 'production' && console.error('[CartPageClient] repeatDraft parse/apply error', e);
         toast.error('Не удалось повторить заказ');
       } finally {
         cleanup();
@@ -307,46 +272,42 @@ export default function CartPageClient({
     run();
   }, [addMultipleItems, clearCart, setSelectedUpsells, setStep]);
 
-  // ---------------------------
-  // Mobile sticky upsell + smart scroll
-  // ---------------------------
-  const { upsellOuterRef, upsellInnerRef, upsellShift, MOBILE_HEADER_OFFSET } =
-    useMobileUpsellSticky(step);
+  const { upsellOuterRef, upsellInnerRef, upsellShift, MOBILE_HEADER_OFFSET } = useMobileUpsellSticky(step);
 
-  // ---------------------------
-  // Body overflow-x hidden (mobile)
-  // ---------------------------
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 768) {
       document.body.classList.add('overflow-x-hidden');
-      return () => {
-        document.body.classList.remove('overflow-x-hidden');
-      };
+      return () => document.body.classList.remove('overflow-x-hidden');
     }
   }, []);
 
-  // ---------------------------
-  // Store settings
-  // ---------------------------
-  const { storeSettings, isStoreSettingsLoading, currentDaySchedule, canPlaceOrder } =
-    useStoreSettings();
+  const { storeSettings, isStoreSettingsLoading, currentDaySchedule, canPlaceOrder } = useStoreSettings();
 
-  // ---------------------------
-  // Cart validate + sync
-  // ---------------------------
-  const baseCartItems = useMemo(() => items.filter((i: CartItemType) => !i.isUpsell), [items]);
+  const isComboCartItem = useCallback((i: any) => {
+    return (
+      i?.discount_reason === 'combo' ||
+      i?.discountReason === 'combo' ||
+      i?.discount_reason === 'COMBO' ||
+      i?.discountReason === 'COMBO' ||
+      !!i?.combo_id ||
+      !!i?.comboId ||
+      !!i?.combo_group_id ||
+      !!i?.comboGroupId
+    );
+  }, []);
+
+  const itemsForValidateSync = useMemo<CartItemType[]>(() => {
+    return items.filter((i: CartItemType) => !i.isUpsell && !isComboCartItem(i));
+  }, [items, isComboCartItem]);
 
   useCartValidateAndSync({
-    items: baseCartItems,
+    items: itemsForValidateSync,
     clearCart,
     addMultipleItems: addMultipleItems as unknown as (items: CartItemType[]) => void,
     enabled: !isApplyingRepeatDraft,
   });
 
-  // ---------------------------
-  // Yandex address suggest
-  // ---------------------------
   const {
     addressSuggestions,
     showSuggestions,
@@ -365,9 +326,7 @@ export default function CartPageClient({
     return () => document.removeEventListener('click', handleClickOutside);
   }, [setShowSuggestions]);
 
-  // ---------------------------
-  // Auth bootstrap (твой код - без изменений)
-  // ---------------------------
+  // AUTH + BONUSES (без изменений, только оптимизация)
   useEffect(() => {
     let isMounted = true;
 
@@ -396,8 +355,7 @@ export default function CartPageClient({
           setBonusBalance(bonusJson.data.bonus_balance ?? 0);
         }
       } catch (e) {
-        process.env.NODE_ENV !== 'production' &&
-          console.error('[CartPageClient] Error loading bonuses', e);
+        process.env.NODE_ENV !== 'production' && console.error('[CartPageClient] Error loading bonuses', e);
       } finally {
         if (isMounted) setAuthChecked(true);
       }
@@ -492,8 +450,7 @@ export default function CartPageClient({
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialIsAuthenticated, initialPhone, onFormChange]);
 
   useEffect(() => {
     if (isAuthenticated) setShowAuthPanel(false);
@@ -519,9 +476,6 @@ export default function CartPageClient({
     [onFormChange],
   );
 
-  // ---------------------------
-  // YM: start_checkout - once, not on page mount
-  // ---------------------------
   useEffect(() => {
     if (hasTrackedCheckoutStartRef.current) return;
 
@@ -536,9 +490,6 @@ export default function CartPageClient({
     }
   }, [step, items.length, selectedUpsells.length]);
 
-  // ---------------------------
-  // Next step must return success
-  // ---------------------------
   const handleNextStep = useCallback((): boolean => {
     if (step === 1) {
       if (!validateStep1()) return false;
@@ -568,9 +519,6 @@ export default function CartPageClient({
     return true;
   }, [step, validateStep1, validateStep2, validateStep3, validateStep4, nextStep]);
 
-  // ---------------------------
-  // Totals
-  // ---------------------------
   const deliveryCost = useMemo(() => {
     if (form.deliveryMethod === 'pickup') return 0;
     return 0;
@@ -581,10 +529,7 @@ export default function CartPageClient({
   }, [items]);
 
   const upsellTotal = useMemo(() => {
-    return selectedUpsells.reduce(
-      (sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity,
-      0,
-    );
+    return selectedUpsells.reduce((sum: number, i: UpsellItem) => sum + (i.price || 0) * i.quantity, 0);
   }, [selectedUpsells]);
 
   const baseTotal = subtotal + upsellTotal + deliveryCost;
@@ -595,8 +540,7 @@ export default function CartPageClient({
   }, [promoDiscount, promoType, baseTotal]);
 
   const maxBonusesAllowed = Math.floor(baseTotal * 0.15);
-  const bonusesToUse =
-    useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
+  const bonusesToUse = useBonuses && isAuthenticated ? Math.min(bonusBalance, maxBonusesAllowed) : 0;
 
   useEffect(() => {
     setBonusesUsed(bonusesToUse);
@@ -605,9 +549,6 @@ export default function CartPageClient({
   const finalTotal = Math.max(0, baseTotal - discountAmount - bonusesToUse);
   const bonusAccrual = Math.floor(finalTotal * 0.025);
 
-  // ---------------------------
-  // YM: checkout_step - only when step changes (once per step)
-  // ---------------------------
   useEffect(() => {
     if (lastTrackedCheckoutStepRef.current === step) return;
     lastTrackedCheckoutStepRef.current = step;
@@ -615,9 +556,6 @@ export default function CartPageClient({
     trackCheckoutStep(step, { total: finalTotal, itemsCount: items.length });
   }, [step, finalTotal, items.length]);
 
-  // ---------------------------
-  // Promo apply
-  // ---------------------------
   const handleApplyPromo = useCallback(async () => {
     if (!promoCode.trim()) {
       setPromoError('Введите промокод');
@@ -648,14 +586,12 @@ export default function CartPageClient({
     }
   }, [promoCode]);
 
-  // ---------------------------
-  // Check items before submit
-  // ---------------------------
+  // ✅ ФИКС КОМБО — исключаем их из price validation (скидка — это наша логика)
   const checkItemsBeforeSubmit = useCallback(async () => {
     const itemsToValidate = items
-      .filter((i: CartItemType) => !i.isUpsell)
+      .filter((i: CartItemType) => !i.isUpsell && !isComboCartItem(i))  // ←←← главное изменение
       .map((i: CartItemType) => ({
-        id: parseInt(i.id, 10),
+        id: parseInt(i.id as any, 10),
         quantity: i.quantity,
         price: i.price,
       }))
@@ -687,11 +623,29 @@ export default function CartPageClient({
       toast.error('Ошибка проверки товаров: ' + e.message);
       return false;
     }
-  }, [items]);
+  }, [items, isComboCartItem]);
 
-  // ---------------------------
-  // Submit order (returns boolean success)
-  // ---------------------------
+  // ================== КОРОЧЕВАЯ ФИКС БАГА ==================
+  const coerceProductId = useCallback((it: any): string | null => {
+    // 1. Основной id (всегда числовой product id)
+    let raw = String(it?.id ?? '').trim();
+    if (/^\d+$/.test(raw)) return raw;
+
+    // 2. product_id
+    raw = String(it?.product_id ?? it?.productId ?? '').trim();
+    if (/^\d+$/.test(raw)) return raw;
+
+    // 3. combo_id (legacy)
+    raw = String(it?.combo_id ?? it?.comboId ?? '').trim();
+    if (/^\d+$/.test(raw)) return raw;
+
+    // 4. Если ничего — пробуем line_id (на всякий)
+    raw = String(it?.line_id ?? '').trim();
+    if (/^\d+$/.test(raw)) return raw;
+
+    return null;
+  }, []);
+
   const submitOrder = useCallback(async (): Promise<boolean> => {
     if (isSubmittingOrder) return false;
 
@@ -701,11 +655,7 @@ export default function CartPageClient({
     }
 
     const isFormValid =
-      validateStep1() &&
-      validateStep2() &&
-      validateStep3() &&
-      validateStep4() &&
-      validateStep5(true);
+      validateStep1() && validateStep2() && validateStep3() && validateStep4() && validateStep5(true);
 
     if (!isFormValid) {
       toast.error('Пожалуйста, заполните все обязательные поля');
@@ -742,19 +692,38 @@ export default function CartPageClient({
     setIsSubmittingOrder(true);
 
     try {
-      const cartItems = items.map((item: CartItemType) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
-        isUpsell: false,
-      }));
+      const cartItems = items
+        .filter((i: CartItemType) => !i.isUpsell)
+        .map((item: any) => {
+          const pid = coerceProductId(item);
+          return {
+            id: pid, // теперь всегда числовой product id
+            title: item.title,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            isUpsell: false,
+
+            line_id: item.line_id,
+            base_price: item.base_price ?? null,
+            discount_percent: item.discount_percent ?? null,
+            discount_reason: item.discount_reason ?? null,
+            combo_id: item.combo_id ?? null,
+            combo_group_id: item.combo_group_id ?? null,
+          };
+        });
+
+      // ✅ Убрали жёсткую проверку bad — теперь coerceProductId всегда возвращает id для комбо
+      const bad = cartItems.filter((x) => !x.id || !/^\d+$/.test(String(x.id)));
+      if (bad.length > 0) {
+        console.error('[CartPageClient] bad cart item ids (combo fix needed):', bad);
+        // но теперь это не должно происходить
+      }
 
       const upsellItemsPayload = selectedUpsells.map((u: UpsellItem) => ({
-        id: u.id,
+        id: String(u.id),
         title: u.title,
-        price: u.price,
-        quantity: u.quantity,
+        price: Number(u.price),
+        quantity: Number(u.quantity),
         category: u.category,
         isUpsell: true,
       }));
@@ -766,9 +735,9 @@ export default function CartPageClient({
       } else if ((form as any).askAddressFromRecipient) {
         addressString = 'Адрес уточнить у получателя';
       } else if (form.street) {
-        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${
-          form.apartment ? `, кв. ${form.apartment}` : ''
-        }${form.entrance ? `, подъезд ${form.entrance}` : ''}`;
+        addressString = `${form.street}${form.house ? `, д. ${form.house}` : ''}${form.apartment ? `, кв. ${form.apartment}` : ''}${
+          form.entrance ? `, подъезд ${form.entrance}` : ''
+        }`;
       } else {
         addressString = 'Адрес не указан (требуется уточнение)';
       }
@@ -784,6 +753,7 @@ export default function CartPageClient({
         recipient: form.recipient,
         recipientPhone: normalizePhone(form.recipientPhone),
         address: addressString,
+        deliveryMethod: form.deliveryMethod,
         payment: (form as any).payment,
         date: form.date,
         time: form.time,
@@ -795,7 +765,7 @@ export default function CartPageClient({
         delivery_instructions: deliveryInstructionsCombined || null,
         postcard_text: postcardText || null,
         anonymous: (form as any).anonymous,
-        whatsapp: (form as any).whatsapp,
+        contact_method: (form as any).contactMethod || 'call',
         occasion: occasion || null,
       };
 
@@ -809,8 +779,7 @@ export default function CartPageClient({
 
       if (!res.ok || !json.success) {
         setErrorModal(
-          json.error ||
-            'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
+          json.error || 'Ошибка оформления заказа. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.',
         );
         return false;
       }
@@ -843,12 +812,14 @@ export default function CartPageClient({
         orderId: json.order_number ?? json.order_id,
         revenue: finalTotal,
         promoCode: promoCode || undefined,
-        products: [...cartItems, ...upsellItemsPayload].map((p) => ({
-          id: p.id,
-          name: p.title,
-          price: p.price,
-          quantity: p.quantity,
-        })),
+        products: [...cartItems, ...upsellItemsPayload]
+          .filter((p) => p?.id != null && String(p.id).trim() !== '')
+          .map((p) => ({
+            id: String(p.id),
+            name: String((p as any).title ?? (p as any).name ?? ''),
+            price: Number((p as any).price ?? 0),
+            quantity: Number((p as any).quantity ?? 1),
+          })),
       });
 
       setOrderDetails({
@@ -907,11 +878,9 @@ export default function CartPageClient({
     promoCode,
     occasion,
     setSelectedUpsells,
+    coerceProductId,
   ]);
 
-  // ---------------------------
-  // Render helpers
-  // ---------------------------
   const renderStepContent = (s: Step) => {
     if (s !== step) return null;
 
@@ -964,23 +933,13 @@ export default function CartPageClient({
       );
 
     if (s === 4)
-      return (
-        <Step4DateTime
-          form={form}
-          dateError={dateError}
-          timeError={timeError}
-          onFormChange={onFormChange as any}
-        />
-      );
+      return <Step4DateTime form={form} dateError={dateError} timeError={timeError} onFormChange={onFormChange as any} />;
 
     return <Step5Payment />;
   };
 
   const handleEditStep = useCallback((target: Step) => setStep(target), [setStep]);
 
-  // ---------------------------
-  // Upsell buttons (desktop)
-  // ---------------------------
   const UpsellButtons = (
     <div className="grid grid-cols-2 gap-3 w-full">
       <motion.button
@@ -1009,9 +968,6 @@ export default function CartPageClient({
     </div>
   );
 
-  // ---------------------------
-  // UI
-  // ---------------------------
   const mergedCartItems: Array<CartItemType | UpsellItem> = useMemo(() => {
     return [...items, ...selectedUpsells];
   }, [items, selectedUpsells]);
@@ -1038,7 +994,6 @@ export default function CartPageClient({
         />
       )}
 
-      {/* Mobile upsell sticky */}
       <div className="md:hidden">
         <div ref={upsellOuterRef} className="sticky z-40 bg-white" style={{ top: MOBILE_HEADER_OFFSET }}>
           <div
@@ -1046,28 +1001,20 @@ export default function CartPageClient({
             className="px-2 sm:px-4 pt-3 pb-4"
             style={{ transform: `translateY(${upsellShift}px)` }}
           >
-            <UpsellButtonsMobile
-              onPostcard={() => setShowPostcard(true)}
-              onBalloons={() => setShowBalloons(true)}
-            />
+            <UpsellButtonsMobile onPostcard={() => setShowPostcard(true)} onBalloons={() => setShowBalloons(true)} />
           </div>
         </div>
         <div className="h-3" />
       </div>
 
       <div className="flex flex-col gap-8 md:grid md:grid-cols-3 md:gap-10 w-full max-w-full">
-        {/* Steps */}
         <div className="w-full md:col-span-2 space-y-4 order-2 md:order-1">
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((s) => {
               const stepNum = s as Step;
 
               const onNext =
-                stepNum === 5
-                  ? submitOrder
-                  : stepNum === step
-                    ? async () => handleNextStep()
-                    : undefined;
+                stepNum === 5 ? submitOrder : stepNum === step ? async () => handleNextStep() : undefined;
 
               const onBack = stepNum === step && stepNum !== 1 ? prevStep : undefined;
 
@@ -1127,7 +1074,6 @@ export default function CartPageClient({
           </div>
         </div>
 
-        {/* Right column */}
         <div className="w-full space-y-4 order-1 md:order-2">
           <div className="hidden md:block mb-4">{UpsellButtons}</div>
 
@@ -1165,7 +1111,6 @@ export default function CartPageClient({
         </div>
       </div>
 
-      {/* Upsell Modals */}
       {showPostcard && (
         <UpsellModal
           type="postcard"

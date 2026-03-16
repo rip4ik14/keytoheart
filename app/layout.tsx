@@ -7,13 +7,16 @@ import './styles/globals.css';
 
 import localFont from 'next/font/local';
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { JsonLd } from 'react-schemaorg';
 import type { BreadcrumbList, LocalBusiness, Organization, WebSite } from 'schema-dts';
 
 import LayoutClient from '@components/LayoutClient';
+import TopBar from '@components/TopBar';
+import Footer from '@components/Footer';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 
-import type { Category } from '../types/category';
+import type { Category } from '@/types/category';
 import { YM_ID } from '@utils/ym'; // Яндекс.Метрика
 
 /* --------------------------- шрифты через localFont ----------------------- */
@@ -21,13 +24,7 @@ const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
   preload: true,
-  src: [
-    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
-  ],
+  src: '../public/fonts/golos-text_vf.woff2',
 });
 
 const marqueeFont = localFont({
@@ -38,9 +35,8 @@ const marqueeFont = localFont({
 });
 
 /* ------------------------------ ISR -------------------------------------- */
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+// Даём витрине нормальный ISR вместо глобального no-store
+export const revalidate = 3600;
 
 /* --------------------------- META-ДАННЫЕ ---------------------------------- */
 export const metadata: Metadata = {
@@ -132,7 +128,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <body className={`${golosText.className} antialiased`}>
           <DisableConsoleInProd />
+          <TopBar />
           <LayoutClient categories={[]}>{children}</LayoutClient>
+          <Footer categories={[]} />
         </body>
       </html>
     );
@@ -148,9 +146,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       `${supabaseUrl}/rest/v1/categories?select=id,name,slug,is_visible,subcategories!subcategories_category_id_fkey(id,name,slug,is_visible)&is_visible=eq.true&order=id.asc`,
       {
         headers: { apikey: supabaseKey },
-        // в layout у тебя стоит force-no-store, так что кеш реально не будет работать
-        // но оставляю revalidate как "на будущее", если отключишь force-no-store
-        next: { revalidate: 3600 },
+        cache: 'force-cache',
+        next: { revalidate: 3600, tags: ['layout-categories'] },
         signal: controller.signal,
       },
     );
@@ -196,7 +193,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
-          crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
 
@@ -296,8 +292,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
 
+      </head>
+
+      <body className={`${golosText.className} antialiased`}>
+        <DisableConsoleInProd />
+        <TopBar />
+
         {YM_ID && (
-          <script
+          <Script
+            id="yandex-metrika"
+            strategy="lazyOnload"
             dangerouslySetInnerHTML={{
               __html: `
                 (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -315,10 +319,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }}
           />
         )}
-      </head>
-
-      <body className={`${golosText.className} antialiased`}>
-        <DisableConsoleInProd />
 
         {YM_ID && (
           <noscript>
@@ -333,6 +333,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         <LayoutClient categories={categories}>{children}</LayoutClient>
+        <Footer categories={categories} />
       </body>
     </html>
   );

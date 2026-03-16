@@ -13,19 +13,26 @@ type Args = {
   enabled?: boolean;
 };
 
-export function useCartValidateAndSync({
-  items,
-  clearCart,
-  addMultipleItems,
-  enabled = true,
-}: Args) {
+function isComboCartItem(i: any) {
+  return (
+    i?.discount_reason === 'combo' ||
+    i?.discountReason === 'combo' ||
+    i?.discount_reason === 'COMBO' ||
+    i?.discountReason === 'COMBO' ||
+    !!i?.combo_id ||
+    !!i?.comboId ||
+    !!i?.combo_group_id ||
+    !!i?.comboGroupId
+  );
+}
+
+export function useCartValidateAndSync({ items, clearCart, addMultipleItems, enabled = true }: Args) {
   useEffect(() => {
     if (!enabled) return;
 
-    // ✅ NEW: если на клиенте есть repeatDraft/cartDraft - даём CartPageClient применить его первым
+    // ✅ если на клиенте есть repeatDraft/cartDraft - даём CartPageClient применить его первым
     if (typeof window !== 'undefined') {
-      const hasDraft =
-        !!localStorage.getItem('repeatDraft') || !!localStorage.getItem('cartDraft');
+      const hasDraft = !!localStorage.getItem('repeatDraft') || !!localStorage.getItem('cartDraft');
       if (hasDraft) return;
     }
 
@@ -34,8 +41,9 @@ export function useCartValidateAndSync({
     const run = async () => {
       if (!items || items.length === 0) return;
 
+      // ✅ НЕ синкаем комбо и upsell - иначе перетрём скидочную цену
       const payloadItems = items
-        .filter((i) => !i.isUpsell)
+        .filter((i) => !i.isUpsell && !isComboCartItem(i))
         .map((i) => ({
           id: parseInt(i.id, 10),
           quantity: i.quantity,
@@ -83,26 +91,31 @@ export function useCartValidateAndSync({
           })
           .filter(Boolean) as Array<{ id: number; newPrice: number }>;
 
-        // собираем updatedItems на базе текущих items
+        // ✅ updatedItems строим на базе исходных items
+        // ВАЖНО: мы изменяем только те, которые реально валидировали (не combo, не upsell)
         let updated = [...items];
 
         if (removeIds.length) {
           const removedTitles = updated
-            .filter((it) => removeIds.includes(it.id))
-            .map((it) => it.title)
+            .filter((it: any) => removeIds.includes(String(it.id)) && !isComboCartItem(it) && !it.isUpsell)
+            .map((it: any) => it.title)
             .join(', ');
 
-          updated = updated.filter((it) => !removeIds.includes(it.id));
-          toast.error(
-            `Следующие товары больше не доступны и были удалены из корзины: ${removedTitles}`,
-          );
+          updated = updated.filter((it: any) => !(removeIds.includes(String(it.id)) && !isComboCartItem(it) && !it.isUpsell));
+
+          if (removedTitles) {
+            toast.error(`Следующие товары больше не доступны и были удалены из корзины: ${removedTitles}`);
+          }
         }
 
         if (priceUpdates.length) {
-          updated = updated.map((it) => {
-            const pid = parseInt(it.id, 10);
+          updated = updated.map((it: any) => {
+            if (it.isUpsell || isComboCartItem(it)) return it;
+
+            const pid = parseInt(String(it.id), 10);
             const upd = priceUpdates.find((u) => u.id === pid);
             if (!upd) return it;
+
             toast(`Цена товара "${it.title}" обновлена до ${upd.newPrice} ₽`);
             return { ...it, price: upd.newPrice };
           });

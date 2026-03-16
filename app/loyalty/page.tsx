@@ -70,7 +70,7 @@ export default function LoyaltyPage() {
             url: 'https://keytoheart.ru',
             contactPoint: {
               '@type': 'ContactPoint',
-              email: 'info@keytoheart.ru',
+              email: 'r.rashevskaya@yandex.ru',
               telephone: '+7-988-603-38-21',
               contactType: 'customer service',
             },
