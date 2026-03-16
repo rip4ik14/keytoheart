@@ -63,12 +63,6 @@ function isRemoteUrl(src: string) {
   return /^https?:\/\//i.test(src);
 }
 
-function isUnoptimizedUrl(src: string) {
-  if (!isRemoteUrl(src)) return false;
-  // Supabase images can be optimized by Next.js — don't skip them
-  if (/\.supabase\.co\//i.test(src)) return false;
-  return true;
-}
 
 function normalizeImageUrl(raw?: unknown): string | null {
   if (typeof raw !== 'string') return null;
@@ -240,7 +234,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (!showToast) return null;
     if (toastPlacementRef.current !== 'mobile') return null;
 
-    const unoptThumb = isUnoptimizedUrl(imageUrl);
+    const unoptThumb = isRemoteUrl(imageUrl);
 
     return createPortal(
       <AnimatePresence>
@@ -295,7 +289,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   };
 
   
-  const unopt = isUnoptimizedUrl(imageUrl);
+  const unopt = isRemoteUrl(imageUrl);
 
   const MobileView = (
     <div className="sm:hidden">
@@ -502,7 +496,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-[1.03]"
                     loading={stablePriority ? 'eager' : 'lazy'}
                     priority={stablePriority}
-                    unoptimized={isUnoptimizedUrl(imageUrl)}
+                    unoptimized={isRemoteUrl(imageUrl)}
                   />
 
                   <div className="absolute left-3 top-3 z-[2] flex flex-col gap-2">
@@ -628,7 +622,7 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
           width={48}
           height={48}
           className="object-cover w-full h-full"
-          unoptimized={isUnoptimizedUrl(imageUrl)}
+          unoptimized={isRemoteUrl(imageUrl)}
         />
       </div>
 
