@@ -143,7 +143,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   let categories: Category[] = [];
 
@@ -199,7 +199,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
-          crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
 

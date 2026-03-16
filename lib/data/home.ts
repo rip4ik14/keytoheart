@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types_new';
 
-const REQUEST_TIMEOUT = 4000;
+const REQUEST_TIMEOUT = 8000;
 
 async function withTimeout<T>(
   promise: Promise<T> | PromiseLike<T>,
@@ -91,7 +91,7 @@ export const getHomeData = unstable_cache(
           .not('images', 'is', null)
           .order('is_popular', { ascending: false })
           .order('id', { ascending: false })
-          .limit(48),
+          .limit(120),
       ),
       withTimeout(supabase.from('categories').select('id,name,slug,og_image,is_visible')),
       withTimeout(
