@@ -46,19 +46,9 @@ export default async function PromoGridServer() {
     const firstBannerUrl = banners[0]?.image_url;
     const isVideo = firstBannerUrl && /\.(mp4|webm|mov)(\?|$)/i.test(firstBannerUrl);
 
-    return (
-      <>
-        {firstBannerUrl && !isVideo && (
-          <link
-            rel="preload"
-            as="image"
-            href={firstBannerUrl}
-            fetchPriority="high"
-          />
-        )}
-        <PromoGridWrapper banners={banners} cards={cards} />
-      </>
-    );
+    // Next.js Image with priority={true} auto-adds <link rel="preload">
+    // for the optimized /_next/image URL — no manual preload needed.
+    return <PromoGridWrapper banners={banners} cards={cards} />;
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('PromoGridServer error:', err);

@@ -24,13 +24,7 @@ const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
   preload: true,
-  src: [
-    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
-    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
-  ],
+  src: '../public/fonts/golos-text_vf.woff2',
 });
 
 const marqueeFont = localFont({
