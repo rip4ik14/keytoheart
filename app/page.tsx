@@ -209,6 +209,7 @@ export default async function Home() {
           products={uniqueItemsForThisCategory}
           seeMoreLink={slug}
           headingId={headingId}
+          priorityCount={idx === 0 ? 4 : 0}
         />
         {idx === 0 && <AdvantagesClient />}
       </React.Fragment>
