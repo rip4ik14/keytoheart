@@ -42,10 +42,6 @@ export default async function PromoGridServer() {
     const banners = (data ?? []).filter((b) => b.type === 'banner');
     const cards = (data ?? []).filter((b) => b.type === 'card');
 
-    // Preload LCP image — React 19 hoists <link> to <head>
-    const firstBannerUrl = banners[0]?.image_url;
-    const isVideo = firstBannerUrl && /\.(mp4|webm|mov)(\?|$)/i.test(firstBannerUrl);
-
     // Next.js Image with priority={true} auto-adds <link rel="preload">
     // for the optimized /_next/image URL — no manual preload needed.
     return <PromoGridWrapper banners={banners} cards={cards} />;
