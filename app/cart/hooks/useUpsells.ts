@@ -143,6 +143,8 @@ export function useUpsells({ categoryId, subcategoryIds }: UseUpsellsArgs) {
     return () => {
       alive = false;
       controller.abort();
+      setProductsBySubcategory({});
+      setIsLoading(false);
     };
   }, [categoryId, subKey, stableSubIds, fetchOne]);
 

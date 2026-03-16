@@ -10,21 +10,23 @@ export async function POST(req: NextRequest) {
   const { password } = body;
 
   process.env.NODE_ENV !== "production" &&
-    console.log(`${new Date().toISOString()} /api/admin-login: Received request`, { password });
+    console.log(`${new Date().toISOString()} /api/admin-login: Received request`);
+
+  if (!process.env.ADMIN_PASSWORD) {
+    console.error('/api/admin-login: ADMIN_PASSWORD env variable is not set');
+    return NextResponse.json({ error: 'SERVER', message: 'Ошибка конфигурации сервера' }, { status: 500 });
+  }
 
   if (!password || password !== process.env.ADMIN_PASSWORD) {
     process.env.NODE_ENV !== "production" &&
-      console.warn(`${new Date().toISOString()} /api/admin-login: Invalid password`, {
-        expected: process.env.ADMIN_PASSWORD,
-      received: password,
-    });
+      console.warn(`${new Date().toISOString()} /api/admin-login: Invalid password attempt`);
     return NextResponse.json({ error: 'NEAUTH', message: 'Неверный пароль' }, { status: 401 });
   }
 
   try {
     const token = await signAdminJwt();
     process.env.NODE_ENV !== "production" &&
-      console.log(`${new Date().toISOString()} /api/admin-login: JWT generated`, { token });
+      console.log(`${new Date().toISOString()} /api/admin-login: JWT generated`);
     const res = NextResponse.json({ success: true });
     res.cookies.set('admin_session', token, {
       httpOnly: true,
@@ -35,12 +37,7 @@ export async function POST(req: NextRequest) {
     });
 
     process.env.NODE_ENV !== "production" &&
-      console.log(`${new Date().toISOString()} /api/admin-login: Cookie admin_session set`, {
-        cookie: res.cookies.get('admin_session'),
-      setCookieHeader: res.headers.get('set-cookie'),
-      nodeEnv: process.env.NODE_ENV,
-      jwtSecret: process.env.JWT_SECRET,
-    });
+      console.log(`${new Date().toISOString()} /api/admin-login: Cookie admin_session set`);
 
     return res;
   } catch (error: any) {

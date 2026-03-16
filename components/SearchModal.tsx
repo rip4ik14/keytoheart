@@ -52,14 +52,18 @@ export default function SearchModal({
   }, [isOpen, onClose]);
 
   useEffect(() => {
+    let alive = true;
     const controller = new AbortController();
 
     const fetchProducts = async () => {
       if (!query.trim()) {
-        setResults([]);
+        if (alive) {
+          setResults([]);
+          setLoading(false);
+        }
         return;
       }
-      setLoading(true);
+      if (alive) setLoading(true);
 
       const { data: productsData, error: productsError } =
         await supabasePublic
@@ -69,6 +73,8 @@ export default function SearchModal({
           .eq('in_stock', true)
           .limit(10)
           .abortSignal(controller.signal);
+
+      if (!alive) return;
 
       if (productsError) {
         console.error('Error fetching products:', productsError);
@@ -88,7 +94,10 @@ export default function SearchModal({
         await supabasePublic
           .from('product_categories')
           .select('product_id, category_id')
-          .in('product_id', productIds);
+          .in('product_id', productIds)
+          .abortSignal(controller.signal);
+
+      if (!alive) return;
 
       if (categoryError) {
         console.error('Error fetching product categories:', categoryError);
@@ -110,7 +119,10 @@ export default function SearchModal({
         await supabasePublic
           .from('categories')
           .select('id, name')
-          .in('id', allCategoryIds);
+          .in('id', allCategoryIds)
+          .abortSignal(controller.signal);
+
+      if (!alive) return;
 
       if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
@@ -150,10 +162,11 @@ export default function SearchModal({
     }, 300);
 
     return () => {
+      alive = false;
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, onClose]);
+  }, [query]);
 
   if (!isOpen) return null;
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimation } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
@@ -51,14 +51,15 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
 
   const { isAuthenticated, bonus, clearAuth, refreshAuth } = useAuth();
 
-  const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+  const cartSum = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items]);
+  const totalItems = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
 
-  const formattedCartSum = new Intl.NumberFormat('ru-RU', {
+  const rubleFormatter = useMemo(() => new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
     minimumFractionDigits: 0,
-  }).format(cartSum);
+  }), []);
+  const formattedCartSum = useMemo(() => rubleFormatter.format(cartSum), [rubleFormatter, cartSum]);
 
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -97,10 +98,7 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
   }, []);
 
-  useEffect(() => {
-    refreshAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  // refreshAuth on pathname change is handled by AuthContext itself
 
   // На главной в mobile/tablet sticky header показываем только при скролле вверх.
   // При скролле вниз он прячется, чтобы экономить место, как в нативных приложениях.

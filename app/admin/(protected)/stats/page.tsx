@@ -2,7 +2,8 @@
 import React from 'react';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { PrismaClient } from '@prisma/client';
-import StatsClient from './StatsClient';
+import dynamic from 'next/dynamic';
+const StatsClient = dynamic(() => import('./StatsClient'), { ssr: false });
 
 export const dynamic = 'force-dynamic';
 

@@ -62,6 +62,7 @@ export function AuthProvider({
 
   const pathname = usePathname();
   const syncingRef = useRef(false);
+  const lastRefreshRef = useRef(0);
 
   const supabase = useMemo(() => {
     return createBrowserClient(
@@ -91,6 +92,10 @@ export function AuthProvider({
 
   const refreshAuth = async () => {
     if (syncingRef.current) return;
+    // Throttle: at most once per 2 seconds to avoid rapid-fire calls
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 2000) return;
+    lastRefreshRef.current = now;
     syncingRef.current = true;
 
     try {
