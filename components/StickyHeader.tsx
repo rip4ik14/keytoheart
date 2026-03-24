@@ -49,17 +49,16 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
   const { animationState, setAnimationState, setCartIconPosition, cartIconPosition } =
     useCartAnimation();
 
-  const { isAuthenticated, bonus, clearAuth } = useAuth();
+  const { isAuthenticated, bonus, clearAuth, refreshAuth } = useAuth();
 
-  const cartSum = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items]);
-  const totalItems = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
+  const cartSum = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
 
-  const rubleFormatter = useMemo(() => new Intl.NumberFormat('ru-RU', {
+  const formattedCartSum = new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: 'RUB',
     minimumFractionDigits: 0,
-  }), []);
-  const formattedCartSum = useMemo(() => rubleFormatter.format(cartSum), [rubleFormatter, cartSum]);
+  }).format(cartSum);
 
   const [openProfile, setOpenProfile] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -98,7 +97,10 @@ export default function StickyHeader({ initialCategories }: StickyHeaderProps) {
     };
   }, []);
 
-  // refreshAuth on pathname change is handled by AuthContext itself
+  useEffect(() => {
+    refreshAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   // На главной в mobile/tablet sticky header показываем только при скролле вверх.
   // При скролле вниз он прячется, чтобы экономить место, как в нативных приложениях.

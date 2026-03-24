@@ -8,11 +8,9 @@ interface Props {
   products: Product[];
   seeMoreLink: string;
   headingId: string;
-  /** Mark first N product images as priority (eager load) */
-  priorityCount?: number;
 }
 
-export default function CategoryPreviewServer({ categoryName, products, seeMoreLink, headingId, priorityCount = 0 }: Props) {
+export default function CategoryPreviewServer({ categoryName, products, seeMoreLink, headingId }: Props) {
   const visibleProducts = products
     .filter((product) => product.in_stock !== false)
     .map((product) => ({ ...product, images: product.images || [] }))
@@ -68,9 +66,9 @@ export default function CategoryPreviewServer({ categoryName, products, seeMoreL
             '[&::-webkit-scrollbar]:hidden',
           ].join(' ')}
         >
-          {visibleProducts.map((product, i) => (
+          {visibleProducts.map((product) => (
             <div key={product.id} className="shrink-0 w-[168px] snap-start">
-              <ProductCard product={product} priority={i < priorityCount} />
+              <ProductCard product={product} />
             </div>
           ))}
           <div className="shrink-0 w-2" />
@@ -80,7 +78,7 @@ export default function CategoryPreviewServer({ categoryName, products, seeMoreL
       {/* ✅ DESKTOP: сетка как была */}
       <div className="hidden sm:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-7">
         {visibleProducts.map((product) => (
-          <ProductCard key={product.id} product={product} priority={false} />
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
 

@@ -7,12 +7,19 @@ import Image from 'next/image';
 import { supabasePublic } from '@/lib/supabase/public';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
+
 interface Product {
   id: number;
   title: string;
   price: number;
   images: string[];
   category_ids: number[];
+}
+
+interface Category {
+  id: number;
+  name: string;
 }
 
 export default function SearchModal({
@@ -45,18 +52,14 @@ export default function SearchModal({
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    let alive = true;
     const controller = new AbortController();
 
     const fetchProducts = async () => {
       if (!query.trim()) {
-        if (alive) {
-          setResults([]);
-          setLoading(false);
-        }
+        setResults([]);
         return;
       }
-      if (alive) setLoading(true);
+      setLoading(true);
 
       const { data: productsData, error: productsError } =
         await supabasePublic
@@ -66,8 +69,6 @@ export default function SearchModal({
           .eq('in_stock', true)
           .limit(10)
           .abortSignal(controller.signal);
-
-      if (!alive) return;
 
       if (productsError) {
         console.error('Error fetching products:', productsError);
@@ -87,10 +88,7 @@ export default function SearchModal({
         await supabasePublic
           .from('product_categories')
           .select('product_id, category_id')
-          .in('product_id', productIds)
-          .abortSignal(controller.signal);
-
-      if (!alive) return;
+          .in('product_id', productIds);
 
       if (categoryError) {
         console.error('Error fetching product categories:', categoryError);
@@ -112,10 +110,7 @@ export default function SearchModal({
         await supabasePublic
           .from('categories')
           .select('id, name')
-          .in('id', allCategoryIds)
-          .abortSignal(controller.signal);
-
-      if (!alive) return;
+          .in('id', allCategoryIds);
 
       if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
@@ -155,11 +150,10 @@ export default function SearchModal({
     }, 300);
 
     return () => {
-      alive = false;
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, onClose]);
 
   if (!isOpen) return null;
 

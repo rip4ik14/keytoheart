@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
-import { shouldSkipOptimization } from '@/components/imagePerf';
 
 import UiButton from '@components/ui/UiButton';
 import { ChevronDown, ChevronUp, Repeat2, Package, Phone, MessageCircle } from 'lucide-react';
@@ -233,7 +232,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                               fill
                               className="object-cover"
                               sizes="48px"
-                              unoptimized={shouldSkipOptimization(pickImage(item))}
+                              unoptimized
                             />
                           </div>
 
@@ -260,6 +259,7 @@ export default function OrdersList({ orders }: OrdersListProps) {
                               fill
                               className="object-cover"
                               sizes="48px"
+                              unoptimized
                             />
                           </div>
 

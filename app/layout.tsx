@@ -24,7 +24,13 @@ const golosText = localFont({
   variable: '--font-golos',
   display: 'swap',
   preload: true,
-  src: '../public/fonts/golos-text_vf.woff2',
+  src: [
+    { path: '../public/fonts/golos-text_regular.woff2', weight: '400', style: 'normal' },
+    { path: '../public/fonts/golos-text_medium.woff2', weight: '500', style: 'normal' },
+    { path: '../public/fonts/golos-text_demibold.woff2', weight: '600', style: 'normal' },
+    { path: '../public/fonts/golos-text_bold.woff2', weight: '700', style: 'normal' },
+    { path: '../public/fonts/golos-text_black.woff2', weight: '900', style: 'normal' },
+  ],
 });
 
 const marqueeFont = localFont({
@@ -193,6 +199,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link
           rel="preconnect"
           href="https://gwbeabfkknhewwoesqax.supabase.co"
+          crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://gwbeabfkknhewwoesqax.supabase.co" />
 
@@ -301,7 +308,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {YM_ID && (
           <Script
             id="yandex-metrika"
-            strategy="afterInteractive"
+            strategy="lazyOnload"
             dangerouslySetInnerHTML={{
               __html: `
                 (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -313,7 +320,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   trackLinks:true,
                   accurateTrackBounce:true,
                   trackHash:true,
-                  webvisor:false
+                  webvisor:true
                 });
               `,
             }}

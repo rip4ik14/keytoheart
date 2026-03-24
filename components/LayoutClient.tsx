@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
+import StickyHeader from '@components/StickyHeader';
 import SkipLink from '@components/SkipLink';
 
 import { CartProvider } from '@context/CartContext';
@@ -21,7 +22,6 @@ import { YM_ID } from '@/utils/ym';
 const ClientBreadcrumbs = dynamic(() => import('@components/ClientBreadcrumbs'), { ssr: false });
 const CookieBanner = dynamic(() => import('@components/CookieBanner'), { ssr: false });
 const PromoFooterBlock = dynamic(() => import('@components/PromoFooterBlock'), { ssr: false });
-const StickyHeader = dynamic(() => import('@components/StickyHeader'), { ssr: false });
 
 const MobileContactFab = dynamic(() => import('@components/MobileContactFab'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('@components/MobileBottomNav'), { ssr: false });
@@ -143,75 +143,6 @@ export default function LayoutClient({
   // Mobile drawer menu
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [nonCriticalReady, setNonCriticalReady] = useState(false);
-  const [stickyReady, setStickyReady] = useState(() => !isHomePage);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const activate = () => {
-      if (cancelled) return;
-      setNonCriticalReady(true);
-    };
-
-    const idleCb = (window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    }).requestIdleCallback;
-
-    if (idleCb) {
-      const id = idleCb(activate, { timeout: 2000 });
-      return () => {
-        cancelled = true;
-        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id);
-      };
-    }
-
-    timeoutId = setTimeout(activate, 1200);
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isHomePage) {
-      setStickyReady(true);
-      return;
-    }
-
-    if (typeof window === 'undefined') return;
-
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const activate = () => {
-      if (cancelled) return;
-      setStickyReady(true);
-    };
-
-    const idleCb = (window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    }).requestIdleCallback;
-
-    if (idleCb) {
-      const id = idleCb(activate, { timeout: 1800 });
-      return () => {
-        cancelled = true;
-        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id);
-      };
-    }
-
-    timeoutId = setTimeout(activate, 900);
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isHomePage]);
 
   const navLinks = useMemo(
     () => [
@@ -301,7 +232,7 @@ export default function LayoutClient({
       <AuthProvider initialIsAuthenticated={false} initialPhone={null} initialBonus={null}>
         <CartAnimationProvider>
           <CartProvider>
-            {!isGiftPage && stickyReady && <StickyHeader initialCategories={categories} />}
+            {!isGiftPage && <StickyHeader initialCategories={categories} />}
 
             {!isGiftPage && (
               <div className="hidden lg:block">
@@ -323,19 +254,17 @@ export default function LayoutClient({
               {children}
             </main>
 
-            {!isGiftPage && nonCriticalReady && (
+            {!isGiftPage && (
               <Suspense fallback={null}>
                 <PromoFooterBlock />
               </Suspense>
             )}
 
-            {!isGiftPage && nonCriticalReady && <CookieBanner />}
+            {!isGiftPage && <CookieBanner />}
 
-            {!isGiftPage && nonCriticalReady && !menuOpen && <MobileContactFab />}
+            {!isGiftPage && !menuOpen && <MobileContactFab />}
 
-            {!isGiftPage && nonCriticalReady && !isProductPage && (
-              <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />
-            )}
+            {!isGiftPage && !isProductPage && <MobileBottomNav isMenuOpen={menuOpen} onToggleMenu={toggleMenu} />}
 
             {!isGiftPage && (
               <>

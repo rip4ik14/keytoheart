@@ -2,7 +2,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
-import { shouldSkipOptimization } from '@/components/imagePerf';
+
+function isExternal(src?: string | null) {
+  return !!src && /^https?:\/\//i.test(src);
+}
 
 function GridIcon() {
   return (
@@ -85,7 +88,7 @@ function CategoryPill({
             fill
             sizes="38px"
             className="object-cover"
-            unoptimized={shouldSkipOptimization(image)}
+            unoptimized={isExternal(image)}
           />
         ) : (
           <span className="text-[14px] font-semibold text-black/35">{fallbackLetter}</span>
