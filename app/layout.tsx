@@ -16,6 +16,7 @@ import TopBar from '@components/TopBar';
 import Footer from '@components/Footer';
 import DisableConsoleInProd from '@components/DisableConsoleInProd';
 import AttributionBootstrap from '@components/AttributionBootstrap';
+import { Suspense } from 'react';
 
 import type { Category } from '@/types/category';
 import { YM_DATALAYER_CONTAINER, YM_ID } from '@utils/ym';
@@ -309,7 +310,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={`${golosText.className} antialiased`}>
         <DisableConsoleInProd />
         <MetrikaScripts />
-        <AttributionBootstrap />
+        <Suspense fallback={null}>
+  <AttributionBootstrap />
+</Suspense>
         <TopBar />
         <LayoutClient categories={categories}>{children}</LayoutClient>
         <Footer categories={categories} />
