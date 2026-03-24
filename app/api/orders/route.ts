@@ -1,11 +1,12 @@
 // ✅ Путь: app/api/orders/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import sanitizeHtml from 'sanitize-html';
 import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
 import { Prisma } from '@prisma/client';
+import { detectAttributionSource, readAttributionFromCookieHeader } from '@/lib/attribution';
 
 export const runtime = 'nodejs';
 
@@ -14,10 +15,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 const ORDER_WEBHOOK_URL = process.env.ORDER_WEBHOOK_URL || '';
 const ORDER_WEBHOOK_SECRET = process.env.ORDER_WEBHOOK_SECRET || '';
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  process.env.BASE_URL ||
-  'https://keytoheart.ru';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'https://keytoheart.ru';
 
 const TELEGRAM_TIMEOUT_MS = 8000;
 const ORDER_WEBHOOK_TIMEOUT_MS = 8000;
@@ -29,16 +27,13 @@ interface OrderRequest {
   phone: string;
   name?: string;
   recipient: string;
-
   occasion?: string | null;
-
   recipientPhone: string;
   address: string;
   deliveryMethod?: 'pickup' | 'delivery';
   date: string;
   time: string;
   payment: string;
-
   items: Array<{
     id: string;
     title: string;
@@ -47,20 +42,14 @@ interface OrderRequest {
     isUpsell?: boolean;
     category?: string;
   }>;
-
   total: number;
-
   bonuses_used?: number;
   promo_id?: string;
   promo_discount?: number;
   delivery_instructions?: string;
   postcard_text?: string;
   anonymous?: boolean;
-
-  // legacy
   whatsapp?: boolean;
-
-  // ✅ новое поле
   contact_method?: ContactMethod;
 }
 
@@ -81,7 +70,6 @@ function normalizePhoneRuHard(raw: string): string | null {
   }
 
   if (d.length === 10) return `+7${d}`;
-
   return null;
 }
 
@@ -91,7 +79,12 @@ function normalizeContactMethod(input: unknown, legacyWhatsapp: boolean): Contac
   return legacyWhatsapp ? 'whatsapp' : 'call';
 }
 
-// ⚠️ Telegram: не отправляем ПДн (телефоны, имена, адрес, комментарии).
+function safeText(value: unknown, max = 1024): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }).trim();
+  return cleaned ? cleaned.slice(0, max) : null;
+}
+
 function buildTelegramMessageSafe(params: {
   orderNumber: number | null;
   total: number;
@@ -121,13 +114,10 @@ function buildTelegramMessageSafe(params: {
     contactMethod,
   } = params;
 
-  const safeLine = (s: string) =>
-    sanitizeHtml(s || '', { allowedTags: [], allowedAttributes: {} });
-
   const regularList = regularItems.length
     ? regularItems
         .map((i) => {
-          const title = safeLine(i.title);
+          const title = safeText(i.title, 255) || 'Товар';
           const q = Number.isFinite(i.quantity) ? i.quantity : 1;
           const price = Number.isFinite(i.price) ? i.price : 0;
           return `• ${title} ×${q} - ${price * q}₽`;
@@ -138,8 +128,8 @@ function buildTelegramMessageSafe(params: {
   const upsellList = upsellItems.length
     ? upsellItems
         .map((i) => {
-          const title = safeLine(i.title);
-          const cat = safeLine(i.category || 'доп.');
+          const title = safeText(i.title, 255) || 'Дополнение';
+          const cat = safeText(i.category || 'доп.', 64) || 'доп.';
           const q = Number.isFinite(i.quantity) ? i.quantity : 1;
           const price = Number.isFinite(i.price) ? i.price : 0;
           return `• ${title} (${cat}) ×${q} - ${price * q}₽`;
@@ -149,7 +139,6 @@ function buildTelegramMessageSafe(params: {
 
   const deliveryMethodText = deliveryMethod === 'pickup' ? 'Самовывоз' : 'Доставка';
   const paymentText = payment === 'cash' ? 'Наличные' : 'Онлайн';
-
   const promoText = promoApplied
     ? `<b>Промо:</b> применён (скидка: ${promoDiscount}₽)`
     : `<b>Промо:</b> не применён`;
@@ -172,7 +161,7 @@ function buildTelegramMessageSafe(params: {
 <b>Сумма:</b> ${total} ₽
 <b>Связь:</b> ${contactText}
 <b>Бонусы списано:</b> ${bonusesUsed}
-<b>Дата/время:</b> ${safeLine(date)} ${safeLine(time)}
+<b>Дата/время:</b> ${safeText(date, 32)} ${safeText(time, 32)}
 <b>Доставка:</b> ${deliveryMethodText}
 <b>Оплата:</b> ${paymentText}
 ${promoText}
@@ -194,36 +183,26 @@ async function sendTelegramMessageSafe(text: string) {
   const t = setTimeout(() => controller.abort(), TELEGRAM_TIMEOUT_MS);
 
   try {
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-        }),
-      },
-    );
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
 
     if (!telegramResponse.ok) {
       const body = await telegramResponse.text().catch(() => '');
-      return {
-        ok: false,
-        error: body || `Telegram HTTP ${telegramResponse.status}`,
-        ms: Date.now() - started,
-      };
+      return { ok: false, error: body || `Telegram HTTP ${telegramResponse.status}`, ms: Date.now() - started };
     }
 
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
-    const msg =
-      e?.name === 'AbortError'
-        ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms`
-        : e?.message || 'Telegram send failed';
+    const msg = e?.name === 'AbortError' ? `Telegram timeout ${TELEGRAM_TIMEOUT_MS}ms` : e?.message || 'Telegram send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
@@ -293,17 +272,14 @@ async function sendOrderWebhookSafe(params: {
 
     return { ok: true, error: null, ms: Date.now() - started };
   } catch (e: any) {
-    const msg =
-      e?.name === 'AbortError'
-        ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms`
-        : e?.message || 'Webhook send failed';
+    const msg = e?.name === 'AbortError' ? `Webhook timeout ${ORDER_WEBHOOK_TIMEOUT_MS}ms` : e?.message || 'Webhook send failed';
     return { ok: false, error: msg, ms: Date.now() - started };
   } finally {
     clearTimeout(t);
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   try {
@@ -314,9 +290,7 @@ export async function POST(req: Request) {
       phone: rawPhone,
       name = '',
       recipient,
-
       occasion = null,
-
       recipientPhone: rawRecipientPhone,
       address,
       deliveryMethod,
@@ -331,7 +305,6 @@ export async function POST(req: Request) {
       delivery_instructions,
       postcard_text,
       anonymous = false,
-
       whatsapp = false,
       contact_method,
     } = body;
@@ -362,19 +335,12 @@ export async function POST(req: Request) {
 
     if (!/^\+7\d{10}$/.test(sanitizedPhone)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)',
-          requestId,
-        },
+        { success: false, error: 'Некорректный формат номера телефона (должен быть +7XXXXXXXXXX)', requestId },
         { status: 400 },
       );
     }
 
-    const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
+    const sanitizedRecipientPhoneInput = sanitizeHtml(rawRecipientPhone, { allowedTags: [], allowedAttributes: {} });
     const sanitizedRecipientPhone = normalizePhoneRuHard(normalizePhone(sanitizedRecipientPhoneInput)) || '';
 
     if (!/^\+7\d{10}$/.test(sanitizedRecipientPhone)) {
@@ -388,38 +354,41 @@ export async function POST(req: Request) {
       );
     }
 
-    const sanitizedName = sanitizeHtml(name || '', { allowedTags: [], allowedAttributes: {} });
-    const sanitizedRecipient = sanitizeHtml(recipient, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedAddress = sanitizeHtml(address, { allowedTags: [], allowedAttributes: {} });
-    const sanitizedPayment = sanitizeHtml(payment, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedName = safeText(name, 255) || '';
+    const sanitizedRecipient = safeText(recipient, 255) || '';
+    const sanitizedAddress = safeText(address, 1024) || '';
+    const sanitizedPayment = safeText(payment, 64) || '';
+    const sanitizedOccasion = safeText(occasion, 255);
+    const sanitizedDeliveryInstructions = safeText(delivery_instructions, 1024);
+    const sanitizedPostcardText = safeText(postcard_text, 1024);
 
-    const sanitizedOccasionRaw = occasion
-      ? sanitizeHtml(String(occasion).slice(0, 500), { allowedTags: [], allowedAttributes: {} })
-      : '';
-    const sanitizedOccasion = sanitizedOccasionRaw.trim() ? sanitizedOccasionRaw.trim() : null;
-
-    const sanitizedDeliveryInstructions = delivery_instructions
-      ? sanitizeHtml(delivery_instructions, { allowedTags: [], allowedAttributes: {} })
-      : null;
-
-    const sanitizedPostcardText = postcard_text
-      ? sanitizeHtml(postcard_text, { allowedTags: [], allowedAttributes: {} })
-      : null;
-
-    // upsert profile
     const profile = await prisma.user_profiles.upsert({
       where: { phone: sanitizedPhone },
-      create: {
-        phone: sanitizedPhone,
-        name: sanitizedName || null,
-      } as any,
-      update: {
-        ...(sanitizedName ? { name: sanitizedName } : {}),
-      } as any,
+      create: { phone: sanitizedPhone, name: sanitizedName || null } as any,
+      update: { ...(sanitizedName ? { name: sanitizedName } : {}) } as any,
       select: { id: true },
     });
 
     const user_id = profile.id;
+
+    const previousOrdersCount = await prisma.orders.count({
+      where: { phone: sanitizedPhone },
+    });
+    const isRepeatOrder = previousOrdersCount > 0;
+
+    const attribution = readAttributionFromCookieHeader(req.headers.get('cookie'));
+    const requestReferer = safeText(req.headers.get('referer'), 1024);
+
+    const metrika_client_id = attribution.metrika_client_id || null;
+    const yclid = attribution.yclid || null;
+    const utm_source = attribution.utm_source || null;
+    const utm_medium = attribution.utm_medium || null;
+    const utm_campaign = attribution.utm_campaign || null;
+    const utm_content = attribution.utm_content || null;
+    const utm_term = attribution.utm_term || null;
+    const landing_page = attribution.landing_page || null;
+    const referer = attribution.referer || requestReferer || null;
+    const attribution_source = detectAttributionSource({ ...attribution, referer });
 
     const regularItems = cart.filter((item) => !item.isUpsell);
     const upsellItems = cart.filter((item) => item.isUpsell);
@@ -438,7 +407,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // validate products in supabase
     if (productIds.length > 0) {
       const { data: products, error: productError } = await supabaseAdmin
         .from('products')
@@ -472,17 +440,13 @@ export async function POST(req: Request) {
           return `Товар с ID ${itemId} недоступен`;
         });
 
-        return NextResponse.json(
-          { success: false, error: reasons.join('; '), requestId },
-          { status: 400 },
-        );
+        return NextResponse.json({ success: false, error: reasons.join('; '), requestId }, { status: 400 });
       }
     }
 
     const finalDeliveryMethod: 'pickup' | 'delivery' =
       deliveryMethod || (sanitizedAddress === 'Самовывоз' ? 'pickup' : 'delivery');
 
-    // ✅ create order отдельно, чтобы увидеть точную prisma-ошибку
     let order: { id: string; order_number: number | null; items: any; upsell_details: any };
 
     try {
@@ -491,43 +455,47 @@ export async function POST(req: Request) {
           user_id,
           phone: sanitizedPhone,
           recipient_phone: sanitizedRecipientPhone,
-
           name: sanitizedName || null,
           contact_name: sanitizedName || null,
-
           recipient: sanitizedRecipient,
           address: sanitizedAddress,
-
           delivery_method: finalDeliveryMethod,
           delivery_date: date,
           delivery_time: time,
           payment_method: sanitizedPayment,
-
           total: new Prisma.Decimal(String(total)),
           bonuses_used: Number.isFinite(bonuses_used) ? bonuses_used : 0,
           bonus: 0,
-
           promo_id: promo_id || null,
           promo_discount: new Prisma.Decimal(String(promo_discount)),
-
           status: 'pending',
           delivery_instructions: sanitizedDeliveryInstructions,
           postcard_text: sanitizedPostcardText,
           anonymous,
-
           contact_method: finalContactMethod,
           whatsapp: finalContactMethod === 'whatsapp',
-
           occasion: sanitizedOccasion,
-
           items: regularItems as any,
           upsell_details: upsellItems as any,
-        },
+          metrika_client_id,
+          yclid,
+          utm_source,
+          utm_medium,
+          utm_campaign,
+          utm_content,
+          utm_term,
+          landing_page,
+          referer,
+          is_repeat_order: isRepeatOrder,
+          attribution_source,
+          metrika_last_export_status: 'IN_PROGRESS',
+          metrika_status_updated_at: new Date(),
+          metrika_export_needed: true,
+        } as any,
         select: { id: true, order_number: true, items: true, upsell_details: true },
       });
     } catch (e: any) {
       const msg = e?.message || String(e);
-
       console.error(`[ORDERS][${requestId}] prisma.orders.create failed:`, msg);
       console.error(`[ORDERS][${requestId}] payload summary:`, {
         phone: sanitizedPhone,
@@ -543,6 +511,12 @@ export async function POST(req: Request) {
         contact_method: finalContactMethod,
         items_count: regularItems.length,
         upsells_count: upsellItems.length,
+        attribution_source,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        yclid,
+        metrika_client_id,
       });
 
       return NextResponse.json(
@@ -556,7 +530,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // order_items createMany (не критично для заказа)
     const orderItems = regularItems
       .map((item) => ({
         order_id: order.id,
@@ -574,7 +547,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // promo usage update (не должен ломать заказ)
     let promoError: string | null = null;
     if (promo_id) {
       try {
@@ -597,7 +569,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // notifications (не должны ломать заказ)
     try {
       const safeNotificationParams = {
         orderNumber: order.order_number ?? null,
@@ -626,10 +597,6 @@ export async function POST(req: Request) {
           console.error(
             `[ORDERS][${requestId}] Telegram failed for order ${order.order_number ?? 'n/a'}: ${telegramRes.value.error} (ms=${telegramRes.value.ms ?? 'n/a'})`,
           );
-        } else {
-          console.log(
-            `[ORDERS][${requestId}] Telegram sent OK for order ${order.order_number ?? 'n/a'} (ms=${telegramRes.value.ms ?? 'n/a'})`,
-          );
         }
       } else {
         console.error(
@@ -643,10 +610,6 @@ export async function POST(req: Request) {
         if (!webhookRes.value.ok) {
           console.error(
             `[ORDERS][${requestId}] Webhook failed for order ${order.order_number ?? 'n/a'}: ${webhookRes.value.error} (ms=${webhookRes.value.ms ?? 'n/a'})`,
-          );
-        } else {
-          console.log(
-            `[ORDERS][${requestId}] Webhook sent OK for order ${order.order_number ?? 'n/a'} (ms=${webhookRes.value.ms ?? 'n/a'})`,
           );
         }
       } else {
@@ -678,8 +641,7 @@ export async function POST(req: Request) {
     console.error(`[ORDERS][${requestId}] [ORDER API ERROR]`, msg);
     if (stack) console.error(`[ORDERS][${requestId}] [STACK]`, stack);
 
-    const prismaMeta =
-      error && typeof error === 'object' ? (error.meta || error.cause || null) : null;
+    const prismaMeta = error && typeof error === 'object' ? error.meta || error.cause || null : null;
 
     return NextResponse.json(
       {

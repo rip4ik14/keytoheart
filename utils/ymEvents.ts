@@ -1,8 +1,7 @@
-// utils/ymEvents.ts
 'use client';
 
 import { YM_ID } from '@/utils/ym';
-import { callYm } from '@/utils/metrics';
+import { callYm, pushDataLayer } from '@/utils/metrics';
 
 type CartEventProduct = {
   id: number | string;
@@ -44,8 +43,7 @@ function markOrderIdSent(orderId: string) {
   try {
     const ids = readSentOrderIds();
     ids.add(orderId);
-    const arr = Array.from(ids).slice(-30);
-    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(arr));
+    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(Array.from(ids).slice(-30)));
   } catch {
     // ignore
   }
@@ -58,59 +56,70 @@ function unmarkOrderIdSent(orderId: string) {
   try {
     const ids = readSentOrderIds();
     ids.delete(orderId);
-    const arr = Array.from(ids).slice(-30);
-    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(arr));
+    ss.setItem(SS_KEY_ORDER_SUCCESS, JSON.stringify(Array.from(ids).slice(-30)));
   } catch {
     // ignore
   }
 }
 
-/**
- * Добавление товара в корзину
- */
+function productToEcom(product: CartEventProduct) {
+  return {
+    id: String(product.id),
+    name: product.name,
+    price: Number(product.price || 0),
+    quantity: Number(product.quantity || 1),
+  };
+}
+
 export function trackAddToCart(product: CartEventProduct) {
   if (!YM_ID) return;
 
   try {
-    callYm(YM_ID, 'reachGoal', 'add_to_cart', {
-      product_id: product.id,
-      product_name: product.name,
-      price: product.price,
-      quantity: product.quantity,
+    pushDataLayer({ ecommerce: null });
+    pushDataLayer({
+      event: 'kth_add_to_cart',
       ecommerce: {
+        currencyCode: 'RUB',
         add: {
-          products: [
-            {
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              quantity: product.quantity,
-            },
-          ],
+          products: [productToEcom(product)],
         },
       },
+    });
+
+    callYm(YM_ID, 'reachGoal', 'add_to_cart', {
+      product_id: String(product.id),
+      product_name: product.name,
+      price: Number(product.price || 0),
+      quantity: Number(product.quantity || 1),
+      order_price: Number(product.price || 0) * Number(product.quantity || 1),
+      currency: 'RUB',
     });
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackAddToCart error', e);
   }
 }
 
-/**
- * Старт оформления заказа
- */
 export function trackCheckoutStart() {
   if (!YM_ID) return;
 
   try {
+    pushDataLayer({ ecommerce: null });
+    pushDataLayer({
+      event: 'kth_checkout_start',
+      ecommerce: {
+        checkout: {
+          actionField: { step: 1 },
+          products: [],
+        },
+      },
+    });
+
     callYm(YM_ID, 'reachGoal', 'start_checkout');
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackCheckoutStart error', e);
   }
 }
 
-/**
- * Переход по шагам чекаута
- */
 export function trackCheckoutStep(step: number, extra?: Record<string, any>) {
   if (!YM_ID) return;
 
@@ -124,9 +133,6 @@ export function trackCheckoutStep(step: number, extra?: Record<string, any>) {
   }
 }
 
-/**
- * Успешное оформление заказа (order_success) - с дедупом по orderId
- */
 export function trackOrderSuccess(params: {
   orderId: string | number;
   revenue: number;
@@ -138,35 +144,41 @@ export function trackOrderSuccess(params: {
   const { orderId, revenue, promoCode, products } = params;
   const orderKey = String(orderId);
 
-  const sent = readSentOrderIds();
-  if (sent.has(orderKey)) {
+  if (readSentOrderIds().has(orderKey)) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[YM] trackOrderSuccess dedup - already sent for', orderKey);
     }
     return;
   }
 
-  // mark BEFORE send (anti-race)
   markOrderIdSent(orderKey);
 
   try {
-    callYm(YM_ID, 'reachGoal', 'order_success', {
-      order_id: orderKey,
-      revenue,
-      promo: promoCode || undefined,
+    const normalizedProducts = products.map(productToEcom);
+
+    pushDataLayer({ ecommerce: null });
+    pushDataLayer({
+      event: 'kth_purchase',
       ecommerce: {
+        currencyCode: 'RUB',
         purchase: {
-          products: products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            quantity: p.quantity,
-          })),
+          actionField: {
+            id: orderKey,
+            revenue: Number(revenue || 0),
+            coupon: promoCode || undefined,
+          },
+          products: normalizedProducts,
         },
       },
     });
+
+    callYm(YM_ID, 'reachGoal', 'order_success', {
+      order_id: orderKey,
+      order_price: Number(revenue || 0),
+      currency: 'RUB',
+      promo: promoCode || undefined,
+    });
   } catch (e) {
-    // rollback if failed
     unmarkOrderIdSent(orderKey);
     if (process.env.NODE_ENV !== 'production') console.warn('[YM] trackOrderSuccess error', e);
   }

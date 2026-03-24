@@ -7,8 +7,6 @@ import { normalizePhone } from '@/lib/normalizePhone';
 import { safeBody } from '@/lib/api/safeBody';
 
 const WELCOME_BONUS = 1000;
-
-// Проценты кешбэка
 const CASHBACK_LEVELS = [
   { level: 'bronze', percentage: 2.5, minTotal: 0 },
   { level: 'silver', percentage: 5, minTotal: 10000 },
@@ -26,7 +24,6 @@ function decimalToNumber(v: any): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-// UI (RU) -> DB (EN canonical)
 function mapAdminStatusToDb(statusRu: string): 'pending' | 'processing' | 'delivered' | 'canceled' {
   switch (statusRu) {
     case 'Ожидает подтверждения':
@@ -44,22 +41,28 @@ function mapAdminStatusToDb(statusRu: string): 'pending' | 'processing' | 'deliv
   }
 }
 
-// Приводим уровень из базы (RU/EN/что угодно) к коду, чтобы проценты работали стабильно
+function mapDbStatusToMetrika(status: string): 'IN_PROGRESS' | 'PAID' | 'CANCELLED' | 'SPAM' {
+  switch (status) {
+    case 'delivered':
+      return 'PAID';
+    case 'canceled':
+      return 'CANCELLED';
+    case 'pending':
+    case 'processing':
+      return 'IN_PROGRESS';
+    default:
+      return 'SPAM';
+  }
+}
+
 function normalizeLevel(levelRaw: string | null | undefined): LevelCode {
   const v = (levelRaw || '').trim().toLowerCase();
-
-  // если вдруг уже хранится по-английски
-  if (v === 'bronze' || v === 'silver' || v === 'gold' || v === 'platinum' || v === 'premium') {
-    return v as LevelCode;
-  }
-
-  // RU варианты (как в твоей таблице bonuses.level)
+  if (v === 'bronze' || v === 'silver' || v === 'gold' || v === 'platinum' || v === 'premium') return v as LevelCode;
   if (v.includes('бронз')) return 'bronze';
   if (v.includes('сереб')) return 'silver';
   if (v.includes('золот')) return 'gold';
   if (v.includes('платин')) return 'platinum';
   if (v.includes('преми')) return 'premium';
-
   return 'bronze';
 }
 
@@ -75,7 +78,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload: id and status are required' }, { status: 400 });
     }
 
-    // Проверка токена админки
     const token = req.cookies.get('admin_session')?.value;
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized: Missing admin session token' }, { status: 401 });
@@ -86,13 +88,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: Invalid admin session token' }, { status: 401 });
     }
 
-    // Разрешаем RU статусы, которые реально есть в UI
     const validUiStatuses = ['Ожидает подтверждения', 'В сборке', 'Доставляется', 'Доставлен', 'Отменён'];
     if (!validUiStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
     }
 
     const dbStatus = mapAdminStatusToDb(status);
+    const metrikaStatus = mapDbStatusToMetrika(dbStatus);
 
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.orders.findUnique({
@@ -104,14 +106,17 @@ export async function POST(req: NextRequest) {
         return { ok: false as const, code: 404, payload: { error: 'Order not found' } };
       }
 
-      // Обновляем статус
       const updated = await tx.orders.update({
         where: { id },
-        data: { status: dbStatus },
+        data: {
+          status: dbStatus,
+          metrika_last_export_status: metrikaStatus,
+          metrika_status_updated_at: new Date(),
+          metrika_export_needed: true,
+        } as any,
         select: { id: true, phone: true, total: true, bonus: true, status: true },
       });
 
-      // Начисления делаем только при delivered и только если по этому заказу ещё не начисляли
       if (dbStatus !== 'delivered' || (updated.bonus ?? 0) !== 0) {
         return {
           ok: true as const,
@@ -130,18 +135,12 @@ export async function POST(req: NextRequest) {
         return { ok: false as const, code: 400, payload: { error: 'Order has no total' } };
       }
 
-      // Телефон -> +7XXXXXXXXXX
-      const phone = normalizePhone(
-        sanitizeHtml(String(updated.phone), { allowedTags: [], allowedAttributes: {} })
-      );
-
+      const phone = normalizePhone(sanitizeHtml(String(updated.phone), { allowedTags: [], allowedAttributes: {} }));
       if (!/^\+7\d{10}$/.test(phone)) {
         return { ok: false as const, code: 400, payload: { error: 'Invalid phone format in order' } };
       }
 
       const totalAsNumber = Math.floor(decimalToNumber(updated.total));
-
-      // Берём текущую запись бонусов (если нет - создадим)
       const existingBonus = await tx.bonuses.findUnique({
         where: { phone },
         select: { id: true, level: true, welcome_bonus_awarded_at: true },
@@ -149,15 +148,10 @@ export async function POST(req: NextRequest) {
 
       const levelCode = normalizeLevel(existingBonus?.level);
       const levelObj = CASHBACK_LEVELS.find((lvl) => lvl.level === levelCode) || CASHBACK_LEVELS[0];
-
       const cashbackAccrual = Math.floor(totalAsNumber * (levelObj.percentage / 100));
-
-      // Приветственные - только один раз
       const welcomeAccrual = existingBonus?.welcome_bonus_awarded_at ? 0 : WELCOME_BONUS;
-
       const totalAccrual = cashbackAccrual + welcomeAccrual;
 
-      // Обновляем/создаём bonuses
       const upserted = await tx.bonuses.upsert({
         where: { phone },
         update: {
@@ -170,7 +164,7 @@ export async function POST(req: NextRequest) {
         create: {
           phone,
           bonus_balance: totalAccrual,
-          level: 'Бронзовый', // твой текущий стандарт в базе
+          level: 'Бронзовый',
           total_spent: totalAsNumber,
           total_bonus: totalAccrual,
           updated_at: new Date(),
@@ -179,7 +173,6 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       });
 
-      // История бонусов - НЕ пишем user_id (иначе FK в auth.users)
       if (welcomeAccrual > 0) {
         await tx.bonus_history.create({
           data: {
@@ -204,7 +197,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Фиксируем в заказе сумму начисления, чтобы не начислить повторно по этому заказу
       const updatedOrder = await tx.orders.update({
         where: { id },
         data: { bonus: totalAccrual },
@@ -229,6 +221,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: 'Order status updated successfully',
       status_db: (result as any).updated?.status,
+      metrikaStatus,
       bonusAccrual: (result as any).bonusAccrual ?? 0,
       welcomeAccrual: (result as any).welcomeAccrual ?? 0,
       totalAccrual: (result as any).totalAccrual ?? 0,

@@ -10,7 +10,7 @@ const CASHBACK_LEVELS = [
   { level: 'gold', percentage: 7.5, minTotal: 20000 },
   { level: 'platinum', percentage: 10, minTotal: 30000 },
   { level: 'premium', percentage: 15, minTotal: 50000 },
-];
+] as const;
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -27,26 +27,43 @@ function decimalToNumber(v: any): number {
   return Number(v);
 }
 
+function mapStatusToMetrika(status: string): 'IN_PROGRESS' | 'PAID' | 'CANCELLED' | 'SPAM' {
+  switch (status) {
+    case 'delivered':
+      return 'PAID';
+    case 'canceled':
+      return 'CANCELLED';
+    case 'pending':
+    case 'processing':
+    case 'delivering':
+      return 'IN_PROGRESS';
+    default:
+      return 'SPAM';
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await safeBody<{ orderId?: string; status?: string }>(
-      req,
-      'ORDERS UPDATE STATUS API',
-    );
-    if (body instanceof NextResponse) {
-      return body;
-    }
+    const body = await safeBody<{ orderId?: string; status?: string }>(req, 'ORDERS UPDATE STATUS API');
+    if (body instanceof NextResponse) return body;
+
     const { orderId, status } = body;
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Не указаны orderId или status' }, { status: 400 });
     }
 
+    const metrikaStatus = mapStatusToMetrika(status);
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1) Обновляем статус и забираем данные заказа
       const order = await tx.orders.update({
         where: { id: orderId },
-        data: { status },
+        data: {
+          status,
+          metrika_last_export_status: metrikaStatus,
+          metrika_status_updated_at: new Date(),
+          metrika_export_needed: true,
+        } as any,
         select: {
           id: true,
           phone: true,
@@ -56,7 +73,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Начисляем только если delivered и ещё не начисляли
       if (status !== 'delivered' || order.bonus !== 0) {
         return { order, bonusAccrual: 0, skipped: true as const };
       }
@@ -68,28 +84,18 @@ export async function POST(req: NextRequest) {
         throw new Error('Сумма заказа не указана');
       }
 
-      const phone = normalizePhone(
-        sanitizeHtml(order.phone, { allowedTags: [], allowedAttributes: {} })
-      );
-
-      // Если хочешь строго - раскомментируй
-      // if (!/^\+7\d{10}$/.test(phone)) {
-      //   throw new Error('Некорректный формат номера телефона');
-      // }
-
+      const phone = normalizePhone(sanitizeHtml(order.phone, { allowedTags: [], allowedAttributes: {} }));
       const totalAsNumber = decimalToNumber(order.total);
 
-      // 2) Получаем текущий уровень
       const bonusRecord = await tx.bonuses.findUnique({
         where: { phone },
         select: { id: true, level: true },
       });
 
-      const currentLevel = bonusRecord?.level ?? 'bronze';
+      const currentLevel = (bonusRecord?.level ?? 'bronze') as string;
       const levelObj = CASHBACK_LEVELS.find((lvl) => lvl.level === currentLevel) || CASHBACK_LEVELS[0];
       const bonusAccrual = Math.floor(totalAsNumber * (levelObj.percentage / 100));
 
-      // 3) Upsert бонусов (без nested create)
       const upserted = await tx.bonuses.upsert({
         where: { phone },
         update: {
@@ -109,18 +115,16 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       });
 
-      // 4) История отдельно, явная привязка к bonuses.id
       await tx.bonus_history.create({
         data: {
           bonus_id: upserted.id,
           phone,
-          amount: bonusAccrual, // Prisma сам приведёт number -> Decimal
+          amount: bonusAccrual,
           reason: `Начисление за заказ #${orderId}`,
           created_at: new Date(),
         },
       });
 
-      // 5) Проставляем в заказ, сколько начислили (защита от повторного начисления)
       const updatedOrder = await tx.orders.update({
         where: { id: orderId },
         data: { bonus: bonusAccrual },
@@ -136,7 +140,7 @@ export async function POST(req: NextRequest) {
       return { order: updatedOrder, bonusAccrual, skipped: false as const };
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({ success: true, metrikaStatus, ...result });
   } catch (error: any) {
     process.env.NODE_ENV !== 'production' && console.error('Error updating order status:', error);
     return NextResponse.json({ error: 'Ошибка сервера: ' + error.message }, { status: 500 });
