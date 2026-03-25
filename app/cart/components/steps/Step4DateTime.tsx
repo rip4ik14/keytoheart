@@ -309,10 +309,27 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
       minMinutes = ceilToStep(minMinutes, TIME_STEP_MINUTES);
 
       if (minMinutes + TIME_STEP_MINUTES > effectiveEnd) {
+        const fallback = findNearestSlot?.(addDays(date, 1));
+
+        if (fallback?.ok) {
+          const fallbackLabel = `${formatDateRuShort(fallback.dateIso)}, ${intervalLabel(fallback.time)}`;
+          setMode('nearest');
+          setAvailableSlots([fallback.time]);
+          setMinLabelToday(
+            isPickup
+              ? `На сегодня уже поздно для самовывоза. Мы выбрали ближайшее доступное время: ${fallbackLabel}.`
+              : `На сегодня уже поздно для доставки. Мы выбрали ближайшее доступное время: ${fallbackLabel}.`,
+          );
+          handleDateChange(fallback.dateIso);
+          handleTimeSet(fallback.time);
+          setSlotValidation(true, '');
+          return;
+        }
+
         setAvailableSlots([]);
         const reason = isPickup
-          ? 'Сегодня уже не успеваем подготовить заказ к выдаче, выберите другую дату.'
-          : 'Сегодня уже не успеваем изготовить и доставить заказ, выберите другую дату.';
+          ? 'На сегодня самовывоз уже недоступен, выберите другую дату.'
+          : 'На сегодня доставка уже недоступна, выберите другую дату.';
         setMinLabelToday(reason);
         setSlotValidation(false, reason);
         return;
@@ -346,7 +363,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     const minSlot = parseTimeToMinutes(slots[0])!;
     const maxSlot = parseTimeToMinutes(slots[slots.length - 1])!;
 
-    if (currentMinutes === null || currentMinutes < minSlot || currentMinutes > maxSlot) {
+    if (currentMinutes === null || currentMinutes < minSlot || currentMinutes > maxSlot || !slots.includes(form?.time || '')) {
       handleTimeSet(slots[0]);
     }
 
@@ -492,7 +509,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Быстрее</span>
+              <span className="text-sm font-semibold">Ближайшее время</span>
               {isFindingNearest && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full border border-current/30">
                   Подбираем...
@@ -567,7 +584,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
       {hasErrors && <p className="text-xs text-red-500">Пожалуйста, выберите дату и время.</p>}
 
       {minLabelToday && (
-        <p className={`text-xs ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
+        <p className={`rounded-xl border px-3 py-2 text-xs ${form?.slotValid === false ? 'border-red-100 bg-red-50 text-red-600' : 'border-black/5 bg-black/[0.03] text-gray-600'}`}>
           {minLabelToday}
         </p>
       )}
@@ -698,7 +715,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
                   )}
 
                   {minLabelToday && (
-                    <p className={`text-xs mt-2 ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
+                    <p className={`mt-2 rounded-xl border px-3 py-2 text-xs ${form?.slotValid === false ? 'border-red-100 bg-red-50 text-red-600' : 'border-black/5 bg-black/[0.03] text-gray-600'}`}>
                       {minLabelToday}
                     </p>
                   )}

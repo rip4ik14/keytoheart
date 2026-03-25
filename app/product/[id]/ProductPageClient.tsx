@@ -289,13 +289,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
       return createPortal(
         <motion.div
           className={[
-            'fixed z-[2147483647]',
-            'bg-white/78 backdrop-blur-xl',
-            'text-black rounded-2xl',
-            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-            'border border-black/10',
-            'px-3 py-3 flex items-center gap-3',
-          ].join(' ')}
+  'fixed z-[2147483647]',
+  'bg-white',
+  'text-black rounded-2xl',
+  'shadow-[0_18px_60px_rgba(0,0,0,0.22)]',
+  'border border-black/10',
+  'px-3 py-3 flex items-center gap-3',
+].join(' ')}
           style={{
             left: `calc(12px + env(safe-area-inset-left))`,
             right: `calc(12px + env(safe-area-inset-right))`,
@@ -1020,11 +1020,11 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               <span className="text-[11px] text-black/50 leading-none mt-1">+ бонус {bonus} ₽</span>
             </div>
 
-            <div className="flex-1 flex gap-2">
+            <div className="flex-1">
               {productQty <= 0 ? (
                 <motion.button
                   onClick={handleIncCurrent}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
+                  className={`w-full py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
                   variants={buttonVariants}
                   initial="rest"
                   whileHover="hover"
@@ -1037,7 +1037,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               ) : (
                 <div
                   className={[
-                    'flex-1',
+                    'w-full',
                     'h-[48px]',
                     'rounded-2xl',
                     'border border-black/10',
@@ -1071,33 +1071,26 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                   </button>
                 </div>
               )}
-
-              <motion.button
-                onClick={openCombo}
-                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${secondaryBtn}`}
-                variants={buttonVariants}
-                initial="rest"
-                whileHover="hover"
-                whileTap="tap"
-                aria-label="Собрать комбо"
-                rel="nofollow"
-              >
-                Комбо -10%
-              </motion.button>
-
-              <Link
-                href="/cart"
-                className="relative w-[52px] h-[48px] rounded-2xl border border-black/10 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition"
-                aria-label="Перейти в корзину"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center border border-white">
-                    {totalItems}
-                  </span>
-                )}
-              </Link>
             </div>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={openCombo}
+              className="text-[12px] font-semibold text-black/65 underline underline-offset-4"
+              aria-label="Собрать комбо со скидкой"
+            >
+              Собрать комбо -10%
+            </button>
+
+            <Link
+              href="/cart"
+              className="text-[12px] font-semibold text-black/65 underline underline-offset-4"
+              aria-label="Перейти в корзину"
+            >
+              В корзину{totalItems > 0 ? ` (${totalItems})` : ''}
+            </Link>
           </div>
         </div>
       </div>
@@ -1134,7 +1127,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           showFloatingControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
         ].join(' ')}
         style={{
-          top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 10px + env(safe-area-inset-top))`,
+          top: `calc(var(${STICKY_HEADER_VAR}, 10px) + 2px + env(safe-area-inset-top))`,
           left: `calc(12px + env(safe-area-inset-left))`,
           right: `calc(12px + env(safe-area-inset-right))`,
         }}
@@ -1187,7 +1180,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 <div
                   className="lg:hidden absolute inset-x-0 top-0 z-30"
                   style={{
-                    paddingTop: `calc(env(safe-area-inset-top) + 10px)`,
+                    paddingTop: `calc(env(safe-area-inset-top) + 2px)`,
                     paddingLeft: `calc(env(safe-area-inset-left) + 12px)`,
                     paddingRight: `calc(env(safe-area-inset-right) + 12px)`,
                     paddingBottom: 10,

@@ -15,10 +15,6 @@ function isVideoUrl(url?: string | null) {
   return clean.endsWith('.mp4') || clean.endsWith('.webm') || clean.endsWith('.mov');
 }
 
-function isExternal(url?: string | null) {
-  return !!url && /^https?:\/\//i.test(url);
-}
-
 export default function PromoGridClient({
   banners,
   cards,
@@ -119,13 +115,13 @@ export default function PromoGridClient({
         src={b.image_url}
         alt={b.title || 'Промо'}
         fill
-        sizes="100vw"
+        sizes="(max-width: 1024px) 100vw, 960px"
         priority={!!priority}
         fetchPriority={priority ? 'high' : undefined}
+        quality={78}
         placeholder="blur"
         blurDataURL={BLUR_SRC}
         className="object-cover"
-        unoptimized={isExternal(b.image_url)}
       />
     );
   };
@@ -177,12 +173,26 @@ export default function PromoGridClient({
                     className="block h-full w-full"
                     title={b.title || undefined}
                   >
-                    <div className="absolute inset-0">
-                      <BannerMedia b={b} isActive={isActiveSlide} priority={i === 0} />
-                      {showText ? (
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/45" />
-                      ) : null}
-                    </div>
+                    {(() => {
+                      const isAdjacent =
+                        Math.abs(i - active) === 1 ||
+                        (active === 0 && i === banners.length - 1) ||
+                        (active === banners.length - 1 && i === 0);
+                      const shouldRenderMedia = isActiveSlide || isAdjacent || i === 0;
+
+                      return (
+                        <div className="absolute inset-0">
+                          {shouldRenderMedia ? (
+                            <BannerMedia b={b} isActive={isActiveSlide} priority={i === 0} />
+                          ) : (
+                            <div className="absolute inset-0 bg-[#f4f4f4]" />
+                          )}
+                          {showText ? (
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/45" />
+                          ) : null}
+                        </div>
+                      );
+                    })()}
 
                     {showText ? (
                       <div className="absolute inset-x-0 bottom-[56px] px-4 pb-0 pt-10 text-white">
@@ -285,7 +295,7 @@ export default function PromoGridClient({
                               placeholder="blur"
                               blurDataURL={BLUR_SRC}
                               className="rounded-[32px] object-cover transition-transform duration-500"
-                              unoptimized={isExternal(b.image_url)}
+                              quality={78}
                             />
                           )}
 
@@ -390,11 +400,11 @@ export default function PromoGridClient({
                         src={desktopCards[0].image_url}
                         alt={desktopCards[0].title}
                         fill
-                        sizes="260px"
+                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
+                        quality={76}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[0].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -415,11 +425,11 @@ export default function PromoGridClient({
                         src={desktopCards[2].image_url}
                         alt={desktopCards[2].title}
                         fill
-                        sizes="260px"
+                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
+                        quality={76}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[2].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -442,11 +452,11 @@ export default function PromoGridClient({
                         src={desktopCards[1].image_url}
                         alt={desktopCards[1].title}
                         fill
-                        sizes="260px"
+                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
+                        quality={76}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[1].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -467,11 +477,11 @@ export default function PromoGridClient({
                         src={desktopCards[3].image_url}
                         alt={desktopCards[3].title}
                         fill
-                        sizes="260px"
+                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
+                        quality={76}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        unoptimized={isExternal(desktopCards[3].image_url)}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">

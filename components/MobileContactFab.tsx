@@ -107,6 +107,14 @@ export default function MobileContactFab() {
     );
   }, [pathname]);
 
+
+  const compactFab = useMemo(() => isProductPage || isHighIntentPage, [isProductPage, isHighIntentPage]);
+  const compactFabBottomExtra = useMemo(() => {
+    if (isProductPage) return 96;
+    if (isHighIntentPage) return 82;
+    return 0;
+  }, [isProductPage, isHighIntentPage]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -232,6 +240,7 @@ export default function MobileContactFab() {
     } catch {}
 
     if (already) return;
+    if (compactFab) return;
 
     const t = window.setTimeout(() => {
       if (open) return;
@@ -247,12 +256,13 @@ export default function MobileContactFab() {
     }, 2800);
 
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, compactFab]);
 
   // "умный" hint на карточке товара (1 раз в сутки)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isProductPage) return;
+    if (compactFab) return;
 
     const day = 24 * 60 * 60 * 1000;
     let last = 0;
@@ -276,7 +286,7 @@ export default function MobileContactFab() {
     }, 8500);
 
     return () => window.clearTimeout(t);
-  }, [isProductPage, open]);
+  }, [isProductPage, open, compactFab]);
 
   // общий daily hint
   useEffect(() => {
@@ -288,6 +298,7 @@ export default function MobileContactFab() {
     } catch {}
 
     if (isProductPage) return;
+    if (compactFab) return;
 
     const day = 24 * 60 * 60 * 1000;
     let last = 0;
@@ -312,13 +323,14 @@ export default function MobileContactFab() {
     }, 12_000);
 
     return () => window.clearTimeout(t);
-  }, [open, isProductPage]);
+  }, [open, isProductPage, compactFab]);
 
   // умное авто-открытие
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (open) return;
     if (isHighIntentPage) return;
+    if (compactFab) return;
 
     let already = false;
     try {
@@ -368,7 +380,7 @@ export default function MobileContactFab() {
     }, AUTO_OPEN_AFTER_MS);
 
     return () => window.clearTimeout(timer);
-  }, [pathname, open, isProductPage, isHighIntentPage]);
+  }, [pathname, open, isProductPage, isHighIntentPage, compactFab]);
 
   // ESC close
   useEffect(() => {
@@ -483,12 +495,12 @@ export default function MobileContactFab() {
             transition={{ duration: 0.16 }}
             className="fixed right-4 z-[20000] kth-sticky-surface"
             style={{
-              bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px) + var(--kth-bottom-nav-h, 0px))`,
+              bottom: `calc(1rem + env(safe-area-inset-bottom) + var(${COOKIE_BANNER_VAR}, 0px) + var(${BOTTOM_UI_VAR}, 0px) + var(--kth-bottom-nav-h, 0px) + ${compactFabBottomExtra}px)`,
             }}
           >
             <div className="relative">
               <AnimatePresence>
-                {showHint && (
+                {!compactFab && showHint && (
                   <motion.div
                     initial={{ opacity: 0, y: 8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -514,7 +526,15 @@ export default function MobileContactFab() {
                 onClick={openSheet}
                 aria-label="Открыть чат"
                 whileTap={{ scale: 0.98 }}
-                className="
+                className={compactFab ? `
+                  flex items-center justify-center
+                  h-14 w-14
+                  rounded-full
+                  border border-black/10
+                  shadow-[0_12px_35px_rgba(0,0,0,0.18)]
+                  transition
+                  kth-glass kth-sticky-surface
+                ` : `
                   flex items-center gap-2
                   h-14
                   rounded-full
@@ -523,25 +543,33 @@ export default function MobileContactFab() {
                   shadow-[0_12px_35px_rgba(0,0,0,0.18)]
                   transition
                   kth-glass kth-sticky-surface
-                "
+                `}
               >
                 <div
-                  className="
+                  className={compactFab ? `
+                    h-14 w-14 rounded-full
+                    border border-black/10
+                    shadow-[0_10px_26px_rgba(0,0,0,0.10)]
+                    grid place-items-center
+                    kth-glass kth-sticky-surface
+                  ` : `
                     h-10 w-10 rounded-full
                     border border-black/10
                     shadow-[0_10px_26px_rgba(0,0,0,0.10)]
                     grid place-items-center
                     kth-glass kth-sticky-surface
-                  "
+                  `}
                   aria-hidden="true"
                 >
-                  <HelpCircle className="h-5 w-5 text-black/75" />
+                  <HelpCircle className={compactFab ? 'h-6 w-6 text-black/75' : 'h-5 w-5 text-black/75'} />
                 </div>
 
-                <div className="leading-tight text-left">
-                  <p className="text-sm font-semibold text-black">Чат</p>
-                  <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
-                </div>
+                {!compactFab && (
+                  <div className="leading-tight text-left">
+                    <p className="text-sm font-semibold text-black">Чат</p>
+                    <p className="text-[11px] text-black/55 -mt-0.5">поможем с выбором</p>
+                  </div>
+                )}
               </motion.button>
             </div>
           </motion.div>

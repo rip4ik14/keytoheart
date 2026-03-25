@@ -3,10 +3,6 @@ import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
 
-function isExternal(src?: string | null) {
-  return !!src && /^https?:\/\//i.test(src);
-}
-
 function GridIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -85,10 +81,11 @@ function CategoryPill({
           <Image
             src={image}
             alt={label}
-            fill
+            width={38}
+            height={38}
             sizes="38px"
-            className="object-cover"
-            unoptimized={isExternal(image)}
+            className="h-[38px] w-[38px] object-cover"
+            loading="lazy"
           />
         ) : (
           <span className="text-[14px] font-semibold text-black/35">{fallbackLetter}</span>

@@ -293,14 +293,13 @@ if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     return createPortal(
       <div
           className={[
-            'fixed z-[2147483647]',
-            'bg-white/78 backdrop-blur-xl',
-            'text-black rounded-2xl',
-            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
-            'border border-black/10',
-            'px-3 py-3 flex items-center gap-3',
-            'animate-in fade-in slide-in-from-bottom-2 duration-200',
-          ].join(' ')}
+  'fixed z-[2147483647]',
+  'bg-white',
+  'text-black rounded-2xl',
+  'shadow-[0_18px_60px_rgba(0,0,0,0.22)]',
+  'border border-black/10',
+  'px-3 py-3 flex items-center gap-3',
+].join(' ')}
           style={{
             left: `calc(12px + env(safe-area-inset-left))`,
             right: `calc(12px + env(safe-area-inset-right))`,
