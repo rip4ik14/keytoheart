@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import type { HomePillItem } from '@/lib/data/home';
+import { shouldSkipOptimization, withSupabaseTransform } from '@/components/imagePerf';
 
 function GridIcon() {
   return (
@@ -50,6 +51,9 @@ function CategoryPill({
   fallbackLetter,
   isCatalog = false,
 }: PillProps) {
+  const iconSrc = image ? withSupabaseTransform(image, 96, 58) : null;
+  const unoptimized = iconSrc ? shouldSkipOptimization(iconSrc) : false;
+
   return (
     <Link
       href={href}
@@ -77,15 +81,16 @@ function CategoryPill({
       >
         {isCatalog ? (
           <GridIcon />
-        ) : image ? (
+        ) : iconSrc ? (
           <Image
-            src={image}
+            src={iconSrc}
             alt={label}
             width={38}
             height={38}
             sizes="38px"
+            quality={58}
             className="h-[38px] w-[38px] object-cover"
-            loading="lazy"
+            unoptimized={unoptimized}
           />
         ) : (
           <span className="text-[14px] font-semibold text-black/35">{fallbackLetter}</span>

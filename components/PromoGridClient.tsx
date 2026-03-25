@@ -1,10 +1,10 @@
-// ✅ Путь: components/PromoGridClient.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PromoBlock } from '@/types/promo';
+import { shouldSkipOptimization, withSupabaseTransform } from '@/components/imagePerf';
 
 const BLUR_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z/C/HwMDAwMjIxEABAMAATN4A+QAAAAASUVORK5CYII=';
@@ -13,6 +13,11 @@ function isVideoUrl(url?: string | null) {
   if (!url) return false;
   const clean = url.split('?')[0].toLowerCase();
   return clean.endsWith('.mp4') || clean.endsWith('.webm') || clean.endsWith('.mov');
+}
+
+function getOptimizedPromoSrc(src?: string | null, width = 1280, quality = 68) {
+  if (!src) return '';
+  return withSupabaseTransform(src, width, quality);
 }
 
 export default function PromoGridClient({
@@ -24,16 +29,21 @@ export default function PromoGridClient({
 }) {
   const [active, setActive] = useState(0);
   const [autoplay, setAutoplay] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const heroRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef<number | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current == null) return;
+    if (touchStartX.current == null || !mounted) return;
 
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     if (dx > 40) prev(true);
@@ -64,22 +74,23 @@ export default function PromoGridClient({
   };
 
   useEffect(() => {
-    if (banners.length <= 1) return;
-    const t = setTimeout(() => setAutoplay(true), 4000);
+    if (!mounted || banners.length <= 1) return;
+    const t = setTimeout(() => setAutoplay(true), 5000);
     return () => clearTimeout(t);
-  }, [banners.length]);
+  }, [mounted, banners.length]);
 
   useEffect(() => {
-    if (!autoplay || banners.length <= 1) return;
+    if (!mounted || !autoplay || banners.length <= 1) return;
 
     const id = setInterval(() => {
       setActive((p) => (p === banners.length - 1 ? 0 : p + 1));
-    }, 4500);
+    }, 5000);
 
     return () => clearInterval(id);
-  }, [autoplay, banners.length]);
+  }, [mounted, autoplay, banners.length]);
 
   const desktopCards = useMemo(() => cards.slice(0, 4), [cards]);
+  const mobileSlides = mounted ? banners : banners.slice(0, 1);
 
   if (!banners.length && !cards.length) return null;
 
@@ -87,10 +98,12 @@ export default function PromoGridClient({
     b,
     isActive,
     priority,
+    mobile,
   }: {
     b: PromoBlock;
     isActive: boolean;
     priority?: boolean;
+    mobile?: boolean;
   }) => {
     const video = isVideoUrl(b.image_url);
 
@@ -110,18 +123,22 @@ export default function PromoGridClient({
       );
     }
 
+    const imageSrc = getOptimizedPromoSrc(b.image_url, mobile ? 900 : 1440, mobile ? 66 : 68);
+    const unoptimized = shouldSkipOptimization(imageSrc);
+
     return (
       <Image
-        src={b.image_url}
+        src={imageSrc}
         alt={b.title || 'Промо'}
         fill
-        sizes="(max-width: 1024px) 100vw, 960px"
+        sizes={mobile ? '100vw' : '(max-width: 1279px) calc(100vw - 64px), 880px'}
         priority={!!priority}
         fetchPriority={priority ? 'high' : undefined}
-        quality={78}
-        placeholder="blur"
-        blurDataURL={BLUR_SRC}
+        placeholder={priority ? 'empty' : 'blur'}
+        blurDataURL={priority ? undefined : BLUR_SRC}
+        quality={mobile ? 66 : 68}
         className="object-cover"
+        unoptimized={unoptimized}
       />
     );
   };
@@ -145,15 +162,16 @@ export default function PromoGridClient({
             className="relative w-full overflow-hidden rounded-t-[28px]"
             style={{ height: 'clamp(280px, 42vh, 380px)' }}
           >
-            {banners.map((b, i) => {
-              const isActiveSlide = i === active;
+            {mobileSlides.map((b, i) => {
+              const realIndex = mounted ? i : 0;
+              const isActiveSlide = realIndex === active || !mounted;
 
               let translate = 'translate-x-full opacity-0 z-0';
               if (isActiveSlide) {
                 translate = 'translate-x-0 opacity-100 z-10';
               } else if (
-                (i < active && !(active === banners.length - 1 && i === 0)) ||
-                (active === 0 && i === banners.length - 1)
+                (realIndex < active && !(active === banners.length - 1 && realIndex === 0)) ||
+                (active === 0 && realIndex === banners.length - 1)
               ) {
                 translate = '-translate-x-full opacity-0 z-0';
               }
@@ -165,34 +183,21 @@ export default function PromoGridClient({
                 <div
                   key={b.id}
                   className={`absolute inset-0 transition-all ${translate}`}
-                  style={{ transitionProperty: 'transform, opacity', transitionDuration: '420ms' }}
+                  style={{ transitionProperty: 'transform, opacity', transitionDuration: '320ms' }}
                   aria-hidden={!isActiveSlide}
                 >
                   <Link
                     href={b.href || '#'}
                     className="block h-full w-full"
                     title={b.title || undefined}
+                    prefetch={false}
                   >
-                    {(() => {
-                      const isAdjacent =
-                        Math.abs(i - active) === 1 ||
-                        (active === 0 && i === banners.length - 1) ||
-                        (active === banners.length - 1 && i === 0);
-                      const shouldRenderMedia = isActiveSlide || isAdjacent || i === 0;
-
-                      return (
-                        <div className="absolute inset-0">
-                          {shouldRenderMedia ? (
-                            <BannerMedia b={b} isActive={isActiveSlide} priority={i === 0} />
-                          ) : (
-                            <div className="absolute inset-0 bg-[#f4f4f4]" />
-                          )}
-                          {showText ? (
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/45" />
-                          ) : null}
-                        </div>
-                      );
-                    })()}
+                    <div className="absolute inset-0">
+                      <BannerMedia b={b} isActive={isActiveSlide} priority={realIndex === 0} mobile />
+                      {showText ? (
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/38" />
+                      ) : null}
+                    </div>
 
                     {showText ? (
                       <div className="absolute inset-x-0 bottom-[56px] px-4 pb-0 pt-10 text-white">
@@ -214,7 +219,7 @@ export default function PromoGridClient({
               );
             })}
 
-            {banners.length > 1 && (
+            {mounted && banners.length > 1 && (
               <div className="absolute bottom-[26px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
                 {banners.map((_, i) => (
                   <button
@@ -261,13 +266,14 @@ export default function PromoGridClient({
                     <div
                       key={b.id}
                       className={`absolute top-0 left-0 h-full w-full transition-all ${translate}`}
-                      style={{ transitionProperty: 'transform, opacity', transitionDuration: '400ms' }}
+                      style={{ transitionProperty: 'transform, opacity', transitionDuration: '320ms' }}
                       aria-hidden={i !== active}
                     >
                       <Link
                         href={b.href || '#'}
                         className="block h-full w-full"
                         title={b.title || undefined}
+                        prefetch={false}
                       >
                         <div className="relative h-full w-full overflow-hidden rounded-[32px]">
                           {isVideoUrl(b.image_url) ? (
@@ -285,18 +291,7 @@ export default function PromoGridClient({
                               <div className="absolute inset-0 bg-black/[0.06]" />
                             )
                           ) : (
-                            <Image
-                              src={b.image_url}
-                              alt={b.title || 'Промо'}
-                              fill
-                              sizes="(max-width: 1279px) calc(100vw - 64px), 880px"
-                              priority={i === 0}
-                              fetchPriority={i === 0 ? 'high' : undefined}
-                              placeholder="blur"
-                              blurDataURL={BLUR_SRC}
-                              className="rounded-[32px] object-cover transition-transform duration-500"
-                              quality={78}
-                            />
+                            <BannerMedia b={b} isActive={i === active} priority={i === 0} />
                           )}
 
                           {shouldOverlay ? (
@@ -331,7 +326,7 @@ export default function PromoGridClient({
                   );
                 })}
 
-                {banners.length > 1 && (
+                {mounted && banners.length > 1 && (
                   <>
                     <button
                       className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/80 p-2 shadow transition hover:bg-white sm:flex"
@@ -395,16 +390,18 @@ export default function PromoGridClient({
                       href={desktopCards[0].href}
                       className="group relative block h-full w-full overflow-hidden rounded-[24px]"
                       title={desktopCards[0].title}
+                      prefetch={false}
                     >
                       <Image
-                        src={desktopCards[0].image_url}
+                        src={getOptimizedPromoSrc(desktopCards[0].image_url, 520, 66)}
                         alt={desktopCards[0].title}
                         fill
-                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
-                        quality={76}
+                        sizes="260px"
+                        quality={66}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        unoptimized={shouldSkipOptimization(getOptimizedPromoSrc(desktopCards[0].image_url, 520, 66))}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -420,16 +417,18 @@ export default function PromoGridClient({
                       href={desktopCards[2].href}
                       className="group relative block h-full w-full overflow-hidden rounded-[24px]"
                       title={desktopCards[2].title}
+                      prefetch={false}
                     >
                       <Image
-                        src={desktopCards[2].image_url}
+                        src={getOptimizedPromoSrc(desktopCards[2].image_url, 520, 66)}
                         alt={desktopCards[2].title}
                         fill
-                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
-                        quality={76}
+                        sizes="260px"
+                        quality={66}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        unoptimized={shouldSkipOptimization(getOptimizedPromoSrc(desktopCards[2].image_url, 520, 66))}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -447,16 +446,18 @@ export default function PromoGridClient({
                       href={desktopCards[1].href}
                       className="group relative block h-full w-full overflow-hidden rounded-[24px]"
                       title={desktopCards[1].title}
+                      prefetch={false}
                     >
                       <Image
-                        src={desktopCards[1].image_url}
+                        src={getOptimizedPromoSrc(desktopCards[1].image_url, 520, 66)}
                         alt={desktopCards[1].title}
                         fill
-                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
-                        quality={76}
+                        sizes="260px"
+                        quality={66}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        unoptimized={shouldSkipOptimization(getOptimizedPromoSrc(desktopCards[1].image_url, 520, 66))}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute bottom-3 left-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">
@@ -472,16 +473,18 @@ export default function PromoGridClient({
                       href={desktopCards[3].href}
                       className="group relative block h-full w-full overflow-hidden rounded-[24px]"
                       title={desktopCards[3].title}
+                      prefetch={false}
                     >
                       <Image
-                        src={desktopCards[3].image_url}
+                        src={getOptimizedPromoSrc(desktopCards[3].image_url, 520, 66)}
                         alt={desktopCards[3].title}
                         fill
-                        sizes="(min-width: 1280px) 280px, (min-width: 1024px) 24vw, 50vw"
-                        quality={76}
+                        sizes="260px"
+                        quality={66}
                         placeholder="blur"
                         blurDataURL={BLUR_SRC}
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        unoptimized={shouldSkipOptimization(getOptimizedPromoSrc(desktopCards[3].image_url, 520, 66))}
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                       <span className="absolute left-3 top-3 z-10 inline-flex max-w-[calc(100%-24px)] w-fit items-center rounded-full bg-white/85 px-3 py-[6px] text-[12px] font-medium text-black shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur">

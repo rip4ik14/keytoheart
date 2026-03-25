@@ -15,6 +15,7 @@ import YandexReviewsWidget from '@components/YandexReviewsWidget';
 import FAQSectionWrapper from '@components/FAQSectionWrapper';
 import FlowwowReviewsWidget from '@components/FlowwowReviewsWidget';
 import HomeCategoryPills from '@components/HomeCategoryPills';
+import LazyOnView from '@components/LazyOnView';
 
 import { getHomeData } from '@/lib/data/home';
 
@@ -241,40 +242,51 @@ export default async function Home() {
             ))}
           </div>
         ) : (
-          categoryPreviewBlocks
+          <>
+            {categoryPreviewBlocks[0]}
+            {categoryPreviewBlocks.slice(1).map((block, idx) =>
+              block ? <LazyOnView key={`home-block-${idx + 1}`}>{block}</LazyOnView> : null,
+            )}
+          </>
         )}
       </section>
 
       {/* Flowwow (как на Labberry, без картинок) */}
-      <section
-        role="region"
-        aria-label="Отзывы Flowwow"
-        className="mt-8 sm:mt-10"
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
-      >
-        <h2 className="sr-only">Отзывы на Flowwow</h2>
-        <FlowwowReviewsWidget className="" />
-      </section>
+      <LazyOnView>
+        <section
+          role="region"
+          aria-label="Отзывы Flowwow"
+          className="mt-8 sm:mt-10"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '500px' }}
+        >
+          <h2 className="sr-only">Отзывы на Flowwow</h2>
+          <FlowwowReviewsWidget className="" />
+        </section>
+      </LazyOnView>
 
       {/* Яндекс отзывы */}
-      <section
-        role="region"
-        aria-label="Отзывы клиентов"
-        className="mt-8 sm:mt-10"
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}
-      >
-        <h2 className="sr-only">Отзывы клиентов</h2>
-        <YandexReviewsWidget />
-      </section>
+      <LazyOnView>
+        <section
+          role="region"
+          aria-label="Отзывы клиентов"
+          className="mt-8 sm:mt-10"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}
+        >
+          <h2 className="sr-only">Отзывы клиентов</h2>
+          <YandexReviewsWidget />
+        </section>
+      </LazyOnView>
 
-      <section
-        role="region"
-        aria-label="Вопросы и ответы"
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}
-      >
-        <h2 className="sr-only">Вопросы и ответы</h2>
-        <FAQSectionWrapper />
-      </section>
+      <LazyOnView>
+        <section
+          role="region"
+          aria-label="Вопросы и ответы"
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}
+        >
+          <h2 className="sr-only">Вопросы и ответы</h2>
+          <FAQSectionWrapper />
+        </section>
+      </LazyOnView>
     </main>
   );
 }
