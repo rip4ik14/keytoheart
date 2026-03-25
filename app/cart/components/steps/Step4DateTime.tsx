@@ -88,6 +88,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
   const [isFindingNearest, setIsFindingNearest] = useState(false);
 
   const pendingNearestRef = useRef(false);
+  const autoNearestSyncRef = useRef('');
 
   const isPickup = form?.deliveryMethod === 'pickup';
   const sectionTitle = isPickup ? 'Самовывоз' : 'Доставка';
@@ -309,36 +310,20 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
       minMinutes = ceilToStep(minMinutes, TIME_STEP_MINUTES);
 
       if (minMinutes + TIME_STEP_MINUTES > effectiveEnd) {
-        const fallback = findNearestSlot?.(addDays(date, 1));
-
-        if (fallback?.ok) {
-          const fallbackLabel = `${formatDateRuShort(fallback.dateIso)}, ${intervalLabel(fallback.time)}`;
-          setMode('nearest');
-          setAvailableSlots([fallback.time]);
-          setMinLabelToday(
-            isPickup
-              ? `На сегодня уже поздно для самовывоза. Мы выбрали ближайшее доступное время: ${fallbackLabel}.`
-              : `На сегодня уже поздно для доставки. Мы выбрали ближайшее доступное время: ${fallbackLabel}.`,
-          );
-          handleDateChange(fallback.dateIso);
-          handleTimeSet(fallback.time);
-          setSlotValidation(true, '');
-          return;
-        }
-
         setAvailableSlots([]);
         const reason = isPickup
-          ? 'На сегодня самовывоз уже недоступен, выберите другую дату.'
-          : 'На сегодня доставка уже недоступна, выберите другую дату.';
+          ? 'Сегодня уже не успеваем подготовить заказ к выдаче, выберите другую дату.'
+          : 'Сегодня уже не успеваем изготовить и доставить заказ, выберите другую дату.';
         setMinLabelToday(reason);
         setSlotValidation(false, reason);
         return;
       }
 
+      const minSlotLabel = intervalLabel(minutesToTimeString(minMinutes));
       setMinLabelToday(
         isPickup
-          ? `Сегодня успеваем подготовить заказ к выдаче, начиная с ${minutesToTimeString(minMinutes)}.`
-          : `Сегодня успеваем доставить заказ, начиная с ${minutesToTimeString(minMinutes)}.`,
+          ? `Сегодня успеваем подготовить заказ к выдаче. Ближайший интервал: ${minSlotLabel}.`
+          : `Сегодня успеваем изготовить и доставить заказ. Ближайший интервал: ${minSlotLabel}.`,
       );
     } else {
       minMinutes = effectiveStart;
@@ -363,7 +348,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     const minSlot = parseTimeToMinutes(slots[0])!;
     const maxSlot = parseTimeToMinutes(slots[slots.length - 1])!;
 
-    if (currentMinutes === null || currentMinutes < minSlot || currentMinutes > maxSlot || !slots.includes(form?.time || '')) {
+    if (currentMinutes === null || currentMinutes < minSlot || currentMinutes > maxSlot) {
       handleTimeSet(slots[0]);
     }
 
@@ -404,6 +389,32 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
     setIsFindingNearest(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingSettings, storeSettings, findNearestSlot]);
+
+  useEffect(() => {
+    if (mode !== 'nearest') return;
+    if (isLoadingSettings || !storeSettings || !findNearestSlot) return;
+
+    const res = findNearestSlot(new Date());
+    if (!res.ok) {
+      setAvailableSlots([]);
+      setMinLabelToday(res.message);
+      setSlotValidation(false, res.message);
+      return;
+    }
+
+    const signature = `${form?.deliveryMethod ?? 'pickup'}|${extraMinutesTotal}|${res.dateIso}|${res.time}`;
+    if (autoNearestSyncRef.current === signature && form?.date === res.dateIso && form?.time === res.time) {
+      return;
+    }
+
+    autoNearestSyncRef.current = signature;
+
+    if (form?.date !== res.dateIso) handleDateChange(res.dateIso);
+    if (form?.time !== res.time) handleTimeSet(res.time);
+    setSlotValidation(true, '');
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isLoadingSettings, storeSettings, findNearestSlot, form?.deliveryMethod, extraMinutesTotal]);
 
   const handleApplyNearest = () => {
     setMode('nearest');
@@ -509,7 +520,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Ближайшее время</span>
+              <span className="text-sm font-semibold">Быстрее</span>
               {isFindingNearest && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full border border-current/30">
                   Подбираем...
@@ -549,6 +560,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
           type="button"
           onClick={() => {
             pendingNearestRef.current = false;
+            autoNearestSyncRef.current = '';
             setIsFindingNearest(false);
             setMode('custom');
             setIsModalOpen(true);
@@ -584,7 +596,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
       {hasErrors && <p className="text-xs text-red-500">Пожалуйста, выберите дату и время.</p>}
 
       {minLabelToday && (
-        <p className={`rounded-xl border px-3 py-2 text-xs ${form?.slotValid === false ? 'border-red-100 bg-red-50 text-red-600' : 'border-black/5 bg-black/[0.03] text-gray-600'}`}>
+        <p className={`text-xs ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
           {minLabelToday}
         </p>
       )}
@@ -715,7 +727,7 @@ export default function Step4DateTime({ form, dateError, timeError, onFormChange
                   )}
 
                   {minLabelToday && (
-                    <p className={`mt-2 rounded-xl border px-3 py-2 text-xs ${form?.slotValid === false ? 'border-red-100 bg-red-50 text-red-600' : 'border-black/5 bg-black/[0.03] text-gray-600'}`}>
+                    <p className={`text-xs mt-2 ${form?.slotValid === false ? 'text-red-600' : 'text-gray-500'}`}>
                       {minLabelToday}
                     </p>
                   )}

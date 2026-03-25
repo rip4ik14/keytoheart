@@ -289,13 +289,13 @@ export default function ProductPageClient({ product, combos }: { product: Produc
       return createPortal(
         <motion.div
           className={[
-  'fixed z-[2147483647]',
-  'bg-white',
-  'text-black rounded-2xl',
-  'shadow-[0_18px_60px_rgba(0,0,0,0.22)]',
-  'border border-black/10',
-  'px-3 py-3 flex items-center gap-3',
-].join(' ')}
+            'fixed z-[2147483647]',
+            'bg-white/78 backdrop-blur-xl',
+            'text-black rounded-2xl',
+            'shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+            'border border-black/10',
+            'px-3 py-3 flex items-center gap-3',
+          ].join(' ')}
           style={{
             left: `calc(12px + env(safe-area-inset-left))`,
             right: `calc(12px + env(safe-area-inset-right))`,
@@ -664,60 +664,69 @@ export default function ProductPageClient({ product, combos }: { product: Produc
       setEarliestDelivery(null);
       return;
     }
+
     if (!storeSettings.order_acceptance_enabled) {
       setEarliestDelivery('Магазин временно не принимает заказы.');
       return;
     }
 
-    const now = new Date();
-    const totalMinutes = product.production_time + 30;
-    let earliestDate = new Date(now.getTime() + totalMinutes * 60 * 1000);
-    let attempts = 0;
+    const SLOT_MINUTES = 30;
 
-    while (attempts < 7) {
-      const dayKey = earliestDate.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+    const parseTime = (value: string | null | undefined) => {
+      if (!value) return null;
+      const [h, m] = value.split(':').map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    };
+
+    const toTime = (value: number) => {
+      const h = Math.floor(value / 60);
+      const m = value % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    const ceilToStepLocal = (value: number, step: number) => Math.ceil(value / step) * step;
+
+    const now = new Date();
+    const totalLeadMinutes = product.production_time + 30;
+
+    for (let attempt = 0; attempt < 7; attempt += 1) {
+      const day = new Date(now);
+      day.setDate(now.getDate() + attempt);
+
+      const dayKey = day.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
       const order = storeSettings.order_acceptance_schedule[dayKey];
       const store = storeSettings.store_hours[dayKey];
 
-      if (order?.enabled === false || store?.enabled === false) {
-        earliestDate.setDate(earliestDate.getDate() + 1);
-        attempts++;
-        continue;
+      if (!order?.enabled || !store?.enabled) continue;
+
+      const orderStart = parseTime(order.start);
+      const orderEnd = parseTime(order.end);
+      const storeStart = parseTime(store.start);
+      const storeEnd = parseTime(store.end);
+
+      if (orderStart == null || orderEnd == null || storeStart == null || storeEnd == null) continue;
+
+      const effectiveStart = Math.max(orderStart, storeStart);
+      const effectiveEnd = Math.min(orderEnd, storeEnd);
+
+      if (effectiveStart >= effectiveEnd) continue;
+
+      let slotStart = effectiveStart;
+
+      if (attempt === 0) {
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        slotStart = Math.max(effectiveStart, ceilToStepLocal(nowMinutes + totalLeadMinutes, SLOT_MINUTES));
       }
 
-      if (order?.start && order?.end && store?.start && store?.end) {
-        const [orderStartH, orderStartM] = order.start.split(':').map(Number);
-        const [orderEndH, orderEndM] = order.end.split(':').map(Number);
-        const [storeStartH, storeStartM] = store.start.split(':').map(Number);
-        const [storeEndH, storeEndM] = store.end.split(':').map(Number);
+      if (slotStart + SLOT_MINUTES > effectiveEnd) continue;
 
-        const orderStartTime = new Date(earliestDate);
-        orderStartTime.setHours(orderStartH, orderStartM, 0, 0);
-        const orderEndTime = new Date(earliestDate);
-        orderEndTime.setHours(orderEndH, orderEndM, 0, 0);
-        const storeStartTime = new Date(earliestDate);
-        storeStartTime.setHours(storeStartH, storeStartM, 0, 0);
-        const storeEndTime = new Date(earliestDate);
-        storeEndTime.setHours(storeEndH, storeEndM, 0, 0);
+      const dateLabel = day.toLocaleDateString('ru-RU');
+      const fromLabel = toTime(slotStart);
+      const toLabel = toTime(slotStart + SLOT_MINUTES);
 
-        const effectiveStart = orderStartTime > storeStartTime ? orderStartTime : storeStartTime;
-        const effectiveEnd = orderEndTime < storeEndTime ? orderEndTime : storeEndTime;
-
-        if (earliestDate < effectiveStart) earliestDate = new Date(effectiveStart);
-
-        if (earliestDate <= effectiveEnd) {
-          setEarliestDelivery(
-            `Самое раннее время доставки: ${earliestDate.toLocaleDateString('ru-RU')} в ${earliestDate
-              .toTimeString()
-              .slice(0, 5)}`,
-          );
-          return;
-        }
-      }
-
-      earliestDate.setDate(earliestDate.getDate() + 1);
-      earliestDate.setHours(9, 0, 0, 0);
-      attempts++;
+      setEarliestDelivery(`Самое раннее время доставки: ${dateLabel}, ${fromLabel}-${toLabel}`);
+      return;
     }
 
     setEarliestDelivery('Доставка невозможна в ближайшие 7 дней. Попробуйте позже.');
@@ -1020,11 +1029,11 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               <span className="text-[11px] text-black/50 leading-none mt-1">+ бонус {bonus} ₽</span>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 flex gap-2">
               {productQty <= 0 ? (
                 <motion.button
                   onClick={handleIncCurrent}
-                  className={`w-full py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${primaryBtnMain}`}
                   variants={buttonVariants}
                   initial="rest"
                   whileHover="hover"
@@ -1037,7 +1046,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
               ) : (
                 <div
                   className={[
-                    'w-full',
+                    'flex-1',
                     'h-[48px]',
                     'rounded-2xl',
                     'border border-black/10',
@@ -1071,26 +1080,33 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                   </button>
                 </div>
               )}
+
+              <motion.button
+                onClick={openCombo}
+                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wide transition ${secondaryBtn}`}
+                variants={buttonVariants}
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                aria-label="Собрать комбо"
+                rel="nofollow"
+              >
+                Комбо -10%
+              </motion.button>
+
+              <Link
+                href="/cart"
+                className="relative w-[52px] h-[48px] rounded-2xl border border-black/10 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-[0.98] transition"
+                aria-label="Перейти в корзину"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center border border-white">
+                    {totalItems}
+                  </span>
+                )}
+              </Link>
             </div>
-          </div>
-
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={openCombo}
-              className="text-[12px] font-semibold text-black/65 underline underline-offset-4"
-              aria-label="Собрать комбо со скидкой"
-            >
-              Собрать комбо -10%
-            </button>
-
-            <Link
-              href="/cart"
-              className="text-[12px] font-semibold text-black/65 underline underline-offset-4"
-              aria-label="Перейти в корзину"
-            >
-              В корзину{totalItems > 0 ? ` (${totalItems})` : ''}
-            </Link>
           </div>
         </div>
       </div>
@@ -1127,7 +1143,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
           showFloatingControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
         ].join(' ')}
         style={{
-          top: `calc(var(${STICKY_HEADER_VAR}, 10px) + 2px + env(safe-area-inset-top))`,
+          top: `calc(var(${STICKY_HEADER_VAR}, 72px) + 10px + env(safe-area-inset-top))`,
           left: `calc(12px + env(safe-area-inset-left))`,
           right: `calc(12px + env(safe-area-inset-right))`,
         }}
@@ -1180,7 +1196,7 @@ export default function ProductPageClient({ product, combos }: { product: Produc
                 <div
                   className="lg:hidden absolute inset-x-0 top-0 z-30"
                   style={{
-                    paddingTop: `calc(env(safe-area-inset-top) + 2px)`,
+                    paddingTop: `calc(env(safe-area-inset-top) + 10px)`,
                     paddingLeft: `calc(env(safe-area-inset-left) + 12px)`,
                     paddingRight: `calc(env(safe-area-inset-right) + 12px)`,
                     paddingBottom: 10,
